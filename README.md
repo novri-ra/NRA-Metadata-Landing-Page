@@ -46,51 +46,20 @@ Powered by the Chrome Extensions Manifest V3 side panel API, providing a persist
 
 *   **CDP Hardware-Level Input:** Traditional DOM simulation (`element.click()`, `dispatchEvent`) fails on React-controlled elements because they do not trigger React's internal fiber state updates. By routing interactions through Chrome's native debugger API, Canva receives true OS-level mouse and keyboard events.
 *   **Dynamic Rate Limit Handling:** When Canva displays a cooldown notification (e.g. *"Try again in 4:20"* or *"generate again in 0:45"*), `content.js` executes a RegEx scanner over the DOM. It extracts the minutes and seconds, converts it to milliseconds, adds a **5-second safety buffer**, and initiates a **live, visual countdown** ticking directly inside the Side Panel's Status bar.
+*   **Phantom Success & Stale-DOM Immunity:** Built-in Parallel State Machine dynamically tracks Canva's React DOM to avoid stale queries and successfully captures and downloads images even if a preemptive rate limit toast appears right after clicking submit.
 *   **Auto-Clear & Retype Recovery:** After surviving a rate limit cooldown, the automation engine locates the input textarea, focuses it, clears it natively by dispatching input events, retypes the prompt using CDP typing commands, and verifies the content before triggering another submission.
 *   **In-App Terminal Console:** Built-in console interceptor captures all console messages from the page, processes them with timestamps, prepends status tags (`[>]` for info, `[?]` for warnings, `[!]` for errors), and appends them to a formatted scrollable `div` terminal log.
 
 ---
 
-## 🛡️ 4. Development Audit & Bug Log (The Journey)
-
-### 🐛 Bug 1: Canva ignoring standard DOM input simulation
-*   **Symptom:** Scripts using `textarea.value = text` followed by `dispatchEvent(new Event('input'))` failed. The text would appear visually but vanish the moment the "Submit" button was clicked, or the submit button would remain disabled.
-*   **Root Cause:** Canva's inputs are tightly bound to React's state. React intercepts synthetic input events and ignores programmatic modifications that don't trigger the virtual DOM's fiber node setters.
-*   **Solution:** Migrated the input logic to the Chrome DevTools Protocol (`CDP`). The script clicks the element to focus, clears the text area value natively, dispatches an input event to notify React, and uses the CDP debugger command `Input.insertText` to inject characters as if typed directly via a physical keyboard.
-
-### 🐛 Bug 2: Account Rate Limits and Background Hangs
-*   **Symptom:** Canva enforces strict generation rate limits. The automation loop would hit the warning toast and either freeze silently in the background or continuously click submit, resulting in blockages or false passes.
-*   **Root Cause:** Submission was structured without catching active toast/modal messages returned by the Canva generation servers.
-*   **Solution:** Built a dynamic RegEx parser inside the submission loop:
-    ```javascript
-    const timeMatch = warningText.match(/(\d+):(\d+)/);
-    ```
-    If matched, it calculates the exact wait time, converts the background sleep to a visual countdown loop that pushes updates to the side panel status text every second, and safely sleeps the thread.
-
-### 🐛 Bug 3: `ReferenceError: currentPrompt is not defined`
-*   **Symptom:** During rate-limit recovery loops, the script would crash or throw a `ReferenceError` when attempting to retype the prompt.
-*   **Root Cause:** `currentPrompt` was declared within the inner try-catch scope of the main loop block. When the rate limit handler threw a recovery error or required a loop retry, the reference was lost.
-*   **Solution:** Lifted the `currentPrompt` variable declaration to the outer scope of the `while (prompts.length > 0)` loop in `startMainLoop`, ensuring accessibility across the entire validation and retry lifecycle.
-
-### 🐛 Bug 4: Visual Fatigue and UI Clutter
-*   **Symptom:** The initial design used a flat red/brown color scheme that caused extreme visual fatigue, and long configuration options made the panel too tall, requiring constant scrolling.
-*   **Root Cause:** Poor color choices and lack of collapsible controls.
-*   **Solution:** Redesigned the UI with an "Ergonomic Midnight Arcade" palette (slate-blue background, muted borders, neon-green accents). Implemented pure-CSS "Checkbox Hack" accordions to collapse Settings, Terminal Logs, and Failed Prompts lists.
-    ```css
-    .toggle-cb:checked ~ .toggle-content { display: block; }
-    .toggle-cb:not(:checked) ~ .toggle-content { display: none; }
-    ```
-
----
-
-## 🔮 5. Future Roadmap & Synchronizations
+## 🔮 4. Future Roadmap & Synchronizations
 
 *   **🔄 Multi-Account Session Rotation:** Integration of a cookie/token storage array to automatically sign out and rotate sessions to a fresh account once a rate-limit cooldown exceeds 10 minutes.
 *   **📡 Dynamic Network Hooking:** Replacing DOM polling for download button detection with CDP network event interception (`Network.responseReceived`), checking for completed high-res PNG/JPG canvas assets from Canva's rendering servers.
 
 ---
 
-## 📥 6. Installation & Usage
+## 📥 5. Installation & Usage
 
 ### ⚙️ Installation
 1.  Download or clone this repository to your local system.
@@ -110,6 +79,6 @@ Powered by the Chrome Extensions Manifest V3 side panel API, providing a persist
 
 ---
 
-## ⚠️ 7. Disclaimer & Liability
+## ⚠️ 6. Disclaimer & Liability
 
 This software is developed strictly for **educational and research purposes**. Automating platforms like Canva can be a violation of their **Terms of Service**. The developer assumes absolutely **no liability** for any account bans, suspensions, resource limitations, or data loss resulting from the use of this tool. Use responsibly and at your own discretion.

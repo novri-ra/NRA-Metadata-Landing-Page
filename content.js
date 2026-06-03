@@ -305,23 +305,26 @@ async function startMainLoop() {
             throw new Error("Action 1 Failed: Textarea value mismatch validation.");
           }
 
-          // 3. Count the existing download buttons on the page BEFORE submitting
-          let initialButtonCount = document.querySelectorAll('button[aria-label="Download Image"]').length;
-          console.log(`[Canva Automation] Initial download button count: ${initialButtonCount}`);
-
-          // 4. Submit prompt with Dynamic Rate Limit Handling
-          let isRateLimited = true;
-          while (isRateLimited) {
+          // 3. Prepare initial variables
+          let pendingCooldownMs = 0; // Tracks if we need to sleep AFTER downloading the successful generation
+          
+          // 4. Unified Submit & Polling State Machine (Phantom-Success & Stale-DOM Immune)
+          let submissionSuccessful = false;
+          
+          while (!submissionSuccessful) {
             if (!isRunning) throw new Error("USER_STOPPED");
+
+            let initialButtonCount = document.querySelectorAll('button[aria-label="Download Image"]').length;
+            console.log(`[Canva Automation] Baseline button count: ${initialButtonCount}`);
+
             const submitBtn = await waitForElement('button[type="submit"]', false, 10000);
             console.log("[Canva Automation] Clicking submit button...");
             sendStatusUpdate("Generating images...");
             await cdpClick(submitBtn);
 
-            // Wait to catch any immediate rate limit toast/text from Canva
+            // Catch immediate rate limit toast
             await delay(1500);
-
-            // Look for the rate limit text anywhere on the screen
+            let detectedCooldownMs = 0;
             const rateLimitWarning = document.evaluate(
               "//*[contains(text(), 'generate again in') or contains(text(), 'Try again in')]",
               document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
@@ -330,34 +333,15 @@ async function startMainLoop() {
             if (rateLimitWarning) {
               const warningText = rateLimitWarning.textContent;
               console.warn(`[Canva Automation] ⏳ Rate limit hit! Detected text: "${warningText}"`);
-
-              // Extract mm:ss using regex (matches "0:52", "4:50", etc.)
               const timeMatch = warningText.match(/(\d+):(\d+)/);
-              let waitTimeMs = 330000; // Default 5.5 minutes fallback just in case regex fails
-              let logMsg = "default 5.5m fallback";
-
               if (timeMatch) {
                 const minutes = parseInt(timeMatch[1], 10);
                 const seconds = parseInt(timeMatch[2], 10);
-                waitTimeMs = ((minutes * 60) + seconds) * 1000;
-                logMsg = `${minutes}m ${seconds}s`;
+                detectedCooldownMs = ((minutes * 60) + seconds) * 1000;
+              } else {
+                detectedCooldownMs = 330000; // 5.5 minutes
               }
-
-              // Add a 5000ms (5 seconds) safety buffer to ensure Canva's server clears the lock
-              const finalWaitMs = waitTimeMs + 5000;
-              const displayWaitSecs = Math.ceil(finalWaitMs / 1000);
-
-              console.log(`[Canva Automation] Parsed dynamic wait time: ${logMsg}. Adding 5s buffer. Total sleep: ${displayWaitSecs} seconds.`);
-              sendStatusUpdate(`Rate limit! Resting for ${displayWaitSecs} seconds...`);
-
-              // Visual Countdown Loop
-              const totalWaitSecs = Math.ceil(finalWaitMs / 1000);
-              for (let i = totalWaitSecs; i > 0; i--) {
-                  if (!isRunning) throw new Error("USER_STOPPED");
-                  // Send countdown strictly to the Status text so the user can see it ticking
-                  chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit cooldown: ${i}s remaining` });
-                  await delay(1000);
-              }
+              detectedCooldownMs += 5000; // safety buffer
               
               // Dismiss 'Got it' toast
               const gotItBtn = document.evaluate("//button[.//span[text()='Got it']]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
@@ -365,44 +349,71 @@ async function startMainLoop() {
                   console.log("[Canva Automation] Dismissing 'Got it' toast before retrying.");
                   try { await cdpClick(gotItBtn); } catch (e) { /* ignore */ }
               }
-
-              console.log("[Canva Automation] Dynamic cooldown complete. Clearing text field and retyping prompt...");
-              sendStatusUpdate("Cooldown done. Retyping prompt...");
-
-              // Retype prompt logic
-              const retryTextarea = await waitForElement('textarea[placeholder*="Describe"], textarea[class*="canva"]', false, 5000);
-              if (retryTextarea) {
-                  await cdpClick(retryTextarea);
-                  await delay(300);
-                  retryTextarea.value = '';
-                  retryTextarea.dispatchEvent(new Event('input', { bubbles: true }));
-                  await delay(300);
-                  await cdpType(currentPrompt); // Variable exists thanks to the previous scope fix
-                  await delay(500);
-              }
-
-              console.log("[Canva Automation] Retyping complete. Initiating new submission loop...");
-              if (!isRunning) throw new Error("USER_STOPPED");
-            } else {
-              // Success, no limit block detected
-              isRateLimited = false;
             }
-          }
 
-          // Action 2 (Wait & Download):
-          // 1. Polling loop checking every 1000ms until the button count strictly increases
-          let currentBtnCount = initialButtonCount;
-          let pollAttempts = 0;
-          const maxPollAttempts = 90; // 90 seconds timeout for image generation
-          
-          while (currentBtnCount <= initialButtonCount) {
-            if (!isRunning) throw new Error("USER_STOPPED");
-            await delay(1000);
-            currentBtnCount = document.querySelectorAll('button[aria-label="Download Image"]').length;
-            pollAttempts++;
-            console.log(`[Canva Automation] Polling for new download buttons (attempt ${pollAttempts}). Current count: ${currentBtnCount}, Initial count: ${initialButtonCount}`);
-            if (pollAttempts > maxPollAttempts) {
-              throw new Error("Action 2 Failed: Timeout waiting for new generated images.");
+            // Polling loop checking every 1000ms until the button count strictly increases
+            let currentBtnCount = initialButtonCount;
+            let pollAttempts = 0;
+            const maxPollAttempts = 90; // 90 seconds timeout for image generation
+            let imagesGenerated = false;
+            
+            while (pollAttempts <= maxPollAttempts) {
+              if (!isRunning) throw new Error("USER_STOPPED");
+              await delay(1000);
+              
+              // Dynamic Stale DOM tracker: if React unmounts old off-screen images, lower baseline
+              const currentActualCount = document.querySelectorAll('button[aria-label="Download Image"]').length;
+              if (currentActualCount < currentBtnCount && currentActualCount <= initialButtonCount) {
+                  console.log(`[Canva Automation] Stale DOM detected! Baseline dropped from ${initialButtonCount} to ${currentActualCount}`);
+                  initialButtonCount = currentActualCount;
+              }
+              currentBtnCount = currentActualCount;
+              
+              pollAttempts++;
+              console.log(`[Canva Automation] Polling for new download buttons (attempt ${pollAttempts}). Current count: ${currentBtnCount}, Initial count: ${initialButtonCount}`);
+              
+              if (currentBtnCount > initialButtonCount) {
+                 imagesGenerated = true;
+                 break;
+              }
+            }
+
+            if (imagesGenerated) {
+                console.log("[Canva Automation] Images successfully generated!");
+                submissionSuccessful = true;
+                if (detectedCooldownMs > 0) {
+                    console.log(`[Canva Automation] Phantom Success detected. Queuing cooldown of ${detectedCooldownMs}ms for AFTER download.`);
+                    pendingCooldownMs = detectedCooldownMs;
+                }
+            } else {
+                if (detectedCooldownMs > 0) {
+                    console.log("[Canva Automation] True rate limit hit (no images generated). Serving cooldown before retry...");
+                    sendStatusUpdate(`Rate limit! Resting for ${Math.ceil(detectedCooldownMs / 1000)} seconds...`);
+                    
+                    const totalWaitSecs = Math.ceil(detectedCooldownMs / 1000);
+                    for (let i = totalWaitSecs; i > 0; i--) {
+                        if (!isRunning) throw new Error("USER_STOPPED");
+                        chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit cooldown: ${i}s remaining` });
+                        await delay(1000);
+                    }
+                    
+                    console.log("[Canva Automation] Dynamic cooldown complete. Clearing text field and retyping prompt...");
+                    sendStatusUpdate("Cooldown done. Retyping prompt...");
+
+                    // Retype prompt logic
+                    const retryTextarea = await waitForElement('textarea[placeholder*="Describe"], textarea[class*="canva"]', false, 5000);
+                    if (retryTextarea) {
+                        await cdpClick(retryTextarea);
+                        await delay(300);
+                        retryTextarea.value = '';
+                        retryTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+                        await delay(300);
+                        await cdpType(currentPrompt);
+                        await delay(500);
+                    }
+                } else {
+                    throw new Error("Action 2 Failed: Timeout waiting for new generated images, and no rate limit detected.");
+                }
             }
           }
 
@@ -446,6 +457,17 @@ async function startMainLoop() {
           console.log('[Canva Automation] Waiting 6 seconds for download files to save to disk...');
           sendStatusUpdate("Saving downloaded images...");
           await delay(6000);
+
+          if (pendingCooldownMs > 0) {
+              console.log(`[Canva Automation] Serving pending Phantom Success cooldown of ${pendingCooldownMs}ms...`);
+              sendStatusUpdate(`Phantom Success cooldown: ${Math.ceil(pendingCooldownMs / 1000)} seconds...`);
+              const totalWaitSecs = Math.ceil(pendingCooldownMs / 1000);
+              for (let i = totalWaitSecs; i > 0; i--) {
+                  if (!isRunning) throw new Error("USER_STOPPED");
+                  chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Next prompt in: ${i}s` });
+                  await delay(1000);
+              }
+          }
 
           // Destructive Queue Shift: Remove processed prompt and update storage/UI
           prompts.shift();
