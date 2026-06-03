@@ -1,6 +1,6 @@
 # 🤖 Canva Auto Prompter
 
-### *Manifest V3 Chrome Extension powered by Chrome DevTools Protocol (CDP)*
+**_Manifest V3 Chrome Extension powered by Chrome DevTools Protocol (CDP)_**
 
 ---
 
