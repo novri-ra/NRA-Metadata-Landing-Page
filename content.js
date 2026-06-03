@@ -109,43 +109,18 @@ function handleAutomationError(err) {
   });
 }
 
-/**
- * simulateTyping(el, text): Sets value, dispatches 'input' and 'change' events.
- * Uses prototype setter override for React application compatibility.
- * @param {HTMLTextAreaElement|HTMLInputElement} el 
- * @param {string} text 
- */
-function simulateTyping(el, text) {
-  console.log(`[Canva Automation] Typing text: "${text}"`);
-  el.value = text;
-
-  const elementType =
-    el instanceof HTMLTextAreaElement ? HTMLTextAreaElement : HTMLInputElement;
-  const nativeSetter = Object.getOwnPropertyDescriptor(
-    elementType.prototype,
-    "value",
-  )?.set;
-  if (nativeSetter) {
-    console.log(
-      `[Canva Automation] React-specific setter found. Executing prototype write.`,
-    );
-    nativeSetter.call(el, text);
-  }
-
-  el.dispatchEvent(new Event("input", { bubbles: true }));
-  el.dispatchEvent(new Event("change", { bubbles: true }));
+async function cdpClick(element) {
+  element.scrollIntoView({ behavior: 'instant', block: 'center' });
+  await delay(300);
+  const rect = element.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) throw new Error("Element is hidden (0x0).");
+  const x = Math.round(rect.left + rect.width / 2);
+  const y = Math.round(rect.top + rect.height / 2);
+  await new Promise(resolve => chrome.runtime.sendMessage({ action: "CDP_CLICK", x, y }, resolve));
 }
 
-/**
- * simulateHumanClick(el): Dispatches 'mouseover', 'mousedown', 'mouseup', 'click'.
- * @param {HTMLElement} el
- */
-function simulateHumanClick(el) {
-  const opts = { bubbles: true, cancelable: true, view: window };
-  el.dispatchEvent(new MouseEvent("mouseover", opts));
-  el.dispatchEvent(new MouseEvent("mousedown", opts));
-  el.dispatchEvent(new MouseEvent("mouseup", opts));
-  el.dispatchEvent(new MouseEvent("click", opts));
+async function cdpType(text) {
+  await new Promise(resolve => chrome.runtime.sendMessage({ action: "CDP_TYPE", text }, resolve));
 }
 
 /**
@@ -188,7 +163,7 @@ async function selectCanvaDropdown(labelText, optionText) {
   }
 
   // Open dropdown list
-  simulateHumanClick(dropdownTrigger);
+  await cdpClick(dropdownTrigger);
   
   // Wait 1200ms to ensure Canva's React Portal has fully rendered the listbox menu
   await delay(1200);
@@ -206,7 +181,7 @@ async function selectCanvaDropdown(labelText, optionText) {
 
   if (optionEl) {
     console.log(`[Canva Automation] Found menu item option "${optionText}". Clicking to select...`);
-    simulateHumanClick(optionEl);
+    await cdpClick(optionEl);
     
     // Validation loop: ensure the menu has closed before proceeding
     let menuChecks = 0;
@@ -218,7 +193,7 @@ async function selectCanvaDropdown(labelText, optionText) {
   } else {
     console.warn(`[Canva Automation] Menu option "${optionText}" not found in dropdown list.`);
     // Close dropdown to avoid blockages
-    simulateHumanClick(dropdownTrigger);
+    await cdpClick(dropdownTrigger);
     await delay(300);
   }
 }
@@ -250,10 +225,14 @@ async function startMainLoop() {
       // Mark status as active automation
       chrome.storage.local.set({ isAutomating: true });
 
+      // Explicitly attach the debugger before starting the loop
+      await new Promise(resolve => chrome.runtime.sendMessage({ action: "ATTACH_DEBUGGER" }, resolve));
+
       while (prompts.length > 0 && isRunning) {
         if (await checkIfStopped()) {
           console.log("[Canva Automation] Loop stopped by user request.");
           sendStatusUpdate("Automation stopped by user.");
+          await new Promise(resolve => chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve));
           return;
         }
 
@@ -282,15 +261,24 @@ async function startMainLoop() {
           if (!isRunning) throw new Error("USER_STOPPED");
           const textarea = await waitForElement('textarea[placeholder*="Describe"], textarea[class*="canva"]', false, 15000);
           sendStatusUpdate("Typing prompt...");
-          textarea.value = ''; // Clear it first
-          simulateTyping(textarea, currentPrompt);
+          
+          // Focus the textarea, clear it natively, then type via CDP
+          await cdpClick(textarea);
+          await delay(200);
+          textarea.value = '';
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          await cdpType(currentPrompt);
           await delay(500);
 
           if (!isRunning) throw new Error("USER_STOPPED");
           if (textarea.value !== currentPrompt) {
-            console.warn("[Canva Automation] Value mismatch detected. Retrying simulateTyping...");
+            console.warn("[Canva Automation] Value mismatch detected. Retrying cdpType...");
+            await cdpClick(textarea);
+            await delay(200);
             textarea.value = '';
-            simulateTyping(textarea, currentPrompt);
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            await cdpType(currentPrompt);
+            await delay(500);
           }
           if (textarea.value !== currentPrompt) {
             throw new Error("Action 1 Failed: Textarea value mismatch validation.");
@@ -305,7 +293,7 @@ async function startMainLoop() {
           const submitBtn = await waitForElement('button[type="submit"]', false, 10000);
           console.log("[Canva Automation] Clicking submit button...");
           sendStatusUpdate("Generating images...");
-          simulateHumanClick(submitBtn);
+          await cdpClick(submitBtn);
 
           // Action 2 (Wait & Download):
           // 1. Polling loop checking every 1000ms until the button count strictly increases
@@ -355,7 +343,7 @@ async function startMainLoop() {
             if (!isRunning) throw new Error("USER_STOPPED");
             console.log(`[Canva Automation] Downloading image ${i + 1}/${buttonsToDownload.length}`);
             sendStatusUpdate(`Downloading image ${i + 1} of ${buttonsToDownload.length}...`);
-            simulateHumanClick(buttonsToDownload[i]);
+            await cdpClick(buttonsToDownload[i]);
             await delay(1500);
           }
 
@@ -376,6 +364,7 @@ async function startMainLoop() {
             chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
               sendStatusUpdate("Automation stopped by user.");
             });
+            await new Promise(resolve => chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve));
             return; // Break the main loop and exit
           }
           console.warn("[Canva Automation] Prompt failed/skipped:", currentPrompt, error);
@@ -395,6 +384,9 @@ async function startMainLoop() {
           // Send a status update
           sendStatusUpdate("Prompt failed. Recovering and moving to next...");
 
+          // Detach debugger cleanly before forcing reload
+          await new Promise(resolve => chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve));
+
           // CRITICAL RECOVERY: Force a page reload
           window.location.href = "https://www.canva.com/dream-lab";
         }
@@ -407,6 +399,7 @@ async function startMainLoop() {
           sendStatusUpdate("Bulk generation complete!");
         });
       }
+      await new Promise(resolve => chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve));
 
     } catch (loopErr) {
       if (loopErr.message === "USER_STOPPED") {
@@ -417,6 +410,7 @@ async function startMainLoop() {
       } else {
         handleAutomationError(loopErr);
       }
+      await new Promise(resolve => chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve));
     }
   });
 }
