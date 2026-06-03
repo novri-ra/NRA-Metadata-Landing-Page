@@ -1,3 +1,23 @@
+// ==========================================
+// Console Interceptor for Side Panel UI
+// ==========================================
+const originalConsoleLog = console.log;
+const originalConsoleWarn = console.warn;
+const originalConsoleError = console.error;
+
+function broadcastLog(level, ...args) {
+  try {
+    const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+    chrome.runtime.sendMessage({ action: "CONSOLE_LOG", level: level, message: msg }).catch(() => {});
+  } catch (e) {
+    // Fail silently if extension context is invalidated
+  }
+}
+
+console.log = function(...args) { originalConsoleLog.apply(console, args); broadcastLog('INFO', ...args); };
+console.warn = function(...args) { originalConsoleWarn.apply(console, args); broadcastLog('WARN', ...args); };
+console.error = function(...args) { originalConsoleError.apply(console, args); broadcastLog('ERROR', ...args); };
+
 // Canva Auto Prompter - Content Script targeting canva.com/dream-lab
 // Operates exclusively on https://www.canva.com/dream-lab
 
@@ -236,8 +256,9 @@ async function startMainLoop() {
           return;
         }
 
+        let currentPrompt = prompts[0];
+
         try {
-          const currentPrompt = prompts[0];
           console.log(`[Canva Automation] Processing prompt: "${currentPrompt}"`);
           
           // Send current progress indicator back to Side Panel UI
@@ -288,12 +309,63 @@ async function startMainLoop() {
           let initialButtonCount = document.querySelectorAll('button[aria-label="Download Image"]').length;
           console.log(`[Canva Automation] Initial download button count: ${initialButtonCount}`);
 
-          // 4. Submit prompt
-          if (!isRunning) throw new Error("USER_STOPPED");
-          const submitBtn = await waitForElement('button[type="submit"]', false, 10000);
-          console.log("[Canva Automation] Clicking submit button...");
-          sendStatusUpdate("Generating images...");
-          await cdpClick(submitBtn);
+          // 4. Submit prompt with Dynamic Rate Limit Handling
+          let isRateLimited = true;
+          while (isRateLimited) {
+            if (!isRunning) throw new Error("USER_STOPPED");
+            const submitBtn = await waitForElement('button[type="submit"]', false, 10000);
+            console.log("[Canva Automation] Clicking submit button...");
+            sendStatusUpdate("Generating images...");
+            await cdpClick(submitBtn);
+
+            // Wait to catch any immediate rate limit toast/text from Canva
+            await delay(1500);
+
+            // Look for the rate limit text anywhere on the screen
+            const rateLimitWarning = document.evaluate(
+              "//*[contains(text(), 'generate again in') or contains(text(), 'Try again in')]",
+              document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+            ).singleNodeValue;
+
+            if (rateLimitWarning) {
+              const warningText = rateLimitWarning.textContent;
+              console.warn(`[Canva Automation] ⏳ Rate limit hit! Detected text: "${warningText}"`);
+
+              // Extract mm:ss using regex (matches "0:52", "4:50", etc.)
+              const timeMatch = warningText.match(/(\d+):(\d+)/);
+              let waitTimeMs = 330000; // Default 5.5 minutes fallback just in case regex fails
+              let logMsg = "default 5.5m fallback";
+
+              if (timeMatch) {
+                const minutes = parseInt(timeMatch[1], 10);
+                const seconds = parseInt(timeMatch[2], 10);
+                waitTimeMs = ((minutes * 60) + seconds) * 1000;
+                logMsg = `${minutes}m ${seconds}s`;
+              }
+
+              // Add a 5000ms (5 seconds) safety buffer to ensure Canva's server clears the lock
+              const finalWaitMs = waitTimeMs + 5000;
+              const displayWaitSecs = Math.ceil(finalWaitMs / 1000);
+
+              console.log(`[Canva Automation] Parsed dynamic wait time: ${logMsg}. Adding 5s buffer. Total sleep: ${displayWaitSecs} seconds.`);
+              sendStatusUpdate(`Rate limit! Resting for ${displayWaitSecs} seconds...`);
+
+              await delay(finalWaitMs);
+
+              // Close the toast notification if it has a 'Got it' button so it doesn't block future clicks
+              const gotItBtn = document.evaluate("//button[.//span[text()='Got it']]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+              if (gotItBtn) {
+                console.log("[Canva Automation] Dismissing 'Got it' toast before retrying.");
+                try { await cdpClick(gotItBtn); } catch (e) { /* ignore */ }
+              }
+
+              console.log("[Canva Automation] Dynamic cooldown complete. Retrying submission...");
+              if (!isRunning) throw new Error("USER_STOPPED");
+            } else {
+              // Success, no limit block detected
+              isRateLimited = false;
+            }
+          }
 
           // Action 2 (Wait & Download):
           // 1. Polling loop checking every 1000ms until the button count strictly increases
