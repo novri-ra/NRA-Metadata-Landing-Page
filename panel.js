@@ -147,9 +147,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (consoleLogs) {
           const time = new Date().toLocaleTimeString('en-US', { hour12: false });
           const prefix = request.level === 'ERROR' ? '[!]' : request.level === 'WARN' ? '[?]' : '[>]';
-          consoleLogs.value += `\n${time} ${prefix} ${request.message}`;
-          // Auto-scroll to the bottom
-          consoleLogs.scrollTop = consoleLogs.scrollHeight;
+          
+          const logDiv = document.createElement('div');
+          logDiv.className = `log-entry log-${request.level.toLowerCase()}`;
+          logDiv.textContent = `${time} ${prefix} ${request.message}`;
+          
+          consoleLogs.appendChild(logDiv);
+          consoleLogs.scrollTop = consoleLogs.scrollHeight; // Auto-scroll
         }
         sendResponse({ success: true });
         return true;
