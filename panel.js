@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const statusText = document.getElementById('statusText');
   const statusDot = document.getElementById('statusDot');
   const failedPromptsTextarea = document.getElementById('failedPrompts');
+  const consoleLogs = document.getElementById('consoleLogs');
 
   let isRunning = false;
 
@@ -142,6 +143,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // Listen for STATUS_UPDATE or direct status/progress/UI synchronization messages from content.js
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request) {
+      if (request.action === "CONSOLE_LOG") {
+        if (consoleLogs) {
+          const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+          const prefix = request.level === 'ERROR' ? '[!]' : request.level === 'WARN' ? '[?]' : '[>]';
+          consoleLogs.value += `\n${time} ${prefix} ${request.message}`;
+          // Auto-scroll to the bottom
+          consoleLogs.scrollTop = consoleLogs.scrollHeight;
+        }
+        sendResponse({ success: true });
+        return true;
+      }
+
       // Handle failed/skipped prompt reporting
       if (request.action === "PROMPT_FAILED") {
         if (failedPromptsTextarea.value) {
