@@ -350,16 +350,38 @@ async function startMainLoop() {
               console.log(`[Canva Automation] Parsed dynamic wait time: ${logMsg}. Adding 5s buffer. Total sleep: ${displayWaitSecs} seconds.`);
               sendStatusUpdate(`Rate limit! Resting for ${displayWaitSecs} seconds...`);
 
-              await delay(finalWaitMs);
-
-              // Close the toast notification if it has a 'Got it' button so it doesn't block future clicks
+              // Visual Countdown Loop
+              const totalWaitSecs = Math.ceil(finalWaitMs / 1000);
+              for (let i = totalWaitSecs; i > 0; i--) {
+                  if (!isRunning) throw new Error("USER_STOPPED");
+                  // Send countdown strictly to the Status text so the user can see it ticking
+                  chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit cooldown: ${i}s remaining` });
+                  await delay(1000);
+              }
+              
+              // Dismiss 'Got it' toast
               const gotItBtn = document.evaluate("//button[.//span[text()='Got it']]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
               if (gotItBtn) {
-                console.log("[Canva Automation] Dismissing 'Got it' toast before retrying.");
-                try { await cdpClick(gotItBtn); } catch (e) { /* ignore */ }
+                  console.log("[Canva Automation] Dismissing 'Got it' toast before retrying.");
+                  try { await cdpClick(gotItBtn); } catch (e) { /* ignore */ }
               }
 
-              console.log("[Canva Automation] Dynamic cooldown complete. Retrying submission...");
+              console.log("[Canva Automation] Dynamic cooldown complete. Clearing text field and retyping prompt...");
+              sendStatusUpdate("Cooldown done. Retyping prompt...");
+
+              // Retype prompt logic
+              const retryTextarea = await waitForElement('textarea[placeholder*="Describe"], textarea[class*="canva"]', false, 5000);
+              if (retryTextarea) {
+                  await cdpClick(retryTextarea);
+                  await delay(300);
+                  retryTextarea.value = '';
+                  retryTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+                  await delay(300);
+                  await cdpType(currentPrompt); // Variable exists thanks to the previous scope fix
+                  await delay(500);
+              }
+
+              console.log("[Canva Automation] Retyping complete. Initiating new submission loop...");
               if (!isRunning) throw new Error("USER_STOPPED");
             } else {
               // Success, no limit block detected
