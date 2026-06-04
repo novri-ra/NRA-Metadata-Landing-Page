@@ -338,15 +338,14 @@ async function startMainLoop() {
             // Catch immediate rate limit toast
             await delay(1500);
 
-            // 1. Check for FATAL Monthly Limit first
+            // 1. Check for FATAL Monthly Limit or Upgrade Pop-up first
             const monthlyLimitWarning = document.evaluate(
-              "//*[contains(text(), 'monthly AI limit') or contains(text(), 'hit your plan')]",
+              "//*[contains(text(), 'monthly AI limit') or contains(text(), 'hit your plan') or contains(text(), 'Upgrade to get more AI')]",
               document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
             ).singleNodeValue;
 
             if (monthlyLimitWarning) {
-              const warnText = monthlyLimitWarning.textContent;
-              console.error(`[Canva Automation] 🛑 FATAL: ${warnText}`);
+              console.error(`[Canva Automation] 🛑 FATAL: Monthly limit or Upgrade pop-up detected.`);
               throw new Error("MONTHLY_LIMIT_REACHED");
             }
 
