@@ -121,6 +121,19 @@ function handleAutomationError(err) {
     return;
   }
 
+  if (err.message === "MONTHLY_LIMIT_REACHED") {
+    console.error("[Canva Automation] Monthly AI limit reached. Stopping permanently.");
+    chrome.storage.local.set({ isAutomating: false, step: 'ERROR' }, () => {
+      sendStatusUpdate("🛑 Monthly Limit Reached. Stopped.");
+      chrome.runtime.sendMessage({ 
+        action: "SHOW_NOTIFICATION", 
+        title: "Canva Automation Halted", 
+        message: "You've hit your plan's monthly AI limit! Automation has been permanently stopped." 
+      });
+    });
+    return;
+  }
+
   console.error("[Canva Automation] Loop broken due to:", err);
   const errMsg = err.message || 'Unknown error occurred.';
   
@@ -324,7 +337,21 @@ async function startMainLoop() {
 
             // Catch immediate rate limit toast
             await delay(1500);
+
+            // 1. Check for FATAL Monthly Limit first
+            const monthlyLimitWarning = document.evaluate(
+              "//*[contains(text(), 'monthly AI limit') or contains(text(), 'hit your plan')]",
+              document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+            ).singleNodeValue;
+
+            if (monthlyLimitWarning) {
+              const warnText = monthlyLimitWarning.textContent;
+              console.error(`[Canva Automation] 🛑 FATAL: ${warnText}`);
+              throw new Error("MONTHLY_LIMIT_REACHED");
+            }
+
             let detectedCooldownMs = 0;
+            // 2. Then look for the soft rate limit text...
             const rateLimitWarning = document.evaluate(
               "//*[contains(text(), 'generate again in') or contains(text(), 'Try again in')]",
               document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
@@ -475,13 +502,17 @@ async function startMainLoop() {
           chrome.runtime.sendMessage({ action: "UPDATE_TEXTAREA", remainingPrompts: prompts });
 
         } catch (error) {
-          if (error.message === "USER_STOPPED") {
-            console.log("[Canva Automation] Process stopped manually.");
-            chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
-              sendStatusUpdate("Automation stopped by user.");
-            });
+          if (error.message === "USER_STOPPED" || error.message === "MONTHLY_LIMIT_REACHED") {
+            console.log(`[Canva Automation] Process halted. Reason: ${error.message}`);
+            if (error.message === "MONTHLY_LIMIT_REACHED") {
+              handleAutomationError(error);
+            } else {
+              chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
+                sendStatusUpdate("Automation stopped by user.");
+              });
+            }
             await new Promise(resolve => chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve));
-            return; // Break the main loop and exit
+            return; // Break the main loop and exit completely
           }
           console.warn("[Canva Automation] Prompt failed/skipped:", currentPrompt, error);
           

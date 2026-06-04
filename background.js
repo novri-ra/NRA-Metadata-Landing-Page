@@ -37,6 +37,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === "SHOW_NOTIFICATION") {
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icon.png',
+      title: request.title,
+      message: request.message
+    });
+    sendResponse({ success: true });
+    return true;
+  }
+
   if (request.action === "CDP_CLICK") {
     (async () => {
       try {
