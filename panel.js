@@ -53,6 +53,9 @@ document.addEventListener('DOMContentLoaded', () => {
       
       osc.start(now);
       osc.stop(now + 0.45);
+
+      // WARN-8 FIX: Close AudioContext after playback to prevent resource exhaustion
+      osc.onended = () => ctx.close();
     } catch (e) {
       console.warn('[Canva Auto Prompter] Web Audio alert failed:', e);
     }
@@ -142,86 +145,107 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Listen for STATUS_UPDATE or direct status/progress/UI synchronization messages from content.js
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request) {
-      if (request.action === "CONSOLE_LOG") {
-        if (consoleLogs) {
-          const time = new Date().toLocaleTimeString('en-US', { hour12: false });
-          const prefix = request.level === 'ERROR' ? '[!]' : request.level === 'WARN' ? '[?]' : '[>]';
-          
-          const logDiv = document.createElement('div');
-          logDiv.className = `log-entry log-${request.level.toLowerCase()}`;
-          logDiv.textContent = `${time} ${prefix} ${request.message}`;
-          
-          consoleLogs.appendChild(logDiv);
-          consoleLogs.scrollTop = consoleLogs.scrollHeight; // Auto-scroll
-        }
-        sendResponse({ success: true });
-        return true;
-      }
+    if (!request) return false;
 
-      // Handle failed/skipped prompt reporting
-      if (request.action === "PROMPT_FAILED") {
-        if (failedPromptsTextarea.value) {
-          failedPromptsTextarea.value += '\n' + request.failedPrompt;
-        } else {
-          failedPromptsTextarea.value = request.failedPrompt;
-        }
-        chrome.storage.local.set({ savedFailedPrompts: failedPromptsTextarea.value });
-        sendResponse({ success: true });
-        return true;
-      }
+    // WARN-7 FIX: Only handle actions explicitly intended for the panel.
+    // Ignore CDP/debugger commands so we don't hijack background.js responses.
+    const PANEL_ACTIONS = new Set([
+      "CONSOLE_LOG", "PROMPT_FAILED", "UPDATE_TEXTAREA", "STATUS_UPDATE"
+    ]);
 
-      // Direct UI update for the destructive Queue
-      if (request.action === "UPDATE_TEXTAREA") {
-        promptInput.value = request.remainingPrompts.join('\n');
-        progressText.textContent = `Progress: ${request.remainingPrompts.length} prompts remaining`;
-        chrome.storage.local.set({ savedPromptText: promptInput.value });
-        sendResponse({ success: true });
-        return true;
-      }
+    // If message has an action that is NOT for the panel, return early without responding
+    if (request.action && !PANEL_ACTIONS.has(request.action)) {
+      return false; // Do not call sendResponse, do not keep channel open
+    }
 
-      if (request.progress) {
-        progressText.textContent = `Progress: ${request.progress}`;
-      }
-
-      const statusValue = request.status || (request.action === 'STATUS_UPDATE' ? request.status : null);
-      
-      if (statusValue) {
-        console.log('[Canva Auto Prompter] Received status update:', statusValue);
-        statusText.textContent = statusValue;
+    if (request.action === "CONSOLE_LOG") {
+      if (consoleLogs) {
+        const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+        const prefix = request.level === 'ERROR' ? '[!]' : request.level === 'WARN' ? '[?]' : '[>]';
         
-        const statusLower = statusValue.toLowerCase();
-        if (statusLower.includes('error') || statusLower.includes('stopped') || statusLower.includes('complete')) {
-          updateButtonState(false);
-          
-          if (statusLower.includes('error')) {
-            statusDot.style.backgroundColor = '#ef4444';
-            statusDot.classList.remove('active');
-          } else {
-            statusDot.style.backgroundColor = '#10b981';
-            statusDot.classList.add('active');
-            
-            // Trigger alerts on clean completion
-            if (statusLower.includes('complete')) {
-              playAlertSound();
-              showBrowserNotification();
-            }
-          }
-        } else {
-          // Active automation pulse
-          statusDot.style.backgroundColor = '#a855f7';
-          statusDot.classList.add('active');
+        const logDiv = document.createElement('div');
+        logDiv.className = `log-entry log-${request.level.toLowerCase()}`;
+        logDiv.textContent = `${time} ${prefix} ${request.message}`;
+        
+        consoleLogs.appendChild(logDiv);
+
+        // OPT-7 FIX: Cap terminal log DOM nodes to prevent memory bloat on long sessions
+        const MAX_LOG_ENTRIES = 500;
+        while (consoleLogs.childElementCount > MAX_LOG_ENTRIES) {
+          consoleLogs.removeChild(consoleLogs.firstElementChild);
         }
 
-        // Dynamically fetch and synchronize progress text from local storage
-        chrome.storage.local.get(['prompts'], (result) => {
-          if (result && result.prompts) {
-            progressText.textContent = `Progress: ${result.prompts.length} prompts remaining`;
-          }
-        });
+        consoleLogs.scrollTop = consoleLogs.scrollHeight; // Auto-scroll
       }
       sendResponse({ success: true });
+      return true;
     }
+
+    // Handle failed/skipped prompt reporting
+    if (request.action === "PROMPT_FAILED") {
+      if (failedPromptsTextarea.value) {
+        failedPromptsTextarea.value += '\n' + request.failedPrompt;
+      } else {
+        failedPromptsTextarea.value = request.failedPrompt;
+      }
+      chrome.storage.local.set({ savedFailedPrompts: failedPromptsTextarea.value });
+      sendResponse({ success: true });
+      return true;
+    }
+
+    // Direct UI update for the destructive Queue
+    if (request.action === "UPDATE_TEXTAREA") {
+      promptInput.value = request.remainingPrompts.join('\n');
+      progressText.textContent = `Progress: ${request.remainingPrompts.length} prompts remaining`;
+      chrome.storage.local.set({ savedPromptText: promptInput.value });
+      sendResponse({ success: true });
+      return true;
+    }
+
+    // Handle progress (messages without explicit action key)
+    if (request.progress) {
+      progressText.textContent = `Progress: ${request.progress}`;
+    }
+
+    const statusValue = request.status || (request.action === 'STATUS_UPDATE' ? request.status : null);
+    
+    if (statusValue) {
+      console.log('[Canva Auto Prompter] Received status update:', statusValue);
+      statusText.textContent = statusValue;
+      
+      const statusLower = statusValue.toLowerCase();
+      if (statusLower.includes('error') || statusLower.includes('stopped') || statusLower.includes('complete')) {
+        updateButtonState(false);
+        
+        if (statusLower.includes('error')) {
+          statusDot.style.backgroundColor = '#ef4444';
+          statusDot.classList.remove('active');
+        } else {
+          statusDot.style.backgroundColor = '#10b981';
+          statusDot.classList.add('active');
+          
+          // Trigger alerts on clean completion
+          if (statusLower.includes('complete')) {
+            playAlertSound();
+            showBrowserNotification();
+          }
+        }
+      } else {
+        // Active automation pulse
+        statusDot.style.backgroundColor = '#a855f7';
+        statusDot.classList.add('active');
+      }
+
+      // Dynamically fetch and synchronize progress text from local storage
+      chrome.storage.local.get(['prompts'], (result) => {
+        if (result && result.prompts) {
+          progressText.textContent = `Progress: ${result.prompts.length} prompts remaining`;
+        }
+      });
+    }
+
+    // Respond to acknowledged status/progress messages
+    sendResponse({ success: true });
     return true; // Keep channel open
   });
 
