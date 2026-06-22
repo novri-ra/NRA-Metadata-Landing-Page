@@ -3,6 +3,15 @@
   "name": "Canva Auto Prompter",
   "version": "1.0.0",
   "description": "Automate text input on canva.com/ai and download images on canva.com/dream-lab.",
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
+  "action": {
+    "default_icon": "icon.png",
+    "default_title": "Canva Auto Prompter"
+  },
   "permissions": [
     "activeTab",
     "scripting",
