@@ -5,6 +5,24 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
 console.log('[Canva Auto Prompter] Background Service Worker loaded.');
 
+/**
+ * WARN-1 FIX: Ensures the debugger is attached before sending CDP commands.
+ * After a long cooldown (5+ minutes), the MV3 service worker may have been
+ * terminated and restarted, losing the previous debugger attachment.
+ * This helper idempotently re-attaches if needed.
+ * @param {number} tabId
+ */
+async function ensureDebuggerAttached(tabId) {
+  try {
+    await chrome.debugger.attach({ tabId }, "1.3");
+  } catch (e) {
+    // "Already attached" means we're good — any other error is a real failure
+    if (!e.message || !e.message.includes("already attached")) {
+      throw e;
+    }
+  }
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "ATTACH_DEBUGGER") {
     (async () => {
@@ -52,6 +70,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     (async () => {
       try {
         const targetId = { tabId: sender.tab.id };
+        // WARN-1 FIX: Re-attach debugger if service worker was restarted
+        await ensureDebuggerAttached(sender.tab.id);
         await chrome.debugger.sendCommand(targetId, "Input.dispatchMouseEvent", {
           type: "mousePressed",
           button: "left",
@@ -78,6 +98,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     (async () => {
       try {
         const targetId = { tabId: sender.tab.id };
+        // WARN-1 FIX: Re-attach debugger if service worker was restarted
+        await ensureDebuggerAttached(sender.tab.id);
         await chrome.debugger.sendCommand(targetId, "Input.insertText", {
           text: request.text
         });
