@@ -259,80 +259,55 @@ async function cdpTypeHuman(text) {
   }
 }
 
-/**
- * Selects a value from a custom Canva dropdown element.
- * @param {string} labelText - The label identifying the dropdown (e.g., "Aspect ratio", "Style")
- * @param {string} optionText - The option text to select
- */
-async function selectCanvaDropdown(labelText, optionText) {
-  if (!optionText || optionText === 'None') {
-    console.log(`[Canva Automation] Style set to None or empty. Skipping dropdown: ${labelText}`);
+async function selectCanvaConfiguration(typeLabel, optionText) {
+  if (!optionText || optionText === "None" || optionText === "") return;
+
+  const escapedOption = optionText.replace(/'/g, "\\'");
+
+  // 1. Check if the option is ALREADY selected on screen using aria-pressed="true"
+  const alreadyActiveXpath = `//div[@role='button' and @aria-pressed='true' and (@aria-label='${escapedOption}' or contains(@aria-label, '${escapedOption}'))]`;
+  const alreadyActiveNode = document.evaluate(alreadyActiveXpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+
+  if (alreadyActiveNode) {
+    console.log(`[Canva Automation] ${typeLabel} '${optionText}' is already active (aria-pressed=true). Skipping configuration click.`);
+    return; // Exit early, no clicks needed!
+  }
+
+  console.log(`[Canva Automation] Config mismatch or first-run. Setting ${typeLabel} to '${optionText}'...`);
+
+  // 2. Locate the clickable button element (where aria-pressed may be false)
+  const targetButtonXpath = `//div[@role='button' and (@aria-label='${escapedOption}' or contains(@aria-label, '${escapedOption}'))]`;
+  const targetButton = document.evaluate(targetButtonXpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+
+  if (!targetButton) {
+    console.warn(`[Canva Automation] Target configuration button for '${optionText}' not found in DOM.`);
     return;
   }
 
-  console.log(`[Canva Automation] Setting dropdown "${labelText}" to: "${optionText}"`);
+  // Scroll into view safely before checking coordinates
+  targetButton.scrollIntoView({ block: 'center', inline: 'center' });
+  await new Promise(resolve => setTimeout(resolve, 250));
 
-  // Find label element to locate dropdown
-  let labelElement = null;
-  const elements = Array.from(document.querySelectorAll('label, span, button, p'));
-  for (const el of elements) {
-    if (el.textContent.trim().toLowerCase() === labelText.toLowerCase()) {
-      labelElement = el;
-      break;
-    }
+  const rect = targetButton.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) {
+    console.warn(`[Canva Automation] Target button for '${optionText}' is not visible on screen.`);
+    return;
   }
 
-  let dropdownTrigger = null;
-  if (labelElement) {
-    dropdownTrigger = labelElement.closest('button') ||
-      labelElement.nextElementSibling?.querySelector('button') ||
-      labelElement.nextElementSibling;
+  const clickX = Math.round(rect.left + rect.width / 2);
+  const clickY = Math.round(rect.top + rect.height / 2);
+
+  // Dispatch trusted CDP click to select the style/ratio option
+  const response = await new Promise(resolve => {
+    chrome.runtime.sendMessage({ action: "CDP_CLICK", x: clickX, y: clickY }, resolve);
+  });
+
+  if (!response || response.success === false) {
+    throw new Error(response?.error || chrome.runtime.lastError?.message || `Failed to click configuration option ${optionText}`);
   }
 
-  if (!dropdownTrigger) {
-    dropdownTrigger = document.querySelector(`button[aria-label*="${labelText}" i]`) ||
-      document.querySelector(`button[title*="${labelText}" i]`);
-  }
-
-  if (!dropdownTrigger) {
-    throw new Error(`Gate Failed: Dropdown trigger for "${labelText}" not found.`);
-  }
-
-  // Open dropdown list
-  await cdpClick(dropdownTrigger);
-
-  // Wait 1200ms to ensure Canva's React Portal has fully rendered the listbox menu
-  await delay(1200);
-
-  // KRITIS-1 FIX: Escape single quotes to prevent XPath injection
-  const escapedOption = optionText.replace(/'/g, "\\'");
-  const xpathPattern = "//*[contains(., '" + escapedOption + "') and (@role='option' or ancestor::*[@role='option'])]";
-  let optionEl = null;
-  try {
-    optionEl = await waitForElement(xpathPattern, true, 4000);
-  } catch (err) {
-    console.log(`[Canva Automation] Primary option XPath lookup failed. Trying simpler contains(text()) fallback for: ${optionText}`);
-    const fallbackXpath = "//*[contains(text(), '" + escapedOption + "')]";
-    optionEl = await waitForElement(fallbackXpath, true, 2000);
-  }
-
-  if (optionEl) {
-    console.log(`[Canva Automation] Found menu item option "${optionText}". Clicking to select...`);
-    await cdpClick(optionEl);
-
-    // Validation loop: ensure the menu has closed before proceeding
-    let menuChecks = 0;
-    while (document.body.contains(optionEl) && menuChecks < 10) {
-      console.log("[Canva Automation] Waiting for dropdown menu to close...");
-      await delay(300);
-      menuChecks++;
-    }
-  } else {
-    console.warn(`[Canva Automation] Menu option "${optionText}" not found in dropdown list.`);
-    // Close dropdown to avoid blockages
-    await cdpClick(dropdownTrigger);
-    await delay(300);
-  }
+  // 4s stability delay for layout tree recalculation
+  await new Promise(resolve => setTimeout(resolve, 1500));
 }
 
 /**
@@ -442,15 +417,20 @@ async function startMainLoop() {
 
         // Action 1 (Configure & Inject):
         // 1. Configure dropdown settings (Aspect Ratio and Image Style only)
-        if (aspectRatio) {
+        const settings = await chrome.storage.local.get(['imageStyle', 'aspectRatio']);
+
+        // Check and set Style dynamically
+        if (settings.imageStyle) {
           if (!isRunning) throw new Error("USER_STOPPED");
-          sendStatusUpdate(`Setting Aspect Ratio: ${aspectRatio}`);
-          await selectCanvaDropdown('Aspect ratio', aspectRatio);
+          sendStatusUpdate(`Setting Style: ${settings.imageStyle}`);
+          await selectCanvaConfiguration('Style', settings.imageStyle);
         }
-        if (imageStyle) {
+
+        // Check and set Ratio dynamically
+        if (settings.aspectRatio) {
           if (!isRunning) throw new Error("USER_STOPPED");
-          sendStatusUpdate(`Setting Style: ${imageStyle}`);
-          await selectCanvaDropdown('Style', imageStyle);
+          sendStatusUpdate(`Setting Aspect Ratio: ${settings.aspectRatio}`);
+          await selectCanvaConfiguration('Aspect Ratio', settings.aspectRatio);
         }
 
         // 2. Find prompt input, clear it, inject text, and strictly verify
