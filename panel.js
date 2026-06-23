@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const aspectRatioSelect = document.getElementById('aspectRatio');
   const imageStyleSelect = document.getElementById('imageStyle');
   const downloadCountSelect = document.getElementById('downloadCount');
+  const debugModeSelect = document.getElementById('debugMode');
   const progressText = document.getElementById('progressText');
   const statusText = document.getElementById('statusText');
   const statusDot = document.getElementById('statusDot');
@@ -11,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const consoleLogs = document.getElementById('consoleLogs');
 
   let isRunning = false;
+  let isDebugMode = false;
 
   // Helper to update button visual state dynamically
   function updateButtonState(running) {
@@ -78,23 +80,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Helper to visually show tab status and progress on load
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs && tabs[0]) {
-      const activeTab = tabs[0];
-      if (activeTab.url && activeTab.url.includes('canva.com')) {
-        statusText.textContent = 'Canva Connected';
-        statusDot.classList.add('active');
-        statusDot.style.backgroundColor = '#10b981';
-      } else {
-        statusText.textContent = 'Please open Canva';
-        statusDot.classList.remove('active');
-        statusDot.style.backgroundColor = '#ef4444';
-      }
+  chrome.tabs.query({ url: "*://*.canva.com/*" }, (tabs) => {
+    if (tabs && tabs.length > 0) {
+      statusText.textContent = 'Canva Connected';
+      statusDot.classList.add('active');
+      statusDot.style.backgroundColor = '#10b981';
+    } else {
+      statusText.textContent = 'Please open Canva';
+      statusDot.classList.remove('active');
+      statusDot.style.backgroundColor = '#ef4444';
     }
   });
 
   // Pull existing progress from storage on startup and sync running state
-  chrome.storage.local.get(['prompts', 'isAutomating', 'savedPromptText', 'savedAspectRatio', 'savedImageStyle', 'savedDownloadCount', 'savedFailedPrompts'], (result) => {
+  chrome.storage.local.get(['prompts', 'isAutomating', 'savedPromptText', 'savedAspectRatio', 'savedImageStyle', 'savedDownloadCount', 'savedFailedPrompts', 'savedDebugMode'], (result) => {
     if (result) {
       // Prioritize active processing prompts if automating, otherwise fall back to auto-saved prompt text
       if (result.isAutomating === true && result.prompts && result.prompts.length > 0) {
@@ -113,6 +112,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (result.savedDownloadCount) {
         downloadCountSelect.value = result.savedDownloadCount;
+      }
+      if (result.savedDebugMode !== undefined) {
+        isDebugMode = result.savedDebugMode === true;
+        debugModeSelect.value = isDebugMode ? "true" : "false";
       }
 
       // Restore failed/skipped prompts log if auto-saved
@@ -143,6 +146,11 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.local.set({ savedDownloadCount: downloadCountSelect.value });
   });
 
+  debugModeSelect.addEventListener('change', () => {
+    isDebugMode = debugModeSelect.value === 'true';
+    chrome.storage.local.set({ savedDebugMode: isDebugMode });
+  });
+
   // Listen for STATUS_UPDATE or direct status/progress/UI synchronization messages from content.js
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (!request) return false;
@@ -159,6 +167,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (request.action === "CONSOLE_LOG") {
+      // Block verbose INFO logs if Debug Mode is Off
+      if (!isDebugMode && request.level === 'INFO') {
+        sendResponse({ success: true });
+        return true;
+      }
+
       if (consoleLogs) {
         const time = new Date().toLocaleTimeString('en-US', { hour12: false });
         const prefix = request.level === 'ERROR' ? '[!]' : request.level === 'WARN' ? '[?]' : '[>]';
@@ -259,9 +273,9 @@ document.addEventListener('DOMContentLoaded', () => {
         statusDot.style.backgroundColor = '#ef4444';
         statusDot.classList.remove('active');
 
-        // Query active tab and send "STOP_AUTOMATION" message
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          if (tabs && tabs[0]) {
+        // Query explicit Canva tab and send "STOP_AUTOMATION" message
+        chrome.tabs.query({ url: "*://*.canva.com/*" }, (tabs) => {
+          if (tabs && tabs.length > 0) {
             chrome.tabs.sendMessage(tabs[0].id, { action: 'STOP_AUTOMATION' }, (response) => {
               if (chrome.runtime.lastError) {
                 console.warn('[Canva Auto Prompter] Could not send stop signal to content script:', chrome.runtime.lastError.message);
@@ -308,9 +322,9 @@ document.addEventListener('DOMContentLoaded', () => {
         statusText.textContent = 'Starting...';
         updateButtonState(true);
 
-        // Query active tab and send "START_AUTOMATION" message
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          if (tabs && tabs[0]) {
+        // Query explicit Canva tab and send "START_AUTOMATION" message
+        chrome.tabs.query({ url: "*://*.canva.com/*" }, (tabs) => {
+          if (tabs && tabs.length > 0) {
             chrome.tabs.sendMessage(tabs[0].id, { action: 'START_AUTOMATION' }, (response) => {
               if (chrome.runtime.lastError) {
                 console.warn('[Canva Auto Prompter] Could not communicate with content script:', chrome.runtime.lastError.message);
