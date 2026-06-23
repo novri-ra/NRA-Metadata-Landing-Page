@@ -15,7 +15,6 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "downloads",
     "storage",
     "sidePanel",
     "notifications",
@@ -37,7 +36,8 @@
       ],
       "js": [
         "content.js"
-      ]
+      ],
+      "run_at": "document_idle"
     }
   ]
 }
