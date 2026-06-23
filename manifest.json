@@ -18,7 +18,8 @@
     "storage",
     "sidePanel",
     "notifications",
-    "debugger"
+    "debugger",
+    "power"
   ],
   "host_permissions": [
     "*://*.canva.com/*"
