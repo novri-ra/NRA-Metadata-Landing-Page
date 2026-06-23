@@ -8,15 +8,15 @@ const originalConsoleError = console.error;
 function broadcastLog(level, ...args) {
   try {
     const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-    chrome.runtime.sendMessage({ action: "CONSOLE_LOG", level: level, message: msg }).catch(() => {});
+    chrome.runtime.sendMessage({ action: "CONSOLE_LOG", level: level, message: msg }).catch(() => { });
   } catch (e) {
     // Fail silently if extension context is invalidated
   }
 }
 
-console.log = function(...args) { originalConsoleLog.apply(console, args); broadcastLog('INFO', ...args); };
-console.warn = function(...args) { originalConsoleWarn.apply(console, args); broadcastLog('WARN', ...args); };
-console.error = function(...args) { originalConsoleError.apply(console, args); broadcastLog('ERROR', ...args); };
+console.log = function (...args) { originalConsoleLog.apply(console, args); broadcastLog('INFO', ...args); };
+console.warn = function (...args) { originalConsoleWarn.apply(console, args); broadcastLog('WARN', ...args); };
+console.error = function (...args) { originalConsoleError.apply(console, args); broadcastLog('ERROR', ...args); };
 
 // Canva Auto Prompter - Content Script targeting canva.com/dream-lab
 // Operates exclusively on https://www.canva.com/dream-lab
@@ -68,27 +68,37 @@ async function checkIfStopped() {
 }
 
 /**
+ * Helper to tag processed warnings so they are ignored in the future.
+ * Applies data-bot-ignored attribute and visual feedback to ghost cooldown text.
+ */
+function tagGhostCooldowns() {
+  const warnings = document.evaluate(
+    "//*[not(@data-bot-ignored='true') and not(ancestor-or-self::*[@role='alert' or @role='status']) and (contains(text(), 'generate again in') or contains(text(), 'Try again in'))]",
+    document, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null
+  );
+  for (let i = 0; i < warnings.snapshotLength; i++) {
+    const el = warnings.snapshotItem(i);
+    el.setAttribute('data-bot-ignored', 'true');
+    el.style.opacity = '0.3'; // Visual feedback that bot has processed this
+  }
+}
+
+/**
  * Extracts the cooldown time remaining from a rate-limit warning element on the screen.
+ * Updated radar to strictly ignore tagged ghosts.
  * @returns {number} Cooldown in milliseconds, or 0 if not found.
  */
 function getScreenCooldownMs() {
-  const warningEls = document.evaluate(
-    "//*[contains(text(), 'generate again in') or contains(text(), 'Try again in')]",
-    document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
-  );
-  
-  let maxMs = 0;
-  for (let i = 0; i < warningEls.snapshotLength; i++) {
-    const text = warningEls.snapshotItem(i).textContent;
-    const timeMatch = text.match(/(\d+):(\d+)/);
-    if (timeMatch) {
-      const minutes = parseInt(timeMatch[1], 10);
-      const seconds = parseInt(timeMatch[2], 10);
-      const ms = ((minutes * 60) + seconds) * 1000;
-      if (ms > maxMs) maxMs = ms;
-    }
+  const staticWarning = document.evaluate(
+    "//*[not(@data-bot-ignored='true') and not(ancestor-or-self::*[@role='alert' or @role='status']) and (contains(text(), 'generate again in') or contains(text(), 'Try again in'))]",
+    document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+  ).singleNodeValue;
+
+  if (staticWarning) {
+    const timeMatch = staticWarning.textContent.match(/(\d+):(\d+)/);
+    if (timeMatch) return ((parseInt(timeMatch[1], 10) * 60) + parseInt(timeMatch[2], 10)) * 1000;
   }
-  return maxMs;
+  return 0;
 }
 
 /**
@@ -160,10 +170,10 @@ function handleAutomationError(err) {
     console.error("[Canva Automation] Monthly AI limit reached. Stopping permanently.");
     chrome.storage.local.set({ isAutomating: false, step: 'ERROR' }, () => {
       sendStatusUpdate("🛑 Monthly Limit Reached. Stopped.");
-      chrome.runtime.sendMessage({ 
-        action: "SHOW_NOTIFICATION", 
-        title: "Canva Automation Halted", 
-        message: "You've hit your plan's monthly AI limit! Automation has been permanently stopped." 
+      chrome.runtime.sendMessage({
+        action: "SHOW_NOTIFICATION",
+        title: "Canva Automation Halted",
+        message: "You've hit your plan's monthly AI limit! Automation has been permanently stopped."
       });
     });
     return;
@@ -171,7 +181,7 @@ function handleAutomationError(err) {
 
   console.error("[Canva Automation] Loop broken due to:", err);
   const errMsg = err.message || 'Unknown error occurred.';
-  
+
   // KRITIS-4 FIX: Include action key so panel.js processes the status correctly
   chrome.storage.local.set({ isAutomating: false, step: 'ERROR' }, () => {
     chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Error: " + errMsg });
@@ -185,7 +195,7 @@ async function cdpClick(element) {
   if (rect.width === 0 || rect.height === 0) throw new Error("Element is hidden (0x0).");
   const x = Math.round(rect.left + rect.width / 2);
   const y = Math.round(rect.top + rect.height / 2);
-  
+
   // Timeout wrapper (10 detik maksimal)
   const response = await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("CDP_CLICK timeout: Background script unresponsive")), 10000);
@@ -250,25 +260,26 @@ async function selectCanvaDropdown(labelText, optionText) {
 
   // Open dropdown list
   await cdpClick(dropdownTrigger);
-  
+
   // Wait 1200ms to ensure Canva's React Portal has fully rendered the listbox menu
   await delay(1200);
 
-  // Evaluate XPath to find options handling nested HTML spans and role=option hierarchy
-  const xpathPattern = "//*[contains(., '" + optionText + "') and (@role='option' or ancestor::*[@role='option'])]";
+  // KRITIS-1 FIX: Escape single quotes to prevent XPath injection
+  const escapedOption = optionText.replace(/'/g, "\\'");
+  const xpathPattern = "//*[contains(., '" + escapedOption + "') and (@role='option' or ancestor::*[@role='option'])]";
   let optionEl = null;
   try {
     optionEl = await waitForElement(xpathPattern, true, 4000);
   } catch (err) {
     console.log(`[Canva Automation] Primary option XPath lookup failed. Trying simpler contains(text()) fallback for: ${optionText}`);
-    const fallbackXpath = "//*[contains(text(), '" + optionText + "')]";
+    const fallbackXpath = "//*[contains(text(), '" + escapedOption + "')]";
     optionEl = await waitForElement(fallbackXpath, true, 2000);
   }
 
   if (optionEl) {
     console.log(`[Canva Automation] Found menu item option "${optionText}". Clicking to select...`);
     await cdpClick(optionEl);
-    
+
     // Validation loop: ensure the menu has closed before proceeding
     let menuChecks = 0;
     while (document.body.contains(optionEl) && menuChecks < 10) {
@@ -326,23 +337,28 @@ async function startMainLoop() {
 
       try {
         console.log(`[Canva Automation] Processing prompt: "${currentPrompt}"`);
-        
-        // Send current progress indicator back to Side Panel UI
-        chrome.runtime.sendMessage({ progress: `${prompts.length} prompts remaining` });
+
+        // WARN-1 FIX: Send current progress indicator back to Side Panel UI with standardized action key
+        chrome.runtime.sendMessage({ action: "PROGRESS_UPDATE", progress: `${prompts.length} prompts remaining` });
         sendStatusUpdate("Configuring settings...");
 
-        // --- PRE-FLIGHT COOLDOWN CHECK ---
+        // --- PRE-FLIGHT COOLDOWN CHECK (WITH DOM TAGGING) ---
         let preFlightCooldown = getScreenCooldownMs();
+
         if (preFlightCooldown > 0) {
-            preFlightCooldown += 5000; // 5s safety buffer
-            console.warn(`[Canva Automation] Persistent cooldown detected before submission. Sleeping for ${preFlightCooldown}ms.`);
-            const totalWaitSecs = Math.ceil(preFlightCooldown / 1000);
-            for (let i = totalWaitSecs; i > 0; i--) {
-                if (!isRunning) throw new Error("USER_STOPPED");
-                chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit active: ${formatTime(i)} remaining` });
-                await delay(1000);
-            }
-            sendStatusUpdate("Cooldown complete. Resuming prompt injection...");
+          preFlightCooldown += 5000; // 5s safety buffer
+          console.warn(`[Canva Automation] Serving pre-flight cooldown of ${preFlightCooldown}ms...`);
+
+          // 🌟 MAGIC SAUCE: Stamp the element so we ignore it when we wake up
+          tagGhostCooldowns();
+
+          const totalWaitSecs = Math.ceil(preFlightCooldown / 1000);
+          for (let i = totalWaitSecs; i > 0; i--) {
+            if (!isRunning) throw new Error("USER_STOPPED");
+            chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit active: ${formatTime(i)} remaining` });
+            await delay(1000);
+          }
+          sendStatusUpdate("Cooldown complete. Resuming prompt injection...");
         }
         // ---------------------------------
 
@@ -363,7 +379,7 @@ async function startMainLoop() {
         if (!isRunning) throw new Error("USER_STOPPED");
         const textarea = await waitForElement('textarea[placeholder*="Describe"], textarea[class*="canva"]', false, 15000);
         sendStatusUpdate("Typing prompt...");
-        
+
         // Focus the textarea, clear it natively, then type via CDP
         await cdpClick(textarea);
         await delay(200);
@@ -388,10 +404,10 @@ async function startMainLoop() {
 
         // 3. Prepare initial variables
         let pendingCooldownMs = 0; // Tracks if we need to sleep AFTER downloading the successful generation
-        
+
         // 4. Unified Submit & Polling State Machine (Phantom-Success & Stale-DOM Immune)
         let submissionSuccessful = false;
-        
+
         while (!submissionSuccessful) {
           if (!isRunning) throw new Error("USER_STOPPED");
 
@@ -431,7 +447,7 @@ async function startMainLoop() {
           let pollAttempts = 0;
           const maxPollAttempts = 90; // 90 seconds timeout for image generation
           let imagesGenerated = false;
-          
+
           while (pollAttempts <= maxPollAttempts) {
             if (!isRunning) throw new Error("USER_STOPPED");
             await delay(1000);
@@ -439,68 +455,71 @@ async function startMainLoop() {
             // Short-Circuit for content policy violations (NSFW/Filter block)
             // FIXED: Scoped to strictly look inside toast/alert containers to prevent matching the "Privacy Policy" footer.
             const policyWarning = document.evaluate(
-                "//div[@role='alert' or @role='status']//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'policy') or contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'unsafe')]",
-                document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+              "//div[@role='alert' or @role='status']//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'policy') or contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'unsafe')]",
+              document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
             ).singleNodeValue;
-            
+
             if (policyWarning) {
-                console.error("[Canva Automation] 🛑 Content Policy Violation detected.");
-                throw new Error("POLICY_VIOLATION");
+              console.error("[Canva Automation] 🛑 Content Policy Violation detected.");
+              throw new Error("POLICY_VIOLATION");
             }
-            
+
             // Dynamic Stale DOM tracker: if React unmounts old off-screen images, lower baseline
             const currentActualCount = document.querySelectorAll('button[aria-label="Download Image"]').length;
             if (currentActualCount < currentBtnCount && currentActualCount <= initialButtonCount) {
-                console.log(`[Canva Automation] Stale DOM detected! Baseline dropped from ${initialButtonCount} to ${currentActualCount}`);
-                initialButtonCount = currentActualCount;
+              console.log(`[Canva Automation] Stale DOM detected! Baseline dropped from ${initialButtonCount} to ${currentActualCount}`);
+              initialButtonCount = currentActualCount;
             }
             currentBtnCount = currentActualCount;
-            
+
             pollAttempts++;
             console.log(`[Canva Automation] Polling for new download buttons (attempt ${pollAttempts}). Current count: ${currentBtnCount}, Initial count: ${initialButtonCount}`);
-            
+
             if (currentBtnCount > initialButtonCount) {
-               imagesGenerated = true;
-               break;
+              imagesGenerated = true;
+              break;
             }
           }
 
           if (imagesGenerated) {
-              console.log("[Canva Automation] Images successfully generated!");
-              submissionSuccessful = true;
-              if (detectedCooldownMs > 0) {
-                  console.log(`[Canva Automation] Phantom Success detected. Queuing cooldown of ${detectedCooldownMs}ms for AFTER download.`);
-                  pendingCooldownMs = detectedCooldownMs;
-              }
+            console.log("[Canva Automation] Images successfully generated!");
+            submissionSuccessful = true;
+            if (detectedCooldownMs > 0) {
+              console.log(`[Canva Automation] Phantom Success detected. Queuing cooldown of ${detectedCooldownMs}ms for AFTER download.`);
+              pendingCooldownMs = detectedCooldownMs;
+            }
           } else {
-              if (detectedCooldownMs > 0) {
-                  console.log("[Canva Automation] True rate limit hit (no images generated). Serving cooldown before retry...");
-                  sendStatusUpdate(`Rate limit! Resting for ${Math.ceil(detectedCooldownMs / 1000)} seconds...`);
-                  
-                  const totalWaitSecs = Math.ceil(detectedCooldownMs / 1000);
-                  for (let i = totalWaitSecs; i > 0; i--) {
-                      if (!isRunning) throw new Error("USER_STOPPED");
-                      chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit cooldown: ${formatTime(i)} remaining` });
-                      await delay(1000);
-                  }
-                  
-                  console.log("[Canva Automation] Dynamic cooldown complete. Clearing text field and retyping prompt...");
-                  sendStatusUpdate("Cooldown done. Retyping prompt...");
+            if (detectedCooldownMs > 0) {
+              console.log("[Canva Automation] True rate limit hit (no images generated). Serving cooldown before retry...");
+              sendStatusUpdate(`Rate limit! Resting for ${Math.ceil(detectedCooldownMs / 1000)} seconds...`);
 
-                  // Retype prompt logic
-                  const retryTextarea = await waitForElement('textarea[placeholder*="Describe"], textarea[class*="canva"]', false, 5000);
-                  if (retryTextarea) {
-                      await cdpClick(retryTextarea);
-                      await delay(300);
-                      retryTextarea.value = '';
-                      retryTextarea.dispatchEvent(new Event('input', { bubbles: true }));
-                      await delay(300);
-                      await cdpType(currentPrompt);
-                      await delay(500);
-                  }
-              } else {
-                  throw new Error("Action 2 Failed: Timeout waiting for new generated images, and no rate limit detected.");
+              // 🌟 MAGIC SAUCE: Stamp the element so we ignore it when we wake up
+              tagGhostCooldowns();
+
+              const totalWaitSecs = Math.ceil(detectedCooldownMs / 1000);
+              for (let i = totalWaitSecs; i > 0; i--) {
+                if (!isRunning) throw new Error("USER_STOPPED");
+                chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit cooldown: ${formatTime(i)} remaining` });
+                await delay(1000);
               }
+
+              console.log("[Canva Automation] Dynamic cooldown complete. Clearing text field and retyping prompt...");
+              sendStatusUpdate("Cooldown done. Retyping prompt...");
+
+              // Retype prompt logic
+              const retryTextarea = await waitForElement('textarea[placeholder*="Describe"], textarea[class*="canva"]', false, 5000);
+              if (retryTextarea) {
+                await cdpClick(retryTextarea);
+                await delay(300);
+                retryTextarea.value = '';
+                retryTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+                await delay(300);
+                await cdpType(currentPrompt);
+                await delay(500);
+              }
+            } else {
+              throw new Error("Action 2 Failed: Timeout waiting for new generated images, and no rate limit detected.");
+            }
           }
         }
 
@@ -548,14 +567,14 @@ async function startMainLoop() {
         await delay(6000);
 
         if (pendingCooldownMs > 0) {
-            console.log(`[Canva Automation] Serving pending Phantom Success cooldown of ${pendingCooldownMs}ms...`);
-            sendStatusUpdate(`Phantom Success cooldown: ${Math.ceil(pendingCooldownMs / 1000)} seconds...`);
-            const totalWaitSecs = Math.ceil(pendingCooldownMs / 1000);
-            for (let i = totalWaitSecs; i > 0; i--) {
-                if (!isRunning) throw new Error("USER_STOPPED");
-                chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Next prompt in: ${formatTime(i)}` });
-                await delay(1000);
-            }
+          console.log(`[Canva Automation] Serving pending Phantom Success cooldown of ${pendingCooldownMs}ms...`);
+          sendStatusUpdate(`Phantom Success cooldown: ${Math.ceil(pendingCooldownMs / 1000)} seconds...`);
+          const totalWaitSecs = Math.ceil(pendingCooldownMs / 1000);
+          for (let i = totalWaitSecs; i > 0; i--) {
+            if (!isRunning) throw new Error("USER_STOPPED");
+            chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Next prompt in: ${formatTime(i)}` });
+            await delay(1000);
+          }
         }
 
         // Destructive Queue Shift: Remove processed prompt and update storage/UI
@@ -590,7 +609,7 @@ async function startMainLoop() {
         }
 
         console.warn("[Canva Automation] Prompt failed/skipped:", currentPrompt, error);
-        
+
         // Send the failed prompt to the panel
         chrome.runtime.sendMessage({ action: "PROMPT_FAILED", failedPrompt: currentPrompt });
 
@@ -608,6 +627,17 @@ async function startMainLoop() {
 
         // Detach debugger cleanly before forcing reload
         await new Promise(resolve => chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve));
+
+        // KRITIS-2 FIX: Graceful offline handler before page reload
+        if (!navigator.onLine) {
+          console.error("[Canva Automation] 🛑 NETWORK_OFFLINE detected. Pausing until reconnected...");
+          sendStatusUpdate("Offline. Waiting for internet connection...");
+          await new Promise(resolve => {
+            window.addEventListener('online', resolve, { once: true });
+          });
+          console.log("[Canva Automation] Reconnected! Resuming operation.");
+          sendStatusUpdate("Reconnected. Resuming...");
+        }
 
         // CRITICAL RECOVERY: Force a page reload
         window.location.href = "https://www.canva.com/dream-lab";
