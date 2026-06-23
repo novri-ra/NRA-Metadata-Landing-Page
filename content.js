@@ -376,6 +376,24 @@ async function startMainLoop() {
         return;
       }
 
+      // Check Batch Auto-Stop Limit
+      const limits = await chrome.storage.local.get(['batchLimit', 'sessionDownloadCount']);
+      if (limits.batchLimit > 0 && (limits.sessionDownloadCount || 0) >= limits.batchLimit) {
+        console.log("[Canva Automation] 🛑 Batch Auto-Stop limit reached safely. Stopping loop.");
+        sendStatusUpdate("Batch target reached! Stopping...");
+
+        // Trigger audio alert if enabled
+        const audioCfg = await chrome.storage.local.get(['playSounds']);
+        if (audioCfg.playSounds !== false) {
+          chrome.runtime.sendMessage({ action: "PLAY_COMPLETION_SOUND" });
+        }
+
+        // Cleanup: detach debugger and mark as stopped
+        await chrome.storage.local.set({ isAutomating: false, step: "IDLE" });
+        await new Promise(resolve => chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve));
+        return;
+      }
+
       let currentPrompt = prompts[0];
 
       try {
@@ -440,22 +458,55 @@ async function startMainLoop() {
         const textarea = await waitForElement('textarea[placeholder*="Describe"], textarea[class*="canva"]', false, 15000);
         sendStatusUpdate("Typing prompt...");
 
-        // Focus the textarea, clear it natively, then type via CDP with human animation
+        // Focus the textarea, clear it natively, then type via CDP (Human or Instant mode)
         await cdpClick(textarea);
         await delay(200);
         textarea.value = '';
         textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        await cdpTypeHuman(currentPrompt);
-        await delay(500);
+
+        // Fetch the typing mode preference from storage
+        const modeConfig = await chrome.storage.local.get(['typingMode']);
+
+        if (modeConfig.typingMode === 'instant') {
+          console.log(`[Canva Automation] Injecting prompt instantly (Paste mode)...`);
+
+          // Execute instant CDP typing
+          const typeResponse = await new Promise(resolve => {
+            chrome.runtime.sendMessage({ action: "CDP_TYPE", text: currentPrompt }, resolve);
+          });
+
+          if (!typeResponse || typeResponse.success === false) {
+            throw new Error(typeResponse?.error || chrome.runtime.lastError?.message || "CDP connection lost during instant typing");
+          }
+        } else {
+          // Default to realistic human typing
+          await cdpTypeHuman(currentPrompt);
+        }
+
+        // Apply custom safety delay configuration dynamically
+        const config = await chrome.storage.local.get(['safetyDelay']);
+        const dynamicDelay = (config.safetyDelay || 0) * 1000;
+        await delay(500 + dynamicDelay);
 
         if (!isRunning) throw new Error("USER_STOPPED");
         if (textarea.value !== currentPrompt) {
-          console.warn("[Canva Automation] Value mismatch detected. Retrying cdpTypeHuman...");
+          console.warn("[Canva Automation] Value mismatch detected. Retrying typing...");
           await cdpClick(textarea);
           await delay(200);
           textarea.value = '';
           textarea.dispatchEvent(new Event('input', { bubbles: true }));
-          await cdpTypeHuman(currentPrompt);
+
+          // Retry with the same mode
+          if (modeConfig.typingMode === 'instant') {
+            const retryResponse = await new Promise(resolve => {
+              chrome.runtime.sendMessage({ action: "CDP_TYPE", text: currentPrompt }, resolve);
+            });
+            if (!retryResponse || retryResponse.success === false) {
+              throw new Error(retryResponse?.error || chrome.runtime.lastError?.message || "CDP connection lost during retry");
+            }
+          } else {
+            await cdpTypeHuman(currentPrompt);
+          }
           await delay(500);
         }
         if (textarea.value !== currentPrompt) {
@@ -633,6 +684,8 @@ async function startMainLoop() {
           sendStatusUpdate(`Downloading image ${i + 1} of ${targetCount}...`);
           await cdpClick(freshBtns[i]);
           sessionStats.downloadCount++;
+          // Save download count to storage for batch limit tracking
+          await chrome.storage.local.set({ sessionDownloadCount: sessionStats.downloadCount });
           await delay(1500);
         }
 
