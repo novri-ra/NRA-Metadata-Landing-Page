@@ -14,10 +14,12 @@ document.addEventListener('DOMContentLoaded', () => {
   let isRunning = false;
   let isDebugMode = false;
 
-  // Helper to update button visual state dynamically
-  function updateButtonState(running) {
-    isRunning = running;
-    if (isRunning) {
+  // 🌟 CENTRALIZED UI SYNC FUNCTION
+  function syncRunButtonUI(isAutomating) {
+    if (!startBtn) return;
+    isRunning = isAutomating; // Keep local tracker updated
+
+    if (isAutomating) {
       startBtn.textContent = 'Stop';
       startBtn.style.background = '#e74c3c';
       startBtn.style.boxShadow = '0 4px 15px rgba(231, 76, 60, 0.4)';
@@ -93,8 +95,30 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Pull existing progress from storage on startup and sync running state
-  chrome.storage.local.get(['prompts', 'isAutomating', 'savedPromptText', 'savedAspectRatio', 'savedImageStyle', 'savedDownloadCount', 'savedFailedPrompts', 'savedDebugMode'], (result) => {
+  chrome.storage.local.get(['prompts', 'isAutomating', 'savedPromptText', 'savedAspectRatio', 'savedImageStyle', 'savedDownloadCount', 'savedFailedPrompts', 'savedDebugMode', 'uiTheme', 'uiFont', 'batchLimit', 'safetyDelay', 'playSounds', 'typingMode'], (result) => {
     if (result) {
+      // Load UI Preferences
+      const savedTheme = result.uiTheme || 'theme-retro';
+      const savedFont = result.uiFont || 'font-pixel';
+      if (document.getElementById('themeSelect')) document.getElementById('themeSelect').value = savedTheme;
+      if (document.getElementById('fontSelect')) document.getElementById('fontSelect').value = savedFont;
+      applyCustomUI(savedTheme, savedFont);
+
+      // Load Advanced Settings
+      const typingModeSelect = document.getElementById('typingModeSelect');
+      const batchLimitInput = document.getElementById('batchLimitInput');
+      const safetyDelaySlider = document.getElementById('safetyDelaySlider');
+      const safetyDelayVal = document.getElementById('safetyDelayVal');
+      const soundToggle = document.getElementById('soundToggle');
+
+      if (result.typingMode && typingModeSelect) typingModeSelect.value = result.typingMode;
+      if (result.batchLimit !== undefined && batchLimitInput) batchLimitInput.value = result.batchLimit;
+      if (result.safetyDelay !== undefined) {
+        if (safetyDelaySlider) safetyDelaySlider.value = result.safetyDelay;
+        if (safetyDelayVal) safetyDelayVal.textContent = result.safetyDelay;
+      }
+      if (result.playSounds !== undefined && soundToggle) soundToggle.checked = result.playSounds;
+
       // Prioritize active processing prompts if automating, otherwise fall back to auto-saved prompt text
       if (result.isAutomating === true && result.prompts && result.prompts.length > 0) {
         progressText.textContent = `Progress: ${result.prompts.length} prompts remaining`;
@@ -123,9 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
         failedPromptsTextarea.value = result.savedFailedPrompts;
       }
 
-      if (result.isAutomating === true) {
-        updateButtonState(true);
-      }
+      // 🌟 FORCE CHECK ON PANEL LOAD
+      // As soon as the panel opens, check reality and force the button to match.
+      syncRunButtonUI(result.isAutomating === true);
     }
   });
 
@@ -162,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // WARN-7 FIX: Only handle actions explicitly intended for the panel.
     // Ignore CDP/debugger commands so we don't hijack background.js responses.
     const PANEL_ACTIONS = new Set([
-      "CONSOLE_LOG", "PROMPT_FAILED", "UPDATE_TEXTAREA", "STATUS_UPDATE", "PROGRESS_UPDATE"
+      "CONSOLE_LOG", "PROMPT_FAILED", "UPDATE_TEXTAREA", "STATUS_UPDATE", "PROGRESS_UPDATE", "PLAY_COMPLETION_SOUND"
     ]);
 
     // If message has an action that is NOT for the panel, return early without responding
@@ -227,6 +251,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return true;
     }
 
+    // Handle completion sound
+    if (request.action === "PLAY_COMPLETION_SOUND") {
+      playAlertSound();
+      sendResponse({ success: true });
+      return true;
+    }
+
     const statusValue = request.status || (request.action === 'STATUS_UPDATE' ? request.status : null);
 
     if (statusValue) {
@@ -235,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const statusLower = statusValue.toLowerCase();
       if (statusLower.includes('error') || statusLower.includes('stopped') || statusLower.includes('complete')) {
-        updateButtonState(false);
+        syncRunButtonUI(false);
 
         if (statusLower.includes('error')) {
           statusDot.style.backgroundColor = '#ef4444';
@@ -273,88 +304,76 @@ document.addEventListener('DOMContentLoaded', () => {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === 'local' && changes.isAutomating) {
       const isNowAutomating = changes.isAutomating.newValue;
-      updateButtonState(isNowAutomating);
+      syncRunButtonUI(isNowAutomating === true);
     }
   });
 
-  // Action dispatcher with Start/Stop toggle
-  startBtn.addEventListener('click', () => {
-    if (isRunning) {
-      // STOP_AUTOMATION trigger
-      chrome.storage.local.set({ isAutomating: false, step: 'IDLE' }, () => {
-        updateButtonState(false);
-        statusText.textContent = 'Stopping automation...';
-        statusDot.style.backgroundColor = '#ef4444';
-        statusDot.classList.remove('active');
+  // 🌟 CLEAN CLICK HANDLER
+  // When clicked, check storage for ground truth, then toggle.
+  // The onChanged listener above will handle UI changes reactively.
+  if (startBtn) {
+    startBtn.addEventListener('click', () => {
+      chrome.storage.local.get(['isAutomating'], (result) => {
+        const isCurrentlyRunning = result.isAutomating === true;
 
-        // Query explicit Canva tab and send "STOP_AUTOMATION" message
-        chrome.tabs.query({ url: "*://*.canva.com/*" }, (tabs) => {
-          if (tabs && tabs.length > 0) {
-            chrome.tabs.sendMessage(tabs[0].id, { action: 'STOP_AUTOMATION' }, (response) => {
-              if (chrome.runtime.lastError) {
-                console.warn('[Canva Auto Prompter] Could not send stop signal to content script:', chrome.runtime.lastError.message);
+        if (isCurrentlyRunning) {
+          // WE ARE STOPPING
+          chrome.storage.local.set({ isAutomating: false, step: 'IDLE' });
+          statusText.textContent = 'Stopping automation...';
+          statusDot.style.backgroundColor = '#ef4444';
+          statusDot.classList.remove('active');
+
+          chrome.tabs.query({ url: "*://*.canva.com/*" }, (tabs) => {
+            if (tabs && tabs.length > 0) {
+              chrome.tabs.sendMessage(tabs[0].id, { action: "STOP_AUTOMATION" }).catch(() => { });
+            }
+          });
+        } else {
+          // WE ARE STARTING
+          const rawPromptText = promptInput.value;
+          const promptsArray = rawPromptText.split('\n').map(p => p.trim()).filter(p => p.length > 0);
+
+          if (promptsArray.length === 0) {
+            alert('Please enter at least one prompt!');
+            return;
+          }
+
+          failedPromptsTextarea.value = '';
+          chrome.storage.local.set({ savedFailedPrompts: '' });
+
+          progressText.textContent = `Progress: ${promptsArray.length} prompts remaining`;
+          statusText.textContent = 'Starting...';
+
+          const state = {
+            isAutomating: true,
+            step: 'INJECT_PROMPT',
+            prompts: promptsArray,
+            aspectRatio: aspectRatioSelect.value,
+            imageStyle: imageStyleSelect.value,
+            downloadCount: downloadCountSelect.value
+          };
+
+          // Setting isAutomating: true will trigger the onChanged listener -> syncRunButtonUI(true)
+          chrome.storage.local.set(state, () => {
+            console.log('[Canva Auto Prompter] Bulk automation state saved:', state);
+            chrome.tabs.query({ url: "*://*.canva.com/*" }, (tabs) => {
+              if (tabs && tabs.length > 0) {
+                chrome.tabs.sendMessage(tabs[0].id, { action: 'START_AUTOMATION' }, (response) => {
+                  if (chrome.runtime.lastError) {
+                    console.warn('[Canva Auto Prompter] Could not communicate with content script:', chrome.runtime.lastError.message);
+                    statusText.textContent = "Error: Please refresh the Canva tab and try again.";
+                    statusDot.style.backgroundColor = '#ef4444';
+                    statusDot.classList.remove('active');
+                    chrome.storage.local.set({ isAutomating: false }); // Revert state safely
+                  }
+                });
               }
             });
-          }
-        });
+          });
+        }
       });
-    } else {
-      // START_AUTOMATION trigger
-      const rawPromptText = promptInput.value;
-      // Split by newline, trim, and filter out empty lines
-      const promptsArray = rawPromptText
-        .split('\n')
-        .map(p => p.trim())
-        .filter(p => p.length > 0);
-
-      if (promptsArray.length === 0) {
-        alert('Please enter at least one prompt!');
-        return;
-      }
-
-      // Clear previous failed prompts log
-      failedPromptsTextarea.value = '';
-      chrome.storage.local.set({ savedFailedPrompts: '' });
-
-      const aspectRatioVal = aspectRatioSelect.value;
-      const imageStyleVal = imageStyleSelect.value;
-      const downloadCountVal = downloadCountSelect.value;
-
-      const state = {
-        isAutomating: true,
-        step: 'INJECT_PROMPT',
-        prompts: promptsArray,
-        aspectRatio: aspectRatioVal,
-        imageStyle: imageStyleVal,
-        downloadCount: downloadCountVal
-      };
-
-      // Update button UI immediately before async storage operation
-      updateButtonState(true);
-      progressText.textContent = `Progress: ${promptsArray.length} prompts remaining`;
-      statusText.textContent = 'Starting...';
-
-      // Save all state values to chrome.storage.local
-      chrome.storage.local.set(state, () => {
-        console.log('[Canva Auto Prompter] Bulk automation state saved:', state);
-
-        // Query explicit Canva tab and send "START_AUTOMATION" message
-        chrome.tabs.query({ url: "*://*.canva.com/*" }, (tabs) => {
-          if (tabs && tabs.length > 0) {
-            chrome.tabs.sendMessage(tabs[0].id, { action: 'START_AUTOMATION' }, (response) => {
-              if (chrome.runtime.lastError) {
-                console.warn('[Canva Auto Prompter] Could not communicate with content script:', chrome.runtime.lastError.message);
-                statusText.textContent = "Error: Please refresh the Canva tab and try again.";
-                statusDot.style.backgroundColor = '#ef4444';
-                statusDot.classList.remove('active');
-                updateButtonState(false);
-              }
-            });
-          }
-        });
-      });
-    }
-  });
+    });
+  }
 
   // --- UTILITY ICONS LOGIC ---
 
@@ -391,6 +410,69 @@ document.addEventListener('DOMContentLoaded', () => {
       if (consoleLogs) {
         consoleLogs.innerHTML = ''; // Wipe all log divs
       }
+    });
+  }
+
+  // --- UI SETTINGS MODAL LOGIC ---
+  const settingsBtn = document.getElementById('settingsBtn');
+  const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+  const settingsModal = document.getElementById('settingsModal');
+  const themeSelect = document.getElementById('themeSelect');
+  const fontSelect = document.getElementById('fontSelect');
+  const batchLimitInput = document.getElementById('batchLimitInput');
+  const safetyDelaySlider = document.getElementById('safetyDelaySlider');
+  const safetyDelayVal = document.getElementById('safetyDelayVal');
+  const soundToggle = document.getElementById('soundToggle');
+
+  if (settingsBtn) settingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+  if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+  function applyCustomUI(theme, font) {
+    document.body.className = ''; // Reset all classes on body
+    if (theme && font) {
+      document.body.classList.add(theme, font);
+    }
+  }
+
+  // Save and apply on change
+  if (themeSelect) {
+    themeSelect.addEventListener('change', () => {
+      chrome.storage.local.set({ uiTheme: themeSelect.value });
+      applyCustomUI(themeSelect.value, fontSelect.value);
+    });
+  }
+
+  if (fontSelect) {
+    fontSelect.addEventListener('change', () => {
+      chrome.storage.local.set({ uiFont: fontSelect.value });
+      applyCustomUI(themeSelect.value, fontSelect.value);
+    });
+  }
+
+  // Advanced Settings Listeners
+  if (safetyDelaySlider && safetyDelayVal) {
+    safetyDelaySlider.addEventListener('input', () => {
+      safetyDelayVal.textContent = safetyDelaySlider.value;
+      chrome.storage.local.set({ safetyDelay: parseInt(safetyDelaySlider.value, 10) });
+    });
+  }
+
+  if (batchLimitInput) {
+    batchLimitInput.addEventListener('change', () => {
+      chrome.storage.local.set({ batchLimit: parseInt(batchLimitInput.value, 10) || 0 });
+    });
+  }
+
+  if (soundToggle) {
+    soundToggle.addEventListener('change', () => {
+      chrome.storage.local.set({ playSounds: soundToggle.checked });
+    });
+  }
+
+  const typingModeSelect = document.getElementById('typingModeSelect');
+  if (typingModeSelect) {
+    typingModeSelect.addEventListener('change', () => {
+      chrome.storage.local.set({ typingMode: typingModeSelect.value });
     });
   }
 });
