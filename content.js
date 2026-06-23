@@ -387,15 +387,31 @@ async function startMainLoop() {
           preFlightCooldown += 5000; // 5s safety buffer
           console.warn(`[Canva Automation] Serving pre-flight cooldown of ${preFlightCooldown}ms...`);
 
-          // 🌟 MAGIC SAUCE: Stamp the element so we ignore it when we wake up
+          // Stamp before sleeping
           tagGhostCooldowns();
 
-          const totalWaitSecs = Math.ceil(preFlightCooldown / 1000);
-          for (let i = totalWaitSecs; i > 0; i--) {
+          // 🌟 ABSOLUTE TIME TRACKING TO BEAT CHROME THROTTLING
+          const targetEndTime = Date.now() + preFlightCooldown;
+
+          while (Date.now() < targetEndTime) {
             if (!isRunning) throw new Error("USER_STOPPED");
-            chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit active: ${formatTime(i)} remaining` });
+
+            const remainingMs = targetEndTime - Date.now();
+            const remainingSecs = Math.ceil(remainingMs / 1000);
+
+            chrome.runtime.sendMessage({
+              action: "STATUS_UPDATE",
+              status: `Limit active: ${formatTime(remainingSecs)} remaining`
+            });
+
+            // Even if Chrome throttles this 1s delay to 10s when the tab is hidden,
+            // the Date.now() calculation above will instantly catch up.
             await delay(1000);
           }
+
+          // 🌟 RE-STAMP UPON WAKING UP (In case React wiped the tags on window focus)
+          tagGhostCooldowns();
+
           sendStatusUpdate("Cooldown complete. Resuming prompt injection...");
         }
         // ---------------------------------
@@ -531,15 +547,28 @@ async function startMainLoop() {
               console.log("[Canva Automation] True rate limit hit (no images generated). Serving cooldown before retry...");
               sendStatusUpdate(`Rate limit! Resting for ${Math.ceil(detectedCooldownMs / 1000)} seconds...`);
 
-              // 🌟 MAGIC SAUCE: Stamp the element so we ignore it when we wake up
+              // Stamp before sleeping
               tagGhostCooldowns();
 
-              const totalWaitSecs = Math.ceil(detectedCooldownMs / 1000);
-              for (let i = totalWaitSecs; i > 0; i--) {
+              // 🌟 ABSOLUTE TIME TRACKING TO BEAT CHROME THROTTLING
+              const targetEndTime = Date.now() + detectedCooldownMs;
+
+              while (Date.now() < targetEndTime) {
                 if (!isRunning) throw new Error("USER_STOPPED");
-                chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit cooldown: ${formatTime(i)} remaining` });
+
+                const remainingMs = targetEndTime - Date.now();
+                const remainingSecs = Math.ceil(remainingMs / 1000);
+
+                chrome.runtime.sendMessage({
+                  action: "STATUS_UPDATE",
+                  status: `Limit cooldown: ${formatTime(remainingSecs)} remaining`
+                });
+
                 await delay(1000);
               }
+
+              // 🌟 RE-STAMP UPON WAKING UP
+              tagGhostCooldowns();
 
               console.log("[Canva Automation] Dynamic cooldown complete. Clearing text field and retyping prompt...");
               sendStatusUpdate("Cooldown done. Retyping prompt...");
@@ -607,12 +636,29 @@ async function startMainLoop() {
         if (pendingCooldownMs > 0) {
           console.log(`[Canva Automation] Serving pending Phantom Success cooldown of ${pendingCooldownMs}ms...`);
           sendStatusUpdate(`Phantom Success cooldown: ${Math.ceil(pendingCooldownMs / 1000)} seconds...`);
-          const totalWaitSecs = Math.ceil(pendingCooldownMs / 1000);
-          for (let i = totalWaitSecs; i > 0; i--) {
+
+          // Stamp before sleeping
+          tagGhostCooldowns();
+
+          // 🌟 ABSOLUTE TIME TRACKING TO BEAT CHROME THROTTLING
+          const targetEndTime = Date.now() + pendingCooldownMs;
+
+          while (Date.now() < targetEndTime) {
             if (!isRunning) throw new Error("USER_STOPPED");
-            chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Next prompt in: ${formatTime(i)}` });
+
+            const remainingMs = targetEndTime - Date.now();
+            const remainingSecs = Math.ceil(remainingMs / 1000);
+
+            chrome.runtime.sendMessage({
+              action: "STATUS_UPDATE",
+              status: `Next prompt in: ${formatTime(remainingSecs)}`
+            });
+
             await delay(1000);
           }
+
+          // 🌟 RE-STAMP UPON WAKING UP
+          tagGhostCooldowns();
         }
 
         // Destructive Queue Shift: Remove processed prompt and update storage/UI
