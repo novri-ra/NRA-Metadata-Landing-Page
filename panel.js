@@ -130,8 +130,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Real-time Save (Input/Change Listeners to prevent data loss)
+  let saveTimeout;
   promptInput.addEventListener('input', () => {
-    chrome.storage.local.set({ savedPromptText: promptInput.value });
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      chrome.storage.local.set({ savedPromptText: promptInput.value });
+    }, 500); // 500ms debounce
   });
 
   aspectRatioSelect.addEventListener('change', () => {
