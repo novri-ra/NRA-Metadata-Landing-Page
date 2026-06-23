@@ -33,10 +33,7 @@ let isLoopActive = false;
 function sendStatusUpdate(statusText) {
   console.log(`[Canva Automation] Status update: ${statusText}`);
   chrome.runtime.sendMessage({ action: 'STATUS_UPDATE', status: statusText }, (response) => {
-    // Ignore runtime error if Side Panel is not open to receive the message
-    if (chrome.runtime.lastError) {
-      // Diagnostic fail-silent
-    }
+    if (chrome.runtime.lastError) return; // Fail silently but correctly
   });
 }
 
@@ -46,7 +43,7 @@ function sendStatusUpdate(statusText) {
  * @returns {Promise<void>}
  */
 function delay(ms) {
-  console.log(`[Canva Automation] Waiting for ${ms}ms...`);
+  if (ms >= 1000) console.log(`[Canva Automation] Waiting for ${ms}ms...`);
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -190,19 +187,25 @@ async function cdpClick(element) {
   const y = Math.round(rect.top + rect.height / 2);
   
   // Timeout wrapper (10 detik maksimal)
-  const response = await Promise.race([
-    new Promise(resolve => chrome.runtime.sendMessage({ action: "CDP_CLICK", x, y }, resolve)),
-    new Promise((_, reject) => setTimeout(() => reject(new Error("CDP_CLICK timeout: Background script unresponsive")), 10000))
-  ]);
+  const response = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("CDP_CLICK timeout: Background script unresponsive")), 10000);
+    chrome.runtime.sendMessage({ action: "CDP_CLICK", x, y }, (res) => {
+      clearTimeout(timer);
+      resolve(res);
+    });
+  });
   if (response && !response.success) throw new Error(response.error || "Unknown CDP_CLICK error");
 }
 
 async function cdpType(text) {
   // Timeout wrapper (10 detik maksimal)
-  const response = await Promise.race([
-    new Promise(resolve => chrome.runtime.sendMessage({ action: "CDP_TYPE", text }, resolve)),
-    new Promise((_, reject) => setTimeout(() => reject(new Error("CDP_TYPE timeout: Background script unresponsive")), 10000))
-  ]);
+  const response = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("CDP_TYPE timeout: Background script unresponsive")), 10000);
+    chrome.runtime.sendMessage({ action: "CDP_TYPE", text }, (res) => {
+      clearTimeout(timer);
+      resolve(res);
+    });
+  });
   if (response && !response.success) throw new Error(response.error || "Unknown CDP_TYPE error");
 }
 
@@ -288,30 +291,29 @@ async function startMainLoop() {
   console.log("[Canva Automation] Starting main automation loop...");
   sendStatusUpdate("Starting automation...");
 
-  // KRITIS-1 FIX: Use await instead of callback so errors propagate to outer .catch()
+  // Natively await storage here. Any pre-flight crash falls to the outer catch block.
   const result = await chrome.storage.local.get(["prompts", "aspectRatio", "imageStyle", "downloadCount"]);
 
+  if (!window.location.href.includes('dream-lab')) {
+    throw new Error("URL_MISMATCH");
+  }
+
+  let prompts = result.prompts || [];
+  const aspectRatio = result.aspectRatio;
+  const imageStyle = result.imageStyle;
+  const downloadCountSetting = result.downloadCount || "4";
+
+  if (prompts.length === 0) {
+    throw new Error("No prompts found in storage.");
+  }
+
+  // Mark status as active automation
+  await chrome.storage.local.set({ isAutomating: true });
+
+  // Explicitly attach the debugger before starting the loop
+  await new Promise(resolve => chrome.runtime.sendMessage({ action: "ATTACH_DEBUGGER" }, resolve));
+
   try {
-    // Pre-flight Check: Ensure loop is on the correct page
-    if (!window.location.href.includes('dream-lab')) {
-      throw new Error("URL_MISMATCH");
-    }
-
-    let prompts = result.prompts || [];
-    const aspectRatio = result.aspectRatio;
-    const imageStyle = result.imageStyle;
-    const downloadCountSetting = result.downloadCount || "4";
-
-    if (prompts.length === 0) {
-      throw new Error("No prompts found in storage.");
-    }
-
-    // Mark status as active automation
-    await chrome.storage.local.set({ isAutomating: true });
-
-    // Explicitly attach the debugger before starting the loop
-    await new Promise(resolve => chrome.runtime.sendMessage({ action: "ATTACH_DEBUGGER" }, resolve));
-
     while (prompts.length > 0 && isRunning) {
       if (await checkIfStopped()) {
         console.log("[Canva Automation] Loop stopped by user request.");
@@ -337,17 +339,6 @@ async function startMainLoop() {
             const totalWaitSecs = Math.ceil(preFlightCooldown / 1000);
             for (let i = totalWaitSecs; i > 0; i--) {
                 if (!isRunning) throw new Error("USER_STOPPED");
-                
-                // Live DOM Sync: Auto-correct if Canva's timer is higher
-                const liveCanvaMs = getScreenCooldownMs();
-                if (liveCanvaMs > 0) {
-                    const liveCanvaSecs = Math.ceil(liveCanvaMs / 1000);
-                    if (liveCanvaSecs > i) {
-                        console.log(`[Canva Automation] Timer auto-correction: ${i}s -> ${liveCanvaSecs}s to match Canva.`);
-                        i = liveCanvaSecs; // Snap back to Canva's exact time
-                    }
-                }
-
                 chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit active: ${formatTime(i)} remaining` });
                 await delay(1000);
             }
@@ -444,6 +435,18 @@ async function startMainLoop() {
           while (pollAttempts <= maxPollAttempts) {
             if (!isRunning) throw new Error("USER_STOPPED");
             await delay(1000);
+
+            // Short-Circuit for content policy violations (NSFW/Filter block)
+            // FIXED: Scoped to strictly look inside toast/alert containers to prevent matching the "Privacy Policy" footer.
+            const policyWarning = document.evaluate(
+                "//div[@role='alert' or @role='status']//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'policy') or contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'unsafe')]",
+                document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+            ).singleNodeValue;
+            
+            if (policyWarning) {
+                console.error("[Canva Automation] 🛑 Content Policy Violation detected.");
+                throw new Error("POLICY_VIOLATION");
+            }
             
             // Dynamic Stale DOM tracker: if React unmounts old off-screen images, lower baseline
             const currentActualCount = document.querySelectorAll('button[aria-label="Download Image"]').length;
@@ -477,17 +480,6 @@ async function startMainLoop() {
                   const totalWaitSecs = Math.ceil(detectedCooldownMs / 1000);
                   for (let i = totalWaitSecs; i > 0; i--) {
                       if (!isRunning) throw new Error("USER_STOPPED");
-                      
-                      // Live DOM Sync: Auto-correct if Canva's timer is higher
-                      const liveCanvaMs = getScreenCooldownMs();
-                      if (liveCanvaMs > 0) {
-                          const liveCanvaSecs = Math.ceil(liveCanvaMs / 1000);
-                          if (liveCanvaSecs > i) {
-                              console.log(`[Canva Automation] Timer auto-correction: ${i}s -> ${liveCanvaSecs}s to match Canva.`);
-                              i = liveCanvaSecs; // Snap back to Canva's exact time
-                          }
-                      }
-
                       chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit cooldown: ${formatTime(i)} remaining` });
                       await delay(1000);
                   }
@@ -539,11 +531,13 @@ async function startMainLoop() {
         const buttonsToDownload = newestButtons.slice(0, targetCount);
 
         // 4. Download click loop
-        for (let i = 0; i < buttonsToDownload.length; i++) {
+        for (let i = 0; i < targetCount; i++) {
           if (!isRunning) throw new Error("USER_STOPPED");
-          console.log(`[Canva Automation] Downloading image ${i + 1}/${buttonsToDownload.length}`);
-          sendStatusUpdate(`Downloading image ${i + 1} of ${buttonsToDownload.length}...`);
-          await cdpClick(buttonsToDownload[i]);
+          const freshBtns = document.querySelectorAll('button[aria-label="Download Image"]');
+          if (i >= freshBtns.length) break; // Safety check
+          console.log(`[Canva Automation] Downloading image ${i + 1}/${targetCount}`);
+          sendStatusUpdate(`Downloading image ${i + 1} of ${targetCount}...`);
+          await cdpClick(freshBtns[i]);
           await delay(1500);
         }
 
@@ -559,17 +553,6 @@ async function startMainLoop() {
             const totalWaitSecs = Math.ceil(pendingCooldownMs / 1000);
             for (let i = totalWaitSecs; i > 0; i--) {
                 if (!isRunning) throw new Error("USER_STOPPED");
-                
-                // Live DOM Sync: Auto-correct if Canva's timer is higher
-                const liveCanvaMs = getScreenCooldownMs();
-                if (liveCanvaMs > 0) {
-                    const liveCanvaSecs = Math.ceil(liveCanvaMs / 1000);
-                    if (liveCanvaSecs > i) {
-                        console.log(`[Canva Automation] Timer auto-correction: ${i}s -> ${liveCanvaSecs}s to match Canva.`);
-                        i = liveCanvaSecs; // Snap back to Canva's exact time
-                    }
-                }
-
                 chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Next prompt in: ${formatTime(i)}` });
                 await delay(1000);
             }
@@ -593,6 +576,19 @@ async function startMainLoop() {
           await new Promise(resolve => chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve));
           return; // Break the main loop and exit completely
         }
+
+        // WARN-02 FIX: Handle policy violation gracefully without page reload
+        if (error.message === "POLICY_VIOLATION") {
+          console.warn("[Canva Automation] Policy violation. Skipping prompt without reload.");
+          chrome.runtime.sendMessage({ action: "PROMPT_FAILED", failedPrompt: currentPrompt });
+          prompts.shift();
+          await chrome.storage.local.set({ prompts: prompts });
+          chrome.runtime.sendMessage({ action: "UPDATE_TEXTAREA", remainingPrompts: prompts });
+          sendStatusUpdate("Policy violation. Skipping to next prompt...");
+          await delay(2000); // Breathe before next iteration
+          continue; // Immediately jump to next loop iteration smoothly
+        }
+
         console.warn("[Canva Automation] Prompt failed/skipped:", currentPrompt, error);
         
         // Send the failed prompt to the panel
@@ -692,7 +688,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
   try {
-    // OPT-1 FIX: Use promise-based storage API for proper async/await error propagation
     const result = await chrome.storage.local.get(["isAutomating"]);
     console.log("[Canva Automation] Local state retrieved on load:", result);
     if (result && result.isAutomating === true) {
@@ -701,6 +696,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.warn("[Canva Automation] Loop already active on resume. Skipping.");
         return;
       }
+
+      // STABILITY BUFFER: Prevent instant crash during hard-refresh state flux
+      console.log("[Canva Automation] Auto-resume triggered. Waiting 4 seconds for React SPA stability...");
+      await new Promise(resolve => setTimeout(resolve, 4000));
+
+      // Re-verify that user didn't hit stop during the 4-second buffer
+      const doubleCheck = await chrome.storage.local.get(["isAutomating"]);
+      if (!doubleCheck || doubleCheck.isAutomating !== true) {
+        console.log("[Canva Automation] User stopped during stability buffer. Aborting resume.");
+        return;
+      }
+
       isRunning = true;
       isLoopActive = true;
       startMainLoop()
