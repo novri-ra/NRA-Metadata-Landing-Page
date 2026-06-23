@@ -25,6 +25,8 @@ console.error = function (...args) { originalConsoleError.apply(console, args); 
 let isRunning = false;
 // Mutex guard: prevents concurrent startMainLoop() invocations (KRITIS-2)
 let isLoopActive = false;
+// Session Statistics Telemetry
+let sessionStats = { startTime: null, successCount: 0, downloadCount: 0, totalCooldowns: 0 };
 
 /**
  * Sends a status update message to the Side Panel/Popup.
@@ -340,6 +342,9 @@ async function startMainLoop() {
   console.log("[Canva Automation] Starting main automation loop...");
   sendStatusUpdate("Starting automation...");
 
+  // Initialize Session Statistics
+  sessionStats = { startTime: Date.now(), successCount: 0, downloadCount: 0, totalCooldowns: 0 };
+
   // Natively await storage here. Any pre-flight crash falls to the outer catch block.
   const result = await chrome.storage.local.get(["prompts", "aspectRatio", "imageStyle", "downloadCount"]);
 
@@ -384,6 +389,7 @@ async function startMainLoop() {
         let preFlightCooldown = getScreenCooldownMs();
 
         if (preFlightCooldown > 0) {
+          sessionStats.totalCooldowns++;
           preFlightCooldown += 5000; // 5s safety buffer
           console.warn(`[Canva Automation] Serving pre-flight cooldown of ${preFlightCooldown}ms...`);
 
@@ -539,11 +545,13 @@ async function startMainLoop() {
             console.log("[Canva Automation] Images successfully generated!");
             submissionSuccessful = true;
             if (detectedCooldownMs > 0) {
+              sessionStats.totalCooldowns++;
               console.log(`[Canva Automation] Phantom Success detected. Queuing cooldown of ${detectedCooldownMs}ms for AFTER download.`);
               pendingCooldownMs = detectedCooldownMs;
             }
           } else {
             if (detectedCooldownMs > 0) {
+              sessionStats.totalCooldowns++;
               console.log("[Canva Automation] True rate limit hit (no images generated). Serving cooldown before retry...");
               sendStatusUpdate(`Rate limit! Resting for ${Math.ceil(detectedCooldownMs / 1000)} seconds...`);
 
@@ -624,6 +632,7 @@ async function startMainLoop() {
           console.log(`[Canva Automation] Downloading image ${i + 1}/${targetCount}`);
           sendStatusUpdate(`Downloading image ${i + 1} of ${targetCount}...`);
           await cdpClick(freshBtns[i]);
+          sessionStats.downloadCount++;
           await delay(1500);
         }
 
@@ -663,6 +672,7 @@ async function startMainLoop() {
 
         // Destructive Queue Shift: Remove processed prompt and update storage/UI
         prompts.shift();
+        sessionStats.successCount++;
         await chrome.storage.local.set({ prompts: prompts });
         chrome.runtime.sendMessage({ action: "UPDATE_TEXTAREA", remainingPrompts: prompts });
 
@@ -732,6 +742,16 @@ async function startMainLoop() {
     if (isRunning && prompts.length === 0) {
       chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
         console.log('[Canva Automation] Reset state to IDLE. Bulk automation complete.');
+
+        const totalDurationMin = Math.round(((Date.now() - sessionStats.startTime) / 1000) / 60);
+        console.log(`[Canva Automation] =======================================`);
+        console.log(`[Canva Automation] 📊 BATCH GENERATION SUMMARY:`);
+        console.log(`[Canva Automation] - Total Time: ${totalDurationMin} minutes`);
+        console.log(`[Canva Automation] - Prompts Processed: ${sessionStats.successCount}`);
+        console.log(`[Canva Automation] - Images Downloaded: ${sessionStats.downloadCount} assets`);
+        console.log(`[Canva Automation] - Cooldowns Encountered: ${sessionStats.totalCooldowns} times`);
+        console.log(`[Canva Automation] =======================================`);
+
         sendStatusUpdate("Bulk generation complete!");
       });
     }
