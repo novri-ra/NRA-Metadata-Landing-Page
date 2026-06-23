@@ -265,6 +265,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return true; // Keep channel open
   });
 
+  // Global storage listener to keep UI in sync if automation state changes elsewhere
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.isAutomating) {
+      const isNowAutomating = changes.isAutomating.newValue;
+      updateButtonState(isNowAutomating);
+    }
+  });
+
   // Action dispatcher with Start/Stop toggle
   startBtn.addEventListener('click', () => {
     if (isRunning) {
@@ -317,12 +325,14 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadCount: downloadCountVal
       };
 
+      // Update button UI immediately before async storage operation
+      updateButtonState(true);
+      progressText.textContent = `Progress: ${promptsArray.length} prompts remaining`;
+      statusText.textContent = 'Starting...';
+
       // Save all state values to chrome.storage.local
       chrome.storage.local.set(state, () => {
         console.log('[Canva Auto Prompter] Bulk automation state saved:', state);
-        progressText.textContent = `Progress: ${promptsArray.length} prompts remaining`;
-        statusText.textContent = 'Starting...';
-        updateButtonState(true);
 
         // Query explicit Canva tab and send "START_AUTOMATION" message
         chrome.tabs.query({ url: "*://*.canva.com/*" }, (tabs) => {
