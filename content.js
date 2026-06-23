@@ -73,13 +73,18 @@ async function checkIfStopped() {
  */
 function tagGhostCooldowns() {
   const warnings = document.evaluate(
-    "//*[not(@data-bot-ignored='true') and not(ancestor-or-self::*[@role='alert' or @role='status']) and (contains(text(), 'generate again in') or contains(text(), 'Try again in'))]",
+    "//*[not(@data-bot-ignored='true') and (contains(text(), 'Lots of people are using Dream Lab') or (not(ancestor-or-self::*[@role='alert' or @role='status']) and (contains(text(), 'generate again in') or contains(text(), 'Try again in'))))]",
     document, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null
   );
+
   for (let i = 0; i < warnings.snapshotLength; i++) {
     const el = warnings.snapshotItem(i);
     el.setAttribute('data-bot-ignored', 'true');
-    el.style.opacity = '0.3'; // Visual feedback that bot has processed this
+    el.style.opacity = '0.3';
+
+    // Auto-click the Dismiss 'X' button if it exists nearby
+    const dismissBtn = el.closest('div')?.querySelector('button[aria-label="Dismiss"]');
+    if (dismissBtn) dismissBtn.click();
   }
 }
 
@@ -89,6 +94,18 @@ function tagGhostCooldowns() {
  * @returns {number} Cooldown in milliseconds, or 0 if not found.
  */
 function getScreenCooldownMs() {
+  // 1. Check for Canva Server Overload / Busy text
+  const busyWarning = document.evaluate(
+    "//*[not(@data-bot-ignored='true') and contains(text(), 'Lots of people are using Dream Lab')]",
+    document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+  ).singleNodeValue;
+
+  if (busyWarning) {
+    console.warn("[Canva Automation] Server overload detected. Defaulting to 3 minutes cooldown.");
+    return 3 * 60 * 1000; // Default to 3 minutes (180,000 ms)
+  }
+
+  // 2. Check for standard specific time limit (e.g., 2:36)
   const staticWarning = document.evaluate(
     "//*[not(@data-bot-ignored='true') and not(ancestor-or-self::*[@role='alert' or @role='status']) and (contains(text(), 'generate again in') or contains(text(), 'Try again in'))]",
     document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
@@ -217,6 +234,27 @@ async function cdpType(text) {
     });
   });
   if (response && !response.success) throw new Error(response.error || "Unknown CDP_TYPE error");
+}
+
+async function cdpTypeHuman(text) {
+  console.log(`[Canva Automation] Typing prompt with human animation...`);
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    // Send single character
+    const response = await new Promise(resolve => {
+      chrome.runtime.sendMessage({ action: "CDP_TYPE", text: char }, resolve);
+    });
+
+    // Strict error validation
+    if (!response || response.success === false) {
+      throw new Error(response?.error || chrome.runtime.lastError?.message || "CDP connection lost during typing");
+    }
+
+    // Random delay between 15ms and 60ms to simulate human typing speed
+    const typeDelay = Math.floor(Math.random() * 45) + 15;
+    await delay(typeDelay);
+  }
 }
 
 /**
@@ -380,22 +418,22 @@ async function startMainLoop() {
         const textarea = await waitForElement('textarea[placeholder*="Describe"], textarea[class*="canva"]', false, 15000);
         sendStatusUpdate("Typing prompt...");
 
-        // Focus the textarea, clear it natively, then type via CDP
+        // Focus the textarea, clear it natively, then type via CDP with human animation
         await cdpClick(textarea);
         await delay(200);
         textarea.value = '';
         textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        await cdpType(currentPrompt);
+        await cdpTypeHuman(currentPrompt);
         await delay(500);
 
         if (!isRunning) throw new Error("USER_STOPPED");
         if (textarea.value !== currentPrompt) {
-          console.warn("[Canva Automation] Value mismatch detected. Retrying cdpType...");
+          console.warn("[Canva Automation] Value mismatch detected. Retrying cdpTypeHuman...");
           await cdpClick(textarea);
           await delay(200);
           textarea.value = '';
           textarea.dispatchEvent(new Event('input', { bubbles: true }));
-          await cdpType(currentPrompt);
+          await cdpTypeHuman(currentPrompt);
           await delay(500);
         }
         if (textarea.value !== currentPrompt) {
@@ -506,7 +544,7 @@ async function startMainLoop() {
               console.log("[Canva Automation] Dynamic cooldown complete. Clearing text field and retyping prompt...");
               sendStatusUpdate("Cooldown done. Retyping prompt...");
 
-              // Retype prompt logic
+              // Retype prompt logic with human animation
               const retryTextarea = await waitForElement('textarea[placeholder*="Describe"], textarea[class*="canva"]', false, 5000);
               if (retryTextarea) {
                 await cdpClick(retryTextarea);
@@ -514,7 +552,7 @@ async function startMainLoop() {
                 retryTextarea.value = '';
                 retryTextarea.dispatchEvent(new Event('input', { bubbles: true }));
                 await delay(300);
-                await cdpType(currentPrompt);
+                await cdpTypeHuman(currentPrompt);
                 await delay(500);
               }
             } else {
