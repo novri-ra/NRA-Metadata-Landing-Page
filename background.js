@@ -28,7 +28,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     (async () => {
       try {
         const targetId = { tabId: sender.tab.id };
+
+        // Multi-Tab Mutex Guard
+        const storage = await chrome.storage.local.get(['activeAutomationTab']);
+        if (storage.activeAutomationTab && storage.activeAutomationTab !== targetId.tabId) {
+          sendResponse({ success: false, error: "Another Canva tab is already running automation!" });
+          return;
+        }
+        await chrome.storage.local.set({ activeAutomationTab: targetId.tabId });
+
         await chrome.debugger.attach(targetId, "1.3");
+
+        // Prevent system from sleeping during long automation runs
+        chrome.power.requestKeepAwake("system");
+
         sendResponse({ success: true });
       } catch (e) {
         // If already attached, consider it a success/warning but don't fail
@@ -46,6 +59,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     (async () => {
       try {
         const targetId = { tabId: sender.tab.id };
+        chrome.storage.local.remove(['activeAutomationTab']);
+
+        // Allow system to sleep again
+        chrome.power.releaseKeepAwake();
+
         await chrome.debugger.detach(targetId);
         sendResponse({ success: true });
       } catch (e) {
@@ -110,4 +128,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     })();
     return true;
   }
+});
+
+// Clear mutex lock if debugger detaches organically or extension unloads
+chrome.debugger.onDetach.addListener((source, reason) => {
+  chrome.storage.local.remove(['activeAutomationTab']);
+  chrome.power.releaseKeepAwake();
 });
