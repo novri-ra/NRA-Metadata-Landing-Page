@@ -75,20 +75,23 @@ async function checkIfStopped() {
  * @returns {number} Cooldown in milliseconds, or 0 if not found.
  */
 function getScreenCooldownMs() {
-  const warningEl = document.evaluate(
+  const warningEls = document.evaluate(
     "//*[contains(text(), 'generate again in') or contains(text(), 'Try again in')]",
-    document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
-  ).singleNodeValue;
+    document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
+  );
   
-  if (warningEl) {
-    const timeMatch = warningEl.textContent.match(/(\d+):(\d+)/);
+  let maxMs = 0;
+  for (let i = 0; i < warningEls.snapshotLength; i++) {
+    const text = warningEls.snapshotItem(i).textContent;
+    const timeMatch = text.match(/(\d+):(\d+)/);
     if (timeMatch) {
       const minutes = parseInt(timeMatch[1], 10);
       const seconds = parseInt(timeMatch[2], 10);
-      return ((minutes * 60) + seconds) * 1000;
+      const ms = ((minutes * 60) + seconds) * 1000;
+      if (ms > maxMs) maxMs = ms;
     }
   }
-  return 0;
+  return maxMs;
 }
 
 /**
@@ -334,6 +337,17 @@ async function startMainLoop() {
             const totalWaitSecs = Math.ceil(preFlightCooldown / 1000);
             for (let i = totalWaitSecs; i > 0; i--) {
                 if (!isRunning) throw new Error("USER_STOPPED");
+                
+                // Live DOM Sync: Auto-correct if Canva's timer is higher
+                const liveCanvaMs = getScreenCooldownMs();
+                if (liveCanvaMs > 0) {
+                    const liveCanvaSecs = Math.ceil(liveCanvaMs / 1000);
+                    if (liveCanvaSecs > i) {
+                        console.log(`[Canva Automation] Timer auto-correction: ${i}s -> ${liveCanvaSecs}s to match Canva.`);
+                        i = liveCanvaSecs; // Snap back to Canva's exact time
+                    }
+                }
+
                 chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit active: ${formatTime(i)} remaining` });
                 await delay(1000);
             }
@@ -463,6 +477,17 @@ async function startMainLoop() {
                   const totalWaitSecs = Math.ceil(detectedCooldownMs / 1000);
                   for (let i = totalWaitSecs; i > 0; i--) {
                       if (!isRunning) throw new Error("USER_STOPPED");
+                      
+                      // Live DOM Sync: Auto-correct if Canva's timer is higher
+                      const liveCanvaMs = getScreenCooldownMs();
+                      if (liveCanvaMs > 0) {
+                          const liveCanvaSecs = Math.ceil(liveCanvaMs / 1000);
+                          if (liveCanvaSecs > i) {
+                              console.log(`[Canva Automation] Timer auto-correction: ${i}s -> ${liveCanvaSecs}s to match Canva.`);
+                              i = liveCanvaSecs; // Snap back to Canva's exact time
+                          }
+                      }
+
                       chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit cooldown: ${formatTime(i)} remaining` });
                       await delay(1000);
                   }
@@ -534,6 +559,17 @@ async function startMainLoop() {
             const totalWaitSecs = Math.ceil(pendingCooldownMs / 1000);
             for (let i = totalWaitSecs; i > 0; i--) {
                 if (!isRunning) throw new Error("USER_STOPPED");
+                
+                // Live DOM Sync: Auto-correct if Canva's timer is higher
+                const liveCanvaMs = getScreenCooldownMs();
+                if (liveCanvaMs > 0) {
+                    const liveCanvaSecs = Math.ceil(liveCanvaMs / 1000);
+                    if (liveCanvaSecs > i) {
+                        console.log(`[Canva Automation] Timer auto-correction: ${i}s -> ${liveCanvaSecs}s to match Canva.`);
+                        i = liveCanvaSecs; // Snap back to Canva's exact time
+                    }
+                }
+
                 chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Next prompt in: ${formatTime(i)}` });
                 await delay(1000);
             }
