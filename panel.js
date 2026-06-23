@@ -351,4 +351,42 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   });
+
+  // --- UTILITY ICONS LOGIC ---
+
+  // 1. Open Dream Lab Shortcut
+  const openDreamLabBtn = document.getElementById('openDreamLabBtn');
+  if (openDreamLabBtn) {
+    openDreamLabBtn.addEventListener('click', () => {
+      chrome.tabs.create({ url: 'https://www.canva.com/dream-lab' });
+    });
+  }
+
+  // 2. Clear Prompts Trash Can
+  const clearPromptsBtn = document.getElementById('clearPromptsBtn');
+  if (clearPromptsBtn) {
+    clearPromptsBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to clear all prompts?')) {
+        const promptInput = document.getElementById('promptInput');
+        if (promptInput) {
+          promptInput.value = '';
+          chrome.storage.local.set({ savedPromptText: '' });
+
+          const progressText = document.getElementById('progressText');
+          if (progressText) progressText.textContent = 'Progress: 0 prompts remaining';
+        }
+      }
+    });
+  }
+
+  // 3. Clear Terminal Logs Trash Can
+  const clearLogsBtn = document.getElementById('clearLogsBtn');
+  if (clearLogsBtn) {
+    clearLogsBtn.addEventListener('click', () => {
+      const consoleLogs = document.getElementById('consoleLogs');
+      if (consoleLogs) {
+        consoleLogs.innerHTML = ''; // Wipe all log divs
+      }
+    });
+  }
 });
