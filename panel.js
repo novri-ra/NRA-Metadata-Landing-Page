@@ -34,25 +34,25 @@ document.addEventListener('DOMContentLoaded', () => {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
       const ctx = new AudioContextClass();
-      
+
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      
+
       osc.connect(gain);
       gain.connect(ctx.destination);
-      
+
       const now = ctx.currentTime;
-      
+
       // Tone 1: 523.25Hz for 150ms
       osc.frequency.setValueAtTime(523.25, now);
       gain.gain.setValueAtTime(0.15, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-      
+
       // Tone 2: 659.25Hz for 300ms
       osc.frequency.setValueAtTime(659.25, now + 0.15);
       gain.gain.setValueAtTime(0.15, now + 0.15);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-      
+
       osc.start(now);
       osc.stop(now + 0.45);
 
@@ -158,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // WARN-7 FIX: Only handle actions explicitly intended for the panel.
     // Ignore CDP/debugger commands so we don't hijack background.js responses.
     const PANEL_ACTIONS = new Set([
-      "CONSOLE_LOG", "PROMPT_FAILED", "UPDATE_TEXTAREA", "STATUS_UPDATE"
+      "CONSOLE_LOG", "PROMPT_FAILED", "UPDATE_TEXTAREA", "STATUS_UPDATE", "PROGRESS_UPDATE"
     ]);
 
     // If message has an action that is NOT for the panel, return early without responding
@@ -176,11 +176,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (consoleLogs) {
         const time = new Date().toLocaleTimeString('en-US', { hour12: false });
         const prefix = request.level === 'ERROR' ? '[!]' : request.level === 'WARN' ? '[?]' : '[>]';
-        
+
         const logDiv = document.createElement('div');
         logDiv.className = `log-entry log-${request.level.toLowerCase()}`;
         logDiv.textContent = `${time} ${prefix} ${request.message}`;
-        
+
         consoleLogs.appendChild(logDiv);
 
         // OPT-7 FIX: Cap terminal log DOM nodes to prevent memory bloat on long sessions
@@ -216,28 +216,30 @@ document.addEventListener('DOMContentLoaded', () => {
       return true;
     }
 
-    // Handle progress (messages without explicit action key)
-    if (request.progress) {
-      progressText.textContent = `Progress: ${request.progress}`;
+    // Handle progress
+    if (request.action === "PROGRESS_UPDATE") {
+      if (progressText) progressText.textContent = request.progress;
+      sendResponse({ success: true });
+      return true;
     }
 
     const statusValue = request.status || (request.action === 'STATUS_UPDATE' ? request.status : null);
-    
+
     if (statusValue) {
       console.log('[Canva Auto Prompter] Received status update:', statusValue);
       statusText.textContent = statusValue;
-      
+
       const statusLower = statusValue.toLowerCase();
       if (statusLower.includes('error') || statusLower.includes('stopped') || statusLower.includes('complete')) {
         updateButtonState(false);
-        
+
         if (statusLower.includes('error')) {
           statusDot.style.backgroundColor = '#ef4444';
           statusDot.classList.remove('active');
         } else {
           statusDot.style.backgroundColor = '#10b981';
           statusDot.classList.add('active');
-          
+
           // Trigger alerts on clean completion
           if (statusLower.includes('complete')) {
             playAlertSound();
