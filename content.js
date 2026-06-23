@@ -51,6 +51,17 @@ function delay(ms) {
 }
 
 /**
+ * Formats raw seconds into an MM:SS string (e.g., 252 -> "4:12").
+ * @param {number} totalSeconds 
+ * @returns {string}
+ */
+function formatTime(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = (totalSeconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+/**
  * Helper to check if automation has been stopped by the user.
  * @returns {Promise<boolean>}
  */
@@ -323,7 +334,7 @@ async function startMainLoop() {
             const totalWaitSecs = Math.ceil(preFlightCooldown / 1000);
             for (let i = totalWaitSecs; i > 0; i--) {
                 if (!isRunning) throw new Error("USER_STOPPED");
-                chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit active: ${i}s remaining` });
+                chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit active: ${formatTime(i)} remaining` });
                 await delay(1000);
             }
             sendStatusUpdate("Cooldown complete. Resuming prompt injection...");
@@ -452,7 +463,7 @@ async function startMainLoop() {
                   const totalWaitSecs = Math.ceil(detectedCooldownMs / 1000);
                   for (let i = totalWaitSecs; i > 0; i--) {
                       if (!isRunning) throw new Error("USER_STOPPED");
-                      chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit cooldown: ${i}s remaining` });
+                      chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Limit cooldown: ${formatTime(i)} remaining` });
                       await delay(1000);
                   }
                   
@@ -523,7 +534,7 @@ async function startMainLoop() {
             const totalWaitSecs = Math.ceil(pendingCooldownMs / 1000);
             for (let i = totalWaitSecs; i > 0; i--) {
                 if (!isRunning) throw new Error("USER_STOPPED");
-                chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Next prompt in: ${i}s` });
+                chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Next prompt in: ${formatTime(i)}` });
                 await delay(1000);
             }
         }
