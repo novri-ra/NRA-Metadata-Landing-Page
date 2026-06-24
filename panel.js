@@ -134,6 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const safetyDelayVal = document.getElementById('safetyDelayVal');
       const soundToggle = document.getElementById('soundToggle');
       const subfolderToggle = document.getElementById('subfolderToggle');
+      const verboseLogsToggle = document.getElementById('verboseLogsToggle');
 
       if (result.typingMode && typingModeSelect) typingModeSelect.value = result.typingMode;
       if (result.batchLimit !== undefined && batchLimitInput) batchLimitInput.value = result.batchLimit;
@@ -143,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (result.playSounds !== undefined && soundToggle) soundToggle.checked = result.playSounds;
       if (subfolderToggle) subfolderToggle.checked = result.createSubfolder === true;
+      if (verboseLogsToggle) verboseLogsToggle.checked = result.verboseLogs !== false;
 
       // Prioritize active processing prompts if automating, otherwise fall back to auto-saved prompt text
       if (result.isAutomating === true && result.prompts && result.prompts.length > 0) {
@@ -208,6 +210,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (subfolderToggle) {
     subfolderToggle.addEventListener('change', () => {
       chrome.storage.local.set({ createSubfolder: subfolderToggle.checked });
+    });
+  }
+
+  const verboseLogsToggle = document.getElementById('verboseLogsToggle');
+  if (verboseLogsToggle) {
+    verboseLogsToggle.addEventListener('change', () => {
+      chrome.storage.local.set({ verboseLogs: verboseLogsToggle.checked });
     });
   }
 
