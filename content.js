@@ -264,50 +264,97 @@ async function selectCanvaConfiguration(typeLabel, optionText) {
 
   const escapedOption = optionText.replace(/'/g, "\\'");
 
-  // 1. Check if the option is ALREADY selected on screen using aria-pressed="true"
-  const alreadyActiveXpath = `//div[@role='button' and @aria-pressed='true' and (@aria-label='${escapedOption}' or contains(@aria-label, '${escapedOption}'))]`;
-  const alreadyActiveNode = document.evaluate(alreadyActiveXpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+  // Helper function to find the exact target option in the grid
+  const findTargetOption = () => {
+    let xpath = `//div[@role='button' and @aria-label='${escapedOption}']`;
+    let node = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+    if (!node) {
+      xpath = `//*[(local-name()='button' or @role='button') and contains(normalize-space(), '${escapedOption}')]`;
+      node = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+    }
+    return node;
+  };
 
-  if (alreadyActiveNode) {
-    console.log(`[Canva Automation] ${typeLabel} '${optionText}' is already active (aria-pressed=true). Skipping configuration click.`);
-    return; // Exit early, no clicks needed!
+  let targetButton = findTargetOption();
+  let isTargetVisible = targetButton && targetButton.getBoundingClientRect().height > 0;
+
+  // 1. IF THE TARGET IS HIDDEN OR NOT FOUND, WE MUST OPEN THE MENU FIRST
+  if (!isTargetVisible) {
+    console.log(`[Canva Automation] ${typeLabel} menu seems closed. Opening it...`);
+
+    // Find the main trigger button at the bottom ("Style" or "16:9")
+    let triggerXpath = "";
+    if (typeLabel === 'Style') {
+      triggerXpath = `//*[(local-name()='button' or @role='button') and (contains(normalize-space(), 'Style') or contains(normalize-space(), 'None') or contains(normalize-space(), 'Smart'))]`;
+    } else {
+      triggerXpath = `//*[(local-name()='button' or @role='button') and (contains(normalize-space(), ':') or contains(normalize-space(), 'Ratio'))]`;
+    }
+
+    const triggerNodes = document.evaluate(triggerXpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+    let triggerBtn = null;
+
+    for (let i = 0; i < triggerNodes.snapshotLength; i++) {
+      const node = triggerNodes.snapshotItem(i);
+      const rect = node.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        triggerBtn = node;
+        // Prioritize exact matches if possible
+        if (node.textContent.trim() === typeLabel) break;
+      }
+    }
+
+    if (triggerBtn) {
+      triggerBtn.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      await delay(500);
+      const rect = triggerBtn.getBoundingClientRect();
+
+      // Click to open the menu
+      await new Promise(resolve => chrome.runtime.sendMessage({ action: "CDP_CLICK", x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) }, resolve));
+      await delay(1000); // Give the popover grid time to animate and render
+
+      // Re-evaluate the target button now that the menu is open
+      targetButton = findTargetOption();
+      isTargetVisible = targetButton && targetButton.getBoundingClientRect().height > 0;
+    } else {
+      console.warn(`[Canva Automation] ⚠️ Could not find the main trigger button to open the ${typeLabel} menu.`);
+    }
   }
 
-  console.log(`[Canva Automation] Config mismatch or first-run. Setting ${typeLabel} to '${optionText}'...`);
+  // 2. FINAL VALIDATION BEFORE CLICKING
+  if (!isTargetVisible) {
+    console.warn(`[Canva Automation] ⚠️ ${typeLabel} option '${optionText}' not found on screen. Proceeding with default/current settings.`);
+    return; // Graceful exit without throwing an error
+  }
 
-  // 2. Locate the clickable button element (where aria-pressed may be false)
-  const targetButtonXpath = `//div[@role='button' and (@aria-label='${escapedOption}' or contains(@aria-label, '${escapedOption}'))]`;
-  const targetButton = document.evaluate(targetButtonXpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+  // 3. CHECK IF ALREADY ACTIVE (aria-pressed="true")
+  if (targetButton.getAttribute('aria-pressed') === 'true') {
+    console.log(`[Canva Automation] ${typeLabel} '${optionText}' is already active. Skipping clicks!`);
 
-  if (!targetButton) {
-    console.warn(`[Canva Automation] Target configuration button for '${optionText}' not found in DOM.`);
+    // Optional: If the menu is open but the option is already selected, click the main trigger again to close it (keeps UI clean)
+    // We'll just let it be for now, as clicking outside or generating usually closes it.
     return;
   }
 
-  // Scroll into view safely before checking coordinates
-  targetButton.scrollIntoView({ block: 'center', inline: 'center' });
-  await new Promise(resolve => setTimeout(resolve, 250));
+  // 4. SCROLL AND CLICK THE TARGET OPTION
+  console.log(`[Canva Automation] Setting ${typeLabel} to '${optionText}'...`);
+  targetButton.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+  await delay(700);
 
-  const rect = targetButton.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) {
-    console.warn(`[Canva Automation] Target button for '${optionText}' is not visible on screen.`);
-    return;
-  }
+  const targetRect = targetButton.getBoundingClientRect();
+  const clickX = Math.round(targetRect.left + targetRect.width / 2);
+  const clickY = Math.round(targetRect.top + targetRect.height / 2);
 
-  const clickX = Math.round(rect.left + rect.width / 2);
-  const clickY = Math.round(rect.top + rect.height / 2);
-
-  // Dispatch trusted CDP click to select the style/ratio option
   const response = await new Promise(resolve => {
     chrome.runtime.sendMessage({ action: "CDP_CLICK", x: clickX, y: clickY }, resolve);
   });
 
   if (!response || response.success === false) {
-    throw new Error(response?.error || chrome.runtime.lastError?.message || `Failed to click configuration option ${optionText}`);
+    console.warn(`[Canva Automation] ⚠️ Failed to execute CDP click on ${optionText}.`);
+  } else {
+    console.log(`[Canva Automation] Successfully selected ${typeLabel}: ${optionText}`);
   }
 
-  // 4s stability delay for layout tree recalculation
-  await new Promise(resolve => setTimeout(resolve, 1500));
+  await delay(1000); // Stabilize UI
 }
 
 /**
