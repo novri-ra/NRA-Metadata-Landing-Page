@@ -139,7 +139,8 @@ chrome.debugger.onDetach.addListener((source, reason) => {
 // Smart Auto-Rename API: Intercept downloads and rename based on current prompt
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
   // Only intercept if the automation lock is active
-  chrome.storage.local.get(['activeAutomationTab', 'currentActivePrompt'], (res) => {
+  // Add 'createSubfolder' to the storage query
+  chrome.storage.local.get(['activeAutomationTab', 'currentActivePrompt', 'createSubfolder'], (res) => {
     if (res.activeAutomationTab && res.currentActivePrompt) {
 
       // Clean the prompt to make it a valid, SEO-friendly filename
@@ -153,7 +154,12 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
 
       // Keep the original extension (e.g., .jpg, .png)
       const fileExt = item.filename.split('.').pop() || "jpg";
-      const finalName = `Canva_Auto/${cleanName}_${Date.now()}.${fileExt}`;
+
+      // Determine if we should add the folder prefix
+      const useSubfolder = res.createSubfolder === true;
+      const folderPrefix = useSubfolder ? "Canva_Auto/" : "";
+
+      const finalName = `${folderPrefix}${cleanName}_${Date.now()}.${fileExt}`;
 
       suggest({ filename: finalName, conflictAction: 'uniquify' });
     } else {
