@@ -135,3 +135,31 @@ chrome.debugger.onDetach.addListener((source, reason) => {
   chrome.storage.local.remove(['activeAutomationTab']);
   chrome.power.releaseKeepAwake();
 });
+
+// Smart Auto-Rename API: Intercept downloads and rename based on current prompt
+chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
+  // Only intercept if the automation lock is active
+  chrome.storage.local.get(['activeAutomationTab', 'currentActivePrompt'], (res) => {
+    if (res.activeAutomationTab && res.currentActivePrompt) {
+
+      // Clean the prompt to make it a valid, SEO-friendly filename
+      let cleanName = res.currentActivePrompt
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_') // Replace non-alphanumeric with underscores
+        .replace(/^_+|_+$/g, '')     // Trim edge underscores
+        .substring(0, 50);           // Limit to 50 characters to prevent OS path errors
+
+      if (!cleanName) cleanName = "canva_asset";
+
+      // Keep the original extension (e.g., .jpg, .png)
+      const fileExt = item.filename.split('.').pop() || "jpg";
+      const finalName = `Canva_Auto/${cleanName}_${Date.now()}.${fileExt}`;
+
+      suggest({ filename: finalName, conflictAction: 'uniquify' });
+    } else {
+      // Let it download normally if bot is not running
+      suggest();
+    }
+  });
+  return true; // Indicates asynchronous suggestion
+});
