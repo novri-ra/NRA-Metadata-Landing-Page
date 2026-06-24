@@ -81,13 +81,10 @@
     .status-container {
       display: flex;
       align-items: flex-start;
-      /* Aligns items to the top if text wraps */
       gap: 10px;
       padding: 12px;
       background-color: #1e293b;
-      /* Adjust to match your exact panel background */
       border: 2px solid #334155;
-      /* Adjust to match your panel border */
       margin-bottom: 20px;
       box-shadow: 4px 4px 0px #020617;
       color: #cbd5e1;
@@ -100,9 +97,7 @@
       align-items: center;
       gap: 6px;
       white-space: nowrap;
-      /* Prevents "Status: [Icon]" from breaking */
       flex-shrink: 0;
-      /* Prevents the label from being squished */
       font-weight: bold;
     }
 
@@ -110,7 +105,6 @@
       flex-grow: 1;
       line-height: 1.5;
       word-break: break-word;
-      /* Ensures long words or time formats wrap cleanly */
       text-align: left;
     }
 
@@ -119,7 +113,6 @@
       height: 10px;
       border-radius: 0;
       background-color: #ef4444 !important;
-      /* Inactive/Error */
       display: inline-block;
       margin-right: 8px;
       vertical-align: middle;
@@ -128,7 +121,6 @@
 
     .status-dot.active {
       background-color: #4ade80 !important;
-      /* Active */
     }
 
     .card {
@@ -245,47 +237,56 @@
       margin-bottom: 4px;
     }
 
-    /* CSS Accordion / Collapsible Section Styles */
-    .toggle-cb {
-      display: none;
-    }
-
-    .toggle-label {
+    /* Universal Header Layout */
+    .header-flex {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      background-color: rgba(255, 255, 255, 0.05);
+      padding: 6px 10px;
       cursor: pointer;
-      padding: 12px;
-      background-color: #1e293b;
-      border: 2px solid #334155;
-      font-family: 'Press Start 2P', monospace;
-      font-size: 8px;
-      color: #cbd5e1;
       user-select: none;
-      box-shadow: 4px 4px 0px #020617;
+      border: 1px solid #333;
     }
 
-    .toggle-content.card {
-      margin-top: 8px;
-      margin-bottom: 0px;
+    /* Strict Right-Aligned Icon Grouping */
+    .header-icons {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
-    .toggle-cb:checked~.toggle-content {
+    /* Reset icon margins so 'gap' controls the spacing */
+    .icon-btn {
+      background: none;
+      border: none;
+      color: inherit;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 0;
+      margin: 0;
+      transition: opacity 0.2s;
+    }
+
+    .icon-btn:hover {
+      opacity: 0.7;
+    }
+
+    /* Collapsible Content Wrapper */
+    .section-content {
+      padding: 10px 0;
       display: block;
     }
 
-    .toggle-cb:not(:checked)~.toggle-content {
+    .section-content.collapsed {
       display: none;
     }
 
-    .toggle-cb:checked+.toggle-label .icon::after {
-      content: "[-]";
+    /* Toggle symbol style */
+    .toggle-icon {
+      font-family: monospace;
+      font-weight: bold;
       color: #4ade80;
-    }
-
-    .toggle-cb:not(:checked)+.toggle-label .icon::after {
-      content: "[+]";
-      color: #ef4444;
     }
 
     .footer {
@@ -340,7 +341,6 @@
       line-height: 1.3;
     }
 
-    /* Added enter/spacing */
     .log-info {
       color: #4ade80;
     }
@@ -352,34 +352,6 @@
     .log-error {
       color: #ef4444;
       font-weight: bold;
-    }
-
-    /* Utility Icon Buttons */
-    .icon-btn {
-      background: none;
-      border: none;
-      color: #4ade80;
-      cursor: pointer;
-      font-size: 16px;
-      margin-left: 10px;
-      padding: 4px 6px;
-      transition: opacity 0.2s, transform 0.1s;
-      line-height: 1;
-    }
-
-    .icon-btn:hover {
-      opacity: 0.7;
-      transform: scale(1.1);
-    }
-
-    .icon-btn:active {
-      transform: scale(0.95);
-    }
-
-    .header-flex {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
     }
 
     /* Modal Styles */
@@ -443,7 +415,7 @@
 
     body.theme-light .card,
     body.theme-light .status-bar,
-    body.theme-light .toggle-label {
+    body.theme-light .header-flex {
       background-color: #e5e5e5;
       color: #222;
       border-color: #ccc;
@@ -492,15 +464,13 @@
     <div class="logo">C</div>
     <div style="flex: 1;">
       <h1>Canva Auto Prompter</h1>
-      <!-- <div class="tagline">AI & Dream Lab Side Panel</div> -->
     </div>
-    <div style="display: flex;">
-      <button id="settingsBtn" class="icon-btn" title="UI Settings">⚙️</button>
+    <div class="header-icons">
       <button id="openDreamLabBtn" class="icon-btn" title="Open Dream Lab">🚀</button>
     </div>
   </header>
 
-  <!-- Status Bar at the Top -->
+  <!-- Status Bar (Always Visible) -->
   <div class="status-container">
     <div class="status-label">
       Status: <span class="status-dot" id="statusIndicator"></span>
@@ -510,30 +480,33 @@
     </div>
   </div>
 
-  <!-- Primary Section (Always Visible) -->
-  <div class="card">
-    <div class="form-group">
-      <div class="header-flex">
-        <label for="promptInput">Prompt Text</label>
-        <div>
-          <button id="importFileBtn" class="icon-btn" title="Import .txt file">📂</button>
-          <input type="file" id="fileInput" accept=".txt,.csv" style="display: none;">
-          <button id="clearPromptsBtn" class="icon-btn" title="Clear all prompts">🗑️</button>
-        </div>
+  <!-- === PROMPT TEXT SECTION (Collapsible) === -->
+  <div style="margin-bottom: 20px;">
+    <div class="header-flex toggle-header" data-target="promptContent">
+      <h3 style="margin:0; font-size: 10px;">PROMPT TEXT</h3>
+      <div class="header-icons">
+        <button id="importFileBtn" class="icon-btn" title="Import .txt file">📂</button>
+        <input type="file" id="fileInput" accept=".txt,.csv" style="display: none;">
+        <button id="clearPromptsBtn" class="icon-btn" title="Clear all prompts">🗑️</button>
+        <span class="toggle-icon">[-]</span>
       </div>
+    </div>
+    <div id="promptContent" class="section-content">
       <textarea id="promptInput" rows="10" placeholder="Paste multiple prompts here (one per line)..."></textarea>
       <div id="progressText" class="progress-text">Progress: 0 / 0</div>
     </div>
   </div>
 
-  <!-- Secondary Section: Settings (Collapsible Accordion, Default Expanded) -->
-  <div class="accordion-item" style="margin-bottom: 20px;">
-    <input type="checkbox" id="settingsToggle" class="toggle-cb" checked>
-    <label for="settingsToggle" class="toggle-label">
-      <span>Settings</span>
-      <span class="icon"></span>
-    </label>
-    <div class="toggle-content card">
+  <!-- === SETTINGS SECTION (Collapsible) === -->
+  <div style="margin-bottom: 20px;">
+    <div class="header-flex toggle-header" data-target="settingsContent">
+      <h3 style="margin:0; font-size: 10px;">SETTINGS</h3>
+      <div class="header-icons">
+        <button id="settingsBtn" class="icon-btn" title="UI Settings">⚙️</button>
+        <span class="toggle-icon">[-]</span>
+      </div>
+    </div>
+    <div id="settingsContent" class="section-content">
       <div class="form-group">
         <label for="aspectRatio">Aspect Ratio</label>
         <select id="aspectRatio">
@@ -595,55 +568,56 @@
     </div>
   </div>
 
-  <!-- Main Action Button -->
+  <!-- Main Action Buttons (Always Visible) -->
   <button class="btn" id="startBtn" style="margin-bottom: 0px;">Run</button>
   <div style="display: flex; gap: 10px; margin-top: 10px; margin-bottom: 20px;">
     <button id="pauseButton" class="btn"
       style="flex: 1; background: #f39c12; border-color: #f39c12; box-shadow: 4px 4px 0px #b9770e;">PAUSE</button>
   </div>
 
-  <!-- Collapsible Terminal Logs (Default Expanded) -->
-  <div class="accordion-item" style="margin-bottom: 20px;">
-    <input type="checkbox" id="toggle-console" class="toggle-cb" checked>
-    <label for="toggle-console" class="toggle-label" style="border-color: #4ade80; color: #4ade80;">
-      <span style="display: flex; align-items: center;">
-        <span>TERMINAL LOGS</span>
-        <button id="exportLogsBtn" class="icon-btn" title="Export Logs to .txt"
-          style="margin-left: 10px; font-size: 14px;">💾</button>
-        <button id="clearLogsBtn" class="icon-btn" title="Clear logs"
-          style="margin-left: 5px; font-size: 14px;">🗑️</button>
-      </span>
-      <span class="icon"></span>
-    </label>
-    <div class="toggle-content card" style="border-color: #4ade80;">
-      <div class="form-group">
-        <div id="consoleLogs" class="terminal-box"></div>
+  <!-- === TERMINAL LOGS SECTION (Collapsible) === -->
+  <div style="margin-bottom: 20px;">
+    <div class="header-flex toggle-header" data-target="logsContent" style="border-color: #4ade80; color: #4ade80;">
+      <h3 style="margin:0; font-size: 10px;">TERMINAL LOGS</h3>
+      <div class="header-icons">
+        <button id="exportLogsBtn" class="icon-btn" title="Export Logs to .txt">💾</button>
+        <button id="clearLogsBtn" class="icon-btn" title="Clear logs">🗑️</button>
+        <span class="toggle-icon">[-]</span>
       </div>
+    </div>
+    <div id="logsContent" class="section-content">
+      <div id="consoleLogs" class="terminal-box"></div>
     </div>
   </div>
 
-  <!-- Tertiary Section: Failed Prompts (Collapsible Accordion, Default Collapsed) -->
-  <div class="accordion-item" style="margin-bottom: 20px;">
-    <input type="checkbox" id="failedToggle" class="toggle-cb">
-    <label for="failedToggle" class="toggle-label" style="border-color: #991b1b; color: #fca5a5;">
-      <span>Failed Prompts</span>
-      <span class="icon"></span>
-    </label>
-    <div class="toggle-content card" style="border-color: #991b1b;">
-      <div class="form-group">
-        <label for="failedPrompts" style="color: #fca5a5;">Failed / Skipped Prompts</label>
-        <textarea id="failedPrompts" readonly rows="3" placeholder="Any blocked or failed prompts will appear here..."
-          style="border-color: #991b1b; color: #fca5a5;"></textarea>
+  <!-- === FAILED PROMPTS SECTION (Collapsible) === -->
+  <div style="margin-bottom: 20px;">
+    <div class="header-flex toggle-header" data-target="failedContent" style="border-color: #991b1b; color: #fca5a5;">
+      <h3 style="margin:0; font-size: 10px;">FAILED PROMPTS</h3>
+      <div class="header-icons">
+        <span class="toggle-icon">[-]</span>
       </div>
+    </div>
+    <div id="failedContent" class="section-content">
+      <textarea id="failedPrompts" readonly rows="3" placeholder="Any blocked or failed prompts will appear here..."
+        style="border-color: #991b1b; color: #fca5a5;"></textarea>
     </div>
   </div>
 
-  <div style="margin-top: 20px; margin-bottom: 20px;">
-    <div class="header-flex">
-      <h3 style="color: #ff4444; font-size: 10px; margin-bottom: 8px;">QUARANTINED PROMPTS</h3>
+  <!-- === QUARANTINED PROMPTS SECTION (Collapsible) === -->
+  <div style="margin-bottom: 20px;">
+    <div class="header-flex toggle-header" data-target="quarantineContent"
+      style="border-color: #ff4444; color: #ff4444;">
+      <h3 style="margin:0; font-size: 10px; color: #ff4444;">QUARANTINED PROMPTS</h3>
+      <div class="header-icons">
+        <button id="clearQuarantineBtn" class="icon-btn" title="Clear Quarantine">🗑️</button>
+        <span class="toggle-icon">[-]</span>
+      </div>
     </div>
-    <textarea id="quarantineInput" rows="4" placeholder="Failed prompts will be rescued here..."
-      style="width: 100%; border: 2px solid #ff4444; color: #ff4444; background: #020617; padding: 8px 10px; font-family: 'VT323', monospace; font-size: 18px; outline: none;"></textarea>
+    <div id="quarantineContent" class="section-content">
+      <textarea id="quarantineInput" rows="4" placeholder="Failed prompts will be rescued here..."
+        style="width: 100%; border: 2px solid #ff4444; color: #ff4444; background: #020617; padding: 8px 10px; font-family: 'VT323', monospace; font-size: 18px; outline: none;"></textarea>
+    </div>
   </div>
 
   <!-- Footer -->
@@ -655,7 +629,7 @@
   <!-- UI Settings Modal -->
   <div id="settingsModal" class="modal hidden">
     <div class="modal-content">
-      <div class="header-flex">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
         <h3 style="margin: 0; font-size: 12px; color: #4ade80;">UI SETTINGS</h3>
         <button id="closeSettingsBtn" class="icon-btn">❌</button>
       </div>
@@ -700,6 +674,13 @@
       <div class="form-group">
         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
           <input type="checkbox" id="soundToggle" checked style="width: auto; cursor: pointer;"> Enable Audio Alerts
+        </label>
+      </div>
+
+      <div class="form-group" style="margin-top: 10px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" id="subfolderToggle" style="width: auto; cursor: pointer;"> Group Downloads in
+          'Canva_Auto' Folder
         </label>
       </div>
     </div>
