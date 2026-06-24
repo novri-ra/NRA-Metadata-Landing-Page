@@ -390,6 +390,45 @@ async function startMainLoop() {
   await new Promise(resolve => chrome.runtime.sendMessage({ action: "ATTACH_DEBUGGER" }, resolve));
 
   try {
+    // 🌟 INITIAL STARTUP GATEKEEPER 🌟
+    // Check if Canva is ALREADY in a cooldown state the moment the user clicks RUN.
+    let startupCooldown = getScreenCooldownMs();
+
+    if (startupCooldown > 0) {
+      startupCooldown += 5000; // Add 5-second safety buffer
+      console.warn(`[Canva Automation] 🛑 Startup paused. Pre-existing cooldown detected: ${startupCooldown}ms.`);
+
+      // Stamp the existing warning so it doesn't get double-counted later
+      tagGhostCooldowns();
+
+      const targetEndTime = Date.now() + startupCooldown;
+
+      while (Date.now() < targetEndTime) {
+        // Allow user to click STOP even while waiting at startup
+        if (!isRunning) {
+          console.log("[Canva Automation] Automation aborted by user during startup cooldown.");
+          return;
+        }
+
+        const remainingSecs = Math.ceil((targetEndTime - Date.now()) / 1000);
+
+        // Update the UI panel to inform the user why it's not typing yet
+        chrome.runtime.sendMessage({
+          action: "STATUS_UPDATE",
+          status: `Startup Paused (Limit Active): ${formatTime(remainingSecs)}`
+        });
+
+        await delay(1000);
+      }
+
+      // Re-stamp in case React refreshed the page while we were sleeping
+      tagGhostCooldowns();
+
+      console.log("[Canva Automation] Startup cooldown cleared. Proceeding to main generation loop...");
+      chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `Resuming automation...` });
+    }
+
+    // 🌟 MAIN GENERATION LOOP 🌟
     while (prompts.length > 0 && isRunning) {
       if (await checkIfStopped()) {
         console.log("[Canva Automation] Loop stopped by user request.");
