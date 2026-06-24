@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const debugModeSelect = document.getElementById('debugMode');
   const progressText = document.getElementById('progressText');
   const statusText = document.getElementById('statusText');
-  const statusDot = document.getElementById('statusDot');
+  const statusDot = document.getElementById('statusIndicator');
   const failedPromptsTextarea = document.getElementById('failedPrompts');
   const consoleLogs = document.getElementById('consoleLogs');
 
