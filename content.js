@@ -294,68 +294,129 @@ async function cdpTypeHuman(text) {
 }
 
 async function selectCanvaConfiguration(typeLabel, optionText) {
-  if (!optionText || optionText === "None" || optionText === "") return;
+  if (!optionText || optionText === "None" || optionText === "" || optionText === "Random") return;
 
   const escapedOption = optionText.replace(/'/g, "\\'");
 
-  // 1. Locate the exact element using Canva's aria-label structure from the DOM
-  // Matches: <div role="button" aria-label="Vector" ...>
-  let targetXpath = `//div[@role='button' and @aria-label='${escapedOption}']`;
-  let targetButton = document.evaluate(targetXpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+  // Helper to find the target option inside the popover grid
+  const findTargetOption = () => {
+    let xpath = `//div[@role='button' and @aria-label='${escapedOption}']`;
+    let node = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+    if (!node) {
+      xpath = `//*[(local-name()='button' or @role='button') and contains(normalize-space(), '${escapedOption}')]`;
+      node = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+    }
+    return node;
+  };
 
-  // Fallback for Aspect Ratios or other buttons that might just use text instead of aria-label
-  if (!targetButton) {
-    targetXpath = `//*[(local-name()='button' or @role='button') and contains(normalize-space(), '${escapedOption}')]`;
-    targetButton = document.evaluate(targetXpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+  let targetButton = findTargetOption();
+  let isTargetVisible = targetButton && targetButton.getBoundingClientRect().height > 0;
+
+  // 1. OPEN THE MENU IF THE TARGET IS NOT VISIBLE
+  if (!isTargetVisible) {
+    console.log(`[Canva Automation] ${typeLabel} menu seems closed. Searching for trigger button...`);
+
+    // Exhaustive list to catch the trigger button no matter what its current text is
+    const styleKeywords = ['Style', 'None', 'Smart', 'Cinematic Concept', 'Creative', 'Bokeh', 'Macro', 'Illustration', '3D Render', 'Cinematic', 'Fashion', 'Minimalist', 'Moody', 'Portrait', 'Sketch - Color', 'Stock Photo', 'Ray Traced', 'Vibrant', 'Sketch - Black & White', 'Pop Art', 'Vector'];
+    const ratioKeywords = ['Ratio', '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'];
+
+    const keywordsToSearch = typeLabel === 'Style' ? styleKeywords : ratioKeywords;
+    let triggerBtn = null;
+
+    // Search for exact match first
+    for (const kw of keywordsToSearch) {
+      const kwEsc = kw.replace(/'/g, "\\'");
+      const xpath = `//*[(local-name()='button' or @role='button') and normalize-space(text())='${kwEsc}']`;
+      const nodes = document.evaluate(xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+      for (let i = 0; i < nodes.snapshotLength; i++) {
+        const n = nodes.snapshotItem(i);
+        if (n.getBoundingClientRect().height > 0) {
+          triggerBtn = n; break;
+        }
+      }
+      if (triggerBtn) break;
+    }
+
+    // Fallback: search for partial match if exact match fails
+    if (!triggerBtn) {
+      for (const kw of keywordsToSearch) {
+        const kwEsc = kw.replace(/'/g, "\\'");
+        const xpath = `//*[(local-name()='button' or @role='button') and contains(normalize-space(), '${kwEsc}')]`;
+        const nodes = document.evaluate(xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        for (let i = 0; i < nodes.snapshotLength; i++) {
+          const n = nodes.snapshotItem(i);
+          if (n.getBoundingClientRect().height > 0) {
+            triggerBtn = n; break;
+          }
+        }
+        if (triggerBtn) break;
+      }
+    }
+
+    // Click the trigger button if found
+    if (triggerBtn) {
+      triggerBtn.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      await delay(500);
+
+      const rect = triggerBtn.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        // Background Tab Fallback
+        triggerBtn.click();
+      } else {
+        const cx = Math.round(rect.left + rect.width / 2);
+        const cy = Math.round(rect.top + rect.height / 2);
+        await new Promise(r => chrome.runtime.sendMessage({ action: "CDP_CLICK", x: cx, y: cy }, r));
+      }
+
+      await delay(1200); // Give the popover grid time to animate and open
+
+      // Re-evaluate target button after menu opens
+      targetButton = findTargetOption();
+      isTargetVisible = targetButton && targetButton.getBoundingClientRect().height > 0;
+    } else {
+      console.warn(`[Canva Automation] ⚠️ Could not find the main trigger button to open the ${typeLabel} menu.`);
+    }
   }
 
-  // If completely not found, log a warning but DO NOT throw an error. 
-  // We want the bot to continue generating the image anyway.
+  // 2. CHECK IF TARGET EXISTS IN DOM
   if (!targetButton) {
-    console.warn(`[Canva Automation] ⚠️ ${typeLabel} option '${optionText}' not found on screen. Proceeding with default/current settings.`);
+    console.warn(`[Canva Automation] ⚠️ Option '${optionText}' not found on screen. Proceeding with current settings.`);
     return;
   }
 
-  // 2. Check if it's already active (aria-pressed="true")
+  // 3. CHECK IF ALREADY ACTIVE (aria-pressed)
   if (targetButton.getAttribute('aria-pressed') === 'true') {
-    console.log(`[Canva Automation] ${typeLabel} '${optionText}' is already active. Skipping clicks!`);
-    return; // Exit early, no action needed
+    console.log(`[Canva Automation] ${typeLabel} '${optionText}' is already active. Skipping click.`);
+    return;
   }
 
-  // 3. Scroll it into view and click
-  console.log(`[Canva Automation] Setting ${typeLabel} to '${optionText}'...`);
-
-  // Use smooth block centering to ensure it's fully visible in the scrollable grid
+  // 4. SCROLL AND CLICK TARGET OPTION
+  console.log(`[Canva Automation] Selecting ${typeLabel}: '${optionText}'...`);
   targetButton.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-  await delay(700); // Wait for the smooth scroll animation to finish
+  await delay(700);
 
   const targetRect = targetButton.getBoundingClientRect();
 
   if (targetRect.width === 0 || targetRect.height === 0) {
-    // LAYOUT TREE SUSPENDED (MINIMIZED TAB) -> Use native DOM events
-    console.log(`[Canva Automation] Tab backgrounded. Using native DOM click for ${optionText}`);
-    targetButton.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
-    targetButton.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+    // Background Tab Fallback
+    console.log(`[Canva Automation] Tab is in background. Using native DOM click for ${optionText}`);
     targetButton.click();
   } else {
-    // NORMAL ACTIVE TAB -> Use CDP Click
+    // Active Tab CDP Click
     const clickX = Math.round(targetRect.left + targetRect.width / 2);
     const clickY = Math.round(targetRect.top + targetRect.height / 2);
     const response = await new Promise(resolve => {
       chrome.runtime.sendMessage({ action: "CDP_CLICK", x: clickX, y: clickY }, resolve);
     });
+
+    // Fallback if CDP fails
     if (!response || response.success === false) {
-      console.warn(`[Canva Automation] ⚠️ CDP click failed, attempting native DOM click fallback.`);
-      targetButton.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
-      targetButton.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+      console.warn(`[Canva Automation] ⚠️ CDP click failed, attempting native DOM click.`);
       targetButton.click();
-    } else {
-      console.log(`[Canva Automation] Successfully selected ${typeLabel}: ${optionText}`);
     }
   }
 
-  // Give Canva's React DOM a moment to update the aria-pressed state
-  await delay(1000);
+  await delay(1000); // Stabilize UI before proceeding
 }
 
 /**
