@@ -14,6 +14,29 @@ document.addEventListener('DOMContentLoaded', () => {
   let isRunning = false;
   let isDebugMode = false;
 
+  // --- UNIVERSAL COLLAPSE LOGIC ---
+  const toggleHeaders = document.querySelectorAll('.toggle-header');
+
+  toggleHeaders.forEach(header => {
+    header.addEventListener('click', (e) => {
+      // Prevent toggling if the user clicked directly on an icon button
+      if (e.target.closest('.icon-btn')) return;
+
+      const targetId = header.getAttribute('data-target');
+      const contentDiv = document.getElementById(targetId);
+      const toggleIcon = header.querySelector('.toggle-icon');
+
+      if (contentDiv) {
+        contentDiv.classList.toggle('collapsed');
+        if (contentDiv.classList.contains('collapsed')) {
+          toggleIcon.textContent = '[+]';
+        } else {
+          toggleIcon.textContent = '[-]';
+        }
+      }
+    });
+  });
+
   // 🌟 CENTRALIZED UI SYNC FUNCTION
   function syncRunButtonUI(isAutomating) {
     if (!startBtn) return;
@@ -95,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Pull existing progress from storage on startup and sync running state
-  chrome.storage.local.get(['prompts', 'isAutomating', 'savedPromptText', 'savedAspectRatio', 'savedImageStyle', 'savedDownloadCount', 'savedFailedPrompts', 'savedDebugMode', 'uiTheme', 'uiFont', 'batchLimit', 'safetyDelay', 'playSounds', 'typingMode'], (result) => {
+  chrome.storage.local.get(['prompts', 'isAutomating', 'savedPromptText', 'savedAspectRatio', 'savedImageStyle', 'savedDownloadCount', 'savedFailedPrompts', 'savedDebugMode', 'uiTheme', 'uiFont', 'batchLimit', 'safetyDelay', 'playSounds', 'typingMode', 'createSubfolder'], (result) => {
     if (result) {
       // Load UI Preferences
       const savedTheme = result.uiTheme || 'theme-retro';
@@ -110,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const safetyDelaySlider = document.getElementById('safetyDelaySlider');
       const safetyDelayVal = document.getElementById('safetyDelayVal');
       const soundToggle = document.getElementById('soundToggle');
+      const subfolderToggle = document.getElementById('subfolderToggle');
 
       if (result.typingMode && typingModeSelect) typingModeSelect.value = result.typingMode;
       if (result.batchLimit !== undefined && batchLimitInput) batchLimitInput.value = result.batchLimit;
@@ -118,6 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (safetyDelayVal) safetyDelayVal.textContent = result.safetyDelay;
       }
       if (result.playSounds !== undefined && soundToggle) soundToggle.checked = result.playSounds;
+      if (subfolderToggle) subfolderToggle.checked = result.createSubfolder === true;
 
       // Prioritize active processing prompts if automating, otherwise fall back to auto-saved prompt text
       if (result.isAutomating === true && result.prompts && result.prompts.length > 0) {
@@ -178,6 +203,13 @@ document.addEventListener('DOMContentLoaded', () => {
     isDebugMode = debugModeSelect.value === 'true';
     chrome.storage.local.set({ savedDebugMode: isDebugMode });
   });
+
+  const subfolderToggle = document.getElementById('subfolderToggle');
+  if (subfolderToggle) {
+    subfolderToggle.addEventListener('change', () => {
+      chrome.storage.local.set({ createSubfolder: subfolderToggle.checked });
+    });
+  }
 
   // Listen for STATUS_UPDATE or direct status/progress/UI synchronization messages from content.js
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
