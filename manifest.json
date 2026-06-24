@@ -19,7 +19,8 @@
     "sidePanel",
     "notifications",
     "debugger",
-    "power"
+    "power",
+    "downloads"
   ],
   "host_permissions": [
     "*://*.canva.com/*"
