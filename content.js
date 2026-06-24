@@ -264,85 +264,45 @@ async function selectCanvaConfiguration(typeLabel, optionText) {
 
   const escapedOption = optionText.replace(/'/g, "\\'");
 
-  // Helper function to find the exact target option in the grid
-  const findTargetOption = () => {
-    let xpath = `//div[@role='button' and @aria-label='${escapedOption}']`;
-    let node = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-    if (!node) {
-      xpath = `//*[(local-name()='button' or @role='button') and contains(normalize-space(), '${escapedOption}')]`;
-      node = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-    }
-    return node;
-  };
+  // 1. Locate the exact element using Canva's aria-label structure from the DOM
+  // Matches: <div role="button" aria-label="Vector" ...>
+  let targetXpath = `//div[@role='button' and @aria-label='${escapedOption}']`;
+  let targetButton = document.evaluate(targetXpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
 
-  let targetButton = findTargetOption();
-  let isTargetVisible = targetButton && targetButton.getBoundingClientRect().height > 0;
-
-  // 1. IF THE TARGET IS HIDDEN OR NOT FOUND, WE MUST OPEN THE MENU FIRST
-  if (!isTargetVisible) {
-    console.log(`[Canva Automation] ${typeLabel} menu seems closed. Opening it...`);
-
-    // Find the main trigger button at the bottom ("Style" or "16:9")
-    let triggerXpath = "";
-    if (typeLabel === 'Style') {
-      triggerXpath = `//*[(local-name()='button' or @role='button') and (contains(normalize-space(), 'Style') or contains(normalize-space(), 'None') or contains(normalize-space(), 'Smart'))]`;
-    } else {
-      triggerXpath = `//*[(local-name()='button' or @role='button') and (contains(normalize-space(), ':') or contains(normalize-space(), 'Ratio'))]`;
-    }
-
-    const triggerNodes = document.evaluate(triggerXpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-    let triggerBtn = null;
-
-    for (let i = 0; i < triggerNodes.snapshotLength; i++) {
-      const node = triggerNodes.snapshotItem(i);
-      const rect = node.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        triggerBtn = node;
-        // Prioritize exact matches if possible
-        if (node.textContent.trim() === typeLabel) break;
-      }
-    }
-
-    if (triggerBtn) {
-      triggerBtn.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-      await delay(500);
-      const rect = triggerBtn.getBoundingClientRect();
-
-      // Click to open the menu
-      await new Promise(resolve => chrome.runtime.sendMessage({ action: "CDP_CLICK", x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) }, resolve));
-      await delay(1000); // Give the popover grid time to animate and render
-
-      // Re-evaluate the target button now that the menu is open
-      targetButton = findTargetOption();
-      isTargetVisible = targetButton && targetButton.getBoundingClientRect().height > 0;
-    } else {
-      console.warn(`[Canva Automation] ⚠️ Could not find the main trigger button to open the ${typeLabel} menu.`);
-    }
+  // Fallback for Aspect Ratios or other buttons that might just use text instead of aria-label
+  if (!targetButton) {
+    targetXpath = `//*[(local-name()='button' or @role='button') and contains(normalize-space(), '${escapedOption}')]`;
+    targetButton = document.evaluate(targetXpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
   }
 
-  // 2. FINAL VALIDATION BEFORE CLICKING
-  if (!isTargetVisible) {
+  // If completely not found, log a warning but DO NOT throw an error. 
+  // We want the bot to continue generating the image anyway.
+  if (!targetButton) {
     console.warn(`[Canva Automation] ⚠️ ${typeLabel} option '${optionText}' not found on screen. Proceeding with default/current settings.`);
-    return; // Graceful exit without throwing an error
-  }
-
-  // 3. CHECK IF ALREADY ACTIVE (aria-pressed="true")
-  if (targetButton.getAttribute('aria-pressed') === 'true') {
-    console.log(`[Canva Automation] ${typeLabel} '${optionText}' is already active. Skipping clicks!`);
-
-    // Optional: If the menu is open but the option is already selected, click the main trigger again to close it (keeps UI clean)
-    // We'll just let it be for now, as clicking outside or generating usually closes it.
     return;
   }
 
-  // 4. SCROLL AND CLICK THE TARGET OPTION
-  console.log(`[Canva Automation] Setting ${typeLabel} to '${optionText}'...`);
-  targetButton.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-  await delay(700);
+  // 2. Check if it's already active (aria-pressed="true")
+  if (targetButton.getAttribute('aria-pressed') === 'true') {
+    console.log(`[Canva Automation] ${typeLabel} '${optionText}' is already active. Skipping clicks!`);
+    return; // Exit early, no action needed
+  }
 
-  const targetRect = targetButton.getBoundingClientRect();
-  const clickX = Math.round(targetRect.left + targetRect.width / 2);
-  const clickY = Math.round(targetRect.top + targetRect.height / 2);
+  // 3. Scroll it into view and click
+  console.log(`[Canva Automation] Setting ${typeLabel} to '${optionText}'...`);
+
+  // Use smooth block centering to ensure it's fully visible in the scrollable grid
+  targetButton.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+  await delay(700); // Wait for the smooth scroll animation to finish
+
+  const rect = targetButton.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) {
+    console.warn(`[Canva Automation] ⚠️ Target button for '${optionText}' is hidden or size 0. Proceeding without clicking.`);
+    return;
+  }
+
+  const clickX = Math.round(rect.left + rect.width / 2);
+  const clickY = Math.round(rect.top + rect.height / 2);
 
   const response = await new Promise(resolve => {
     chrome.runtime.sendMessage({ action: "CDP_CLICK", x: clickX, y: clickY }, resolve);
@@ -354,7 +314,8 @@ async function selectCanvaConfiguration(typeLabel, optionText) {
     console.log(`[Canva Automation] Successfully selected ${typeLabel}: ${optionText}`);
   }
 
-  await delay(1000); // Stabilize UI
+  // Give Canva's React DOM a moment to update the aria-pressed state
+  await delay(1000);
 }
 
 /**
@@ -430,6 +391,15 @@ async function startMainLoop() {
 
     // 🌟 MAIN GENERATION LOOP 🌟
     while (prompts.length > 0 && isRunning) {
+      // 1. Pause Gate
+      let isPaused = (await chrome.storage.local.get(['isPaused'])).isPaused;
+      while (isPaused) {
+        if (!isRunning) return; // Allow STOP while paused
+        chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: `⏸ Bot Paused by User...` });
+        await delay(1500);
+        isPaused = (await chrome.storage.local.get(['isPaused'])).isPaused;
+      }
+
       if (await checkIfStopped()) {
         console.log("[Canva Automation] Loop stopped by user request.");
         sendStatusUpdate("Automation stopped by user.");
@@ -456,6 +426,9 @@ async function startMainLoop() {
       }
 
       let currentPrompt = prompts[0];
+
+      // 2. Smart Auto-Rename Anchor: Send the current prompt to background.js before clicking submit
+      await chrome.storage.local.set({ currentActivePrompt: currentPrompt });
 
       try {
         console.log(`[Canva Automation] Processing prompt: "${currentPrompt}"`);
@@ -506,14 +479,26 @@ async function startMainLoop() {
         const settings = await chrome.storage.local.get(['imageStyle', 'aspectRatio']);
 
         // Check and set Style dynamically
-        if (settings.imageStyle) {
+        if (settings.imageStyle === 'Random') {
+          if (!isRunning) throw new Error("USER_STOPPED");
+          sendStatusUpdate(`Setting Style: Random`);
+          const styleKeywords = ["Smart", "Cinematic Concept", "Creative", "Bokeh", "Macro", "Illustration", "3D Render", "Cinematic", "Fashion", "Minimalist", "Moody", "Portrait", "Sketch - Color", "Stock Photo", "Ray Traced", "Vibrant", "Pop Art", "Vector"];
+          const randomStyle = styleKeywords[Math.floor(Math.random() * styleKeywords.length)];
+          await selectCanvaConfiguration('Style', randomStyle);
+        } else if (settings.imageStyle) {
           if (!isRunning) throw new Error("USER_STOPPED");
           sendStatusUpdate(`Setting Style: ${settings.imageStyle}`);
           await selectCanvaConfiguration('Style', settings.imageStyle);
         }
 
         // Check and set Ratio dynamically
-        if (settings.aspectRatio) {
+        if (settings.aspectRatio === 'Random') {
+          if (!isRunning) throw new Error("USER_STOPPED");
+          sendStatusUpdate(`Setting Aspect Ratio: Random`);
+          const ratioKeywords = ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"];
+          const randomRatio = ratioKeywords[Math.floor(Math.random() * ratioKeywords.length)];
+          await selectCanvaConfiguration('Aspect Ratio', randomRatio);
+        } else if (settings.aspectRatio) {
           if (!isRunning) throw new Error("USER_STOPPED");
           sendStatusUpdate(`Setting Aspect Ratio: ${settings.aspectRatio}`);
           await selectCanvaConfiguration('Aspect Ratio', settings.aspectRatio);
