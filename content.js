@@ -39,14 +39,32 @@ function sendStatusUpdate(statusText) {
   });
 }
 
+// --- UNTHROTTLED WEB WORKER DELAY (IMMUNE TO BACKGROUND THROTTLING) ---
+const workerBlob = new Blob([
+  `self.onmessage = function(e) { setTimeout(() => postMessage(e.data.id), e.data.time); }`
+], { type: 'application/javascript' });
+const delayWorker = new Worker(URL.createObjectURL(workerBlob));
+
 /**
- * delay(ms): Promise-based timeout.
+ * delay(ms): Promise-based timeout using a Web Worker thread.
+ * Web Workers are immune to Chrome's background tab throttling,
+ * which throttles standard setTimeout to 1 execution per minute.
  * @param {number} ms 
  * @returns {Promise<void>}
  */
 function delay(ms) {
   if (ms >= 1000) console.log(`[Canva Automation] Waiting for ${ms}ms...`);
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise(resolve => {
+    const id = Math.random().toString();
+    const handler = (e) => {
+      if (e.data === id) {
+        delayWorker.removeEventListener('message', handler);
+        resolve();
+      }
+    };
+    delayWorker.addEventListener('message', handler);
+    delayWorker.postMessage({ id: id, time: ms });
+  });
 }
 
 /**
@@ -211,7 +229,17 @@ async function cdpClick(element) {
   element.scrollIntoView({ behavior: 'instant', block: 'center' });
   await delay(300);
   const rect = element.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) throw new Error("Element is hidden (0x0).");
+
+  if (rect.width === 0 || rect.height === 0) {
+    // LAYOUT TREE SUSPENDED (MINIMIZED/BACKGROUNDED TAB) -> Use native DOM events
+    console.log(`[Canva Automation] Tab backgrounded. Using native DOM click fallback.`);
+    element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+    element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+    element.click();
+    return;
+  }
+
+  // NORMAL ACTIVE TAB -> Use CDP Click
   const x = Math.round(rect.left + rect.width / 2);
   const y = Math.round(rect.top + rect.height / 2);
 
@@ -223,7 +251,13 @@ async function cdpClick(element) {
       resolve(res);
     });
   });
-  if (response && !response.success) throw new Error(response.error || "Unknown CDP_CLICK error");
+
+  if (response && !response.success) {
+    console.warn(`[Canva Automation] ⚠️ CDP click failed, attempting native DOM click fallback.`);
+    element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+    element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+    element.click();
+  }
 }
 
 async function cdpType(text) {
@@ -295,23 +329,29 @@ async function selectCanvaConfiguration(typeLabel, optionText) {
   targetButton.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
   await delay(700); // Wait for the smooth scroll animation to finish
 
-  const rect = targetButton.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) {
-    console.warn(`[Canva Automation] ⚠️ Target button for '${optionText}' is hidden or size 0. Proceeding without clicking.`);
-    return;
-  }
+  const targetRect = targetButton.getBoundingClientRect();
 
-  const clickX = Math.round(rect.left + rect.width / 2);
-  const clickY = Math.round(rect.top + rect.height / 2);
-
-  const response = await new Promise(resolve => {
-    chrome.runtime.sendMessage({ action: "CDP_CLICK", x: clickX, y: clickY }, resolve);
-  });
-
-  if (!response || response.success === false) {
-    console.warn(`[Canva Automation] ⚠️ Failed to execute CDP click on ${optionText}.`);
+  if (targetRect.width === 0 || targetRect.height === 0) {
+    // LAYOUT TREE SUSPENDED (MINIMIZED TAB) -> Use native DOM events
+    console.log(`[Canva Automation] Tab backgrounded. Using native DOM click for ${optionText}`);
+    targetButton.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+    targetButton.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+    targetButton.click();
   } else {
-    console.log(`[Canva Automation] Successfully selected ${typeLabel}: ${optionText}`);
+    // NORMAL ACTIVE TAB -> Use CDP Click
+    const clickX = Math.round(targetRect.left + targetRect.width / 2);
+    const clickY = Math.round(targetRect.top + targetRect.height / 2);
+    const response = await new Promise(resolve => {
+      chrome.runtime.sendMessage({ action: "CDP_CLICK", x: clickX, y: clickY }, resolve);
+    });
+    if (!response || response.success === false) {
+      console.warn(`[Canva Automation] ⚠️ CDP click failed, attempting native DOM click fallback.`);
+      targetButton.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+      targetButton.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+      targetButton.click();
+    } else {
+      console.log(`[Canva Automation] Successfully selected ${typeLabel}: ${optionText}`);
+    }
   }
 
   // Give Canva's React DOM a moment to update the aria-pressed state
