@@ -2,42 +2,26 @@
 
 <div align="center">
 
-![Canva Auto Prompter Banner](https://img.shields.io/badge/Canva-Auto_Prompter-00C4CC?style=for-the-badge&logo=canva&logoColor=white)
+![Canva Auto Prompter](https://img.shields.io/badge/Canva-Auto_Prompter-00C4CC?style=for-the-badge&logo=canva&logoColor=white)
 
-**Automate bulk AI image generation on Canva Dream Lab with intelligent rate limiting and CDP-powered automation**
+**Automate bulk AI image generation on [Canva Dream Lab](https://www.canva.com/dream-lab)**
 
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=google-chrome&logoColor=white)](https://www.google.com/chrome/)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-success)](https://developer.chrome.com/docs/extensions/mv3/)
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 [![License](https://img.shields.io/badge/License-Educational-orange)](LICENSE)
 
-[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Troubleshooting](#-troubleshooting) • [Author](#-author)
+[Features](#-features) · [Installation](#-installation) · [Usage](#-usage) · [Troubleshooting](#-troubleshooting) · [Author](#-author)
 
 </div>
 
 ---
 
-## 📑 Table of Contents
+## 💡 What Is This?
 
-- [Overview](#overview)
-- [Features](#-features)
-- [Requirements](#-requirements)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Configuration](#-configuration)
-- [Troubleshooting](#-troubleshooting)
-- [Technical Details](#-technical-details)
-- [Roadmap](#-roadmap)
-- [Disclaimer](#-disclaimer)
-- [Author](#-author)
+**Canva Auto Prompter** is a Chrome extension that lets you queue multiple prompts and automatically generates AI images on Canva Dream Lab — handling style selection, aspect ratios, rate limit cooldowns, and image downloading without any manual intervention.
 
----
-
-## Overview
-
-**Canva Auto Prompter** is a Chrome extension that automates bulk AI image generation on Canva Dream Lab. Instead of manually entering prompts one by one, this tool allows you to queue multiple prompts and let the automation handle the entire process—including rate limit detection, style selection, and automatic downloading.
-
-Perfect for content creators, designers, and marketers who need to generate multiple AI images efficiently.
+> **Who is this for?** Content creators, designers, and marketers who need to generate large batches of AI images efficiently.
 
 ---
 
@@ -48,32 +32,37 @@ Perfect for content creators, designers, and marketers who need to generate mult
 <td width="50%">
 
 ### 🎯 Automation
-- **Bulk Processing** - Queue unlimited prompts
-- **Smart Rate Limiting** - Auto-detects cooldowns with live countdown
-- **Error Recovery** - Handles failures gracefully
-- **Auto-Download** - Save 1-4 images per prompt
-- **CDP-Powered** - Undetectable hardware-level clicks
+- **Bulk Prompt Queue** — Process unlimited prompts sequentially
+- **Smart Rate Limit Handling** — Auto-detects cooldowns with live countdown timer
+- **Auto-Download** — Download 1–4 images per prompt (or random)
+- **CDP-Powered Clicks** — Hardware-level input via Chrome DevTools Protocol
+- **Auto-Recovery** — Graceful error handling, auto-retry, and page reload recovery
+- **Pause / Resume / Stop** — Full control during automation
 
 </td>
 <td width="50%">
 
 ### 🎨 Customization
-- **20 Image Styles** - Smart, Cinematic, 3D, Illustration, etc.
-- **6 Aspect Ratios** - 1:1, 16:9, 9:16, 3:4, 4:3, 2:1
-- **3 Color Themes** - Retro, Matrix, Clean Light
-- **Typing Modes** - Human-like or instant paste
-- **Audio Alerts** - Optional sound notifications
+- **18 Image Styles** — Smart, Cinematic, 3D Render, Vector, Pop Art, etc.
+- **7 Aspect Ratios** — 1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3
+- **Random Mode** — Randomize style and/or ratio per prompt
+- **3 UI Themes** — Retro Terminal, Matrix Hacker, Clean Light
+- **Typing Modes** — Human-like animation or instant paste
+- **Audio Alerts** — Sound notification on batch completion
 
 </td>
 </tr>
 </table>
 
-### 📊 Monitoring & Control
+### 📊 Monitoring
 
-- **Live Terminal Logs** - Real-time color-coded status updates
-- **Progress Tracking** - Current prompt, queue count, success/fail tallies
-- **Batch Limits** - Auto-stop after N downloads
-- **Failed Prompt List** - Track and retry rejected prompts
+| Feature | Description |
+|---------|-------------|
+| **Live Terminal** | Real-time color-coded logs (green = success, yellow = wait, red = error) |
+| **Progress Tracking** | Queue count, current prompt, remaining prompts |
+| **Batch Limits** | Auto-stop after N downloads |
+| **Failed Prompts** | Tracks rejected prompts for review |
+| **Session Summary** | End-of-batch report with total time, downloads, and cooldowns |
 
 ---
 
@@ -83,131 +72,83 @@ Perfect for content creators, designers, and marketers who need to generate mult
 |------------|---------|
 | **Browser** | Google Chrome (latest version) |
 | **Account** | Active Canva account with Dream Lab access |
-| **Permissions** | Developer Mode enabled in Chrome Extensions |
+| **Settings** | Developer Mode enabled in `chrome://extensions/` |
 
 ---
 
 ## 📥 Installation
 
-### Method 1: Clone Repository (Recommended)
+### Step 1 — Get the Code
 
+**Option A: Clone** (recommended)
 ```bash
-# Clone the repository
 git clone https://github.com/novri-ra/Canva-Auto-Prompter.git
-
-# Navigate to folder
-cd Canva-Auto-Prompter
 ```
 
-### Method 2: Download ZIP
+**Option B: Download ZIP**
+Click the green **Code** button on GitHub → **Download ZIP** → Extract
 
-1. Click the green **Code** button above
-2. Select **Download ZIP**
-3. Extract to your desired location
+### Step 2 — Load in Chrome
 
-### Load Extension in Chrome
-
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Toggle **Developer Mode** (top-right corner)
+1. Open `chrome://extensions/`
+2. Toggle **Developer Mode** ON (top-right)
 3. Click **Load unpacked**
 4. Select the `Canva-Auto-Prompter` folder
-5. ✅ Extension loaded! Look for the icon in your toolbar
+5. ✅ Done! The extension icon appears in your toolbar
 
 ---
 
 ## 🎯 Usage
 
-### Quick Start Guide
+| Step | Action |
+|:----:|--------|
+| **1** | Navigate to [canva.com/dream-lab](https://www.canva.com/dream-lab) or click 🚀 in the panel |
+| **2** | Click the extension icon to open the side panel |
+| **3** | Paste your prompts *(one per line)* in the text area |
+| **4** | Select **Image Style**, **Aspect Ratio**, and **Download Count** |
+| **5** | Click **▶ Run** — automation begins! |
 
-<table>
-<tr>
-<td width="30" align="center">1️⃣</td>
-<td>
+### Example Prompts
 
-**Open Canva Dream Lab**
-- Navigate to [canva.com/dream-lab](https://www.canva.com/dream-lab)
-- Or click the 🚀 button in the extension panel
+```
+A serene mountain landscape at golden hour, cinematic lighting
+Futuristic cyberpunk city with neon reflections in rain puddles
+Minimalist abstract geometric pattern in blue and gold
+Cute robot reading a book in a cozy library, 3D render
+```
 
-</td>
-</tr>
-<tr>
-<td width="30" align="center">2️⃣</td>
-<td>
+### ⚠️ Debugger Banner
 
-**Prepare Your Prompts**
-- Click the extension icon to open the side panel
-- Paste your prompts (one per line) in the text area
-- Example:
-  ```
-  A serene mountain landscape at sunset
-  Futuristic city with flying cars
-  Abstract geometric pattern in blue and gold
-  ```
+When automation starts, Chrome shows:
 
-</td>
-</tr>
-<tr>
-<td width="30" align="center">3️⃣</td>
-<td>
+> **"Canva Auto Prompter" started debugging this browser**
 
-**Configure Settings**
-- **Image Style**: Choose from 20 styles (e.g., Cinematic, 3D Render)
-- **Aspect Ratio**: Select format (e.g., 1:1 for Instagram, 16:9 for YouTube)
-- **Download Count**: Pick 1-4 images per prompt (or random)
-
-</td>
-</tr>
-<tr>
-<td width="30" align="center">4️⃣</td>
-<td>
-
-**Start Automation**
-- Click the **▶ Run** button
-- The debugger banner will appear: **"Canva Auto Prompter" started debugging this browser**
-- ⚠️ **DO NOT close this banner!** It's required for automation
-
-</td>
-</tr>
-<tr>
-<td width="30" align="center">5️⃣</td>
-<td>
-
-**Monitor Progress**
-- Watch the live terminal for real-time updates
-- Status bar shows current operation
-- Green = Success, Yellow = Waiting, Red = Error
-- Images auto-download to your Downloads folder
-
-</td>
-</tr>
-</table>
+**Do not close this banner!** It's required for the automation to work. Closing it terminates the session immediately.
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ Settings
 
-### Advanced Settings
+Click the ⚙️ icon in the panel to configure:
 
-Click the ⚙️ **Settings** icon in the panel to access:
+| Setting | Options | Default |
+|---------|---------|---------|
+| **Color Theme** | Retro Terminal / Matrix Hacker / Clean Light | Retro Terminal |
+| **Font Style** | Pixel / Monospace / System Default | Pixel |
+| **Typing Mode** | Human Typing / Instant Paste | Human Typing |
+| **Batch Limit** | 0 (unlimited) – 999 | 0 |
+| **Safety Delay** | 0s – 10s extra between operations | 0s |
+| **Audio Alerts** | On / Off | On |
 
-| Setting | Options | Description |
-|---------|---------|-------------|
-| **Color Theme** | Retro Terminal / Matrix Hacker / Clean Light | Choose your preferred visual style |
-| **Font Style** | Pixel / Monospace / System Default | Customize the terminal font |
-| **Typing Mode** | Human Typing / Instant Paste | Realistic typing vs. fast paste |
-| **Batch Limit** | 0 (unlimited) - 999 | Auto-stop after N downloads |
-| **Safety Delay** | 0s - 10s | Extra delay between operations |
-| **Audio Alerts** | On / Off | Sound notification on completion |
+### Supported Styles
 
-### Image Styles Available
-
-```
-Smart          Cinematic      3D Render      Anime
-Illustration   Oil Painting   Charcoal       Watercolor
-Sketch         Graffiti       Pop Art        Flat
-Line Art       Pencil         Fantasy Art    Low Poly
-Neon           Retro          Pixel Art      Origami
-```
+| | | | |
+|---|---|---|---|
+| Smart | Cinematic Concept | Creative | Bokeh |
+| Macro | Illustration | 3D Render | Cinematic |
+| Fashion | Minimalist | Moody | Portrait |
+| Sketch - Color | Stock Photo | Ray Traced | Vibrant |
+| Pop Art | Vector | | |
 
 ---
 
@@ -216,156 +157,91 @@ Neon           Retro          Pixel Art      Origami
 <details>
 <summary><b>❌ Automation stops immediately after clicking Run</b></summary>
 
-**Solution:**
-- Check if the debugger banner appeared
-- If it didn't, refresh the Canva page and try again
-- Make sure you're on `canva.com/dream-lab` (not other Canva pages)
-- Ensure Developer Mode is enabled in `chrome://extensions/`
-
+- Ensure you're on `canva.com/dream-lab` (not other Canva pages)
+- Check if the debugger banner appeared — if not, refresh and retry
+- Verify Developer Mode is enabled in `chrome://extensions/`
 </details>
 
 <details>
-<summary><b>⏸️ Extension shows "Rate Limited - Waiting..."</b></summary>
+<summary><b>⏳ Status shows "Rate Limited — Waiting..."</b></summary>
 
-**Solution:**
-- This is normal! Canva enforces cooldown periods
-- The extension will automatically resume when the cooldown ends
-- Live countdown is displayed in the status bar
-- Don't close the browser or tab during cooldown
-
+- This is **normal** — Canva enforces cooldown periods between generations
+- The extension auto-resumes when the cooldown ends (live countdown shown)
+- Don't close the browser tab during cooldown
 </details>
 
 <details>
-<summary><b>🚫 Prompts marked as "Content Policy Violation"</b></summary>
+<summary><b>🚫 Prompt marked as "Content Policy Violation"</b></summary>
 
-**Solution:**
 - Canva rejected the prompt due to content guidelines
-- Check the "Failed Prompts" section to see which ones failed
-- Modify or remove problematic prompts
-- The extension will automatically skip and continue with remaining prompts
-
+- Check the "Failed Prompts" section in the panel
+- The extension auto-skips and continues with remaining prompts
 </details>
 
 <details>
-<summary><b>📥 Images not downloading automatically</b></summary>
+<summary><b>📥 Images not downloading</b></summary>
 
-**Solution:**
-- Check Chrome's download settings (Ctrl+J)
-- Ensure Chrome has permission to download files
-- Try increasing the "Safety Delay" in settings
-- Check if your Downloads folder is full or has permission issues
-
+- Check Chrome download settings (`Ctrl+J`)
+- Try increasing **Safety Delay** in settings
+- Verify your Downloads folder has available space
 </details>
 
 <details>
-<summary><b>🔄 Extension interface is blank or not responding</b></summary>
+<summary><b>🔄 Panel is blank or unresponsive</b></summary>
 
-**Solution:**
 - Close and reopen the side panel
 - Reload the extension in `chrome://extensions/`
 - Clear browser cache and restart Chrome
-- Check browser console (F12) for error messages
-
 </details>
 
 ---
 
-## 🛠️ Technical Details
+## 🏗️ Architecture
 
-### Architecture
-
-Built on **Chrome Manifest V3** with a three-component architecture:
+Built on **Chrome Manifest V3** with three core components:
 
 ```
 ┌─────────────────┐
-│  panel.html/js  │ ← User Interface & Queue Management
+│  panel.html/js  │  ← UI: Queue management, settings, live terminal
 └────────┬────────┘
-         │
+         │ chrome.runtime messages
 ┌────────▼────────┐
-│  background.js  │ ← Service Worker & CDP Connection Manager
+│  background.js  │  ← Service Worker: CDP connection, debugger attach/detach
 └────────┬────────┘
-         │
+         │ CDP protocol
 ┌────────▼────────┐
-│   content.js    │ ← DOM Automation Engine & State Machine
+│   content.js    │  ← DOM Engine: State machine, rate limit parser, automation loop
 └─────────────────┘
 ```
 
-### Key Technologies
-
-- **Chrome DevTools Protocol (CDP)** - Hardware-level input simulation that bypasses React's synthetic event system
-- **XPath Selectors** - Robust DOM querying for dynamic React elements
-- **State Machine Pattern** - Sequential operation flow with automatic error recovery
-- **Chrome Storage API** - Persistent configuration and queue management
-- **MutationObserver** - Real-time DOM monitoring for rate limit detection
-
-### Why CDP Instead of Click Events?
-
-Traditional JavaScript click events don't work on Canva because:
-1. React's synthetic event system blocks programmatic events
-2. Event listeners check for trusted user interactions
-3. Form inputs validate event origin
-
-CDP simulates **actual hardware input** (mouse, keyboard) that browsers cannot distinguish from real user actions.
+**Key technologies:**
+- **Chrome DevTools Protocol (CDP)** — Simulates real hardware mouse/keyboard events that bypass React's synthetic event system
+- **XPath Selectors** — Robust querying for Canva's dynamic React DOM
+- **Web Worker Timers** — Immune to Chrome's background tab throttling
+- **Chrome Storage API** — Persistent queue and configuration state
 
 ---
 
 ## ⚠️ Important Notes
 
-### The Debugger Banner
-
-When automation starts, Chrome displays a banner:
-
-> **"Canva Auto Prompter" started debugging this browser**
-
-**DO NOT CLOSE THIS BANNER!** It's required for CDP to function. Closing it stops automation immediately.
-
-### Rate Limits
-
-Canva enforces generation limits based on your subscription:
-- **Free**: ~10-20 generations per day
-- **Pro/Teams**: Higher limits, faster cooldowns
-- **Cooldown**: Typically 2-5 minutes between batches
-
-The extension handles these automatically with live countdown timers.
-
-### Content Policy
-
-Canva may reject prompts containing:
-- Violent or graphic content
-- Copyrighted characters or brands
-- Political figures or sensitive topics
-- Adult or inappropriate content
-
-Failed prompts are logged for review and modification.
-
----
-
-## 🔮 Roadmap
-
-- [ ] Multi-account session rotation
-- [ ] Network-based download detection (CDP Network events)
-- [ ] Prompt templates with variables (e.g., `{{color}} car`)
-- [ ] Export/import prompt lists (JSON, CSV)
-- [ ] Batch analytics dashboard
-- [ ] Custom style preset manager
-- [ ] Scheduled automation (set time/date)
-- [ ] Integration with other AI art platforms
+| Topic | Details |
+|-------|---------|
+| **Rate Limits** | Canva enforces per-request cooldowns (2–5 min) and monthly AI limits based on your plan. The extension handles these automatically. |
+| **Content Policy** | Prompts violating Canva's guidelines are auto-skipped. Failed prompts are logged for review. |
+| **Active Tab** | The extension requires an active Chrome window — it can't run reliably in background tabs. |
+| **Scope** | Only works on `canva.com/dream-lab`. |
 
 ---
 
 ## 📄 Disclaimer
 
-> **⚠️ IMPORTANT: Educational Purpose Only**
+> **⚠️ Educational & Research Purpose Only**
 >
-> This software is developed strictly for **educational and research purposes** to demonstrate Chrome extension development and browser automation techniques.
+> This software demonstrates Chrome extension development and browser automation techniques.
 >
-> **Using this tool may violate Canva's [Terms of Service](https://www.canva.com/policies/terms-of-use/).** The developer assumes **NO LIABILITY** for:
-> - Account suspensions or bans
-> - Data loss or corruption
-> - Violation of service limits
-> - Any other consequences of use
+> **Using this tool may violate Canva's [Terms of Service](https://www.canva.com/policies/terms-of-use/).** The developer assumes **no liability** for account suspensions, data loss, or any other consequences of use.
 >
-> **Use responsibly and at your own risk.** Always respect platform policies and rate limits.
+> **Use responsibly and at your own risk.**
 
 ---
 
@@ -378,29 +254,15 @@ Failed prompts are logged for review and modification.
 [![Portfolio](https://img.shields.io/badge/Portfolio-lynk.id/novri--ra-blue?style=for-the-badge)](https://lynk.id/novri-ra)
 [![GitHub](https://img.shields.io/badge/GitHub-novri--ra-black?style=for-the-badge&logo=github)](https://github.com/novri-ra)
 
-*Building automation tools that save time and boost productivity*
-
-For support, premium tools, or custom automation projects, visit my portfolio.
-
 </div>
-
----
-
-## 📜 License
-
-This project is provided for **educational and research use only**. See the [Disclaimer](#-disclaimer) section for important information about usage and liability.
 
 ---
 
 <div align="center">
 
-### ⭐ Star This Repository
+**⭐ If this project helps you, consider starring it on GitHub!**
 
-If this project helps you, consider giving it a star on GitHub!
-
-**Made with ❤️ for the automation community**
-
----
+Made with ❤️ for the automation community
 
 **[⬆ Back to Top](#-canva-auto-prompter)**
 
