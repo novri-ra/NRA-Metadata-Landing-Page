@@ -18,6 +18,22 @@ console.log = function (...args) { originalConsoleLog.apply(console, args); broa
 console.warn = function (...args) { originalConsoleWarn.apply(console, args); broadcastLog('WARN', ...args); };
 console.error = function (...args) { originalConsoleError.apply(console, args); broadcastLog('ERROR', ...args); };
 
+// Verbose Logs Helper Function
+async function logToTerminal(message, isVerboseOnly = false) {
+  // Check user settings
+  const res = await chrome.storage.local.get(['verboseLogs']);
+  const isVerboseMode = res.verboseLogs !== false; // Default to true
+
+  // If this is a detailed log and the user turned off verbose mode, skip it.
+  if (isVerboseOnly && !isVerboseMode) return;
+
+  const timestamp = new Date().toLocaleTimeString();
+  const fullMessage = `[${timestamp}] ${message}`;
+
+  console.log(fullMessage);
+  chrome.runtime.sendMessage({ action: "LOG_MESSAGE", message: fullMessage });
+}
+
 // Canva Auto Prompter - Content Script targeting canva.com/dream-lab
 // Operates exclusively on https://www.canva.com/dream-lab
 
@@ -532,7 +548,7 @@ async function startMainLoop() {
       await chrome.storage.local.set({ currentActivePrompt: currentPrompt });
 
       try {
-        console.log(`[Canva Automation] Processing prompt: "${currentPrompt}"`);
+        await logToTerminal(`[Canva Automation] Processing prompt: "${currentPrompt}"`);
 
         // WARN-1 FIX: Send current progress indicator back to Side Panel UI with standardized action key
         chrome.runtime.sendMessage({ action: "PROGRESS_UPDATE", progress: `${prompts.length} prompts remaining` });
@@ -620,7 +636,7 @@ async function startMainLoop() {
         const modeConfig = await chrome.storage.local.get(['typingMode']);
 
         if (modeConfig.typingMode === 'instant') {
-          console.log(`[Canva Automation] Injecting prompt instantly (Paste mode)...`);
+          await logToTerminal(`[Canva Automation] Injecting prompt instantly (Paste mode)...`, true);
 
           // Execute instant CDP typing
           const typeResponse = await new Promise(resolve => {
@@ -678,7 +694,7 @@ async function startMainLoop() {
           console.log(`[Canva Automation] Baseline button count: ${initialButtonCount}`);
 
           const submitBtn = await waitForElement('button[type="submit"]', false, 10000);
-          console.log("[Canva Automation] Clicking submit button...");
+          await logToTerminal("[Canva Automation] Clicking submit button...", true);
           sendStatusUpdate("Generating images...");
           await cdpClick(submitBtn);
 
@@ -745,7 +761,7 @@ async function startMainLoop() {
           }
 
           if (imagesGenerated) {
-            console.log("[Canva Automation] Images successfully generated!");
+            await logToTerminal("[Canva Automation] Images successfully generated!");
             submissionSuccessful = true;
             if (detectedCooldownMs > 0) {
               sessionStats.totalCooldowns++;
