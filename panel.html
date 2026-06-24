@@ -77,18 +77,41 @@
       margin-top: 4px;
     }
 
-    .status-bar {
+    /* Flexbox Status Bar Layout */
+    .status-container {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-family: 'Press Start 2P', monospace;
-      font-size: 8px;
+      align-items: flex-start;
+      /* Aligns items to the top if text wraps */
+      gap: 10px;
       padding: 12px;
       background-color: #1e293b;
+      /* Adjust to match your exact panel background */
       border: 2px solid #334155;
+      /* Adjust to match your panel border */
       margin-bottom: 20px;
-      color: #cbd5e1;
       box-shadow: 4px 4px 0px #020617;
+      color: #cbd5e1;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+    }
+
+    .status-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      /* Prevents "Status: [Icon]" from breaking */
+      flex-shrink: 0;
+      /* Prevents the label from being squished */
+      font-weight: bold;
+    }
+
+    .status-message {
+      flex-grow: 1;
+      line-height: 1.5;
+      word-break: break-word;
+      /* Ensures long words or time formats wrap cleanly */
+      text-align: left;
     }
 
     .status-dot {
@@ -469,7 +492,7 @@
     <div class="logo">C</div>
     <div style="flex: 1;">
       <h1>Canva Auto Prompter</h1>
-      <div class="tagline">AI & Dream Lab Side Panel</div>
+      <!-- <div class="tagline">AI & Dream Lab Side Panel</div> -->
     </div>
     <div style="display: flex;">
       <button id="settingsBtn" class="icon-btn" title="UI Settings">⚙️</button>
@@ -478,11 +501,12 @@
   </header>
 
   <!-- Status Bar at the Top -->
-  <div class="status-bar">
-    <span>Status:</span>
-    <div>
-      <span class="status-dot" id="statusDot"></span>
-      <span id="statusText">Disconnected</span>
+  <div class="status-container">
+    <div class="status-label">
+      Status: <span class="status-dot" id="statusIndicator"></span>
+    </div>
+    <div id="statusText" class="status-message">
+      Disconnected
     </div>
   </div>
 
