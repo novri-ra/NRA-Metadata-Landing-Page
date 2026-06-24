@@ -377,6 +377,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- UTILITY ICONS LOGIC ---
 
+  // --- GOD-TIER 6-FEATURE UPDATE LOGIC ---
+
+  // 1. Bulk File Importer
+  const importFileBtn = document.getElementById('importFileBtn');
+  const fileInput = document.getElementById('fileInput');
+  if (importFileBtn && fileInput) {
+    importFileBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const promptInput = document.getElementById('promptInput');
+        promptInput.value = promptInput.value + (promptInput.value ? '\n' : '') + event.target.result;
+        chrome.storage.local.set({ savedPromptText: promptInput.value });
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  // 2. Export Logs
+  const exportLogsBtn = document.getElementById('exportLogsBtn');
+  if (exportLogsBtn) {
+    exportLogsBtn.addEventListener('click', () => {
+      const logs = document.getElementById('consoleLogs').innerText;
+      const blob = new Blob([logs], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Canva_Logs_${new Date().getTime()}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // 3. Pause / Resume Toggle
+  const pauseButton = document.getElementById('pauseButton');
+  if (pauseButton) {
+    pauseButton.addEventListener('click', () => {
+      chrome.storage.local.get(['isPaused'], (res) => {
+        const newState = !res.isPaused;
+        chrome.storage.local.set({ isPaused: newState });
+        pauseButton.textContent = newState ? '▶ RESUME' : '⏸ PAUSE';
+        pauseButton.style.background = newState ? '#2ecc71' : '#f39c12';
+        pauseButton.style.borderColor = newState ? '#2ecc71' : '#f39c12';
+        pauseButton.style.boxShadow = newState ? '4px 4px 0px #27ae60' : '4px 4px 0px #b9770e';
+      });
+    });
+  }
+
+  // 4. Quarantine Catch Listener
+  chrome.runtime.onMessage.addListener((request) => {
+    if (request.action === "PROMPT_FAILED") {
+      const qInput = document.getElementById('quarantineInput');
+      if (qInput) {
+        // Use request.failedPrompt which is what content.js emits
+        qInput.value = qInput.value + (qInput.value ? '\n' : '') + (request.failedPrompt || request.prompt || "Unknown Failed Prompt");
+      }
+    }
+  });
+
+  // --- UTILITY ICONS LOGIC ---
+
   // 1. Open Dream Lab Shortcut
   const openDreamLabBtn = document.getElementById('openDreamLabBtn');
   if (openDreamLabBtn) {
