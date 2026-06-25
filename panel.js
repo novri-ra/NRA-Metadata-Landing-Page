@@ -1,37 +1,37 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const startBtn = document.getElementById('startBtn');
-  const promptInput = document.getElementById('promptInput');
-  const aspectRatioSelect = document.getElementById('aspectRatio');
-  const imageStyleSelect = document.getElementById('imageStyle');
-  const downloadCountSelect = document.getElementById('downloadCount');
-  const debugModeSelect = document.getElementById('debugMode');
-  const progressText = document.getElementById('progressText');
-  const statusText = document.getElementById('statusText');
-  const statusDot = document.getElementById('statusIndicator');
-  const failedPromptsTextarea = document.getElementById('failedPrompts');
-  const consoleLogs = document.getElementById('consoleLogs');
+document.addEventListener("DOMContentLoaded", () => {
+  const startBtn = document.getElementById("startBtn");
+  const promptInput = document.getElementById("promptInput");
+  const aspectRatioSelect = document.getElementById("aspectRatio");
+  const imageStyleSelect = document.getElementById("imageStyle");
+  const downloadCountSelect = document.getElementById("downloadCount");
+  const debugModeSelect = document.getElementById("debugMode");
+  const progressText = document.getElementById("progressText");
+  const statusText = document.getElementById("statusText");
+  const statusDot = document.getElementById("statusIndicator");
+  const failedPromptsTextarea = document.getElementById("failedPrompts");
+  const consoleLogs = document.getElementById("consoleLogs");
 
   let isRunning = false;
   let isDebugMode = false;
 
   // --- UNIVERSAL COLLAPSE LOGIC ---
-  const toggleHeaders = document.querySelectorAll('.toggle-header');
+  const toggleHeaders = document.querySelectorAll(".toggle-header");
 
-  toggleHeaders.forEach(header => {
-    header.addEventListener('click', (e) => {
+  toggleHeaders.forEach((header) => {
+    header.addEventListener("click", (e) => {
       // Prevent toggling if the user clicked directly on an icon button
-      if (e.target.closest('.icon-btn')) return;
+      if (e.target.closest(".icon-btn")) return;
 
-      const targetId = header.getAttribute('data-target');
+      const targetId = header.getAttribute("data-target");
       const contentDiv = document.getElementById(targetId);
-      const toggleIcon = header.querySelector('.toggle-icon');
+      const toggleIcon = header.querySelector(".toggle-icon");
 
       if (contentDiv) {
-        contentDiv.classList.toggle('collapsed');
-        if (contentDiv.classList.contains('collapsed')) {
-          toggleIcon.textContent = '[+]';
+        contentDiv.classList.toggle("collapsed");
+        if (contentDiv.classList.contains("collapsed")) {
+          toggleIcon.textContent = "[+]";
         } else {
-          toggleIcon.textContent = '[-]';
+          toggleIcon.textContent = "[-]";
         }
       }
     });
@@ -43,20 +43,28 @@ document.addEventListener('DOMContentLoaded', () => {
     isRunning = isAutomating; // Keep local tracker updated
 
     if (isAutomating) {
-      startBtn.textContent = 'Stop';
-      startBtn.style.background = '#e74c3c';
-      startBtn.style.boxShadow = '0 4px 15px rgba(231, 76, 60, 0.4)';
+      startBtn.textContent = "Stop";
+      startBtn.style.background = "#e74c3c";
+      startBtn.style.boxShadow = "0 4px 15px rgba(231, 76, 60, 0.4)";
     } else {
-      startBtn.textContent = 'Run';
-      startBtn.style.background = '';
-      startBtn.style.boxShadow = '';
+      startBtn.textContent = "Run";
+      startBtn.style.background = "";
+      startBtn.style.boxShadow = "";
+
+      chrome.storage.local.set({ isPaused: false });
+      const pauseButton = document.getElementById("pauseButton");
+      if (pauseButton) {
+        pauseButton.textContent = "⏸ PAUSE";
+        pauseButton.style.background = "#f39c12";
+      }
     }
   }
 
   // Pleasant, ascending 2-tone chime: 523.25Hz (150ms), then 659.25Hz (300ms)
   function playAlertSound() {
     try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      const AudioContextClass =
+        window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
       const ctx = new AudioContextClass();
 
@@ -84,138 +92,174 @@ document.addEventListener('DOMContentLoaded', () => {
       // WARN-8 FIX: Close AudioContext after playback to prevent resource exhaustion
       osc.onended = () => ctx.close();
     } catch (e) {
-      console.warn('[Canva Auto Prompter] Web Audio alert failed:', e);
+      console.warn("[Canva Auto Prompter] Web Audio alert failed:", e);
     }
   }
 
   // System Notification
   function showBrowserNotification() {
-    if (typeof chrome !== 'undefined' && chrome.notifications) {
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'icon.png',
-        title: 'Canva Auto Prompter',
-        message: 'Success! All prompts have been processed.'
-      }, (id) => {
-        if (chrome.runtime.lastError) {
-          console.warn('[Canva Auto Prompter] Notification alert failed:', chrome.runtime.lastError.message);
-        }
-      });
+    if (typeof chrome !== "undefined" && chrome.notifications) {
+      chrome.notifications.create(
+        {
+          type: "basic",
+          iconUrl: "icon.png",
+          title: "Canva Auto Prompter",
+          message: "Success! All prompts have been processed.",
+        },
+        (id) => {
+          if (chrome.runtime.lastError) {
+            console.warn(
+              "[Canva Auto Prompter] Notification alert failed:",
+              chrome.runtime.lastError.message,
+            );
+          }
+        },
+      );
     }
   }
 
   // Helper to visually show tab status and progress on load
-  chrome.tabs.query({ url: "*://*.canva.com/*" }, (tabs) => {
+  chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
     if (tabs && tabs.length > 0) {
-      statusText.textContent = 'Canva Connected';
-      statusDot.classList.add('active');
-      statusDot.style.backgroundColor = '#10b981';
+      statusText.textContent = "Canva Connected";
+      statusDot.classList.add("active");
+      statusDot.style.backgroundColor = "#10b981";
     } else {
-      statusText.textContent = 'Please open Canva';
-      statusDot.classList.remove('active');
-      statusDot.style.backgroundColor = '#ef4444';
+      statusText.textContent = "Please open Canva Dream Lab";
+      statusDot.classList.remove("active");
+      statusDot.style.backgroundColor = "#ef4444";
     }
   });
 
   // Pull existing progress from storage on startup and sync running state
-  chrome.storage.local.get(['prompts', 'isAutomating', 'savedPromptText', 'savedAspectRatio', 'savedImageStyle', 'savedDownloadCount', 'savedFailedPrompts', 'savedDebugMode', 'uiTheme', 'uiFont', 'batchLimit', 'safetyDelay', 'playSounds', 'typingMode', 'createSubfolder'], (result) => {
-    if (result) {
-      // Load UI Preferences
-      const savedTheme = result.uiTheme || 'theme-retro';
-      const savedFont = result.uiFont || 'font-pixel';
-      if (document.getElementById('themeSelect')) document.getElementById('themeSelect').value = savedTheme;
-      if (document.getElementById('fontSelect')) document.getElementById('fontSelect').value = savedFont;
-      applyCustomUI(savedTheme, savedFont);
+  chrome.storage.local.get(
+    [
+      "prompts",
+      "isAutomating",
+      "savedPromptText",
+      "savedAspectRatio",
+      "savedImageStyle",
+      "savedDownloadCount",
+      "savedFailedPrompts",
+      "savedDebugMode",
+      "uiTheme",
+      "uiFont",
+      "batchLimit",
+      "safetyDelay",
+      "playSounds",
+      "typingMode",
+      "createSubfolder",
+    ],
+    (result) => {
+      if (result) {
+        // Load UI Preferences
+        const savedTheme = result.uiTheme || "theme-retro";
+        const savedFont = result.uiFont || "font-pixel";
+        if (document.getElementById("themeSelect"))
+          document.getElementById("themeSelect").value = savedTheme;
+        if (document.getElementById("fontSelect"))
+          document.getElementById("fontSelect").value = savedFont;
+        applyCustomUI(savedTheme, savedFont);
 
-      // Load Advanced Settings
-      const typingModeSelect = document.getElementById('typingModeSelect');
-      const batchLimitInput = document.getElementById('batchLimitInput');
-      const safetyDelaySlider = document.getElementById('safetyDelaySlider');
-      const safetyDelayVal = document.getElementById('safetyDelayVal');
-      const soundToggle = document.getElementById('soundToggle');
-      const subfolderToggle = document.getElementById('subfolderToggle');
-      const verboseLogsToggle = document.getElementById('verboseLogsToggle');
+        // Load Advanced Settings
+        const typingModeSelect = document.getElementById("typingModeSelect");
+        const batchLimitInput = document.getElementById("batchLimitInput");
+        const safetyDelaySlider = document.getElementById("safetyDelaySlider");
+        const safetyDelayVal = document.getElementById("safetyDelayVal");
+        const soundToggle = document.getElementById("soundToggle");
+        const subfolderToggle = document.getElementById("subfolderToggle");
+        const verboseLogsToggle = document.getElementById("verboseLogsToggle");
 
-      if (result.typingMode && typingModeSelect) typingModeSelect.value = result.typingMode;
-      if (result.batchLimit !== undefined && batchLimitInput) batchLimitInput.value = result.batchLimit;
-      if (result.safetyDelay !== undefined) {
-        if (safetyDelaySlider) safetyDelaySlider.value = result.safetyDelay;
-        if (safetyDelayVal) safetyDelayVal.textContent = result.safetyDelay;
-      }
-      if (result.playSounds !== undefined && soundToggle) soundToggle.checked = result.playSounds;
-      if (subfolderToggle) subfolderToggle.checked = result.createSubfolder === true;
-      if (verboseLogsToggle) verboseLogsToggle.checked = result.verboseLogs !== false;
+        if (result.typingMode && typingModeSelect)
+          typingModeSelect.value = result.typingMode;
+        if (result.batchLimit !== undefined && batchLimitInput)
+          batchLimitInput.value = result.batchLimit;
+        if (result.safetyDelay !== undefined) {
+          if (safetyDelaySlider) safetyDelaySlider.value = result.safetyDelay;
+          if (safetyDelayVal) safetyDelayVal.textContent = result.safetyDelay;
+        }
+        if (result.playSounds !== undefined && soundToggle)
+          soundToggle.checked = result.playSounds;
+        if (subfolderToggle)
+          subfolderToggle.checked = result.createSubfolder === true;
+        if (verboseLogsToggle)
+          verboseLogsToggle.checked = result.verboseLogs !== false;
 
-      // Prioritize active processing prompts if automating, otherwise fall back to auto-saved prompt text
-      if (result.isAutomating === true && result.prompts && result.prompts.length > 0) {
-        progressText.textContent = `Progress: ${result.prompts.length} prompts remaining`;
-        promptInput.value = result.prompts.join('\n');
-      } else if (result.savedPromptText !== undefined) {
-        promptInput.value = result.savedPromptText;
-      }
+        // Prioritize active processing prompts if automating, otherwise fall back to auto-saved prompt text
+        if (
+          result.isAutomating === true &&
+          result.prompts &&
+          result.prompts.length > 0
+        ) {
+          progressText.textContent = `Progress: ${result.prompts.length} prompts remaining`;
+          promptInput.value = result.prompts.join("\n");
+        } else if (result.savedPromptText !== undefined) {
+          promptInput.value = result.savedPromptText;
+        }
 
-      // Restore dropdown settings if they were auto-saved
-      if (result.savedAspectRatio) {
-        aspectRatioSelect.value = result.savedAspectRatio;
-      }
-      if (result.savedImageStyle) {
-        imageStyleSelect.value = result.savedImageStyle;
-      }
-      if (result.savedDownloadCount) {
-        downloadCountSelect.value = result.savedDownloadCount;
-      }
-      if (result.savedDebugMode !== undefined) {
-        isDebugMode = result.savedDebugMode === true;
-        debugModeSelect.value = isDebugMode ? "true" : "false";
-      }
+        // Restore dropdown settings if they were auto-saved
+        if (result.savedAspectRatio) {
+          aspectRatioSelect.value = result.savedAspectRatio;
+        }
+        if (result.savedImageStyle) {
+          imageStyleSelect.value = result.savedImageStyle;
+        }
+        if (result.savedDownloadCount) {
+          downloadCountSelect.value = result.savedDownloadCount;
+        }
+        if (result.savedDebugMode !== undefined) {
+          isDebugMode = result.savedDebugMode === true;
+          debugModeSelect.value = isDebugMode ? "true" : "false";
+        }
 
-      // Restore failed/skipped prompts log if auto-saved
-      if (result.savedFailedPrompts) {
-        failedPromptsTextarea.value = result.savedFailedPrompts;
-      }
+        // Restore failed/skipped prompts log if auto-saved
+        if (result.savedFailedPrompts) {
+          failedPromptsTextarea.value = result.savedFailedPrompts;
+        }
 
-      // 🌟 FORCE CHECK ON PANEL LOAD
-      // As soon as the panel opens, check reality and force the button to match.
-      syncRunButtonUI(result.isAutomating === true);
-    }
-  });
+        // 🌟 FORCE CHECK ON PANEL LOAD
+        // As soon as the panel opens, check reality and force the button to match.
+        syncRunButtonUI(result.isAutomating === true);
+      }
+    },
+  );
 
   // Real-time Save (Input/Change Listeners to prevent data loss)
   let saveTimeout;
-  promptInput.addEventListener('input', () => {
+  promptInput.addEventListener("input", () => {
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => {
       chrome.storage.local.set({ savedPromptText: promptInput.value });
     }, 500); // 500ms debounce
   });
 
-  aspectRatioSelect.addEventListener('change', () => {
+  aspectRatioSelect.addEventListener("change", () => {
     chrome.storage.local.set({ savedAspectRatio: aspectRatioSelect.value });
   });
 
-  imageStyleSelect.addEventListener('change', () => {
+  imageStyleSelect.addEventListener("change", () => {
     chrome.storage.local.set({ savedImageStyle: imageStyleSelect.value });
   });
 
-  downloadCountSelect.addEventListener('change', () => {
+  downloadCountSelect.addEventListener("change", () => {
     chrome.storage.local.set({ savedDownloadCount: downloadCountSelect.value });
   });
 
-  debugModeSelect.addEventListener('change', () => {
-    isDebugMode = debugModeSelect.value === 'true';
+  debugModeSelect.addEventListener("change", () => {
+    isDebugMode = debugModeSelect.value === "true";
     chrome.storage.local.set({ savedDebugMode: isDebugMode });
   });
 
-  const subfolderToggle = document.getElementById('subfolderToggle');
+  const subfolderToggle = document.getElementById("subfolderToggle");
   if (subfolderToggle) {
-    subfolderToggle.addEventListener('change', () => {
+    subfolderToggle.addEventListener("change", () => {
       chrome.storage.local.set({ createSubfolder: subfolderToggle.checked });
     });
   }
 
-  const verboseLogsToggle = document.getElementById('verboseLogsToggle');
+  const verboseLogsToggle = document.getElementById("verboseLogsToggle");
   if (verboseLogsToggle) {
-    verboseLogsToggle.addEventListener('change', () => {
+    verboseLogsToggle.addEventListener("change", () => {
       chrome.storage.local.set({ verboseLogs: verboseLogsToggle.checked });
     });
   }
@@ -227,7 +271,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // WARN-7 FIX: Only handle actions explicitly intended for the panel.
     // Ignore CDP/debugger commands so we don't hijack background.js responses.
     const PANEL_ACTIONS = new Set([
-      "CONSOLE_LOG", "PROMPT_FAILED", "UPDATE_TEXTAREA", "STATUS_UPDATE", "PROGRESS_UPDATE", "PLAY_COMPLETION_SOUND"
+      "CONSOLE_LOG",
+      "PROMPT_FAILED",
+      "UPDATE_TEXTAREA",
+      "STATUS_UPDATE",
+      "PROGRESS_UPDATE",
+      "PLAY_COMPLETION_SOUND",
     ]);
 
     // If message has an action that is NOT for the panel, return early without responding
@@ -237,16 +286,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (request.action === "CONSOLE_LOG") {
       // Block verbose INFO logs if Debug Mode is Off
-      if (!isDebugMode && request.level === 'INFO') {
+      if (!isDebugMode && request.level === "INFO") {
         sendResponse({ success: true });
         return true;
       }
 
       if (consoleLogs) {
-        const time = new Date().toLocaleTimeString('en-US', { hour12: false });
-        const prefix = request.level === 'ERROR' ? '[!]' : request.level === 'WARN' ? '[?]' : '[>]';
+        const time = new Date().toLocaleTimeString("en-US", { hour12: false });
+        const prefix =
+          request.level === "ERROR"
+            ? "[!]"
+            : request.level === "WARN"
+              ? "[?]"
+              : "[>]";
 
-        const logDiv = document.createElement('div');
+        const logDiv = document.createElement("div");
         logDiv.className = `log-entry log-${request.level.toLowerCase()}`;
         logDiv.textContent = `${time} ${prefix} ${request.message}`;
 
@@ -267,18 +321,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handle failed/skipped prompt reporting
     if (request.action === "PROMPT_FAILED") {
       if (failedPromptsTextarea.value) {
-        failedPromptsTextarea.value += '\n' + request.failedPrompt;
+        failedPromptsTextarea.value += "\n" + request.failedPrompt;
       } else {
         failedPromptsTextarea.value = request.failedPrompt;
       }
-      chrome.storage.local.set({ savedFailedPrompts: failedPromptsTextarea.value });
+      chrome.storage.local.set({
+        savedFailedPrompts: failedPromptsTextarea.value,
+      });
       sendResponse({ success: true });
       return true;
     }
 
     // Direct UI update for the destructive Queue
     if (request.action === "UPDATE_TEXTAREA") {
-      promptInput.value = request.remainingPrompts.join('\n');
+      promptInput.value = request.remainingPrompts.join("\n");
       progressText.textContent = `Progress: ${request.remainingPrompts.length} prompts remaining`;
       chrome.storage.local.set({ savedPromptText: promptInput.value });
       sendResponse({ success: true });
@@ -299,37 +355,43 @@ document.addEventListener('DOMContentLoaded', () => {
       return true;
     }
 
-    const statusValue = request.status || (request.action === 'STATUS_UPDATE' ? request.status : null);
+    const statusValue =
+      request.status ||
+      (request.action === "STATUS_UPDATE" ? request.status : null);
 
     if (statusValue) {
-      console.log('[Canva Auto Prompter] Received status update:', statusValue);
+      console.log("[Canva Auto Prompter] Received status update:", statusValue);
       statusText.textContent = statusValue;
 
       const statusLower = statusValue.toLowerCase();
-      if (statusLower.includes('error') || statusLower.includes('stopped') || statusLower.includes('complete')) {
+      if (
+        statusLower.includes("error") ||
+        statusLower.includes("stopped") ||
+        statusLower.includes("complete")
+      ) {
         syncRunButtonUI(false);
 
-        if (statusLower.includes('error')) {
-          statusDot.style.backgroundColor = '#ef4444';
-          statusDot.classList.remove('active');
+        if (statusLower.includes("error")) {
+          statusDot.style.backgroundColor = "#ef4444";
+          statusDot.classList.remove("active");
         } else {
-          statusDot.style.backgroundColor = '#10b981';
-          statusDot.classList.add('active');
+          statusDot.style.backgroundColor = "#10b981";
+          statusDot.classList.add("active");
 
           // Trigger alerts on clean completion
-          if (statusLower.includes('complete')) {
+          if (statusLower.includes("complete")) {
             playAlertSound();
             showBrowserNotification();
           }
         }
       } else {
         // Active automation pulse
-        statusDot.style.backgroundColor = '#a855f7';
-        statusDot.classList.add('active');
+        statusDot.style.backgroundColor = "#a855f7";
+        statusDot.classList.add("active");
       }
 
       // Dynamically fetch and synchronize progress text from local storage
-      chrome.storage.local.get(['prompts'], (result) => {
+      chrome.storage.local.get(["prompts"], (result) => {
         if (result && result.prompts) {
           progressText.textContent = `Progress: ${result.prompts.length} prompts remaining`;
         }
@@ -343,7 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Global storage listener to keep UI in sync if automation state changes elsewhere
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'local' && changes.isAutomating) {
+    if (areaName === "local" && changes.isAutomating) {
       const isNowAutomating = changes.isAutomating.newValue;
       syncRunButtonUI(isNowAutomating === true);
     }
@@ -353,61 +415,93 @@ document.addEventListener('DOMContentLoaded', () => {
   // When clicked, check storage for ground truth, then toggle.
   // The onChanged listener above will handle UI changes reactively.
   if (startBtn) {
-    startBtn.addEventListener('click', () => {
-      chrome.storage.local.get(['isAutomating'], (result) => {
+    startBtn.addEventListener("click", () => {
+      chrome.storage.local.get(["isAutomating"], (result) => {
         const isCurrentlyRunning = result.isAutomating === true;
 
         if (isCurrentlyRunning) {
           // WE ARE STOPPING
-          chrome.storage.local.set({ isAutomating: false, step: 'IDLE' });
-          statusText.textContent = 'Stopping automation...';
-          statusDot.style.backgroundColor = '#ef4444';
-          statusDot.classList.remove('active');
+          chrome.storage.local.set({ isAutomating: false, step: "IDLE" });
+          statusText.textContent = "Stopping automation...";
+          statusDot.style.backgroundColor = "#ef4444";
+          statusDot.classList.remove("active");
 
-          chrome.tabs.query({ url: "*://*.canva.com/*" }, (tabs) => {
+          chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
+            if (tabs.length === 0) {
+              console.warn("No active Dream Lab tab found.");
+              return;
+            }
             if (tabs && tabs.length > 0) {
-              chrome.tabs.sendMessage(tabs[0].id, { action: "STOP_AUTOMATION" }).catch(() => { });
+              chrome.tabs
+                .sendMessage(tabs[0].id, { action: "STOP_AUTOMATION" })
+                .catch((err) => {
+                  if (
+                    chrome.runtime?.lastError?.message !==
+                    "Extension context invalidated"
+                  ) {
+                    console.warn("[Panel] Message delivery failed:", err);
+                  }
+                });
             }
           });
         } else {
           // WE ARE STARTING
+          chrome.storage.local.set({ isPaused: false });
           const rawPromptText = promptInput.value;
-          const promptsArray = rawPromptText.split('\n').map(p => p.trim()).filter(p => p.length > 0);
+          const promptsArray = rawPromptText
+            .split("\n")
+            .map((p) => p.trim())
+            .filter((p) => p.length > 0);
 
           if (promptsArray.length === 0) {
-            alert('Please enter at least one prompt!');
+            alert("Please enter at least one prompt!");
             return;
           }
 
-          failedPromptsTextarea.value = '';
-          chrome.storage.local.set({ savedFailedPrompts: '' });
+          failedPromptsTextarea.value = "";
+          chrome.storage.local.set({ savedFailedPrompts: "" });
 
           progressText.textContent = `Progress: ${promptsArray.length} prompts remaining`;
-          statusText.textContent = 'Starting...';
+          statusText.textContent = "Starting...";
 
           const state = {
             isAutomating: true,
-            step: 'INJECT_PROMPT',
+            step: "INJECT_PROMPT",
             prompts: promptsArray,
             aspectRatio: aspectRatioSelect.value,
             imageStyle: imageStyleSelect.value,
-            downloadCount: downloadCountSelect.value
+            downloadCount: downloadCountSelect.value,
           };
 
           // Setting isAutomating: true will trigger the onChanged listener -> syncRunButtonUI(true)
           chrome.storage.local.set(state, () => {
-            console.log('[Canva Auto Prompter] Bulk automation state saved:', state);
-            chrome.tabs.query({ url: "*://*.canva.com/*" }, (tabs) => {
+            console.log(
+              "[Canva Auto Prompter] Bulk automation state saved:",
+              state,
+            );
+            chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
+              if (tabs.length === 0) {
+                console.warn("No active Dream Lab tab found.");
+                return;
+              }
               if (tabs && tabs.length > 0) {
-                chrome.tabs.sendMessage(tabs[0].id, { action: 'START_AUTOMATION' }, (response) => {
-                  if (chrome.runtime.lastError) {
-                    console.warn('[Canva Auto Prompter] Could not communicate with content script:', chrome.runtime.lastError.message);
-                    statusText.textContent = "Error: Please refresh the Canva tab and try again.";
-                    statusDot.style.backgroundColor = '#ef4444';
-                    statusDot.classList.remove('active');
-                    chrome.storage.local.set({ isAutomating: false }); // Revert state safely
-                  }
-                });
+                chrome.tabs.sendMessage(
+                  tabs[0].id,
+                  { action: "START_AUTOMATION" },
+                  (response) => {
+                    if (chrome.runtime.lastError) {
+                      console.warn(
+                        "[Canva Auto Prompter] Could not communicate with content script:",
+                        chrome.runtime.lastError.message,
+                      );
+                      statusText.textContent =
+                        "Error: Please refresh the Canva tab and try again.";
+                      statusDot.style.backgroundColor = "#ef4444";
+                      statusDot.classList.remove("active");
+                      chrome.storage.local.set({ isAutomating: false }); // Revert state safely
+                    }
+                  },
+                );
               }
             });
           });
@@ -421,17 +515,20 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- GOD-TIER 6-FEATURE UPDATE LOGIC ---
 
   // 1. Bulk File Importer
-  const importFileBtn = document.getElementById('importFileBtn');
-  const fileInput = document.getElementById('fileInput');
+  const importFileBtn = document.getElementById("importFileBtn");
+  const fileInput = document.getElementById("fileInput");
   if (importFileBtn && fileInput) {
-    importFileBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => {
+    importFileBtn.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = (event) => {
-        const promptInput = document.getElementById('promptInput');
-        promptInput.value = promptInput.value + (promptInput.value ? '\n' : '') + event.target.result;
+        const promptInput = document.getElementById("promptInput");
+        promptInput.value =
+          promptInput.value +
+          (promptInput.value ? "\n" : "") +
+          event.target.result;
         chrome.storage.local.set({ savedPromptText: promptInput.value });
       };
       reader.readAsText(file);
@@ -439,13 +536,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 2. Export Logs
-  const exportLogsBtn = document.getElementById('exportLogsBtn');
+  const exportLogsBtn = document.getElementById("exportLogsBtn");
   if (exportLogsBtn) {
-    exportLogsBtn.addEventListener('click', () => {
-      const logs = document.getElementById('consoleLogs').innerText;
-      const blob = new Blob([logs], { type: 'text/plain' });
+    exportLogsBtn.addEventListener("click", () => {
+      const logs = document.getElementById("consoleLogs").innerText;
+      const blob = new Blob([logs], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `Canva_Logs_${new Date().getTime()}.txt`;
       a.click();
@@ -454,16 +551,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 3. Pause / Resume Toggle
-  const pauseButton = document.getElementById('pauseButton');
+  const pauseButton = document.getElementById("pauseButton");
   if (pauseButton) {
-    pauseButton.addEventListener('click', () => {
-      chrome.storage.local.get(['isPaused'], (res) => {
+    pauseButton.addEventListener("click", () => {
+      chrome.storage.local.get(["isPaused"], (res) => {
         const newState = !res.isPaused;
         chrome.storage.local.set({ isPaused: newState });
-        pauseButton.textContent = newState ? '▶ RESUME' : '⏸ PAUSE';
-        pauseButton.style.background = newState ? '#2ecc71' : '#f39c12';
-        pauseButton.style.borderColor = newState ? '#2ecc71' : '#f39c12';
-        pauseButton.style.boxShadow = newState ? '4px 4px 0px #27ae60' : '4px 4px 0px #b9770e';
+        pauseButton.textContent = newState ? "▶ RESUME" : "⏸ PAUSE";
+        pauseButton.style.background = newState ? "#2ecc71" : "#f39c12";
+        pauseButton.style.borderColor = newState ? "#2ecc71" : "#f39c12";
+        pauseButton.style.boxShadow = newState
+          ? "4px 4px 0px #27ae60"
+          : "4px 4px 0px #b9770e";
       });
     });
   }
@@ -471,10 +570,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // 4. Quarantine Catch Listener
   chrome.runtime.onMessage.addListener((request) => {
     if (request.action === "PROMPT_FAILED") {
-      const qInput = document.getElementById('quarantineInput');
+      const qInput = document.getElementById("quarantineInput");
       if (qInput) {
         // Use request.failedPrompt which is what content.js emits
-        qInput.value = qInput.value + (qInput.value ? '\n' : '') + (request.failedPrompt || request.prompt || "Unknown Failed Prompt");
+        qInput.value =
+          qInput.value +
+          (qInput.value ? "\n" : "") +
+          (request.failedPrompt || request.prompt || "Unknown Failed Prompt");
       }
     }
   });
@@ -482,57 +584,64 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- UTILITY ICONS LOGIC ---
 
   // 1. Open Dream Lab Shortcut
-  const openDreamLabBtn = document.getElementById('openDreamLabBtn');
+  const openDreamLabBtn = document.getElementById("openDreamLabBtn");
   if (openDreamLabBtn) {
-    openDreamLabBtn.addEventListener('click', () => {
-      chrome.tabs.create({ url: 'https://www.canva.com/dream-lab' });
+    openDreamLabBtn.addEventListener("click", () => {
+      chrome.tabs.create({ url: "https://www.canva.com/dream-lab" });
     });
   }
 
   // 2. Clear Prompts Trash Can
-  const clearPromptsBtn = document.getElementById('clearPromptsBtn');
+  const clearPromptsBtn = document.getElementById("clearPromptsBtn");
   if (clearPromptsBtn) {
-    clearPromptsBtn.addEventListener('click', () => {
-      if (confirm('Are you sure you want to clear all prompts?')) {
-        const promptInput = document.getElementById('promptInput');
+    clearPromptsBtn.addEventListener("click", () => {
+      if (confirm("Are you sure you want to clear all prompts?")) {
+        const promptInput = document.getElementById("promptInput");
         if (promptInput) {
-          promptInput.value = '';
-          chrome.storage.local.set({ savedPromptText: '' });
+          promptInput.value = "";
+          chrome.storage.local.set({ savedPromptText: "" });
 
-          const progressText = document.getElementById('progressText');
-          if (progressText) progressText.textContent = 'Progress: 0 prompts remaining';
+          const progressText = document.getElementById("progressText");
+          if (progressText)
+            progressText.textContent = "Progress: 0 prompts remaining";
         }
       }
     });
   }
 
   // 3. Clear Terminal Logs Trash Can
-  const clearLogsBtn = document.getElementById('clearLogsBtn');
+  const clearLogsBtn = document.getElementById("clearLogsBtn");
   if (clearLogsBtn) {
-    clearLogsBtn.addEventListener('click', () => {
-      const consoleLogs = document.getElementById('consoleLogs');
+    clearLogsBtn.addEventListener("click", () => {
+      const consoleLogs = document.getElementById("consoleLogs");
       if (consoleLogs) {
-        consoleLogs.innerHTML = ''; // Wipe all log divs
+        consoleLogs.innerHTML = ""; // Wipe all log divs
       }
     });
   }
 
   // --- UI SETTINGS MODAL LOGIC ---
-  const settingsBtn = document.getElementById('settingsBtn');
-  const closeSettingsBtn = document.getElementById('closeSettingsBtn');
-  const settingsModal = document.getElementById('settingsModal');
-  const themeSelect = document.getElementById('themeSelect');
-  const fontSelect = document.getElementById('fontSelect');
-  const batchLimitInput = document.getElementById('batchLimitInput');
-  const safetyDelaySlider = document.getElementById('safetyDelaySlider');
-  const safetyDelayVal = document.getElementById('safetyDelayVal');
-  const soundToggle = document.getElementById('soundToggle');
+  const settingsBtn = document.getElementById("settingsBtn");
+  const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+  const settingsModal = document.getElementById("settingsModal");
+  const themeSelect = document.getElementById("themeSelect");
+  const fontSelect = document.getElementById("fontSelect");
+  const batchLimitInput = document.getElementById("batchLimitInput");
+  const safetyDelaySlider = document.getElementById("safetyDelaySlider");
+  const safetyDelayVal = document.getElementById("safetyDelayVal");
+  const soundToggle = document.getElementById("soundToggle");
 
-  if (settingsBtn) settingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
-  if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+  if (settingsBtn)
+    settingsBtn.addEventListener("click", () =>
+      settingsModal.classList.remove("hidden"),
+    );
+  if (closeSettingsBtn)
+    closeSettingsBtn.addEventListener("click", () =>
+      settingsModal.classList.add("hidden"),
+    );
 
   function applyCustomUI(theme, font) {
-    document.body.className = ''; // Reset all classes on body
+    document.body.className = ""; // Reset all classes on body
     if (theme && font) {
       document.body.classList.add(theme, font);
     }
@@ -540,14 +649,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Save and apply on change
   if (themeSelect) {
-    themeSelect.addEventListener('change', () => {
+    themeSelect.addEventListener("change", () => {
       chrome.storage.local.set({ uiTheme: themeSelect.value });
       applyCustomUI(themeSelect.value, fontSelect.value);
     });
   }
 
   if (fontSelect) {
-    fontSelect.addEventListener('change', () => {
+    fontSelect.addEventListener("change", () => {
       chrome.storage.local.set({ uiFont: fontSelect.value });
       applyCustomUI(themeSelect.value, fontSelect.value);
     });
@@ -555,27 +664,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Advanced Settings Listeners
   if (safetyDelaySlider && safetyDelayVal) {
-    safetyDelaySlider.addEventListener('input', () => {
+    safetyDelaySlider.addEventListener("input", () => {
       safetyDelayVal.textContent = safetyDelaySlider.value;
-      chrome.storage.local.set({ safetyDelay: parseInt(safetyDelaySlider.value, 10) });
+      chrome.storage.local.set({
+        safetyDelay: parseInt(safetyDelaySlider.value, 10),
+      });
     });
   }
 
   if (batchLimitInput) {
-    batchLimitInput.addEventListener('change', () => {
-      chrome.storage.local.set({ batchLimit: parseInt(batchLimitInput.value, 10) || 0 });
+    batchLimitInput.addEventListener("change", () => {
+      chrome.storage.local.set({
+        batchLimit: parseInt(batchLimitInput.value, 10) || 0,
+      });
     });
   }
 
   if (soundToggle) {
-    soundToggle.addEventListener('change', () => {
+    soundToggle.addEventListener("change", () => {
       chrome.storage.local.set({ playSounds: soundToggle.checked });
     });
   }
 
-  const typingModeSelect = document.getElementById('typingModeSelect');
+  const typingModeSelect = document.getElementById("typingModeSelect");
   if (typingModeSelect) {
-    typingModeSelect.addEventListener('change', () => {
+    typingModeSelect.addEventListener("change", () => {
       chrome.storage.local.set({ typingMode: typingModeSelect.value });
     });
   }
