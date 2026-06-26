@@ -144,6 +144,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+// CRITICAL 2 & HIGH 6 FIX: Release mutex and power if tab is forcibly closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+  chrome.storage.local.get(["activeAutomationTab"], (res) => {
+    if (res.activeAutomationTab === tabId) {
+      console.log(
+        `[Background] Active tab ${tabId} closed. Clearing mutex and power lock.`,
+      );
+      chrome.storage.local.remove(["activeAutomationTab"]);
+      chrome.power.releaseKeepAwake();
+    }
+  });
+});
+
 // Clear mutex lock if debugger detaches organically or extension unloads
 chrome.debugger.onDetach.addListener((source, reason) => {
   console.log(`[Background] Debugger detached due to: ${reason}`);
@@ -171,13 +184,12 @@ chrome.debugger.onDetach.addListener((source, reason) => {
 // Smart Auto-Rename API: Intercept downloads and rename based on current prompt
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
   // Only intercept if the automation lock is active
-  // Add 'createSubfolder' to the storage query
   chrome.storage.local.get(
-    ["activeAutomationTab", "currentActivePrompt", "createSubfolder"],
+    ["activeAutomationTab", "downloadingPrompt", "createSubfolder"],
     (res) => {
-      if (res.activeAutomationTab && res.currentActivePrompt) {
+      if (res.activeAutomationTab && res.downloadingPrompt) {
         // Clean the prompt to make it a valid, SEO-friendly filename
-        let cleanName = res.currentActivePrompt
+        let cleanName = res.downloadingPrompt
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "_") // Replace non-alphanumeric with underscores
           .replace(/^_+|_+$/g, "") // Trim edge underscores
