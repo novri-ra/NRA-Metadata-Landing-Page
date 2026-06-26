@@ -264,6 +264,10 @@ function handleAutomationError(err) {
 
   if (err.message === "USER_STOPPED") {
     console.log("[Canva Automation] Process stopped manually.");
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
     chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
       sendStatusUpdate("Automation stopped by user.");
     });
@@ -775,8 +779,7 @@ async function startMainLoop() {
 
       let currentPrompt = prompts[0];
 
-      // 2. Smart Auto-Rename Anchor: Send the current prompt to background.js before clicking submit
-      await chrome.storage.local.set({ currentActivePrompt: currentPrompt });
+      // Removed premature prompt saving to avoid rename race condition.
 
       try {
         await logToTerminal(
@@ -1190,6 +1193,9 @@ async function startMainLoop() {
         }
 
         const buttonsToDownload = newestButtons.slice(0, targetCount);
+
+        // CRITICAL 3 FIX: Set the exact prompt for the background downloader right before clicking download
+        await chrome.storage.local.set({ downloadingPrompt: currentPrompt });
 
         // 4. Download click loop
         for (let i = 0; i < targetCount; i++) {
