@@ -137,8 +137,8 @@ document.addEventListener("DOMContentLoaded", () => {
       "prompts",
       "isAutomating",
       "savedPromptText",
-      "savedAspectRatio",
-      "savedImageStyle",
+      "aspectRatio",
+      "imageStyle",
       "savedDownloadCount",
       "savedFailedPrompts",
       "savedDebugMode",
@@ -198,11 +198,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Restore dropdown settings if they were auto-saved
-        if (result.savedAspectRatio) {
-          aspectRatioSelect.value = result.savedAspectRatio;
+        if (result.aspectRatio) {
+          aspectRatioSelect.value = result.aspectRatio;
         }
-        if (result.savedImageStyle) {
-          imageStyleSelect.value = result.savedImageStyle;
+        if (result.imageStyle) {
+          imageStyleSelect.value = result.imageStyle;
         }
         if (result.savedDownloadCount) {
           downloadCountSelect.value = result.savedDownloadCount;
