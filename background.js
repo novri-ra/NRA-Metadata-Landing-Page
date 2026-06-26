@@ -157,11 +157,68 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   });
 });
 
+/**
+ * Emergency cleanup routine to reset automation state and release resources.
+ * Idempotent: safe to call multiple times.
+ */
+function emergencyCleanup() {
+  chrome.storage.local.set({ isAutomating: false }, () => {
+    if (chrome.runtime.lastError) {
+      console.warn(
+        "[Background] Failed to reset isAutomating:",
+        chrome.runtime.lastError.message,
+      );
+    }
+  });
+
+  chrome.power.releaseKeepAwake();
+  chrome.storage.local.remove(["activeAutomationTab"], () => {
+    if (chrome.runtime.lastError) {
+      console.warn(
+        "[Background] Failed to clear activeAutomationTab:",
+        chrome.runtime.lastError.message,
+      );
+    }
+  });
+}
+
+// Add listener for extension unloading
+chrome.runtime.onSuspend.addListener(() => {
+  console.log("[Background] Extension unloading. Running emergency cleanup...");
+  emergencyCleanup();
+});
+
 // Clear mutex lock if debugger detaches organically or extension unloads
 chrome.debugger.onDetach.addListener((source, reason) => {
   console.log(`[Background] Debugger detached due to: ${reason}`);
-  chrome.storage.local.remove(["activeAutomationTab"]);
-  chrome.power.releaseKeepAwake();
+  emergencyCleanup();
+
+  // Notify active tab that debugger has detached
+  chrome.storage.local.get(["activeAutomationTab"], (res) => {
+    if (res.activeAutomationTab) {
+      chrome.tabs
+        .sendMessage(res.activeAutomationTab, {
+          action: "DEBUGGER_DETACHED",
+          reason: reason,
+        })
+        .catch((err) => {
+          console.warn("Failed to notify tab about debugger detachment:", err);
+        });
+    }
+  });
+
+  // Send message to active tab with DEBUGGER_DETACHED action
+  chrome.storage.local.get(["activeAutomationTab"], (res) => {
+    if (res.activeAutomationTab) {
+      chrome.tabs
+        .sendMessage(res.activeAutomationTab, {
+          action: "DEBUGGER_DETACHED",
+        })
+        .catch((err) => {
+          console.warn("Failed to notify tab about debugger detachment:", err);
+        });
+    }
+  });
 
   // FINAL EDGE-CASE FIX: Force reset automation state in storage
   chrome.storage.local.set(
@@ -179,6 +236,12 @@ chrome.debugger.onDetach.addListener((source, reason) => {
       }
     },
   );
+});
+
+// Add listener for browser suspension/closing
+chrome.runtime.onSuspend.addListener(() => {
+  console.log("[Background] Browser suspending. Running emergency cleanup...");
+  emergencyCleanup();
 });
 
 // Smart Auto-Rename API: Intercept downloads and rename based on current prompt

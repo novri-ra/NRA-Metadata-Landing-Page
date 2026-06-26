@@ -22,9 +22,7 @@
     "power",
     "downloads"
   ],
-  "host_permissions": [
-    "*://*.canva.com/*"
-  ],
+  "host_permissions": ["*://*.canva.com/*"],
   "side_panel": {
     "default_path": "panel.html"
   },
@@ -33,12 +31,8 @@
   },
   "content_scripts": [
     {
-      "matches": [
-        "*://*.canva.com/*"
-      ],
-      "js": [
-        "content.js"
-      ],
+      "matches": ["https://www.canva.com/dream-lab"],
+      "js": ["selectors.js", "content.js"],
       "run_at": "document_idle"
     }
   ]

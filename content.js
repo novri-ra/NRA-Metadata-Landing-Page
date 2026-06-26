@@ -142,7 +142,9 @@ async function checkIfStopped() {
  */
 function tagGhostCooldowns() {
   const warnings = document.evaluate(
-    "//*[not(@data-bot-ignored='true') and (contains(text(), 'Lots of people are using Dream Lab') or (not(ancestor-or-self::*[@role='alert' or @role='status']) and (contains(text(), 'generate again in') or contains(text(), 'Try again in'))))]",
+    "//*[not(@data-bot-ignored='true') and (contains(text(), 'Lots of people are using Dream Lab') or (not(ancestor-or-self::*" +
+      CANVA_SELECTORS.ALERT_STATUS +
+      ") and (contains(text(), 'generate again in') or contains(text(), 'Try again in'))))]",
     document,
     null,
     XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE,
@@ -168,38 +170,47 @@ function tagGhostCooldowns() {
  * @returns {number} Cooldown in milliseconds, or 0 if not found.
  */
 function getScreenCooldownMs() {
-  // 1. Check for Canva Server Overload / Busy text
-  const busyWarning = document.evaluate(
-    "//*[not(@data-bot-ignored='true') and contains(text(), 'Lots of people are using Dream Lab')]",
-    document,
-    null,
-    XPathResult.FIRST_ORDERED_NODE_TYPE,
-    null,
-  ).singleNodeValue;
+  // Ensure we ignore elements tagged by tagGhostCooldowns
+  const ignoredNodes = document.querySelectorAll('[data-bot-ignored="true"]');
+  const originalStyles = [];
+  ignoredNodes.forEach((node) => {
+    originalStyles.push(node.style.display);
+    node.style.display = "none";
+  });
 
-  if (busyWarning) {
-    console.warn(
-      "[Canva Automation] Server overload detected. Defaulting to 3 minutes cooldown.",
-    );
-    return 3 * 60 * 1000; // Default to 3 minutes (180,000 ms)
+  const COOLDOWN_PATTERNS = {
+    BUSY: /Lots of people are using/i,
+    GENERATE: /generate again in/i,
+    TRY: /Try again in/i,
+  };
+
+  const pageText = document.body.innerText;
+
+  // Restore original display styles
+  ignoredNodes.forEach((node, i) => {
+    node.style.display = originalStyles[i];
+  });
+
+  for (const [key, pattern] of Object.entries(COOLDOWN_PATTERNS)) {
+    const match = pageText.match(pattern);
+    if (match) {
+      if (key === "BUSY") {
+        console.warn(
+          "[Canva Automation] Server overload detected. Defaulting to 3 minutes cooldown.",
+        );
+        return 3 * 60 * 1000;
+      } else if (key === "GENERATE" || key === "TRY") {
+        const timeMatch = pageText.match(/(\d+):(\d+)/);
+        if (timeMatch) {
+          return (
+            (parseInt(timeMatch[1], 10) * 60 + parseInt(timeMatch[2], 10)) *
+            1000
+          );
+        }
+      }
+    }
   }
 
-  // 2. Check for standard specific time limit (e.g., 2:36)
-  const staticWarning = document.evaluate(
-    "//*[not(@data-bot-ignored='true') and not(ancestor-or-self::*[@role='alert' or @role='status']) and (contains(text(), 'generate again in') or contains(text(), 'Try again in'))]",
-    document,
-    null,
-    XPathResult.FIRST_ORDERED_NODE_TYPE,
-    null,
-  ).singleNodeValue;
-
-  if (staticWarning) {
-    const timeMatch = staticWarning.textContent.match(/(\d+):(\d+)/);
-    if (timeMatch)
-      return (
-        (parseInt(timeMatch[1], 10) * 60 + parseInt(timeMatch[2], 10)) * 1000
-      );
-  }
   return 0;
 }
 
@@ -898,7 +909,7 @@ async function startMainLoop() {
         // 2. Find prompt input, clear it, inject text, and strictly verify
         if (!isRunning) throw new Error("USER_STOPPED");
         const textarea = await waitForElement(
-          'textarea[placeholder*="Describe"], textarea[class*="canva"]',
+          CANVA_SELECTORS.PROMPT_TEXTAREA,
           false,
           15000,
         );
@@ -972,14 +983,14 @@ async function startMainLoop() {
           if (!isRunning) throw new Error("USER_STOPPED");
 
           let initialButtonCount = document.querySelectorAll(
-            'button[aria-label="Download Image"]',
+            CANVA_SELECTORS.DOWNLOAD_BUTTON,
           ).length;
           console.log(
             `[Canva Automation] Baseline button count: ${initialButtonCount}`,
           );
 
           const submitBtn = await waitForElement(
-            'button[type="submit"]',
+            CANVA_SELECTORS.SUBMIT_BUTTON,
             false,
             10000,
           );
@@ -995,7 +1006,7 @@ async function startMainLoop() {
 
           // 1. Check for FATAL Monthly Limit or Upgrade Pop-up first
           const monthlyLimitWarning = document.evaluate(
-            "//*[contains(text(), 'monthly AI limit') or contains(text(), 'hit your plan') or contains(text(), 'Upgrade to get more AI')]",
+            CANVA_SELECTORS.MONTHLY_LIMIT_WARNING,
             document,
             null,
             XPathResult.FIRST_ORDERED_NODE_TYPE,
@@ -1059,7 +1070,7 @@ async function startMainLoop() {
 
             // Dynamic Stale DOM tracker: if React unmounts old off-screen images, lower baseline
             const currentActualCount = document.querySelectorAll(
-              'button[aria-label="Download Image"]',
+              CANVA_SELECTORS.DOWNLOAD_BUTTON,
             ).length;
             if (
               currentActualCount < currentBtnCount &&
@@ -1137,7 +1148,7 @@ async function startMainLoop() {
 
               // Retype prompt logic with human animation
               const retryTextarea = await waitForElement(
-                'textarea[placeholder*="Describe"], textarea[class*="canva"]',
+                CANVA_SELECTORS.PROMPT_TEXTAREA,
                 false,
                 5000,
               );
@@ -1171,7 +1182,7 @@ async function startMainLoop() {
         // 3. Query buttons again and slice the newest batch from the top
         if (!isRunning) throw new Error("USER_STOPPED");
         const allBtns = document.querySelectorAll(
-          'button[aria-label="Download Image"]',
+          CANVA_SELECTORS.DOWNLOAD_BUTTON,
         );
         let newestButtons = Array.from(allBtns).slice(0, 4);
         let targetCount = 4;
@@ -1201,7 +1212,7 @@ async function startMainLoop() {
         for (let i = 0; i < targetCount; i++) {
           if (!isRunning) throw new Error("USER_STOPPED");
           const freshBtns = document.querySelectorAll(
-            'button[aria-label="Download Image"]',
+            CANVA_SELECTORS.DOWNLOAD_BUTTON,
           );
           if (i >= freshBtns.length) break; // Safety check
           console.log(
@@ -1415,6 +1426,14 @@ async function startMainLoop() {
 // ==========================================
 // Initialization Block
 // ==========================================
+
+// Add listener for debugger detachment notification
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.action === "DEBUGGER_DETACHED") {
+    console.warn("[Canva Automation] Debugger detached. Connection lost!");
+    sendStatusUpdate("Debugger disconnected - Please refresh page");
+  }
+});
 
 // 1. Listen for START_AUTOMATION and STOP_AUTOMATION messages from popup
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
