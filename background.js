@@ -5,21 +5,47 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
 console.log("[Canva Auto Prompter] Background Service Worker loaded.");
 
+// Mutex lock for debugger re-attachment to prevent race conditions during rapid CDP requests
+let isAttachingDebugger = false;
+
 /**
  * WARN-1 FIX: Ensures the debugger is attached before sending CDP commands.
  * After a long cooldown (5+ minutes), the MV3 service worker may have been
  * terminated and restarted, losing the previous debugger attachment.
- * This helper idempotently re-attaches if needed.
+ * This helper idempotently re-attaches if needed, with a mutex lock to prevent concurrent Protocol Errors.
  * @param {number} tabId
  */
 async function ensureDebuggerAttached(tabId) {
+  if (isAttachingDebugger) {
+    // Wait for the active attachment process to finish with timeout
+    let retries = 0;
+    while (isAttachingDebugger && retries < 30) {
+      await new Promise((r) => setTimeout(r, 100));
+      retries++;
+    }
+    if (isAttachingDebugger) {
+      console.error("[Background] Mutex timeout waiting for debugger attach");
+      throw new Error("DEBUGGER_ATTACH_TIMEOUT");
+    }
+    return;
+  }
+
+  isAttachingDebugger = true;
   try {
+    const targets = await chrome.debugger.getTargets();
+    const target = targets.find((t) => t.tabId === tabId);
+
+    if (target && target.attached) {
+      return; // Already attached
+    }
+
     await chrome.debugger.attach({ tabId }, "1.3");
   } catch (e) {
-    // "Already attached" means we're good — any other error is a real failure
     if (!e.message || !e.message.includes("already attached")) {
-      throw e;
+      console.warn("[Background] ensureDebuggerAttached failed:", e);
     }
+  } finally {
+    isAttachingDebugger = false;
   }
 }
 
@@ -207,20 +233,6 @@ chrome.debugger.onDetach.addListener((source, reason) => {
     }
   });
 
-  // Send message to active tab with DEBUGGER_DETACHED action
-  chrome.storage.local.get(["activeAutomationTab"], (res) => {
-    if (res.activeAutomationTab) {
-      chrome.tabs
-        .sendMessage(res.activeAutomationTab, {
-          action: "DEBUGGER_DETACHED",
-        })
-        .catch((err) => {
-          console.warn("Failed to notify tab about debugger detachment:", err);
-        });
-    }
-  });
-
-  // FINAL EDGE-CASE FIX: Force reset automation state in storage
   chrome.storage.local.set(
     {
       isAutomating: false,
@@ -238,18 +250,20 @@ chrome.debugger.onDetach.addListener((source, reason) => {
   );
 });
 
-// Add listener for browser suspension/closing
-chrome.runtime.onSuspend.addListener(() => {
-  console.log("[Background] Browser suspending. Running emergency cleanup...");
-  emergencyCleanup();
-});
-
 // Smart Auto-Rename API: Intercept downloads and rename based on current prompt
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
   // Only intercept if the automation lock is active
   chrome.storage.local.get(
     ["activeAutomationTab", "downloadingPrompt", "createSubfolder"],
     (res) => {
+      if (chrome.runtime.lastError) {
+        console.warn(
+          "[Background] Storage error in download interceptor:",
+          chrome.runtime.lastError,
+        );
+        suggest();
+        return;
+      }
       if (res.activeAutomationTab && res.downloadingPrompt) {
         // Clean the prompt to make it a valid, SEO-friendly filename
         let cleanName = res.downloadingPrompt
