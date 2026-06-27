@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -593,6 +593,9 @@
           rows="10"
           placeholder="Paste multiple prompts here (one per line)..."
         ></textarea>
+      <div style="font-family: 'VT323', monospace; font-size: 14px; color: #a0aec0; margin-top: 4px; margin-bottom: 4px;">
+        💡 Gunakan <code style="background: #2d3748; padding: 0 4px;">{i}</code> untuk angka berurutan (contoh: "Kucing {i} tidur" → Kucing 1 tidur, Kucing 2 tidur, ...)
+      </div>
         <div id="progressText" class="progress-text">Progress: 0 / 0</div>
       </div>
     </div>
@@ -752,15 +755,22 @@
           QUARANTINED PROMPTS
         </h3>
         <div class="header-icons">
-          <button
-            id="clearQuarantineBtn"
-            class="icon-btn"
-            title="Clear Quarantine"
-          >
-            🗑️
-          </button>
-          <span class="toggle-icon">[-]</span>
-        </div>
+            <button
+              id="retryQuarantineBtn"
+              class="icon-btn"
+              title="Retry all quarantined prompts"
+            >
+              ↩️
+            </button>
+            <button
+              id="clearQuarantineBtn"
+              class="icon-btn"
+              title="Clear Quarantine"
+            >
+              🗑️
+            </button>
+            <span class="toggle-icon">[-]</span>
+          </div>
       </div>
       <div id="quarantineContent" class="section-content">
         <textarea
@@ -927,9 +937,29 @@
             Enable Detailed Logs (Verbose Mode)
           </label>
         </div>
+
+        <div class="form-group" style="margin-top: 10px; border-top: 1px solid #475569; padding-top: 12px;">
+          <label style="display: flex; align-items: center; justify-content: space-between; cursor: default;">
+            <span>⌨️ Shortcut Pause/Resume</span>
+            <span id="shortcutDisplay" style="background: #020617; padding: 4px 10px; font-family: 'VT323', monospace; font-size: 16px; color: #4ade80; border: 1px solid #475569;">
+              Ctrl+Shift+P
+            </span>
+          </label>
+          <div style="margin-top: 6px; font-size: 10px; color: #64748b; font-family: 'VT323', monospace;">
+            Tekan <strong style="color: #4ade80;">Ctrl+Shift+P</strong> (Mac: <strong style="color: #4ade80;">Cmd+Shift+P</strong>) untuk pause/resume tanpa membuka panel.
+            <br>
+            <button id="customizeShortcutBtn" style="background: none; border: 1px solid #6366f1; color: #818cf8; padding: 4px 12px; margin-top: 6px; font-family: 'VT323', monospace; font-size: 14px; cursor: pointer;">
+              ⚙️ Customize Shortcut
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
 
     <script src="panel.js"></script>
   </body>
 </html>
+
+
+
