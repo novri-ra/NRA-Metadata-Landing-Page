@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -593,6 +593,9 @@
           rows="10"
           placeholder="Paste multiple prompts here (one per line)..."
         ></textarea>
+      <div style="font-family: 'VT323', monospace; font-size: 14px; color: #a0aec0; margin-top: 4px; margin-bottom: 4px;">
+        💡 Gunakan <code style="background: #2d3748; padding: 0 4px;">{i}</code> untuk angka berurutan (contoh: "Kucing {i} tidur" → Kucing 1 tidur, Kucing 2 tidur, ...)
+      </div>
         <div id="progressText" class="progress-text">Progress: 0 / 0</div>
       </div>
     </div>
@@ -752,15 +755,22 @@
           QUARANTINED PROMPTS
         </h3>
         <div class="header-icons">
-          <button
-            id="clearQuarantineBtn"
-            class="icon-btn"
-            title="Clear Quarantine"
-          >
-            🗑️
-          </button>
-          <span class="toggle-icon">[-]</span>
-        </div>
+            <button
+              id="retryQuarantineBtn"
+              class="icon-btn"
+              title="Retry all quarantined prompts"
+            >
+              ↩️
+            </button>
+            <button
+              id="clearQuarantineBtn"
+              class="icon-btn"
+              title="Clear Quarantine"
+            >
+              🗑️
+            </button>
+            <span class="toggle-icon">[-]</span>
+          </div>
       </div>
       <div id="quarantineContent" class="section-content">
         <textarea
@@ -933,3 +943,5 @@
     <script src="panel.js"></script>
   </body>
 </html>
+
+

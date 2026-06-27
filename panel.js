@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+﻿document.addEventListener("DOMContentLoaded", () => {
   const startBtn = document.getElementById("startBtn");
   const promptInput = document.getElementById("promptInput");
   const aspectRatioSelect = document.getElementById("aspectRatio");
@@ -13,6 +13,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let isRunning = false;
   let isDebugMode = false;
+
+  /**
+   * Expand prompt with {i} placeholder
+   * @param {string} prompt - Prompt text containing {i}
+   * @param {number} iterations - Number of iterations (default: 1)
+   * @returns {string[]} Array of expanded prompts
+   */
+  function expandPromptWithVariable(prompt, iterations) {
+    if (!prompt.includes('{i}') || iterations < 1) {
+      return [prompt];
+    }
+    const results = [];
+    for (let i = 1; i <= iterations; i++) {
+      results.push(prompt.replace(/\{i\}/g, i));
+    }
+    return results;
+  }
 
   // --- UNIVERSAL COLLAPSE LOGIC ---
   const toggleHeaders = document.querySelectorAll(".toggle-header");
@@ -585,6 +602,38 @@ document.addEventListener("DOMContentLoaded", () => {
               .map((p) => p.trim())
               .filter((p) => p.length > 0);
 
+          // Expand prompts with {i} placeholder
+          let expandedPrompts = [];
+          for (let p of promptsArray) {
+            if (p.includes('{i}')) {
+              // Tanya user berapa iterasi
+              const iterationsInput = prompt(`Prompt "${p}" mengandung {i}. Berapa jumlah iterasi yang diinginkan?`, "5");
+              if (iterationsInput === null) {
+                // User cancel, skip ekspansi, gunakan prompt asli
+                expandedPrompts.push(p);
+                continue;
+              }
+              const iterations = parseInt(iterationsInput, 10);
+              if (isNaN(iterations) || iterations < 1) {
+                alert("Jumlah iterasi harus berupa angka positif. Prompt akan digunakan apa adanya.");
+                expandedPrompts.push(p);
+                continue;
+              }
+              // Ekspansi prompt
+              const expanded = expandPromptWithVariable(p, iterations);
+              expandedPrompts.push(...expanded);
+            } else {
+              expandedPrompts.push(p);
+            }
+          }
+
+          // Ganti promptsArray dengan hasil ekspansi
+          promptsArray.length = 0;
+          promptsArray.push(...expandedPrompts);
+
+          // PERBAIKAN: Perbarui textarea di panel agar menampung hasil ekspansi dan terlihat oleh user
+          promptInput.value = promptsArray.join("\n");
+
             if (promptsArray.length === 0) {
               alert("Please enter at least one prompt!");
               return;
@@ -655,8 +704,6 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     });
   }
-  // --- UTILITY ICONS LOGIC ---
-
   // --- GOD-TIER 6-FEATURE UPDATE LOGIC ---
 
   // 1. Bulk File Importer
@@ -725,6 +772,47 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   });
+
+  // 5. Retry Quarantine Logic - Pindahkan semua prompt dari Quarantine ke Prompt Input utama
+  const retryQuarantineBtn = document.getElementById('retryQuarantineBtn');
+  if (retryQuarantineBtn) {
+    retryQuarantineBtn.addEventListener('click', () => {
+      const quarantineInput = document.getElementById('quarantineInput');
+      const promptInput = document.getElementById('promptInput');
+      const quarantineText = quarantineInput.value.trim();
+      
+      // Jika quarantine kosong, beri tahu user
+      if (!quarantineText) {
+        alert('Tidak ada prompt di Quarantine untuk diulang.');
+        return;
+      }
+      
+      // Append teks quarantine ke prompt input utama
+      if (promptInput.value.trim()) {
+        promptInput.value += '\n' + quarantineText;
+      } else {
+        promptInput.value = quarantineText;
+      }
+      
+      // Kosongkan quarantine
+      quarantineInput.value = '';
+      
+      // Simpan ke Chrome Storage
+      chrome.storage.local.set({ 
+        savedPromptText: promptInput.value,
+        savedFailedPrompts: '' 
+      });
+      
+      // Update progress text (opsional)
+      const progressText = document.getElementById('progressText');
+      const currentPrompts = promptInput.value.split('\n').filter(p => p.trim().length > 0);
+      if (progressText) {
+        progressText.textContent = `Progress: ${currentPrompts.length} prompts remaining (with retry)`;
+      }
+      
+      console.log('[Canva Auto Prompter] ✅ Quarantined prompts moved back to main queue.');
+    });
+  }
 
   // --- UTILITY ICONS LOGIC ---
 
@@ -928,3 +1016,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+
+
+
+
+
+
+
+
+
+
