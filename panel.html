@@ -597,6 +597,28 @@
         💡 Gunakan <code style="background: #2d3748; padding: 0 4px;">{i}</code> untuk angka berurutan (contoh: "Kucing {i} tidur" → Kucing 1 tidur, Kucing 2 tidur, ...)
       </div>
         <div id="progressText" class="progress-text">Progress: 0 / 0</div>
+      
+      <!-- PRESET CONTAINER -->
+      <div style="display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
+        <input type="text" id="presetNameInput" placeholder="Preset name..." 
+               style="flex: 1; min-width: 100px; background: #020617; border: 2px solid #475569; color: #4ade80; padding: 6px 10px; font-family: 'VT323', monospace; font-size: 16px; outline: none;">
+        <button id="savePresetBtn" class="btn" 
+                style="width: auto; padding: 6px 16px; font-size: 10px; background: #6366f1; box-shadow: 2px 2px 0px #312e81; border: 2px solid #6366f1; color: #ffffff; cursor: pointer;">
+          💾 Save
+        </button>
+        <select id="presetSelect" 
+                style="flex: 1; min-width: 120px; background: #020617; border: 2px solid #475569; color: #4ade80; padding: 6px 10px; font-family: 'VT323', monospace; font-size: 16px; outline: none; cursor: pointer;">
+          <option value="">-- Load Preset --</option>
+        </select>
+        <button id="loadPresetBtn" class="btn" 
+                style="width: auto; padding: 6px 16px; font-size: 10px; background: #4ade80; box-shadow: 2px 2px 0px #166534; border: 2px solid #4ade80; color: #000000; cursor: pointer;">
+          📂 Load
+        </button>
+        <button id="deletePresetBtn" class="btn" 
+                style="width: auto; padding: 6px 16px; font-size: 10px; background: #ef4444; box-shadow: 2px 2px 0px #991b1b; border: 2px solid #ef4444; color: #ffffff; cursor: pointer;">
+          🗑️ Del
+        </button>
+      </div>
       </div>
     </div>
 
@@ -960,6 +982,7 @@
     <script src="panel.js"></script>
   </body>
 </html>
+
 
 
 
