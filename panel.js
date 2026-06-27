@@ -61,20 +61,29 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Pleasant, ascending 2-tone chime: 523.25Hz (150ms), then 659.25Hz (300ms)
+  let sharedAudioCtx = null;
+
   function playAlertSound() {
     try {
       const AudioContextClass =
         window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
-      const ctx = new AudioContextClass();
 
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
+        sharedAudioCtx = new AudioContextClass();
+      }
+
+      if (sharedAudioCtx.state === "suspended") {
+        sharedAudioCtx.resume();
+      }
+
+      const osc = sharedAudioCtx.createOscillator();
+      const gain = sharedAudioCtx.createGain();
 
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(sharedAudioCtx.destination);
 
-      const now = ctx.currentTime;
+      const now = sharedAudioCtx.currentTime;
 
       // Tone 1: 523.25Hz for 150ms
       osc.frequency.setValueAtTime(523.25, now);
@@ -88,9 +97,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       osc.start(now);
       osc.stop(now + 0.45);
-
-      // WARN-8 FIX: Close AudioContext after playback to prevent resource exhaustion
-      osc.onended = () => ctx.close();
     } catch (e) {
       console.warn("[Canva Auto Prompter] Web Audio alert failed:", e);
     }
@@ -149,9 +155,12 @@ document.addEventListener("DOMContentLoaded", () => {
       "playSounds",
       "typingMode",
       "createSubfolder",
+      "lastProcessedPromptIndex",
+      "sessionStats",
     ],
     (result) => {
       if (result) {
+        if (result.sessionStats) updateAnalyticsUI(result.sessionStats);
         // Load UI Preferences
         const savedTheme = result.uiTheme || "theme-retro";
         const savedFont = result.uiFont || "font-pixel";
@@ -217,13 +226,23 @@ document.addEventListener("DOMContentLoaded", () => {
           failedPromptsTextarea.value = result.savedFailedPrompts;
         }
 
+        // Check for lastProcessedPromptIndex and display resume message if needed
+        if (result.lastProcessedPromptIndex > 0) {
+          const statusContainer = document.getElementById("status-container");
+          if (statusContainer) {
+            const resumeMessage = document.createElement("div");
+            resumeMessage.className = "resume-message";
+            resumeMessage.textContent = `Resume from prompt #${result.lastProcessedPromptIndex + 1}?`;
+            statusContainer.appendChild(resumeMessage);
+          }
+        }
+
         // 🌟 FORCE CHECK ON PANEL LOAD
         // As soon as the panel opens, check reality and force the button to match.
         syncRunButtonUI(result.isAutomating === true);
       }
     },
   );
-
   // Real-time Save (Input/Change Listeners to prevent data loss)
   let saveTimeout;
   promptInput.addEventListener("input", () => {
@@ -277,6 +296,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "STATUS_UPDATE",
       "PROGRESS_UPDATE",
       "PLAY_COMPLETION_SOUND",
+      "UPDATE_STATS",
     ]);
 
     // If message has an action that is NOT for the panel, return early without responding
@@ -355,6 +375,13 @@ document.addEventListener("DOMContentLoaded", () => {
       return true;
     }
 
+    // Handle stats update for analytics dashboard
+    if (request.action === "UPDATE_STATS") {
+      updateDashboard(request.stats);
+      sendResponse({ success: true });
+      return true;
+    }
+
     const statusValue =
       request.status ||
       (request.action === "STATUS_UPDATE" ? request.status : null);
@@ -403,113 +430,231 @@ document.addEventListener("DOMContentLoaded", () => {
     return true; // Keep channel open
   });
 
+  function updateAnalyticsUI(stats) {
+    if (!stats) return;
+
+    // Defensively parse values to avoid UI bugs if storage is corrupted
+    const successCount = Number(stats.successCount) || 0;
+    const downloadCount = Number(stats.downloadCount) || 0;
+
+    const elProcessed = document.getElementById("stat-processed");
+    if (elProcessed) elProcessed.textContent = successCount;
+
+    const elDownloaded = document.getElementById("stat-downloaded");
+    if (elDownloaded) elDownloaded.textContent = downloadCount;
+
+    const elRate = document.getElementById("stat-rate");
+    if (elRate) {
+      if (successCount > 0) {
+        // Safe division since successCount > 0
+        let rate = Math.round((downloadCount / successCount) * 100);
+        if (isNaN(rate)) rate = 0; // Final boundary check
+        elRate.textContent = rate + "%";
+      } else {
+        elRate.textContent = "0%";
+      }
+    }
+
+    const elTime = document.getElementById("stat-time");
+    if (elTime) {
+      if (stats.startTime) {
+        let elapsedMs = Date.now() - Number(stats.startTime);
+        if (isNaN(elapsedMs) || elapsedMs < 0) elapsedMs = 0; // Sanitize timestamp arithmetic
+
+        const elapsedSeconds = Math.floor(elapsedMs / 1000);
+        const minutes = Math.floor(elapsedSeconds / 60);
+        const seconds = elapsedSeconds % 60;
+        elTime.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+      } else {
+        elTime.textContent = "00:00";
+      }
+    }
+  }
+
+  // Create function to update dashboard
+  function updateDashboard(stats) {
+    if (!stats) return;
+
+    const promptsProcessedCount = Number(stats.promptsProcessed) || 0;
+    const imagesDownloadedCount = Number(stats.imagesDownloaded) || 0;
+    const successCount = Number(stats.successCount) || 0;
+    // Update prompts processed
+    const promptsProcessed = document.getElementById("stat-processed");
+    if (promptsProcessed) {
+      promptsProcessed.textContent = promptsProcessedCount.toString();
+    }
+
+    // Update images downloaded
+    const imagesDownloaded = document.getElementById("stat-downloaded");
+    if (imagesDownloaded) {
+      imagesDownloaded.textContent = imagesDownloadedCount.toString();
+    }
+
+    // Calculate and update success rate
+    const successRate = document.getElementById("stat-rate");
+    if (successRate) {
+      if (stats.promptsProcessed > 0) {
+        let rate = Math.round(
+          (stats.successCount / stats.promptsProcessed) * 100,
+        );
+        if (isNaN(rate)) rate = 0;
+        successRate.textContent = `${rate}%`;
+      } else {
+        successRate.textContent = "0%";
+      }
+    }
+
+    // Update time elapsed
+    const timeElapsed = document.getElementById("stat-time");
+    if (timeElapsed) {
+      if (stats.startTime) {
+        const currentTime = new Date().getTime();
+        const elapsedSeconds = Math.floor(
+          (currentTime - stats.startTime) / 1000,
+        );
+
+        // Format as MM:SS
+        const minutes = Math.floor(elapsedSeconds / 60);
+        const seconds = elapsedSeconds % 60;
+        timeElapsed.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+      } else {
+        timeElapsed.textContent = "00:00";
+      }
+    }
+  }
   // Global storage listener to keep UI in sync if automation state changes elsewhere
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === "local" && changes.isAutomating) {
-      const isNowAutomating = changes.isAutomating.newValue;
-      syncRunButtonUI(isNowAutomating === true);
+    if (areaName === "local") {
+      // Handle automation state changes
+      if (changes.isAutomating) {
+        const isNowAutomating = changes.isAutomating.newValue;
+        syncRunButtonUI(isNowAutomating === true);
+      }
+
+      if (changes.sessionStats) {
+        updateAnalyticsUI(changes.sessionStats.newValue);
+      }
+
+      // Handle stats updates
+      if (changes.stats) {
+        updateDashboard(changes.stats.newValue);
+      }
     }
   });
-
   // 🌟 CLEAN CLICK HANDLER
   // When clicked, check storage for ground truth, then toggle.
   // The onChanged listener above will handle UI changes reactively.
   if (startBtn) {
     startBtn.addEventListener("click", () => {
-      chrome.storage.local.get(["isAutomating"], (result) => {
-        const isCurrentlyRunning = result.isAutomating === true;
+      chrome.storage.local.get(
+        ["isAutomating", "lastProcessedPromptIndex"],
+        (result) => {
+          const isCurrentlyRunning = result.isAutomating === true;
 
-        if (isCurrentlyRunning) {
-          // WE ARE STOPPING
-          chrome.storage.local.set({ isAutomating: false, step: "IDLE" });
-          statusText.textContent = "Stopping automation...";
-          statusDot.style.backgroundColor = "#ef4444";
-          statusDot.classList.remove("active");
+          if (isCurrentlyRunning) {
+            // WE ARE STOPPING
+            chrome.storage.local.set({ isAutomating: false, step: "IDLE" });
+            statusText.textContent = "Stopping automation...";
+            statusDot.style.backgroundColor = "#ef4444";
+            statusDot.classList.remove("active");
 
-          chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
-            if (tabs.length === 0) {
-              console.warn("No active Dream Lab tab found.");
-              return;
-            }
-            if (tabs && tabs.length > 0) {
-              chrome.tabs
-                .sendMessage(tabs[0].id, { action: "STOP_AUTOMATION" })
-                .catch((err) => {
-                  if (
-                    chrome.runtime?.lastError?.message !==
-                    "Extension context invalidated"
-                  ) {
-                    console.warn("[Panel] Message delivery failed:", err);
-                  }
-                });
-            }
-          });
-        } else {
-          // WE ARE STARTING
-          chrome.storage.local.set({ isPaused: false });
-          const rawPromptText = promptInput.value;
-          const promptsArray = rawPromptText
-            .split("\n")
-            .map((p) => p.trim())
-            .filter((p) => p.length > 0);
-
-          if (promptsArray.length === 0) {
-            alert("Please enter at least one prompt!");
-            return;
-          }
-
-          failedPromptsTextarea.value = "";
-          chrome.storage.local.set({ savedFailedPrompts: "" });
-
-          progressText.textContent = `Progress: ${promptsArray.length} prompts remaining`;
-          statusText.textContent = "Starting...";
-
-          const state = {
-            isAutomating: true,
-            step: "INJECT_PROMPT",
-            prompts: promptsArray,
-            aspectRatio: aspectRatioSelect.value,
-            imageStyle: imageStyleSelect.value,
-            downloadCount: downloadCountSelect.value,
-          };
-
-          // Setting isAutomating: true will trigger the onChanged listener -> syncRunButtonUI(true)
-          chrome.storage.local.set(state, () => {
-            console.log(
-              "[Canva Auto Prompter] Bulk automation state saved:",
-              state,
-            );
             chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
               if (tabs.length === 0) {
                 console.warn("No active Dream Lab tab found.");
                 return;
               }
               if (tabs && tabs.length > 0) {
-                chrome.tabs.sendMessage(
-                  tabs[0].id,
-                  { action: "START_AUTOMATION" },
-                  (response) => {
-                    if (chrome.runtime.lastError) {
-                      console.warn(
-                        "[Canva Auto Prompter] Could not communicate with content script:",
-                        chrome.runtime.lastError.message,
-                      );
-                      statusText.textContent =
-                        "Error: Please refresh the Canva tab and try again.";
-                      statusDot.style.backgroundColor = "#ef4444";
-                      statusDot.classList.remove("active");
-                      chrome.storage.local.set({ isAutomating: false }); // Revert state safely
+                chrome.tabs
+                  .sendMessage(tabs[0].id, { action: "STOP_AUTOMATION" })
+                  .catch((err) => {
+                    if (
+                      chrome.runtime?.lastError?.message !==
+                      "Extension context invalidated"
+                    ) {
+                      console.warn("[Panel] Message delivery failed:", err);
                     }
-                  },
-                );
+                  });
               }
             });
-          });
-        }
-      });
+          } else {
+            // WE ARE STARTING
+            chrome.storage.local.set({ isPaused: false });
+            const rawPromptText = promptInput.value;
+            const promptsArray = rawPromptText
+              .split("\n")
+              .map((p) => p.trim())
+              .filter((p) => p.length > 0);
+
+            if (promptsArray.length === 0) {
+              alert("Please enter at least one prompt!");
+              return;
+            }
+
+            failedPromptsTextarea.value = "";
+            chrome.storage.local.set({ savedFailedPrompts: "" });
+
+            // Check if we're resuming from a previous session
+            let startIndex = 0;
+            if (result.lastProcessedPromptIndex > 0) {
+              startIndex = result.lastProcessedPromptIndex;
+              // Remove already processed prompts from the array
+              const remainingPrompts = promptsArray.slice(startIndex);
+              progressText.textContent = `Progress: ${remainingPrompts.length} prompts remaining (resuming from #${startIndex + 1})`;
+            } else {
+              progressText.textContent = `Progress: ${promptsArray.length} prompts remaining`;
+            }
+
+            statusText.textContent = "Starting...";
+
+            const state = {
+              isAutomating: true,
+              step: "INJECT_PROMPT",
+              prompts: promptsArray,
+              aspectRatio: aspectRatioSelect.value,
+              imageStyle: imageStyleSelect.value,
+              downloadCount: downloadCountSelect.value,
+            };
+
+            // Setting isAutomating: true will trigger the onChanged listener -> syncRunButtonUI(true)
+            chrome.storage.local.set(state, () => {
+              console.log(
+                "[Canva Auto Prompter] Bulk automation state saved:",
+                state,
+              );
+              chrome.tabs.query(
+                { url: "*://*.canva.com/dream-lab*" },
+                (tabs) => {
+                  if (tabs.length === 0) {
+                    console.warn("No active Dream Lab tab found.");
+                    return;
+                  }
+                  if (tabs && tabs.length > 0) {
+                    chrome.tabs.sendMessage(
+                      tabs[0].id,
+                      { action: "START_AUTOMATION" },
+                      (response) => {
+                        if (chrome.runtime.lastError) {
+                          console.warn(
+                            "[Canva Auto Prompter] Could not communicate with content script:",
+                            chrome.runtime.lastError.message,
+                          );
+                          statusText.textContent =
+                            "Error: Please refresh the Canva tab and try again.";
+                          statusDot.style.backgroundColor = "#ef4444";
+                          statusDot.classList.remove("active");
+                          chrome.storage.local.set({ isAutomating: false }); // Revert state safely
+                        }
+                      },
+                    );
+                  }
+                },
+              );
+            });
+          }
+        },
+      );
     });
   }
-
   // --- UTILITY ICONS LOGIC ---
 
   // --- GOD-TIER 6-FEATURE UPDATE LOGIC ---
@@ -594,21 +739,111 @@ document.addEventListener("DOMContentLoaded", () => {
   // 2. Clear Prompts Trash Can
   const clearPromptsBtn = document.getElementById("clearPromptsBtn");
   if (clearPromptsBtn) {
+    // Connection handshake function
+    async function initConnection() {
+      return new Promise((resolve) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs.length === 0) {
+            resolve(false);
+            return;
+          }
+
+          const timeout = setTimeout(() => {
+            resolve(false);
+          }, 2000);
+
+          chrome.tabs.sendMessage(
+            tabs[0].id,
+            { action: "PING" },
+            (response) => {
+              clearTimeout(timeout);
+              if (chrome.runtime.lastError) {
+                resolve(false);
+              } else {
+                resolve(response?.status === "READY");
+              }
+            },
+          );
+        });
+      });
+    }
+
+    // Modify the existing error handling logic
+    async function checkConnection() {
+      const isConnected = await initConnection();
+
+      if (isConnected) {
+        statusText.textContent = "Connected";
+        statusDot.classList.add("active");
+      } else {
+        statusText.textContent = "Error: Please refresh the Canva tab";
+        statusDot.classList.remove("active");
+      }
+    }
+
+    // Call this function when the panel loads
+    checkConnection();
+
+    // Listen for stats updates from content script
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      if (request.action === "UPDATE_STATS") {
+        const stats = request.stats;
+
+        // Update the dashboard
+        const el = document.getElementById("stat-processed");
+        if (!el) return;
+        el.textContent = stats.successCount;
+        document.getElementById("stat-downloaded").textContent =
+          stats.downloadCount;
+
+        // Calculate success rate
+        const successRate =
+          stats.successCount > 0
+            ? ((stats.downloadCount / stats.successCount) * 100).toFixed(2)
+            : "0.00";
+        document.getElementById("stat-success").textContent = `${successRate}%`;
+
+        // Calculate time elapsed
+        if (stats.startTime) {
+          const elapsedMs = Date.now() - stats.startTime;
+          const hours = Math.floor(elapsedMs / (1000 * 60 * 60));
+          const minutes = Math.floor(
+            (elapsedMs % (1000 * 60 * 60)) / (1000 * 60),
+          );
+          const seconds = Math.floor((elapsedMs % (1000 * 60)) / 1000);
+
+          document.getElementById("stat-time").textContent = `
+          ${hours.toString().padStart(2, "0")}:
+          ${minutes.toString().padStart(2, "0")}:
+          ${seconds.toString().padStart(2, "0")}
+        `;
+        }
+      }
+    });
+
     clearPromptsBtn.addEventListener("click", () => {
       if (confirm("Are you sure you want to clear all prompts?")) {
         const promptInput = document.getElementById("promptInput");
         if (promptInput) {
           promptInput.value = "";
-          chrome.storage.local.set({ savedPromptText: "" });
+          chrome.storage.local.set({
+            savedPromptText: "",
+            lastProcessedPromptIndex: 0,
+          });
 
           const progressText = document.getElementById("progressText");
           if (progressText)
             progressText.textContent = "Progress: 0 prompts remaining";
+
+          // Remove resume message if it exists
+          const resumeMessage = document.querySelector(".resume-message");
+          if (resumeMessage) {
+            resumeMessage.remove();
+          }
         }
       }
     });
   }
-
   // 3. Clear Terminal Logs Trash Can
   const clearLogsBtn = document.getElementById("clearLogsBtn");
   if (clearLogsBtn) {
