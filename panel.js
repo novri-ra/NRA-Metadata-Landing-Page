@@ -1015,7 +1015,38 @@
       chrome.storage.local.set({ typingMode: typingModeSelect.value });
     });
   }
+
+  // 6. Customize Shortcut Button - Buka halaman shortcut Chrome
+  const customizeShortcutBtn = document.getElementById('customizeShortcutBtn');
+  if (customizeShortcutBtn) {
+    customizeShortcutBtn.addEventListener('click', () => {
+      // Buka tab baru ke halaman shortcut extensions
+      chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+    });
+  }
+
+  // (Opsional) Update shortcut display dengan shortcut yang sebenarnya dari manifest
+  // Karena kita tidak bisa membaca commands dari manifest secara langsung,
+  // kita tampilkan default saja. User bisa lihat & ubah di chrome://extensions/shortcuts.
+
+  // Tapi kita bisa deteksi OS untuk menampilkan shortcut yang sesuai
+  function updateShortcutDisplay() {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const shortcutDisplay = document.getElementById('shortcutDisplay');
+    if (shortcutDisplay) {
+      if (isMac) {
+        shortcutDisplay.textContent = 'Cmd+Shift+P';
+      } else {
+        shortcutDisplay.textContent = 'Ctrl+Shift+P';
+      }
+    }
+  }
+  updateShortcutDisplay();
+
 });
+
+
+
 
 
 
