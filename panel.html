@@ -371,6 +371,9 @@
         z-index: 9999;
         align-items: center;
         justify-content: center;
+        padding: 20px;
+        box-sizing: border-box;
+        overflow: hidden; /* Cegah scroll halaman utama */
       }
 
       .modal:not(.hidden) {
@@ -381,9 +384,29 @@
         background: #111;
         border: 2px solid #00ff00;
         padding: 15px;
-        width: 85%;
-        max-width: 300px;
+        padding-bottom: 25px;
+        width: 100%;
+        max-width: 400px;
+        max-height: 80vh; /* Maksimal 80% tinggi layar */
+        overflow-y: auto; /* Scroll internal jika konten melebihi */
         box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+        box-sizing: border-box;
+      }
+
+      .modal-content .form-group:last-child {
+        margin-bottom: 20px;
+      }
+
+      /* Styling scrollbar di modal */
+      .modal-content::-webkit-scrollbar {
+        width: 6px;
+      }
+      .modal-content::-webkit-scrollbar-track {
+        background: #020617;
+      }
+      .modal-content::-webkit-scrollbar-thumb {
+        background: #4ade80;
+        border-radius: 3px;
       }
 
       /* Theme Variables & Classes */
@@ -593,32 +616,118 @@
           rows="10"
           placeholder="Paste multiple prompts here (one per line)..."
         ></textarea>
-      <div style="font-family: 'VT323', monospace; font-size: 14px; color: #a0aec0; margin-top: 4px; margin-bottom: 4px;">
-        💡 Gunakan <code style="background: #2d3748; padding: 0 4px;">{i}</code> untuk angka berurutan (contoh: "Kucing {i} tidur" → Kucing 1 tidur, Kucing 2 tidur, ...)
-      </div>
         <div id="progressText" class="progress-text">Progress: 0 / 0</div>
-      
-      <!-- PRESET CONTAINER -->
-      <div style="display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
-        <input type="text" id="presetNameInput" placeholder="Preset name..." 
-               style="flex: 1; min-width: 100px; background: #020617; border: 2px solid #475569; color: #4ade80; padding: 6px 10px; font-family: 'VT323', monospace; font-size: 16px; outline: none;">
-        <button id="savePresetBtn" class="btn" 
-                style="width: auto; padding: 6px 16px; font-size: 10px; background: #6366f1; box-shadow: 2px 2px 0px #312e81; border: 2px solid #6366f1; color: #ffffff; cursor: pointer;">
-          💾 Save
-        </button>
-        <select id="presetSelect" 
-                style="flex: 1; min-width: 120px; background: #020617; border: 2px solid #475569; color: #4ade80; padding: 6px 10px; font-family: 'VT323', monospace; font-size: 16px; outline: none; cursor: pointer;">
-          <option value="">-- Load Preset --</option>
-        </select>
-        <button id="loadPresetBtn" class="btn" 
-                style="width: auto; padding: 6px 16px; font-size: 10px; background: #4ade80; box-shadow: 2px 2px 0px #166534; border: 2px solid #4ade80; color: #000000; cursor: pointer;">
-          📂 Load
-        </button>
-        <button id="deletePresetBtn" class="btn" 
-                style="width: auto; padding: 6px 16px; font-size: 10px; background: #ef4444; box-shadow: 2px 2px 0px #991b1b; border: 2px solid #ef4444; color: #ffffff; cursor: pointer;">
-          🗑️ Del
-        </button>
-      </div>
+
+        <!-- PRESET CONTAINER (tersembunyi default) -->
+        <div
+          id="presetContainer"
+          style="
+            display: none;
+            margin-top: 12px;
+            border-top: 1px solid #334155;
+            padding-top: 12px;
+          "
+        >
+          <div
+            style="
+              display: flex;
+              gap: 8px;
+              align-items: center;
+              flex-wrap: wrap;
+            "
+          >
+            <input
+              type="text"
+              id="presetNameInput"
+              placeholder="Preset name..."
+              style="
+                flex: 1;
+                min-width: 100px;
+                background: #020617;
+                border: 2px solid #475569;
+                color: #4ade80;
+                padding: 6px 10px;
+                font-family: &quot;VT323&quot;, monospace;
+                font-size: 16px;
+                outline: none;
+              "
+            />
+            <button
+              id="savePresetBtn"
+              class="btn"
+              style="
+                width: auto;
+                padding: 6px 16px;
+                font-size: 10px;
+                background: #6366f1;
+                box-shadow: 2px 2px 0px #312e81;
+                border: 2px solid #6366f1;
+                color: #ffffff;
+                cursor: pointer;
+              "
+            >
+              💾 Save
+            </button>
+            <select
+              id="presetSelect"
+              style="
+                flex: 1;
+                min-width: 120px;
+                background: #020617;
+                border: 2px solid #475569;
+                color: #4ade80;
+                padding: 6px 10px;
+                font-family: &quot;VT323&quot;, monospace;
+                font-size: 16px;
+                outline: none;
+                cursor: pointer;
+              "
+            >
+              <option value="">-- Load Preset --</option>
+            </select>
+            <button
+              id="loadPresetBtn"
+              class="btn"
+              style="
+                width: auto;
+                padding: 6px 16px;
+                font-size: 10px;
+                background: #4ade80;
+                box-shadow: 2px 2px 0px #166534;
+                border: 2px solid #4ade80;
+                color: #000000;
+                cursor: pointer;
+              "
+            >
+              📂 Load
+            </button>
+            <button
+              id="deletePresetBtn"
+              class="btn"
+              style="
+                width: auto;
+                padding: 6px 16px;
+                font-size: 10px;
+                background: #ef4444;
+                box-shadow: 2px 2px 0px #991b1b;
+                border: 2px solid #ef4444;
+                color: #ffffff;
+                cursor: pointer;
+              "
+            >
+              🗑️ Del
+            </button>
+          </div>
+          <div
+            id="presetStatus"
+            style="
+              font-family: &quot;VT323&quot;, monospace;
+              font-size: 13px;
+              color: #4ade80;
+              margin-top: 4px;
+            "
+          ></div>
+        </div>
       </div>
     </div>
 
@@ -777,22 +886,22 @@
           QUARANTINED PROMPTS
         </h3>
         <div class="header-icons">
-            <button
-              id="retryQuarantineBtn"
-              class="icon-btn"
-              title="Retry all quarantined prompts"
-            >
-              ↩️
-            </button>
-            <button
-              id="clearQuarantineBtn"
-              class="icon-btn"
-              title="Clear Quarantine"
-            >
-              🗑️
-            </button>
-            <span class="toggle-icon">[-]</span>
-          </div>
+          <button
+            id="retryQuarantineBtn"
+            class="icon-btn"
+            title="Retry all quarantined prompts"
+          >
+            ↩️
+          </button>
+          <button
+            id="clearQuarantineBtn"
+            class="icon-btn"
+            title="Clear Quarantine"
+          >
+            🗑️
+          </button>
+          <span class="toggle-icon">[-]</span>
+        </div>
       </div>
       <div id="quarantineContent" class="section-content">
         <textarea
@@ -960,29 +1069,105 @@
           </label>
         </div>
 
-        <div class="form-group" style="margin-top: 10px; border-top: 1px solid #475569; padding-top: 12px;">
-          <label style="display: flex; align-items: center; justify-content: space-between; cursor: default;">
+        <div
+          class="form-group"
+          style="
+            margin-top: 10px;
+            border-top: 1px solid #475569;
+            padding-top: 12px;
+          "
+        >
+          <label
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              cursor: default;
+            "
+          >
             <span>⌨️ Shortcut Pause/Resume</span>
-            <span id="shortcutDisplay" style="background: #020617; padding: 4px 10px; font-family: 'VT323', monospace; font-size: 16px; color: #4ade80; border: 1px solid #475569;">
+            <span
+              id="shortcutDisplay"
+              style="
+                background: #020617;
+                padding: 4px 10px;
+                font-family: &quot;VT323&quot;, monospace;
+                font-size: 16px;
+                color: #4ade80;
+                border: 1px solid #475569;
+              "
+            >
               Ctrl+Shift+P
             </span>
           </label>
-          <div style="margin-top: 6px; font-size: 10px; color: #64748b; font-family: 'VT323', monospace;">
-            Tekan <strong style="color: #4ade80;">Ctrl+Shift+P</strong> (Mac: <strong style="color: #4ade80;">Cmd+Shift+P</strong>) untuk pause/resume tanpa membuka panel.
-            <br>
-            <button id="customizeShortcutBtn" style="background: none; border: 1px solid #6366f1; color: #818cf8; padding: 4px 12px; margin-top: 6px; font-family: 'VT323', monospace; font-size: 14px; cursor: pointer;">
+          <div
+            style="
+              margin-top: 6px;
+              font-size: 10px;
+              color: #64748b;
+              font-family: &quot;VT323&quot;, monospace;
+            "
+          >
+            Tekan <strong style="color: #4ade80">Ctrl+Shift+P</strong> (Mac:
+            <strong style="color: #4ade80">Cmd+Shift+P</strong>) untuk
+            pause/resume tanpa membuka panel.
+            <br />
+            <button
+              id="customizeShortcutBtn"
+              style="
+                background: none;
+                border: 1px solid #6366f1;
+                color: #818cf8;
+                padding: 4px 12px;
+                margin-top: 6px;
+                font-family: &quot;VT323&quot;, monospace;
+                font-size: 14px;
+                cursor: pointer;
+              "
+            >
               ⚙️ Customize Shortcut
             </button>
           </div>
         </div>
 
+        <div
+          class="form-group"
+          style="
+            margin-top: 10px;
+            border-top: 1px solid #475569;
+            padding-top: 12px;
+          "
+        >
+          <label
+            style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              cursor: pointer;
+            "
+          >
+            <input
+              type="checkbox"
+              id="showPresetsToggle"
+              style="width: auto; cursor: pointer"
+            />
+            Show Prompt Presets (Save/Load)
+          </label>
+          <div
+            style="
+              font-size: 10px;
+              color: #64748b;
+              margin-top: 4px;
+              font-family: &quot;VT323&quot;, monospace;
+            "
+          >
+            Aktifkan untuk menampilkan fitur Save/Load preset prompt di bawah
+            textarea.
+          </div>
+        </div>
       </div>
     </div>
 
     <script src="panel.js"></script>
   </body>
 </html>
-
-
-
-
