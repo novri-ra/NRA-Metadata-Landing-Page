@@ -21,7 +21,7 @@
    * @returns {string[]} Array of expanded prompts
    */
   function expandPromptWithVariable(prompt, iterations) {
-    if (!prompt.includes('{i}') || iterations < 1) {
+    if (!prompt.includes("{i}") || iterations < 1) {
       return [prompt];
     }
     const results = [];
@@ -602,37 +602,8 @@
               .map((p) => p.trim())
               .filter((p) => p.length > 0);
 
-          // Expand prompts with {i} placeholder
-          let expandedPrompts = [];
-          for (let p of promptsArray) {
-            if (p.includes('{i}')) {
-              // Tanya user berapa iterasi
-              const iterationsInput = prompt(`Prompt "${p}" mengandung {i}. Berapa jumlah iterasi yang diinginkan?`, "5");
-              if (iterationsInput === null) {
-                // User cancel, skip ekspansi, gunakan prompt asli
-                expandedPrompts.push(p);
-                continue;
-              }
-              const iterations = parseInt(iterationsInput, 10);
-              if (isNaN(iterations) || iterations < 1) {
-                alert("Jumlah iterasi harus berupa angka positif. Prompt akan digunakan apa adanya.");
-                expandedPrompts.push(p);
-                continue;
-              }
-              // Ekspansi prompt
-              const expanded = expandPromptWithVariable(p, iterations);
-              expandedPrompts.push(...expanded);
-            } else {
-              expandedPrompts.push(p);
-            }
-          }
-
-          // Ganti promptsArray dengan hasil ekspansi
-          promptsArray.length = 0;
-          promptsArray.push(...expandedPrompts);
-
-          // PERBAIKAN: Perbarui textarea di panel agar menampung hasil ekspansi dan terlihat oleh user
-          promptInput.value = promptsArray.join("\n");
+            // Langsung gunakan promptsArray tanpa ekspansi {i}
+            promptInput.value = promptsArray.join("\n");
 
             if (promptsArray.length === 0) {
               alert("Please enter at least one prompt!");
@@ -774,43 +745,47 @@
   });
 
   // 5. Retry Quarantine Logic - Pindahkan semua prompt dari Quarantine ke Prompt Input utama
-  const retryQuarantineBtn = document.getElementById('retryQuarantineBtn');
+  const retryQuarantineBtn = document.getElementById("retryQuarantineBtn");
   if (retryQuarantineBtn) {
-    retryQuarantineBtn.addEventListener('click', () => {
-      const quarantineInput = document.getElementById('quarantineInput');
-      const promptInput = document.getElementById('promptInput');
+    retryQuarantineBtn.addEventListener("click", () => {
+      const quarantineInput = document.getElementById("quarantineInput");
+      const promptInput = document.getElementById("promptInput");
       const quarantineText = quarantineInput.value.trim();
-      
+
       // Jika quarantine kosong, beri tahu user
       if (!quarantineText) {
-        alert('Tidak ada prompt di Quarantine untuk diulang.');
+        alert("Tidak ada prompt di Quarantine untuk diulang.");
         return;
       }
-      
+
       // Append teks quarantine ke prompt input utama
       if (promptInput.value.trim()) {
-        promptInput.value += '\n' + quarantineText;
+        promptInput.value += "\n" + quarantineText;
       } else {
         promptInput.value = quarantineText;
       }
-      
+
       // Kosongkan quarantine
-      quarantineInput.value = '';
-      
+      quarantineInput.value = "";
+
       // Simpan ke Chrome Storage
-      chrome.storage.local.set({ 
+      chrome.storage.local.set({
         savedPromptText: promptInput.value,
-        savedFailedPrompts: '' 
+        savedFailedPrompts: "",
       });
-      
+
       // Update progress text (opsional)
-      const progressText = document.getElementById('progressText');
-      const currentPrompts = promptInput.value.split('\n').filter(p => p.trim().length > 0);
+      const progressText = document.getElementById("progressText");
+      const currentPrompts = promptInput.value
+        .split("\n")
+        .filter((p) => p.trim().length > 0);
       if (progressText) {
         progressText.textContent = `Progress: ${currentPrompts.length} prompts remaining (with retry)`;
       }
-      
-      console.log('[Canva Auto Prompter] ✅ Quarantined prompts moved back to main queue.');
+
+      console.log(
+        "[Canva Auto Prompter] ✅ Quarantined prompts moved back to main queue.",
+      );
     });
   }
 
@@ -1017,11 +992,11 @@
   }
 
   // 6. Customize Shortcut Button - Buka halaman shortcut Chrome
-  const customizeShortcutBtn = document.getElementById('customizeShortcutBtn');
+  const customizeShortcutBtn = document.getElementById("customizeShortcutBtn");
   if (customizeShortcutBtn) {
-    customizeShortcutBtn.addEventListener('click', () => {
+    customizeShortcutBtn.addEventListener("click", () => {
       // Buka tab baru ke halaman shortcut extensions
-      chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+      chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
     });
   }
 
@@ -1031,34 +1006,228 @@
 
   // Tapi kita bisa deteksi OS untuk menampilkan shortcut yang sesuai
   function updateShortcutDisplay() {
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    const shortcutDisplay = document.getElementById('shortcutDisplay');
+    const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+    const shortcutDisplay = document.getElementById("shortcutDisplay");
     if (shortcutDisplay) {
       if (isMac) {
-        shortcutDisplay.textContent = 'Cmd+Shift+P';
+        shortcutDisplay.textContent = "Cmd+Shift+P";
       } else {
-        shortcutDisplay.textContent = 'Ctrl+Shift+P';
+        shortcutDisplay.textContent = "Ctrl+Shift+P";
       }
     }
   }
   updateShortcutDisplay();
 
+  // ==========================================
+  // VISIBILITAS FITUR (Toggle Settings)
+  // ==========================================
+
+  const showAnalyticsToggle = document.getElementById("showAnalyticsToggle");
+  const showTerminalToggle = document.getElementById("showTerminalToggle");
+  const showFailedToggle = document.getElementById("showFailedToggle");
+
+  const analyticsSection = document
+    .querySelector('[data-target="analyticsContent"]')
+    ?.closest("div");
+  const terminalSection = document
+    .querySelector('[data-target="logsContent"]')
+    ?.closest("div");
+  const failedSection = document
+    .querySelector('[data-target="failedContent"]')
+    ?.closest("div");
+
+  // Fungsi untuk menerapkan visibilitas berdasarkan checkbox
+  function applyVisibility() {
+    if (analyticsSection && showAnalyticsToggle) {
+      analyticsSection.style.display = showAnalyticsToggle.checked
+        ? ""
+        : "none";
+      chrome.storage.local.set({ showAnalytics: showAnalyticsToggle.checked });
+    }
+    if (terminalSection && showTerminalToggle) {
+      terminalSection.style.display = showTerminalToggle.checked ? "" : "none";
+      chrome.storage.local.set({ showTerminal: showTerminalToggle.checked });
+    }
+    if (failedSection && showFailedToggle) {
+      failedSection.style.display = showFailedToggle.checked ? "" : "none";
+      chrome.storage.local.set({ showFailed: showFailedToggle.checked });
+    }
+  }
+
+  // Muat preferensi dari storage
+  chrome.storage.local.get(
+    ["showAnalytics", "showTerminal", "showFailed"],
+    (res) => {
+      if (showAnalyticsToggle) {
+        showAnalyticsToggle.checked =
+          res.showAnalytics !== undefined ? res.showAnalytics : true;
+      }
+      if (showTerminalToggle) {
+        showTerminalToggle.checked =
+          res.showTerminal !== undefined ? res.showTerminal : true;
+      }
+      if (showFailedToggle) {
+        showFailedToggle.checked =
+          res.showFailed !== undefined ? res.showFailed : true;
+      }
+      applyVisibility();
+    },
+  );
+
+  // Event listener untuk perubahan toggle
+  if (showAnalyticsToggle)
+    showAnalyticsToggle.addEventListener("change", applyVisibility);
+  if (showTerminalToggle)
+    showTerminalToggle.addEventListener("change", applyVisibility);
+  if (showFailedToggle)
+    showFailedToggle.addEventListener("change", applyVisibility);
+
+  // ==========================================
+  // TOGGLE SHOW PROMPT PRESETS
+  // ==========================================
+
+  const showPresetsToggle = document.getElementById("showPresetsToggle");
+  const presetContainer = document.getElementById("presetContainer");
+
+  function applyPresetVisibility() {
+    if (presetContainer && showPresetsToggle) {
+      if (showPresetsToggle.checked) {
+        presetContainer.style.display = "block";
+      } else {
+        presetContainer.style.display = "none";
+      }
+      chrome.storage.local.set({ showPresets: showPresetsToggle.checked });
+    }
+  }
+
+  // Muat preferensi dari storage
+  chrome.storage.local.get(["showPresets"], (res) => {
+    if (showPresetsToggle) {
+      showPresetsToggle.checked = res.showPresets === true;
+      applyPresetVisibility();
+    }
+  });
+
+  if (showPresetsToggle) {
+    showPresetsToggle.addEventListener("change", applyPresetVisibility);
+  }
+
+  // ==========================================
+  // PROMPT PRESETS (Save, Load, Delete)
+  // ==========================================
+
+  const presetNameInput = document.getElementById("presetNameInput");
+  const savePresetBtn = document.getElementById("savePresetBtn");
+  const presetSelect = document.getElementById("presetSelect");
+  const loadPresetBtn = document.getElementById("loadPresetBtn");
+  const deletePresetBtn = document.getElementById("deletePresetBtn");
+  const presetStatus = document.getElementById("presetStatus");
+
+  function showPresetStatus(msg, isError = false) {
+    if (presetStatus) {
+      presetStatus.textContent = msg;
+      presetStatus.style.color = isError ? "#ef4444" : "#4ade80";
+      setTimeout(() => {
+        presetStatus.textContent = "";
+      }, 3000);
+    }
+  }
+
+  function loadPresetsList() {
+    chrome.storage.local.get(["promptPresets"], (result) => {
+      const presets = result.promptPresets || {};
+      const presetKeys = Object.keys(presets);
+      presetSelect.innerHTML = '<option value="">-- Load Preset --</option>';
+      presetKeys.sort().forEach((key) => {
+        const option = document.createElement("option");
+        option.value = key;
+        option.textContent = key;
+        presetSelect.appendChild(option);
+      });
+    });
+  }
+
+  function savePreset() {
+    const name = presetNameInput.value.trim();
+    if (!name) {
+      showPresetStatus("❌ Masukkan nama preset!", true);
+      return;
+    }
+    const promptText = promptInput.value.trim();
+    if (!promptText) {
+      showPresetStatus("❌ Prompt kosong!", true);
+      return;
+    }
+    chrome.storage.local.get(["promptPresets"], (result) => {
+      const presets = result.promptPresets || {};
+      if (presets[name] !== undefined) {
+        if (!confirm(`Preset "${name}" sudah ada. Timpa?`)) return;
+      }
+      presets[name] = promptText;
+      chrome.storage.local.set({ promptPresets: presets }, () => {
+        showPresetStatus(`✅ Preset "${name}" tersimpan!`);
+        presetNameInput.value = "";
+        loadPresetsList();
+      });
+    });
+  }
+
+  function loadPreset() {
+    const selectedKey = presetSelect.value;
+    if (!selectedKey) {
+      showPresetStatus("❌ Pilih preset dulu!", true);
+      return;
+    }
+    chrome.storage.local.get(["promptPresets"], (result) => {
+      const presets = result.promptPresets || {};
+      const promptText = presets[selectedKey];
+      if (promptText) {
+        promptInput.value = promptText;
+        chrome.storage.local.set({ savedPromptText: promptText });
+        const total = promptText
+          .split("\n")
+          .filter((p) => p.trim().length > 0).length;
+        if (progressText)
+          progressText.textContent = `Progress: ${total} prompts loaded from preset`;
+        showPresetStatus(`📂 Preset "${selectedKey}" dimuat!`);
+      } else {
+        showPresetStatus(`❌ Preset "${selectedKey}" tidak ditemukan.`, true);
+      }
+    });
+  }
+
+  function deletePreset() {
+    const selectedKey = presetSelect.value;
+    if (!selectedKey) {
+      showPresetStatus("❌ Pilih preset dulu!", true);
+      return;
+    }
+    if (!confirm(`Hapus preset "${selectedKey}" permanen?`)) return;
+    chrome.storage.local.get(["promptPresets"], (result) => {
+      const presets = result.promptPresets || {};
+      delete presets[selectedKey];
+      chrome.storage.local.set({ promptPresets: presets }, () => {
+        showPresetStatus(`🗑️ Preset "${selectedKey}" dihapus.`);
+        loadPresetsList();
+      });
+    });
+  }
+
+  // Event Listeners untuk Preset
+  if (savePresetBtn) savePresetBtn.addEventListener("click", savePreset);
+  if (loadPresetBtn) loadPresetBtn.addEventListener("click", loadPreset);
+  if (deletePresetBtn) deletePresetBtn.addEventListener("click", deletePreset);
+
+  // Enter key di input nama preset
+  if (presetNameInput) {
+    presetNameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        savePreset();
+      }
+    });
+  }
+
+  // Muat daftar preset saat panel dibuka (walaupun container tersembunyi)
+  loadPresetsList();
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
