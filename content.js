@@ -172,7 +172,7 @@ function delay(ms) {
  * @param {number} fallbackMs - Waktu maksimum tunggu sebelum fallback (default: ms + 2000)
  * @returns {Promise<void>}
  */
-function delayWithFallback(ms, fallbackMs = ms + 2000) {
+function delayWithFallback(ms, fallbackMs = ms + 8000) {
   return new Promise((resolve) => {
     let resolved = false;
 
@@ -1488,7 +1488,7 @@ async function startMainLoop() {
                   sessionDownloadCount: sessionStats.downloadCount,
                 });
                 // Gunakan delayWithFallback agar loop tetap lanjut meskipun worker mati
-                await delayWithFallback(1500, 3000);
+                await delayWithFallback(1500, 10000);
               } catch (clickErr) {
                 console.error(
                   "[Canva Automation] Failed to download image " + (i + 1),
@@ -1759,10 +1759,48 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
+// Deteksi navigasi internal (SPA) untuk mencegah teardown yang tidak perlu
+let isNavigatingInternal = false;
+
+// Intercept semua klik pada link internal Canva
+document.addEventListener("click", (e) => {
+  const link = e.target.closest("a");
+  if (link && link.href && link.href.includes("canva.com")) {
+    // Jika automation sedang berjalan, cegah navigasi internal
+    if (isRunning) {
+      e.preventDefault();
+      console.warn(
+        "[Canva Automation] Navigation blocked while automation is running.",
+      );
+      return;
+    }
+  }
+});
+
+// Tangkap event popstate (navigasi SPA)
+window.addEventListener("popstate", () => {
+  if (isRunning) {
+    console.warn(
+      "[Canva Automation] SPA navigation detected. Stopping automation to prevent errors.",
+    );
+    isRunning = false;
+    chrome.storage.local.set({ isAutomating: false, step: "IDLE" });
+  }
+});
+
 function teardown() {
-  // Guard: HANYA jalankan jika benar-benar halaman ditutup/di-reload, bukan karena event lain
-  if (document.visibilityState === 'visible' && !window.closed) {
-    console.warn("[Canva Automation] teardown() dipanggil tapi halaman masih aktif - diabaikan.");
+  // HANYA jalankan jika benar-benar halaman ditutup/di-reload
+  if (document.visibilityState === "visible" && !window.closed) {
+    console.warn(
+      "[Canva Automation] teardown() dipanggil tapi halaman masih aktif - diabaikan.",
+    );
+    return;
+  }
+  // Tambahan: jika ada navigasi SPA yang terdeteksi, jangan jalankan teardown
+  if (isNavigatingInternal) {
+    console.warn(
+      "[Canva Automation] teardown() diabaikan karena navigasi internal.",
+    );
     return;
   }
   console.log("[Canva Automation] Teardown initiated. Terminating resources.");
@@ -1780,6 +1818,10 @@ window.addEventListener("beforeunload", teardown);
 // 1. Listen for START_AUTOMATION and STOP_AUTOMATION messages from popup
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message) {
+    if (message.action === "PING") {
+      sendResponse({ status: "READY" });
+      return true;
+    }
     if (message.action === "START_AUTOMATION") {
       console.log("[Canva Automation] START_AUTOMATION trigger received.");
 
