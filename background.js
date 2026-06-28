@@ -292,3 +292,48 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
   );
   return true; // Indicates asynchronous suggestion
 });
+
+// ==========================================
+// KEEP-ALIVE PING (Mencegah Content Script di-suspend)
+// ==========================================
+
+// Pastikan chrome.alarms tersedia
+if (typeof chrome.alarms !== "undefined") {
+  // Buat alarm setiap 25 detik
+  try {
+    chrome.alarms.create("keepAlive", { periodInMinutes: 0.5 });
+  } catch (e) {
+    console.warn("[Background] Gagal membuat alarm keep-alive:", e);
+  }
+
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === "keepAlive") {
+      // Kirim ping ke tab Canva yang aktif
+      chrome.tabs.query({ url: "*://*.canva.com/*" }, (tabs) => {
+        if (tabs.length > 0) {
+          tabs.forEach((tab) => {
+            chrome.tabs.sendMessage(tab.id, { action: "PING" }).catch(() => {});
+          });
+        }
+      });
+    }
+  });
+} else {
+  console.warn(
+    "[Background] chrome.alarms tidak tersedia, keep-alive dinonaktifkan.",
+  );
+}
+
+// Juga saat service worker diaktifkan, buat alarm jika belum ada
+chrome.runtime.onInstalled.addListener(() => {
+  if (typeof chrome.alarms !== "undefined") {
+    try {
+      chrome.alarms.create("keepAlive", { periodInMinutes: 0.5 });
+    } catch (e) {
+      console.warn(
+        "[Background] Gagal membuat alarm keep-alive saat install:",
+        e,
+      );
+    }
+  }
+});
