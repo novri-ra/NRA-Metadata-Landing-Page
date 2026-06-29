@@ -250,11 +250,18 @@ chrome.debugger.onDetach.addListener((source, reason) => {
   );
 });
 
-// Smart Auto-Rename API: Intercept downloads and rename based on current prompt
+// ==========================================
+// SMART AUTO-RENAME API – dengan Custom Folder
+// ==========================================
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
-  // Only intercept if the automation lock is active
+  // Baca semua setting yang diperlukan
   chrome.storage.local.get(
-    ["activeAutomationTab", "downloadingPrompt", "createSubfolder"],
+    [
+      "activeAutomationTab",
+      "downloadingPrompt",
+      "createSubfolder",
+      "downloadFolder",
+    ],
     (res) => {
       if (chrome.runtime.lastError) {
         console.warn(
@@ -264,76 +271,41 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
         suggest();
         return;
       }
-      if (res.activeAutomationTab && res.downloadingPrompt) {
-        // Clean the prompt to make it a valid, SEO-friendly filename
-        let cleanName = res.downloadingPrompt
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "_") // Replace non-alphanumeric with underscores
-          .replace(/^_+|_+$/g, "") // Trim edge underscores
-          .substring(0, 50); // Limit to 50 characters to prevent OS path errors
 
-        if (!cleanName) cleanName = "canva_asset";
-
-        // Keep the original extension (e.g., .jpg, .png)
-        const fileExt = item.filename.split(".").pop() || "jpg";
-
-        // Determine if we should add the folder prefix
-        const useSubfolder = res.createSubfolder === true;
-        const folderPrefix = useSubfolder ? "Canva_Auto/" : "";
-
-        const finalName = `${folderPrefix}${cleanName}_${Date.now()}.${fileExt}`;
-
-        suggest({ filename: finalName, conflictAction: "uniquify" });
-      } else {
-        // Let it download normally if bot is not running
+      // Jika automation tidak aktif, download normal
+      if (!res.activeAutomationTab || !res.downloadingPrompt) {
         suggest();
+        return;
       }
+
+      // Clean nama file dari prompt
+      let cleanName = res.downloadingPrompt
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .substring(0, 50);
+
+      if (!cleanName) cleanName = "canva_asset";
+
+      // Ekstensi file
+      const fileExt = item.filename.split(".").pop() || "jpg";
+
+      // Tentukan folder prefix
+      let folderPrefix = "";
+
+      // Cek apakah user mengaktifkan Group Downloads
+      if (res.createSubfolder === true) {
+        // Gunakan folder kustom jika diisi, atau default "Canva_Auto"
+        const customFolder = res.downloadFolder
+          ? res.downloadFolder.trim()
+          : "";
+        folderPrefix = customFolder ? customFolder + "/" : "Canva_Auto/";
+      }
+
+      const finalName = `${folderPrefix}${cleanName}_${Date.now()}.${fileExt}`;
+
+      suggest({ filename: finalName, conflictAction: "uniquify" });
     },
   );
-  return true; // Indicates asynchronous suggestion
-});
-
-// ==========================================
-// KEEP-ALIVE PING (Mencegah Content Script di-suspend)
-// ==========================================
-
-// Pastikan chrome.alarms tersedia
-if (typeof chrome.alarms !== "undefined") {
-  // Buat alarm setiap 25 detik
-  try {
-    chrome.alarms.create("keepAlive", { periodInMinutes: 0.5 });
-  } catch (e) {
-    console.warn("[Background] Gagal membuat alarm keep-alive:", e);
-  }
-
-  chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === "keepAlive") {
-      // Kirim ping ke tab Canva yang aktif
-      chrome.tabs.query({ url: "*://*.canva.com/*" }, (tabs) => {
-        if (tabs.length > 0) {
-          tabs.forEach((tab) => {
-            chrome.tabs.sendMessage(tab.id, { action: "PING" }).catch(() => {});
-          });
-        }
-      });
-    }
-  });
-} else {
-  console.warn(
-    "[Background] chrome.alarms tidak tersedia, keep-alive dinonaktifkan.",
-  );
-}
-
-// Juga saat service worker diaktifkan, buat alarm jika belum ada
-chrome.runtime.onInstalled.addListener(() => {
-  if (typeof chrome.alarms !== "undefined") {
-    try {
-      chrome.alarms.create("keepAlive", { periodInMinutes: 0.5 });
-    } catch (e) {
-      console.warn(
-        "[Background] Gagal membuat alarm keep-alive saat install:",
-        e,
-      );
-    }
-  }
+  return true;
 });

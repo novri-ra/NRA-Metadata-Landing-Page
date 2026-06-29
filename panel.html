@@ -371,9 +371,6 @@
         z-index: 9999;
         align-items: center;
         justify-content: center;
-        padding: 20px;
-        box-sizing: border-box;
-        overflow: hidden; /* Cegah scroll halaman utama */
       }
 
       .modal:not(.hidden) {
@@ -384,29 +381,9 @@
         background: #111;
         border: 2px solid #00ff00;
         padding: 15px;
-        padding-bottom: 25px;
-        width: 100%;
-        max-width: 400px;
-        max-height: 80vh; /* Maksimal 80% tinggi layar */
-        overflow-y: auto; /* Scroll internal jika konten melebihi */
+        width: 85%;
+        max-width: 300px;
         box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
-        box-sizing: border-box;
-      }
-
-      .modal-content .form-group:last-child {
-        margin-bottom: 20px;
-      }
-
-      /* Styling scrollbar di modal */
-      .modal-content::-webkit-scrollbar {
-        width: 6px;
-      }
-      .modal-content::-webkit-scrollbar-track {
-        background: #020617;
-      }
-      .modal-content::-webkit-scrollbar-thumb {
-        background: #4ade80;
-        border-radius: 3px;
       }
 
       /* Theme Variables & Classes */
@@ -617,117 +594,6 @@
           placeholder="Paste multiple prompts here (one per line)..."
         ></textarea>
         <div id="progressText" class="progress-text">Progress: 0 / 0</div>
-
-        <!-- PRESET CONTAINER (tersembunyi default) -->
-        <div
-          id="presetContainer"
-          style="
-            display: none;
-            margin-top: 12px;
-            border-top: 1px solid #334155;
-            padding-top: 12px;
-          "
-        >
-          <div
-            style="
-              display: flex;
-              gap: 8px;
-              align-items: center;
-              flex-wrap: wrap;
-            "
-          >
-            <input
-              type="text"
-              id="presetNameInput"
-              placeholder="Preset name..."
-              style="
-                flex: 1;
-                min-width: 100px;
-                background: #020617;
-                border: 2px solid #475569;
-                color: #4ade80;
-                padding: 6px 10px;
-                font-family: &quot;VT323&quot;, monospace;
-                font-size: 16px;
-                outline: none;
-              "
-            />
-            <button
-              id="savePresetBtn"
-              class="btn"
-              style="
-                width: auto;
-                padding: 6px 16px;
-                font-size: 10px;
-                background: #6366f1;
-                box-shadow: 2px 2px 0px #312e81;
-                border: 2px solid #6366f1;
-                color: #ffffff;
-                cursor: pointer;
-              "
-            >
-              💾 Save
-            </button>
-            <select
-              id="presetSelect"
-              style="
-                flex: 1;
-                min-width: 120px;
-                background: #020617;
-                border: 2px solid #475569;
-                color: #4ade80;
-                padding: 6px 10px;
-                font-family: &quot;VT323&quot;, monospace;
-                font-size: 16px;
-                outline: none;
-                cursor: pointer;
-              "
-            >
-              <option value="">-- Load Preset --</option>
-            </select>
-            <button
-              id="loadPresetBtn"
-              class="btn"
-              style="
-                width: auto;
-                padding: 6px 16px;
-                font-size: 10px;
-                background: #4ade80;
-                box-shadow: 2px 2px 0px #166534;
-                border: 2px solid #4ade80;
-                color: #000000;
-                cursor: pointer;
-              "
-            >
-              📂 Load
-            </button>
-            <button
-              id="deletePresetBtn"
-              class="btn"
-              style="
-                width: auto;
-                padding: 6px 16px;
-                font-size: 10px;
-                background: #ef4444;
-                box-shadow: 2px 2px 0px #991b1b;
-                border: 2px solid #ef4444;
-                color: #ffffff;
-                cursor: pointer;
-              "
-            >
-              🗑️ Del
-            </button>
-          </div>
-          <div
-            id="presetStatus"
-            style="
-              font-family: &quot;VT323&quot;, monospace;
-              font-size: 13px;
-              color: #4ade80;
-              margin-top: 4px;
-            "
-          ></div>
-        </div>
       </div>
     </div>
 
@@ -1050,6 +916,44 @@
           </label>
         </div>
 
+        <div
+          class="form-group"
+          style="
+            margin-top: 10px;
+            border-top: 1px solid #475569;
+            padding-top: 12px;
+          "
+        >
+          <label for="downloadFolderInput">Custom Download Folder</label>
+          <input
+            type="text"
+            id="downloadFolderInput"
+            placeholder="Canva_Auto (default)"
+            style="
+              width: 100%;
+              background: #020617;
+              border: 2px solid #475569;
+              color: #4ade80;
+              padding: 8px 10px;
+              font-family: &quot;VT323&quot;, monospace;
+              font-size: 16px;
+              outline: none;
+            "
+          />
+          <div
+            style="
+              font-size: 10px;
+              color: #64748b;
+              margin-top: 4px;
+              font-family: &quot;VT323&quot;, monospace;
+            "
+          >
+            ⚡ Nama folder di dalam Downloads. Biarkan kosong untuk menggunakan
+            folder default. Contoh: "My_Canva_Images" atau
+            "Projects/Canva/Batch1"
+          </div>
+        </div>
+
         <div class="form-group" style="margin-top: 10px">
           <label
             style="
@@ -1127,42 +1031,6 @@
             >
               ⚙️ Customize Shortcut
             </button>
-          </div>
-        </div>
-
-        <div
-          class="form-group"
-          style="
-            margin-top: 10px;
-            border-top: 1px solid #475569;
-            padding-top: 12px;
-          "
-        >
-          <label
-            style="
-              display: flex;
-              align-items: center;
-              gap: 8px;
-              cursor: pointer;
-            "
-          >
-            <input
-              type="checkbox"
-              id="showPresetsToggle"
-              style="width: auto; cursor: pointer"
-            />
-            Show Prompt Presets (Save/Load)
-          </label>
-          <div
-            style="
-              font-size: 10px;
-              color: #64748b;
-              margin-top: 4px;
-              font-family: &quot;VT323&quot;, monospace;
-            "
-          >
-            Aktifkan untuk menampilkan fitur Save/Load preset prompt di bawah
-            textarea.
           </div>
         </div>
       </div>
