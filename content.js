@@ -82,6 +82,8 @@ chrome.storage.local.get(["isPaused", "batchLimit"], (res) => {
 let isRunning = false;
 // Mutex guard: prevents concurrent startMainLoop() invocations (KRITIS-2)
 let isLoopActive = false;
+// Interval for heartbeat (if used)
+let heartbeatInterval = null;
 // Session Statistics Telemetry
 let prompts = [];
 let sessionStats = {
@@ -133,85 +135,92 @@ function sendStatusUpdate(statusText) {
 }
 
 // --- UNTHROTTLED WEB WORKER DELAY (IMMUNE TO BACKGROUND THROTTLING) ---
-const workerBlob = new Blob(
-  [
-    `self.onmessage = function(e) { setTimeout(() => postMessage(e.data.id), e.data.time); }`,
-  ],
-  { type: "application/javascript" },
-);
+let delayWorker = null;
 
-const workerUrl = URL.createObjectURL(workerBlob);
-const delayWorker = new Worker(workerUrl);
-URL.revokeObjectURL(workerUrl); // CRITICAL FIX: Frees the memory immediately
+function initWorker() {
+  if (delayWorker) {
+    try {
+      delayWorker.terminate();
+    } catch (e) {
+      // Abaikan error saat terminate
+    }
+  }
+  const workerBlob = new Blob(
+    [
+      `self.onmessage = function(e) { setTimeout(() => postMessage(e.data.id), e.data.time); }`,
+    ],
+    { type: "application/javascript" },
+  );
+
+  const workerUrl = URL.createObjectURL(workerBlob);
+  delayWorker = new Worker(workerUrl);
+  URL.revokeObjectURL(workerUrl); // CRITICAL FIX: Frees the memory immediately
+  console.log("[Canva Automation] Web Worker initialized successfully.");
+}
+
+// Inisialisasi awal
+initWorker();
 
 /**
- * delay(ms): Promise-based timeout using a Web Worker thread.
- * Web Workers are immune to Chrome's background tab throttling,
- * which throttles standard setTimeout to 1 execution per minute.
+ * delay(ms): Promise-based timeout hybrid using Web Worker thread & fallback.
+ * Web Workers are immune to Chrome's background tab throttling.
+ * Jika worker gagal/mati, akan otomatis restart dan menggunakan setTimeout sementara.
  * @param {number} ms
  * @returns {Promise<void>}
  */
 function delay(ms) {
   if (ms >= 1000) console.log(`[Canva Automation] Waiting for ${ms}ms...`);
   return new Promise((resolve) => {
-    const id = Math.random().toString();
-    const handler = (e) => {
-      if (e.data === id) {
-        delayWorker.removeEventListener("message", handler);
-        resolve();
-      }
-    };
-    delayWorker.addEventListener("message", handler);
-    delayWorker.postMessage({ id: id, time: ms });
-  });
-}
-/**
- * delayWithFallback(ms, fallbackMs): Aman terhadap worker termination.
- * Jika worker mati, fungsi tetap resolve setelah fallbackMs untuk mencegah loop macet.
- * @param {number} ms - Waktu delay utama (dalam milidetik)
- * @param {number} fallbackMs - Waktu maksimum tunggu sebelum fallback (default: ms + 2000)
- * @returns {Promise<void>}
- */
-function delayWithFallback(ms, fallbackMs = ms + 2000) {
-  return new Promise((resolve) => {
     let resolved = false;
 
-    // Fallback timer menggunakan setTimeout sebagai safety net
+    // Waktu tunggu maksimum sebelum fallback (hanya 1 detik ekstra dari target)
+    const fallbackMs = ms + 1000;
+
+    // Timer fallback murni (setTimeout)
     const fallbackTimer = setTimeout(() => {
       if (!resolved) {
-        console.warn(
-          `[Canva Automation] ⚠️ Delay fallback triggered after ${fallbackMs}ms (Worker mati atau lambat)`,
-        );
         resolved = true;
+        console.warn(
+          `[Canva Automation] ⚠️ Delay fallback triggered after ${fallbackMs}ms (Worker mati atau lambat). Merestart worker...`,
+        );
+        initWorker(); // Restart worker agar panggilan selanjutnya tidak lambat
         resolve();
       }
     }, fallbackMs);
 
-    // Coba gunakan worker jika masih hidup
     try {
+      if (!delayWorker) throw new Error("Worker is null");
+
       const id = Math.random().toString();
       const handler = (e) => {
         if (e.data === id) {
           delayWorker.removeEventListener("message", handler);
           if (!resolved) {
             resolved = true;
-            clearTimeout(fallbackTimer);
+            clearTimeout(fallbackTimer); // Berhasil, batalkan fallback timer
             resolve();
           }
         }
       };
+
       delayWorker.addEventListener("message", handler);
       delayWorker.postMessage({ id: id, time: ms });
     } catch (e) {
-      // Worker sudah mati/terminate, resolve segera tanpa menunggu
+      // Terjadi error instan (misal worker mati, memory corrupt), langsung gunakan native
       console.warn(
-        "[Canva Automation] ⚠️ Worker tidak tersedia, menggunakan fallback instan.",
+        `[Canva Automation] ⚠️ Worker error instan: ${e.message}. Menggunakan setTimeout native dan merestart worker...`,
       );
-      if (!resolved) {
-        resolved = true;
-        clearTimeout(fallbackTimer);
-        resolve();
-      }
+      initWorker(); // Re-init sekarang juga
+
+      // Karena kita tahu postMessage gagal, jadwalkan resolve menggunakan setTimeout sesuai 'ms'
+      // tanpa harus menunggu 'fallbackMs' yang lebih lama
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(fallbackTimer);
+          resolve();
+        }
+      }, ms);
     }
   });
 }
@@ -1487,8 +1496,8 @@ async function startMainLoop() {
                 await chrome.storage.local.set({
                   sessionDownloadCount: sessionStats.downloadCount,
                 });
-                // Gunakan delayWithFallback agar loop tetap lanjut meskipun worker mati
-                await delayWithFallback(1500, 3000);
+                // Gunakan fungsi delay baru yang sudah hybrid dan tahan worker termination
+                await delay(1500);
               } catch (clickErr) {
                 console.error(
                   "[Canva Automation] Failed to download image " + (i + 1),
@@ -1759,23 +1768,44 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
+function cleanup() {
+  console.log(
+    "[Canva Automation] Cleanup initiated. Releasing temporary resources...",
+  );
+  if (typeof heartbeatInterval !== "undefined" && heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+}
+
 function teardown() {
   // Guard: HANYA jalankan jika benar-benar halaman ditutup/di-reload, bukan karena event lain
-  if (document.visibilityState === 'visible' && !window.closed) {
-    console.warn("[Canva Automation] teardown() dipanggil tapi halaman masih aktif - diabaikan.");
+  // Pengecekan aktif: abaikan diam-diam jika halaman masih digunakan
+  if (
+    (document.visibilityState === "visible" || !document.hidden) &&
+    !window.closed
+  ) {
+    // Tidak ada console.warn di sini untuk mencegah log spam setiap ~50 detik
     return;
   }
-  console.log("[Canva Automation] Teardown initiated. Terminating resources.");
+  console.log(
+    "[Canva Automation] Teardown initiated. Terminating persistent resources.",
+  );
+  cleanup();
+
   if (typeof delayWorker !== "undefined" && delayWorker) {
     try {
       delayWorker.terminate();
     } catch (e) {
-      console.warn("[Canva Automation] Worker sudah di-terminate.");
+      // Abaikan jika sudah di-terminate
     }
     globalThis.delayWorker = null;
   }
 }
 window.addEventListener("beforeunload", teardown);
+if (chrome.runtime && chrome.runtime.onSuspend) {
+  chrome.runtime.onSuspend.addListener(teardown);
+}
 
 // 1. Listen for START_AUTOMATION and STOP_AUTOMATION messages from popup
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
@@ -1823,6 +1853,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
           .catch((err) => handleAutomationError(err))
           .finally(() => {
             isLoopActive = false;
+            cleanup();
           });
         sendResponse({ success: true, status: "Automation started" });
       } else {
@@ -1834,6 +1865,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     } else if (message.action === "STOP_AUTOMATION") {
       console.log("[Canva Automation] STOP_AUTOMATION trigger received.");
       isRunning = false;
+      cleanup();
       chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
         sendStatusUpdate("Automation stopped by user.");
       });
@@ -1886,6 +1918,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
         .catch((err) => handleAutomationError(err))
         .finally(() => {
           isLoopActive = false;
+          cleanup();
         });
     }
   } catch (err) {
