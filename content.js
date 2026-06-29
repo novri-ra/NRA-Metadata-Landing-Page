@@ -323,6 +323,47 @@ async function waitForElement(selector, isXPath = false, timeout = 10000) {
   });
 }
 
+async function waitForVisualRender(selector, timeoutMs = 8000) {
+  return new Promise((resolve) => {
+    let resolved = false;
+
+    const fallbackTimer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        observer.disconnect();
+        resolve();
+      }
+    }, timeoutMs);
+
+    const observer = new MutationObserver((mutations) => {
+      if (resolved) return;
+
+      for (const mutation of mutations) {
+        if (mutation.type === "childList" || mutation.type === "attributes") {
+          const elements = document.querySelectorAll(selector);
+          const visible = Array.from(elements).filter(
+            (el) => el.offsetParent !== null,
+          );
+          if (visible.length > 0) {
+            resolved = true;
+            clearTimeout(fallbackTimer);
+            observer.disconnect();
+            resolve();
+            return;
+          }
+        }
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["style", "class", "src"],
+    });
+  });
+}
+
 function auditSelectors() {
   for (const [key, selector] of Object.entries(CANVA_SELECTORS)) {
     let element;
@@ -1416,13 +1457,14 @@ async function startMainLoop() {
           }
         }
 
-        // 2. CRITICAL VISUAL RENDER DELAY: 5000ms to allow Canva to fully paint the high-res image assets
+        // 2. CRITICAL VISUAL RENDER DELAY: Dynamic observer to allow Canva to fully paint the high-res image assets
         if (!isRunning) throw new Error("USER_STOPPED");
         console.log(
-          "[Canva Automation] New images detected! Awaiting 5s paint delay...",
+          "[Canva Automation] New images detected! Awaiting visual paint...",
         );
         sendStatusUpdate("Assets detected. Loading high-res images...");
-        await delay(5000);
+        await waitForVisualRender(CANVA_SELECTORS.DOWNLOAD_BUTTON, 8000);
+        await delay(1000);
 
         // 3. Query buttons again and slice the newest batch from the top
         if (!isRunning) throw new Error("USER_STOPPED");
@@ -1439,40 +1481,38 @@ async function startMainLoop() {
         }
         let newestButtons = Array.from(allBtns).slice(0, 4);
         let targetCount = 4;
+        let selectedIndices = [0, 1, 2, 3];
 
         if (downloadCountSetting === "Random") {
           targetCount = Math.floor(Math.random() * 4) + 1;
-          newestButtons.sort(() => Math.random() - 0.5);
+          selectedIndices.sort(() => Math.random() - 0.5);
+          selectedIndices = selectedIndices.slice(0, targetCount);
           console.log(
-            `[Canva Automation] Random mode chosen. Shuffled list and resolved target count: ${targetCount}`,
+            `[Canva Automation] Random mode chosen. Selecting indices: [${selectedIndices.join(",")}]`,
           );
         } else {
           targetCount = parseInt(downloadCountSetting, 10);
-          if (isNaN(targetCount) || targetCount < 1) {
-            targetCount = 4;
-          }
+          if (isNaN(targetCount) || targetCount < 1) targetCount = 4;
+          selectedIndices = selectedIndices.slice(0, targetCount);
           console.log(
             `[Canva Automation] Target download count: ${targetCount}`,
           );
         }
 
-        const buttonsToDownload = newestButtons.slice(0, targetCount);
-
-        // CRITICAL 3 FIX: Set the exact prompt for the background downloader right before clicking download
-        // CRITICAL 3 FIX: Set the exact prompt for the background downloader right before clicking download
         await chrome.storage.local.set({ downloadingPrompt: currentPrompt });
 
-        // 4. Download click loop - Re-query DOM setiap iterasi
+        // 4. Download click loop - Re-query DOM strictly using selected indices
         if (targetCount > 0) {
           for (let i = 0; i < targetCount; i++) {
-            // FRESH QUERY setiap kali untuk menghindari React DOM re-render
+            const domIndex = selectedIndices[i];
             const activeBtnsRaw = document.querySelectorAll(
               CANVA_SELECTORS.DOWNLOAD_BUTTON,
             );
             const activeBtns = Array.from(activeBtnsRaw).map(
               (el) => el.closest("button") || el,
             );
-            const targetButton = activeBtns[i];
+
+            const targetButton = activeBtns[domIndex];
 
             if (targetButton && typeof targetButton.click === "function") {
               console.log(
