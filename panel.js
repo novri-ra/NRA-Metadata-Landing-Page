@@ -21,7 +21,7 @@
    * @returns {string[]} Array of expanded prompts
    */
   function expandPromptWithVariable(prompt, iterations) {
-    if (!prompt.includes('{i}') || iterations < 1) {
+    if (!prompt.includes("{i}") || iterations < 1) {
       return [prompt];
     }
     const results = [];
@@ -290,6 +290,30 @@
   if (subfolderToggle) {
     subfolderToggle.addEventListener("change", () => {
       chrome.storage.local.set({ createSubfolder: subfolderToggle.checked });
+    });
+  }
+
+  // ==========================================
+  // CUSTOM DOWNLOAD FOLDER SETTINGS
+  // ==========================================
+  const downloadFolderInput = document.getElementById("downloadFolderInput");
+
+  // Muat folder dari storage saat panel dibuka
+  chrome.storage.local.get(["downloadFolder"], (res) => {
+    if (downloadFolderInput && res.downloadFolder !== undefined) {
+      downloadFolderInput.value = res.downloadFolder;
+    }
+  });
+
+  // Simpan folder saat user berubah
+  if (downloadFolderInput) {
+    downloadFolderInput.addEventListener("change", () => {
+      const folder = downloadFolderInput.value.trim();
+      chrome.storage.local.set({ downloadFolder: folder });
+      console.log(
+        "[Canva Auto Prompter] 📁 Download folder set to:",
+        folder || "(default)",
+      );
     });
   }
 
@@ -602,37 +626,42 @@
               .map((p) => p.trim())
               .filter((p) => p.length > 0);
 
-          // Expand prompts with {i} placeholder
-          let expandedPrompts = [];
-          for (let p of promptsArray) {
-            if (p.includes('{i}')) {
-              // Tanya user berapa iterasi
-              const iterationsInput = prompt(`Prompt "${p}" mengandung {i}. Berapa jumlah iterasi yang diinginkan?`, "5");
-              if (iterationsInput === null) {
-                // User cancel, skip ekspansi, gunakan prompt asli
+            // Expand prompts with {i} placeholder
+            let expandedPrompts = [];
+            for (let p of promptsArray) {
+              if (p.includes("{i}")) {
+                // Tanya user berapa iterasi
+                const iterationsInput = prompt(
+                  `Prompt "${p}" mengandung {i}. Berapa jumlah iterasi yang diinginkan?`,
+                  "5",
+                );
+                if (iterationsInput === null) {
+                  // User cancel, skip ekspansi, gunakan prompt asli
+                  expandedPrompts.push(p);
+                  continue;
+                }
+                const iterations = parseInt(iterationsInput, 10);
+                if (isNaN(iterations) || iterations < 1) {
+                  alert(
+                    "Jumlah iterasi harus berupa angka positif. Prompt akan digunakan apa adanya.",
+                  );
+                  expandedPrompts.push(p);
+                  continue;
+                }
+                // Ekspansi prompt
+                const expanded = expandPromptWithVariable(p, iterations);
+                expandedPrompts.push(...expanded);
+              } else {
                 expandedPrompts.push(p);
-                continue;
               }
-              const iterations = parseInt(iterationsInput, 10);
-              if (isNaN(iterations) || iterations < 1) {
-                alert("Jumlah iterasi harus berupa angka positif. Prompt akan digunakan apa adanya.");
-                expandedPrompts.push(p);
-                continue;
-              }
-              // Ekspansi prompt
-              const expanded = expandPromptWithVariable(p, iterations);
-              expandedPrompts.push(...expanded);
-            } else {
-              expandedPrompts.push(p);
             }
-          }
 
-          // Ganti promptsArray dengan hasil ekspansi
-          promptsArray.length = 0;
-          promptsArray.push(...expandedPrompts);
+            // Ganti promptsArray dengan hasil ekspansi
+            promptsArray.length = 0;
+            promptsArray.push(...expandedPrompts);
 
-          // PERBAIKAN: Perbarui textarea di panel agar menampung hasil ekspansi dan terlihat oleh user
-          promptInput.value = promptsArray.join("\n");
+            // PERBAIKAN: Perbarui textarea di panel agar menampung hasil ekspansi dan terlihat oleh user
+            promptInput.value = promptsArray.join("\n");
 
             if (promptsArray.length === 0) {
               alert("Please enter at least one prompt!");
@@ -774,43 +803,47 @@
   });
 
   // 5. Retry Quarantine Logic - Pindahkan semua prompt dari Quarantine ke Prompt Input utama
-  const retryQuarantineBtn = document.getElementById('retryQuarantineBtn');
+  const retryQuarantineBtn = document.getElementById("retryQuarantineBtn");
   if (retryQuarantineBtn) {
-    retryQuarantineBtn.addEventListener('click', () => {
-      const quarantineInput = document.getElementById('quarantineInput');
-      const promptInput = document.getElementById('promptInput');
+    retryQuarantineBtn.addEventListener("click", () => {
+      const quarantineInput = document.getElementById("quarantineInput");
+      const promptInput = document.getElementById("promptInput");
       const quarantineText = quarantineInput.value.trim();
-      
+
       // Jika quarantine kosong, beri tahu user
       if (!quarantineText) {
-        alert('Tidak ada prompt di Quarantine untuk diulang.');
+        alert("Tidak ada prompt di Quarantine untuk diulang.");
         return;
       }
-      
+
       // Append teks quarantine ke prompt input utama
       if (promptInput.value.trim()) {
-        promptInput.value += '\n' + quarantineText;
+        promptInput.value += "\n" + quarantineText;
       } else {
         promptInput.value = quarantineText;
       }
-      
+
       // Kosongkan quarantine
-      quarantineInput.value = '';
-      
+      quarantineInput.value = "";
+
       // Simpan ke Chrome Storage
-      chrome.storage.local.set({ 
+      chrome.storage.local.set({
         savedPromptText: promptInput.value,
-        savedFailedPrompts: '' 
+        savedFailedPrompts: "",
       });
-      
+
       // Update progress text (opsional)
-      const progressText = document.getElementById('progressText');
-      const currentPrompts = promptInput.value.split('\n').filter(p => p.trim().length > 0);
+      const progressText = document.getElementById("progressText");
+      const currentPrompts = promptInput.value
+        .split("\n")
+        .filter((p) => p.trim().length > 0);
       if (progressText) {
         progressText.textContent = `Progress: ${currentPrompts.length} prompts remaining (with retry)`;
       }
-      
-      console.log('[Canva Auto Prompter] ✅ Quarantined prompts moved back to main queue.');
+
+      console.log(
+        "[Canva Auto Prompter] ✅ Quarantined prompts moved back to main queue.",
+      );
     });
   }
 
@@ -1017,11 +1050,11 @@
   }
 
   // 6. Customize Shortcut Button - Buka halaman shortcut Chrome
-  const customizeShortcutBtn = document.getElementById('customizeShortcutBtn');
+  const customizeShortcutBtn = document.getElementById("customizeShortcutBtn");
   if (customizeShortcutBtn) {
-    customizeShortcutBtn.addEventListener('click', () => {
+    customizeShortcutBtn.addEventListener("click", () => {
       // Buka tab baru ke halaman shortcut extensions
-      chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+      chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
     });
   }
 
@@ -1031,30 +1064,15 @@
 
   // Tapi kita bisa deteksi OS untuk menampilkan shortcut yang sesuai
   function updateShortcutDisplay() {
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    const shortcutDisplay = document.getElementById('shortcutDisplay');
+    const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+    const shortcutDisplay = document.getElementById("shortcutDisplay");
     if (shortcutDisplay) {
       if (isMac) {
-        shortcutDisplay.textContent = 'Cmd+Shift+P';
+        shortcutDisplay.textContent = "Cmd+Shift+P";
       } else {
-        shortcutDisplay.textContent = 'Ctrl+Shift+P';
+        shortcutDisplay.textContent = "Ctrl+Shift+P";
       }
     }
   }
   updateShortcutDisplay();
-
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
