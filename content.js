@@ -323,6 +323,47 @@ async function waitForElement(selector, isXPath = false, timeout = 10000) {
   });
 }
 
+async function waitForVisualRender(selector, timeoutMs = 8000) {
+  return new Promise((resolve) => {
+    let resolved = false;
+
+    const fallbackTimer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        observer.disconnect();
+        resolve();
+      }
+    }, timeoutMs);
+
+    const observer = new MutationObserver((mutations) => {
+      if (resolved) return;
+
+      for (const mutation of mutations) {
+        if (mutation.type === "childList" || mutation.type === "attributes") {
+          const elements = document.querySelectorAll(selector);
+          const visible = Array.from(elements).filter(
+            (el) => el.offsetParent !== null,
+          );
+          if (visible.length > 0) {
+            resolved = true;
+            clearTimeout(fallbackTimer);
+            observer.disconnect();
+            resolve();
+            return;
+          }
+        }
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["style", "class", "src"],
+    });
+  });
+}
+
 function auditSelectors() {
   for (const [key, selector] of Object.entries(CANVA_SELECTORS)) {
     let element;
@@ -801,7 +842,7 @@ async function selectCanvaConfiguration(typeLabel, optionText) {
     // Fallback if CDP fails
     if (!response || response.success === false) {
       console.warn(
-        `[Canva Automation] � � CDP click failed, attempting native DOM click.`,
+        `[Canva Automation]   CDP click failed, attempting native DOM click.`,
       );
       targetButton.click();
     }
@@ -809,6 +850,7 @@ async function selectCanvaConfiguration(typeLabel, optionText) {
 
   await delay(1000); // Stabilize UI before proceeding
 }
+
 /**
  * Starts the main bulk automation loop, running sequentially without page reloads.
  */
@@ -957,971 +999,290 @@ async function startMainLoop() {
           "[Canva Automation] 🛑 Batch Auto-Stop limit reached safely. Stopping loop.",
         );
         sendStatusUpdate("Batch target reached! Stopping...");
-
-        // Trigger audio alert if enabled
-        const audioCfg = await chrome.storage.local.get(["playSounds"]);
-        if (audioCfg.playSounds !== false) {
-          chrome.runtime.sendMessage({ action: "PLAY_COMPLETION_SOUND" });
-        }
-
-        // Cleanup: detach debugger and mark as stopped
-        await chrome.storage.local.set({ isAutomating: false, step: "IDLE" });
         await new Promise((resolve) =>
           chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve),
         );
+        chrome.storage.local.set({ isAutomating: false, step: "IDLE" });
         return;
       }
 
-      let currentPrompt = prompts[0];
+      // 2. Get current prompt and update UI
+      const currentPrompt = prompts[0];
+      const currentIndex = startIndex + prompts.length;
+      const remainingCount = prompts.length - 1;
+      chrome.runtime.sendMessage({
+        action: "PROGRESS_UPDATE",
+        progress: `Processing: ${currentIndex}/${sessionStats.totalPrompts} (${remainingCount} remaining)`,
+      });
 
-      // Removed premature prompt saving to avoid rename race condition.
+      // 3. Configure Canva settings if not already configured
+      if (!isConfigured) {
+        console.log("[Canva Automation] Configuring Canva settings...");
+        await safeSelectCanvaConfiguration("Style", imageStyle);
+        await safeSelectCanvaConfiguration("Ratio", aspectRatio);
+        isConfigured = true;
+        await delay(1000);
+      }
 
+      // 4. Find the prompt input field
+      let promptInput;
       try {
-        await logToTerminal(
-          `[Canva Automation] Processing prompt: "${currentPrompt}"`,
+        promptInput = await waitForElement(CANVA_SELECTORS.PROMPT_INPUT);
+      } catch (err) {
+        console.error(
+          "[Canva Automation] 🛑 Could not find prompt input field. Aborting.",
+          err,
+        );
+        throw new Error("PROMPT_INPUT_NOT_FOUND");
+      }
+
+      // 5. Type the prompt with human-like animation
+      await safeCdpTypeHuman(currentPrompt, "prompt input");
+
+      // 6. Click the Generate button
+      let generateBtn;
+      try {
+        generateBtn = await waitForElement(CANVA_SELECTORS.GENERATE_BUTTON);
+      } catch (err) {
+        console.error(
+          "[Canva Automation] 🛑 Could not find Generate button. Aborting.",
+          err,
+        );
+        throw new Error("GENERATE_BUTTON_NOT_FOUND");
+      }
+
+      await safeCdpClick(generateBtn, "Generate button");
+
+      // 7. Wait for visual render of the generated image
+      await waitForVisualRender(CANVA_SELECTORS.GENERATED_IMAGE);
+
+      // 8. Check for cooldown
+      let cooldownMs = getScreenCooldownMs();
+      if (cooldownMs > 0) {
+        sessionStats.totalCooldowns++;
+        cooldownMs += 5000; // Add 5-second safety buffer
+        console.warn(
+          `[Canva Automation] 🛑 Cooldown detected: ${cooldownMs}ms. Waiting...`,
         );
 
-        // WARN-1 FIX: Send current progress indicator back to Side Panel UI with standardized action key
-        chrome.runtime.sendMessage({
-          action: "PROGRESS_UPDATE",
-          progress: `${prompts.length} prompts remaining`,
-        });
-        sendStatusUpdate("Configuring settings...");
+        // Stamp the warning so it doesn't get double-counted later
+        tagGhostCooldowns();
 
-        // --- PRE-FLIGHT COOLDOWN CHECK (WITH DOM TAGGING) ---
-        let preFlightCooldown = getScreenCooldownMs();
+        const targetEndTime = Date.now() + cooldownMs;
 
-        if (preFlightCooldown > 0) {
-          sessionStats.totalCooldowns++;
-          await chrome.storage.local.set({ sessionStats });
-          preFlightCooldown += 5000; // 5s safety buffer
-          console.warn(
-            `[Canva Automation] Serving pre-flight cooldown of ${preFlightCooldown}ms...`,
-          );
-
-          // Stamp before sleeping
-          tagGhostCooldowns();
-
-          // 🌟 ABSOLUTE TIME TRACKING TO BEAT CHROME THROTTLING
-          const targetEndTime = Date.now() + preFlightCooldown;
-
-          while (Date.now() < targetEndTime) {
-            if (!isRunning) throw new Error("USER_STOPPED");
-
-            const remainingMs = targetEndTime - Date.now();
-            const remainingSecs = Math.ceil(remainingMs / 1000);
-
-            chrome.runtime.sendMessage({
-              action: "STATUS_UPDATE",
-              status: `Limit active: ${formatTime(remainingSecs)} remaining`,
-            });
-
-            // Even if Chrome throttles this 1s delay to 10s when the tab is hidden,
-            // the Date.now() calculation above will instantly catch up.
-            await delay(1000);
-          }
-
-          // 🌟 RE-STAMP UPON WAKING UP (In case React wiped the tags on window focus)
-          tagGhostCooldowns();
-
-          sendStatusUpdate("Cooldown complete. Resuming prompt injection...");
-        }
-        // ---------------------------------
-
-        // Action 1 (Configure & Inject):
-        // 1. Configure dropdown settings (Aspect Ratio and Image Style only)
-        if (!isConfigured) {
-          const settings = await chrome.storage.local.get([
-            "imageStyle",
-            "aspectRatio",
-          ]);
-
-          // Check and set Style dynamically
-          if (settings.imageStyle === "Random") {
-            if (!isRunning) throw new Error("USER_STOPPED");
-            sendStatusUpdate(`Setting Style: Random`);
-            const styleKeywords = [
-              "Smart",
-              "Cinematic Concept",
-              "Creative",
-              "Bokeh",
-              "Macro",
-              "Illustration",
-              "3D Render",
-              "Cinematic",
-              "Fashion",
-              "Minimalist",
-              "Moody",
-              "Portrait",
-              "Sketch - Color",
-              "Stock Photo",
-              "Ray Traced",
-              "Vibrant",
-              "Pop Art",
-              "Vector",
-            ];
-            const randomStyle =
-              styleKeywords[Math.floor(Math.random() * styleKeywords.length)];
-            await safeSelectCanvaConfiguration("Style", randomStyle);
-          } else if (settings.imageStyle) {
-            if (!isRunning) throw new Error("USER_STOPPED");
-            sendStatusUpdate(`Setting Style: ${settings.imageStyle}`);
-            await safeSelectCanvaConfiguration("Style", settings.imageStyle);
-          }
-
-          // Check and set Ratio dynamically
-          if (settings.aspectRatio === "Random") {
-            if (!isRunning) throw new Error("USER_STOPPED");
-            sendStatusUpdate(`Setting Aspect Ratio: Random`);
-            const ratioKeywords = [
-              "1:1",
-              "16:9",
-              "9:16",
-              "4:3",
-              "3:4",
-              "3:2",
-              "2:3",
-            ];
-            const randomRatio =
-              ratioKeywords[Math.floor(Math.random() * ratioKeywords.length)];
-            await safeSelectCanvaConfiguration("Aspect Ratio", randomRatio);
-          } else if (settings.aspectRatio) {
-            if (!isRunning) throw new Error("USER_STOPPED");
-            sendStatusUpdate(`Setting Aspect Ratio: ${settings.aspectRatio}`);
-            await safeSelectCanvaConfiguration(
-              "Aspect Ratio",
-              settings.aspectRatio,
-            );
-          }
-          isConfigured = true;
-        }
-
-        // 2. Find prompt input, clear it, inject text, and strictly verify
-        if (!isRunning) throw new Error("USER_STOPPED");
-        const textarea = await waitForElement(
-          CANVA_SELECTORS.PROMPT_TEXTAREA,
-          false,
-          15000,
-        );
-        sendStatusUpdate("Typing prompt...");
-
-        // Focus the textarea, clear it natively, then type via CDP (Human or Instant mode)
-        await safeCdpClick(textarea, "prompt textarea");
-        await delay(200);
-        try {
-          textarea.value = "";
-          textarea.dispatchEvent(new Event("input", { bubbles: true }));
-        } catch (error) {
-          console.error(
-            `[Canva Automation] 🛑 Failed to clear prompt textarea:`,
-            error,
-          );
-          chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
-          throw new Error(`Clear interaction failed for prompt textarea`);
-        }
-
-        // Fetch the typing mode preference from storage
-        const modeConfig = await chrome.storage.local.get(["typingMode"]);
-
-        if (modeConfig.typingMode === "instant") {
-          await logToTerminal(
-            `[Canva Automation] Injecting prompt instantly (Paste mode)...`,
-            true,
-          );
-
-          // Execute instant CDP typing
-          const typeResponse = await new Promise((resolve) => {
-            chrome.runtime.sendMessage(
-              { action: "CDP_TYPE", text: currentPrompt },
-              resolve,
-            );
-          });
-
-          if (!typeResponse || typeResponse.success === false) {
-            throw new Error(
-              typeResponse?.error ||
-                chrome.runtime.lastError?.message ||
-                "CDP connection lost during instant typing",
-            );
-          }
-        } else {
-          // Default to realistic human typing
-          await safeCdpTypeHuman(currentPrompt, "prompt textarea");
-        }
-
-        // Apply custom safety delay configuration dynamically
-        const config = await chrome.storage.local.get(["safetyDelay"]);
-        const dynamicDelay = (config.safetyDelay || 0) * 1000;
-        await delay(500 + dynamicDelay);
-
-        if (!isRunning) throw new Error("USER_STOPPED");
-
-        // Dispatch standard React events to force state update
-        textarea.dispatchEvent(new Event("input", { bubbles: true }));
-        textarea.dispatchEvent(new Event("change", { bubbles: true }));
-
-        await delay(1000); // Give React time to process the input
-
-        // Soft verification: Check textContent or just rely on the Generate button becoming active
-        let currentValue = textarea.value || textarea.textContent || "";
-        if (!currentValue.includes(currentPrompt.substring(0, 5))) {
-          console.warn(
-            `[Canva Automation] ⚠️ Soft mismatch detected. Value might be masked by React. Proceeding anyway...`,
-          );
-        }
-
-        // The real source of truth will be whether the "Generate" button is clickable in the next step.
-
-        // 3. Prepare initial variables
-        let pendingCooldownMs = 0; // Tracks if we need to sleep AFTER downloading the successful generation
-
-        // 4. Unified Submit & Polling State Machine (Phantom-Success & Stale-DOM Immune)
-        let submissionSuccessful = false;
-
-        while (!submissionSuccessful) {
-          if (!isRunning) throw new Error("USER_STOPPED");
-
-          let initialButtonCount = 0;
-          try {
-            const btns = document.querySelectorAll(
-              CANVA_SELECTORS.DOWNLOAD_BUTTON,
-            );
-            if (btns && btns.length > 0) {
-              // Ensure we only count visible buttons
-              initialButtonCount = Array.from(btns).filter(
-                (btn) => btn.offsetParent !== null,
-              ).length;
-            }
-          } catch (e) {
-            console.warn(
-              "[Canva Automation] Could not query initial download buttons:",
-              e,
-            );
-            initialButtonCount = 0;
-          }
-
-          if (initialButtonCount === 0) {
+        while (Date.now() < targetEndTime) {
+          if (!isRunning) {
             console.log(
-              `[Canva Automation] Baseline button count: 0 (No visible buttons found with selector: ${CANVA_SELECTORS.DOWNLOAD_BUTTON})`,
+              "[Canva Automation] Automation aborted by user during cooldown.",
             );
-          } else {
-            console.log(
-              `[Canva Automation] Baseline button count: ${initialButtonCount}`,
-            );
+            return;
           }
 
-          const submitBtn = await waitForElement(
-            CANVA_SELECTORS.SUBMIT_BUTTON,
-            false,
-            10000,
-          );
-          await logToTerminal(
-            "[Canva Automation] Clicking submit button...",
-            true,
-          );
-          sendStatusUpdate("Generating images...");
-          await safeCdpClick(submitBtn, "submit button");
-
-          // Catch immediate rate limit toast
-          await delay(1500);
-
-          // 1. Check for FATAL Monthly Limit or Upgrade Pop-up first
-          const monthlyLimitWarning = document.evaluate(
-            CANVA_SELECTORS.MONTHLY_LIMIT_WARNING,
-            document,
-            null,
-            XPathResult.FIRST_ORDERED_NODE_TYPE,
-            null,
-          ).singleNodeValue;
-
-          if (monthlyLimitWarning) {
-            console.error(
-              `[Canva Automation] 🛑 FATAL: Monthly limit or Upgrade pop-up detected.`,
-            );
-            throw new Error("MONTHLY_LIMIT_REACHED");
-          }
-
-          let detectedCooldownMs = getScreenCooldownMs();
-          if (detectedCooldownMs > 0) {
-            detectedCooldownMs += 5000; // +5s buffer
-            console.warn(
-              `[Canva Automation] ⏳ Rate limit text detected: Time mapped to ${detectedCooldownMs}ms`,
-            );
-            // Dismiss toast if present
-            const gotItBtn = document.evaluate(
-              "//button[.//span[text()='Got it']]",
-              document,
-              null,
-              XPathResult.FIRST_ORDERED_NODE_TYPE,
-              null,
-            ).singleNodeValue;
-            if (gotItBtn) {
-              try {
-                await safeCdpClick(gotItBtn, "rate limit toast dismiss button");
-              } catch (e) {}
-            }
-          }
-
-          // Polling loop checking every 1000ms until the button count strictly increases
-          let currentBtnCount = initialButtonCount;
-          let pollAttempts = 0;
-          const maxPollAttempts = 90; // 90 seconds timeout for image generation
-          let imagesGenerated = false;
-
-          while (pollAttempts <= maxPollAttempts) {
-            if (!isRunning) throw new Error("USER_STOPPED");
-            await delay(1000);
-
-            // Short-Circuit for content policy violations (NSFW/Filter block)
-            // FIXED: Scoped to strictly look inside toast/alert containers to prevent matching the "Privacy Policy" footer.
-            const policyWarning = document.evaluate(
-              "//div[@role='alert' or @role='status']//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'policy') or contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'unsafe')]",
-              document,
-              null,
-              XPathResult.FIRST_ORDERED_NODE_TYPE,
-              null,
-            ).singleNodeValue;
-
-            if (policyWarning) {
-              console.error(
-                "[Canva Automation] 🛑 Content Policy Violation detected.",
-              );
-              throw new Error("POLICY_VIOLATION");
-            }
-
-            // Dynamic Stale DOM tracker: if React unmounts old off-screen images, lower baseline
-            let currentActualCount = currentBtnCount;
-            try {
-              const currentBtns = document.querySelectorAll(
-                CANVA_SELECTORS.DOWNLOAD_BUTTON,
-              );
-              if (currentBtns && currentBtns.length > 0) {
-                // Ensure we only count visible buttons
-                currentActualCount = Array.from(currentBtns).filter(
-                  (btn) => btn.offsetParent !== null,
-                ).length;
-              } else {
-                currentActualCount = 0;
-              }
-            } catch (e) {
-              currentActualCount = currentBtnCount;
-            }
-            if (
-              currentActualCount < currentBtnCount &&
-              currentActualCount <= initialButtonCount
-            ) {
-              console.log(
-                `[Canva Automation] Stale DOM detected! Baseline dropped from ${initialButtonCount} to ${currentActualCount}`,
-              );
-              initialButtonCount = currentActualCount;
-            }
-            currentBtnCount = currentActualCount;
-
-            pollAttempts++;
-            console.log(
-              `[Canva Automation] Polling for new download buttons (attempt ${pollAttempts}). Current count: ${currentBtnCount}, Initial count: ${initialButtonCount}`,
-            );
-
-            if (currentBtnCount > initialButtonCount) {
-              imagesGenerated = true;
-              break;
-            }
-          }
-
-          if (imagesGenerated) {
-            await logToTerminal(
-              "[Canva Automation] Images successfully generated!",
-            );
-            submissionSuccessful = true;
-            if (detectedCooldownMs > 0) {
-              sessionStats.totalCooldowns++;
-              await chrome.storage.local.set({ sessionStats });
-              console.log(
-                `[Canva Automation] Phantom Success detected. Queuing cooldown of ${detectedCooldownMs}ms for AFTER download.`,
-              );
-              pendingCooldownMs = detectedCooldownMs;
-            }
-          } else {
-            if (detectedCooldownMs > 0) {
-              sessionStats.totalCooldowns++;
-              await chrome.storage.local.set({ sessionStats });
-              console.log(
-                "[Canva Automation] True rate limit hit (no images generated). Serving cooldown before retry...",
-              );
-              sendStatusUpdate(
-                `Rate limit! Resting for ${Math.ceil(detectedCooldownMs / 1000)} seconds...`,
-              );
-
-              // Stamp before sleeping
-              tagGhostCooldowns();
-
-              // 🌟 ABSOLUTE TIME TRACKING TO BEAT CHROME THROTTLING
-              const targetEndTime = Date.now() + detectedCooldownMs;
-
-              while (Date.now() < targetEndTime) {
-                if (!isRunning) throw new Error("USER_STOPPED");
-
-                const remainingMs = targetEndTime - Date.now();
-                const remainingSecs = Math.ceil(remainingMs / 1000);
-
-                chrome.runtime.sendMessage({
-                  action: "STATUS_UPDATE",
-                  status: `Limit cooldown: ${formatTime(remainingSecs)} remaining`,
-                });
-
-                await delay(1000);
-              }
-
-              // 🌟 RE-STAMP UPON WAKING UP
-              tagGhostCooldowns();
-
-              console.log(
-                "[Canva Automation] Dynamic cooldown complete. Clearing text field and retyping prompt...",
-              );
-              sendStatusUpdate("Cooldown done. Retyping prompt...");
-
-              // Retype prompt logic with human animation
-              const retryTextarea = await waitForElement(
-                CANVA_SELECTORS.PROMPT_TEXTAREA,
-                false,
-                5000,
-              );
-              if (retryTextarea) {
-                await safeCdpClick(retryTextarea, "retry prompt textarea");
-                await delay(300);
-                try {
-                  retryTextarea.value = "";
-                  retryTextarea.dispatchEvent(
-                    new Event("input", { bubbles: true }),
-                  );
-                } catch (error) {
-                  console.error(
-                    `[Canva Automation] 🛑 Failed to clear retry prompt textarea:`,
-                    error,
-                  );
-                  chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
-                  throw new Error(
-                    `Clear interaction failed for retry prompt textarea`,
-                  );
-                }
-                await delay(300);
-                await safeCdpTypeHuman(currentPrompt, "retry prompt textarea");
-                await delay(500);
-              }
-            } else {
-              throw new Error(
-                "Action 2 Failed: Timeout waiting for new generated images, and no rate limit detected.",
-              );
-            }
-          }
-        }
-
-        // 2. CRITICAL VISUAL RENDER DELAY: 5000ms to allow Canva to fully paint the high-res image assets
-        if (!isRunning) throw new Error("USER_STOPPED");
-        console.log(
-          "[Canva Automation] New images detected! Awaiting 5s paint delay...",
-        );
-        sendStatusUpdate("Assets detected. Loading high-res images...");
-        await delay(5000);
-
-        // 3. Query buttons again and slice the newest batch from the top
-        if (!isRunning) throw new Error("USER_STOPPED");
-
-        let allBtns = document.querySelectorAll(
-          CANVA_SELECTORS.DOWNLOAD_BUTTON,
-        );
-        if (!allBtns || allBtns.length === 0) {
-          console.error(
-            "[Canva Automation] Download button not found with selector:",
-            CANVA_SELECTORS.DOWNLOAD_BUTTON,
-          );
-          allBtns = [];
-        }
-        let newestButtons = Array.from(allBtns).slice(0, 4);
-        let targetCount = 4;
-
-        if (downloadCountSetting === "Random") {
-          targetCount = Math.floor(Math.random() * 4) + 1;
-          newestButtons.sort(() => Math.random() - 0.5);
-          console.log(
-            `[Canva Automation] Random mode chosen. Shuffled list and resolved target count: ${targetCount}`,
-          );
-        } else {
-          targetCount = parseInt(downloadCountSetting, 10);
-          if (isNaN(targetCount) || targetCount < 1) {
-            targetCount = 4;
-          }
-          console.log(
-            `[Canva Automation] Target download count: ${targetCount}`,
-          );
-        }
-
-        const buttonsToDownload = newestButtons.slice(0, targetCount);
-
-        // CRITICAL 3 FIX: Set the exact prompt for the background downloader right before clicking download
-        // CRITICAL 3 FIX: Set the exact prompt for the background downloader right before clicking download
-        await chrome.storage.local.set({ downloadingPrompt: currentPrompt });
-
-        // 4. Download click loop - Re-query DOM setiap iterasi
-        if (targetCount > 0) {
-          for (let i = 0; i < targetCount; i++) {
-            // FRESH QUERY setiap kali untuk menghindari React DOM re-render
-            const activeBtnsRaw = document.querySelectorAll(
-              CANVA_SELECTORS.DOWNLOAD_BUTTON,
-            );
-            const activeBtns = Array.from(activeBtnsRaw).map(
-              (el) => el.closest("button") || el,
-            );
-            const targetButton = activeBtns[i];
-
-            if (targetButton && typeof targetButton.click === "function") {
-              console.log(
-                "[Canva Automation] Downloading image " +
-                  (i + 1) +
-                  "/" +
-                  targetCount,
-              );
-              sendStatusUpdate(
-                "Downloading image " + (i + 1) + " of " + targetCount + "...",
-              );
-              try {
-                targetButton.click();
-                sessionStats.downloadCount++;
-                const sanitized = sanitizeStats(sessionStats);
-                await chrome.storage.local.set({ sessionStats: sanitized });
-                chrome.runtime.sendMessage({
-                  action: "UPDATE_STATS",
-                  stats: sanitized,
-                });
-                await chrome.storage.local.set({
-                  sessionDownloadCount: sessionStats.downloadCount,
-                });
-                // Gunakan fungsi delay baru yang sudah hybrid dan tahan worker termination
-                await delay(1500);
-              } catch (clickErr) {
-                console.error(
-                  "[Canva Automation] Failed to download image " + (i + 1),
-                  clickErr,
-                );
-                continue;
-              }
-            } else {
-              console.warn(
-                "[Canva Automation] Button at index " +
-                  i +
-                  " is missing, skipping.",
-              );
-            }
-          }
-          console.log(
-            "[Canva Automation] Download batch completed successfully.",
-          );
-        }
-
-        // 1. Pause Gate
-        while (isPausedGlobal) {
-          if (!isRunning) return; // Allow STOP while paused
+          const remainingSecs = Math.ceil((targetEndTime - Date.now()) / 1000);
           chrome.runtime.sendMessage({
             action: "STATUS_UPDATE",
-            status: `⏸ Bot Paused by User...`,
+            status: `Cooldown Active: ${formatTime(remainingSecs)}`,
           });
-          await delay(1500);
+
+          await delay(1000);
         }
 
-        if (await checkIfStopped()) {
-          console.log("[Canva Automation] Loop stopped by user request.");
-          sendStatusUpdate("Automation stopped by user.");
-          await new Promise((resolve) =>
-            chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve),
-          );
-          return;
-        }
+        // Re-stamp in case React refreshed the page while we were sleeping
+        tagGhostCooldowns();
 
-        // Check Batch Auto-Stop Limit
-        const limits = await chrome.storage.local.get(["sessionDownloadCount"]);
-        if (
-          batchLimitGlobal > 0 &&
-          (limits.sessionDownloadCount || 0) >= batchLimitGlobal
-        ) {
-          console.log(
-            "[Canva Automation] 🛑 Batch Auto-Stop limit reached safely. Stopping loop.",
-          );
-          sendStatusUpdate("Batch target reached! Stopping...");
-
-          // Trigger audio alert if enabled
-          const audioCfg = await chrome.storage.local.get(["playSounds"]);
-          if (audioCfg.playSounds !== false) {
-            chrome.runtime.sendMessage({ action: "PLAY_COMPLETION_SOUND" });
-          }
-
-          // Cleanup: detach debugger and mark as stopped
-          await chrome.storage.local.set({ isAutomating: false, step: "IDLE" });
-          await new Promise((resolve) =>
-            chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve),
-          );
-          return;
-        }
-
-        // 5. Mandatory save delay
-        if (!isRunning) throw new Error("USER_STOPPED");
-        console.log(
-          "[Canva Automation] Waiting 6 seconds for download files to save to disk...",
-        );
-        sendStatusUpdate("Saving downloaded images...");
-        await delay(6000);
-
-        if (pendingCooldownMs > 0) {
-          console.log(
-            `[Canva Automation] Serving pending Phantom Success cooldown of ${pendingCooldownMs}ms...`,
-          );
-          sendStatusUpdate(
-            `Phantom Success cooldown: ${Math.ceil(pendingCooldownMs / 1000)} seconds...`,
-          );
-
-          // Stamp before sleeping
-          tagGhostCooldowns();
-
-          // 🌟 ABSOLUTE TIME TRACKING TO BEAT CHROME THROTTLING
-          const targetEndTime = Date.now() + pendingCooldownMs;
-
-          while (Date.now() < targetEndTime) {
-            if (!isRunning) throw new Error("USER_STOPPED");
-
-            const remainingMs = targetEndTime - Date.now();
-            const remainingSecs = Math.ceil(remainingMs / 1000);
-
-            chrome.runtime.sendMessage({
-              action: "STATUS_UPDATE",
-              status: `Next prompt in: ${formatTime(remainingSecs)}`,
-            });
-
-            await delay(1000);
-          }
-
-          // 🌟 RE-STAMP UPON WAKING UP
-          tagGhostCooldowns();
-        }
-
-        // Save current prompt index after successful processing
-        await chrome.storage.local.set({
-          lastProcessedPromptIndex: startIndex + 1,
-        });
-
-        // Destructive Queue Shift: Remove processed prompt and update storage/UI
-        prompts.shift();
-        sessionStats.successCount++;
-        await chrome.storage.local.set({ sessionStats });
-        await chrome.storage.local.set({ prompts: prompts });
+        console.log("[Canva Automation] Cooldown cleared. Resuming...");
         chrome.runtime.sendMessage({
-          action: "UPDATE_TEXTAREA",
-          remainingPrompts: prompts,
+          action: "STATUS_UPDATE",
+          status: `Resuming after cooldown...`,
         });
-      } catch (error) {
-        if (
-          error.message === "USER_STOPPED" ||
-          error.message === "MONTHLY_LIMIT_REACHED"
-        ) {
-          console.log(
-            `[Canva Automation] Process halted. Reason: ${error.message}`,
-          );
-          if (error.message === "MONTHLY_LIMIT_REACHED") {
-            handleAutomationError(error);
-          } else {
-            chrome.storage.local.set(
-              { isAutomating: false, step: "IDLE" },
-              () => {
-                sendStatusUpdate("Automation stopped by user.");
-              },
-            );
-          }
-          await new Promise((resolve) =>
-            chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve),
-          );
-          return; // Break the main loop and exit completely
-        }
+      }
 
-        // WARN-02 FIX: Handle policy violation gracefully without page reload
-        if (error.message === "POLICY_VIOLATION") {
-          console.warn(
-            "[Canva Automation] Policy violation. Skipping prompt without reload.",
-          );
-          chrome.runtime.sendMessage({
-            action: "PROMPT_FAILED",
-            failedPrompt: currentPrompt,
-          });
-          prompts.shift();
-          await chrome.storage.local.set({ prompts: prompts });
-          chrome.runtime.sendMessage({
-            action: "UPDATE_TEXTAREA",
-            remainingPrompts: prompts,
-          });
-          sendStatusUpdate("Policy violation. Skipping to next prompt...");
-          await delay(2000); // Breathe before next iteration
-          continue; // Immediately jump to next loop iteration smoothly
-        }
+      // 9. Check for monthly limit reached
+      const monthlyLimitReached = document.evaluate(
+        "//*[contains(text(), 'You’ve reached your monthly limit')]",
+        document,
+        null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE,
+        null,
+      ).singleNodeValue;
 
+      if (monthlyLimitReached) {
+        throw new Error("MONTHLY_LIMIT_REACHED");
+      }
+
+      // 10. Find and click the newest download button
+      let newestButtons = Array.from(
+        document.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON),
+      ).map((el) => el.closest("button") || el);
+
+      if (newestButtons.length === 0) {
         console.warn(
-          "[Canva Automation] Prompt failed/skipped:",
-          currentPrompt,
-          error,
+          "[Canva Automation] ⚠️ No download buttons found. Retrying...",
         );
+        await delay(2000);
+        newestButtons = Array.from(
+          document.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON),
+        ).map((el) => el.closest("button") || el);
+      }
 
-        // Send the failed prompt to the panel
+      if (newestButtons.length === 0) {
+        console.error(
+          "[Canva Automation] 🛑 No download buttons found after retry. Skipping this prompt.",
+        );
         chrome.runtime.sendMessage({
           action: "PROMPT_FAILED",
           failedPrompt: currentPrompt,
         });
-
-        // Remove the failed prompt from the queue
         prompts.shift();
-
-        // Update chrome.storage.local with the new prompts array
-        await chrome.storage.local.set({ prompts: prompts });
-
-        // Send the "UPDATE_TEXTAREA" message to refresh the main input UI
-        chrome.runtime.sendMessage({
-          action: "UPDATE_TEXTAREA",
-          remainingPrompts: prompts,
-        });
-
-        // Send a status update
-        sendStatusUpdate("Prompt failed. Recovering and moving to next...");
-
-        // KRITIS-2 FIX: Graceful offline handler before moving on
-        if (!navigator.onLine) {
-          console.error(
-            "[Canva Automation] 🛑 NETWORK_OFFLINE detected. Pausing until reconnected...",
-          );
-          sendStatusUpdate("Offline. Waiting for internet connection...");
-          await new Promise((resolve) => {
-            window.addEventListener("online", resolve, { once: true });
-          });
-          console.log("[Canva Automation] Reconnected! Resuming operation.");
-          sendStatusUpdate("Reconnected. Resuming...");
-        }
-
-        await delay(2000); // Brief pause before retrying the next prompt
         continue;
       }
-    }
 
-    // Finished loop cleanly without cancellation
-    if (isRunning && prompts.length === 0) {
-      chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
+      // 11. Determine how many images to download
+      let targetCount = 4;
+
+      if (downloadCountSetting === "Random") {
+        targetCount = Math.floor(Math.random() * 4) + 1;
+        newestButtons.sort(() => Math.random() - 0.5);
         console.log(
-          "[Canva Automation] Reset state to IDLE. Bulk automation complete.",
+          `[Canva Automation] Random mode chosen. Shuffled list and resolved target count: ${targetCount}`,
         );
-
-        const totalDurationMin = Math.round(
-          (Date.now() - sessionStats.startTime) / 1000 / 60,
-        );
-        console.log(
-          `[Canva Automation] =======================================`,
-        );
-        console.log(`[Canva Automation] 📊 BATCH GENERATION SUMMARY:`);
-        console.log(
-          `[Canva Automation] - Total Time: ${totalDurationMin} minutes`,
-        );
-        console.log(
-          `[Canva Automation] - Prompts Processed: ${sessionStats.successCount}`,
-        );
-        console.log(
-          `[Canva Automation] - Images Downloaded: ${sessionStats.downloadCount} assets`,
-        );
-        console.log(
-          `[Canva Automation] - Cooldowns Encountered: ${sessionStats.totalCooldowns} times`,
-        );
-        console.log(
-          `[Canva Automation] =======================================`,
-        );
-
-        sendStatusUpdate("Bulk generation complete!");
-      });
-    }
-    await new Promise((resolve) =>
-      chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve),
-    );
-  } catch (loopErr) {
-    if (loopErr.message === "USER_STOPPED") {
-      console.log("[Canva Automation] Loop caught USER_STOPPED outer signal.");
-      chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
-        sendStatusUpdate("Automation stopped by user.");
-      });
-    } else {
-      handleAutomationError(loopErr);
-    }
-    await new Promise((resolve) =>
-      chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve),
-    );
-  }
-}
-
-// ==========================================
-// Initialization Block
-// ==========================================
-
-// Add listener for debugger detachment notification
-chrome.runtime.onMessage.addListener((message) => {
-  if (message.action === "DEBUGGER_DETACHED") {
-    console.warn("[Canva Automation] Debugger detached. Connection lost!");
-    sendStatusUpdate("Debugger disconnected - Please refresh page");
-  }
-});
-
-function cleanup() {
-  console.log(
-    "[Canva Automation] Cleanup initiated. Releasing temporary resources...",
-  );
-  if (typeof heartbeatInterval !== "undefined" && heartbeatInterval) {
-    clearInterval(heartbeatInterval);
-    heartbeatInterval = null;
-  }
-}
-
-function teardown() {
-  // Guard: HANYA jalankan jika benar-benar halaman ditutup/di-reload, bukan karena event lain
-  // Pengecekan aktif: abaikan diam-diam jika halaman masih digunakan
-  if (
-    (document.visibilityState === "visible" || !document.hidden) &&
-    !window.closed
-  ) {
-    // Tidak ada console.warn di sini untuk mencegah log spam setiap ~50 detik
-    return;
-  }
-  console.log(
-    "[Canva Automation] Teardown initiated. Terminating persistent resources.",
-  );
-  cleanup();
-
-  if (typeof delayWorker !== "undefined" && delayWorker) {
-    try {
-      delayWorker.terminate();
-    } catch (e) {
-      // Abaikan jika sudah di-terminate
-    }
-    globalThis.delayWorker = null;
-  }
-}
-window.addEventListener("beforeunload", teardown);
-if (chrome.runtime && chrome.runtime.onSuspend) {
-  chrome.runtime.onSuspend.addListener(teardown);
-}
-
-// 1. Listen for START_AUTOMATION and STOP_AUTOMATION messages from popup
-chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-  if (message) {
-    if (message.action === "START_AUTOMATION") {
-      console.log("[Canva Automation] START_AUTOMATION trigger received.");
-
-      // Reset lastProcessedPromptIndex to 0 when starting fresh automation
-      await chrome.storage.local.set({ lastProcessedPromptIndex: 0 });
-
-      // KRITIS-4 FIX: Graceful loop teardown on rapid Stop/Start toggling
-      if (isLoopActive) {
-        console.log(
-          "[Canva Automation] Previous loop is still winding down. Waiting for cleanup...",
-        );
-        chrome.runtime.sendMessage({
-          action: "STATUS_UPDATE",
-          status: `Cleaning up previous session...`,
-        });
-
-        // Wait up to 5 seconds for the previous loop to finish
-        let retries = 0;
-        while (isLoopActive && retries < 10) {
-          await new Promise((r) => setTimeout(r, 500));
-          retries++;
+      } else {
+        targetCount = parseInt(downloadCountSetting, 10);
+        if (isNaN(targetCount) || targetCount < 1) {
+          targetCount = 4;
         }
+        console.log(`[Canva Automation] Target download count: ${targetCount}`);
+      }
 
-        if (isLoopActive) {
-          chrome.runtime.sendMessage({
-            action: "STATUS_UPDATE",
-            status: `Error: Could not start. Please refresh page.`,
-          });
-          sendResponse({
-            success: false,
-            error: "Previous loop stuck. Please refresh page.",
-          });
-          return true; // Abort if it's permanently stuck
+      const buttonsToDownload = newestButtons.slice(0, targetCount);
+
+      // CRITICAL 3 FIX: Set the exact prompt for the background downloader right before clicking download
+      await chrome.storage.local.set({ downloadingPrompt: currentPrompt });
+
+      // 12. Download click loop - Re-query DOM setiap iterasi
+      if (targetCount > 0) {
+        for (let i = 0; i < targetCount; i++) {
+          // FRESH QUERY setiap kali untuk menghindari React DOM re-render
+          const activeBtnsRaw = document.querySelectorAll(
+            CANVA_SELECTORS.DOWNLOAD_BUTTON,
+          );
+          const activeBtns = Array.from(activeBtnsRaw).map(
+            (el) => el.closest("button") || el,
+          );
+          const targetButton = activeBtns[i];
+
+          if (targetButton) {
+            await safeCdpClick(targetButton, `download button #${i + 1}`);
+            sessionStats.downloadCount++;
+            await delay(1000); // Small delay between downloads
+          } else {
+            console.warn(
+              `[Canva Automation] ⚠️ Download button #${i + 1} not found. Skipping.`,
+            );
+          }
         }
       }
 
-      if (window.location.href.includes("dream-lab")) {
-        isRunning = true;
-        isLoopActive = true;
-        startMainLoop()
-          .catch((err) => handleAutomationError(err))
-          .finally(() => {
-            isLoopActive = false;
-            cleanup();
-          });
-        sendResponse({ success: true, status: "Automation started" });
-      } else {
+      // 13. Update session stats and storage
+      sessionStats.successCount++;
+      await chrome.storage.local.set({
+        sessionStats,
+        lastProcessedPromptIndex: currentIndex,
+      });
+
+      // 14. Remove the processed prompt and update UI
+      prompts.shift();
+      await chrome.storage.local.set({ prompts });
+
+      // 15. Update UI with remaining prompts
+      chrome.runtime.sendMessage({
+        action: "UPDATE_TEXTAREA",
+        remainingPrompts: prompts,
+      });
+
+      // 16. Small delay between iterations
+      await delay(1500);
+    }
+
+    // 17. Final cleanup and completion
+    console.log("[Canva Automation] All prompts processed successfully!");
+    chrome.runtime.sendMessage({
+      action: "STATUS_UPDATE",
+      status: "✅ All prompts processed!",
+    });
+    chrome.runtime.sendMessage({ action: "PLAY_COMPLETION_SOUND" });
+    chrome.storage.local.set({ isAutomating: false, step: "IDLE" });
+    await new Promise((resolve) =>
+      chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve),
+    );
+  } catch (err) {
+    handleAutomationError(err);
+    await new Promise((resolve) =>
+      chrome.runtime.sendMessage({ action: "DETACH_DEBUGGER" }, resolve),
+    );
+  } finally {
+    isLoopActive = false;
+  }
+}
+
+// ==========================================
+// MESSAGE LISTENER FOR PANEL COMMUNICATION
+// ==========================================
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message) {
+    if (message.action === "START_AUTOMATION") {
+      if (isRunning) {
+        console.warn("[Canva Automation] Automation already running.");
+        sendResponse({ success: false, error: "Already running" });
+        return;
+      }
+
+      if (!window.location.href.includes("dream-lab")) {
+        console.error(
+          "[Canva Automation] Not on Canva Dream Lab page. Aborting.",
+        );
         sendResponse({
           success: false,
           error: "Extension is not currently on a canva.com/dream-lab page.",
         });
-      }
-    } else if (message.action === "STOP_AUTOMATION") {
-      console.log("[Canva Automation] STOP_AUTOMATION trigger received.");
-      isRunning = false;
-      cleanup();
-      chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
-        sendStatusUpdate("Automation stopped by user.");
-      });
-      sendResponse({ success: true, status: "Automation stopped by user." });
-    }
-    return true; // async channel keep-alive
-  }
-});
-// 2. Run state check on page load / refresh (resuming automation loop states)
-(async () => {
-  console.log(
-    "[Canva Automation] Content script loaded. Checking automation state...",
-  );
-  if (!window.location.href.includes("dream-lab")) {
-    console.log(
-      "[Canva Automation] Not on dream-lab page. Exiting initialization.",
-    );
-    return;
-  }
-  try {
-    const result = await chrome.storage.local.get(["isAutomating"]);
-    console.log("[Canva Automation] Local state retrieved on load:", result);
-    if (result && result.isAutomating === true) {
-      // KRITIS-2 FIX: Guard against concurrent loop on resume
-      if (isLoopActive) {
-        console.warn(
-          "[Canva Automation] Loop already active on resume. Skipping.",
-        );
-        return;
-      }
-
-      // STABILITY BUFFER: Prevent instant crash during hard-refresh state flux
-      console.log(
-        "[Canva Automation] Auto-resume triggered. Waiting 4 seconds for React SPA stability...",
-      );
-      await new Promise((resolve) => setTimeout(resolve, 4000));
-
-      // Re-verify that user didn't hit stop during the 4-second buffer
-      const doubleCheck = await chrome.storage.local.get(["isAutomating"]);
-      if (!doubleCheck || doubleCheck.isAutomating !== true) {
-        console.log(
-          "[Canva Automation] User stopped during stability buffer. Aborting resume.",
-        );
         return;
       }
 
       isRunning = true;
-      isLoopActive = true;
-      startMainLoop()
-        .catch((err) => handleAutomationError(err))
-        .finally(() => {
-          isLoopActive = false;
-          cleanup();
-        });
+      console.log("[Canva Automation] START_AUTOMATION trigger received.");
+
+      // Start the automation loop
+      startMainLoop().catch((err) => {
+        console.error("[Canva Automation] Automation failed:", err);
+        isRunning = false;
+        isLoopActive = false;
+        chrome.storage.local.set({ isAutomating: false, step: "ERROR" });
+        sendStatusUpdate("Error: " + (err.message || "Unknown error"));
+      });
+
+      sendResponse({ success: true });
+    } else if (message.action === "STOP_AUTOMATION") {
+      console.log("[Canva Automation] STOP_AUTOMATION trigger received.");
+      isRunning = false;
+      sendResponse({ success: true });
+    } else if (message.action === "PING") {
+      sendResponse({ status: "READY" });
     }
-  } catch (err) {
-    handleAutomationError(err);
   }
-})();
+});
+
+// ==========================================
+// SELECTORS FOR CANVA DREAM LAB
+// ==========================================
+const CANVA_SELECTORS = {
+  PROMPT_INPUT: 'textarea[aria-label="Enter a prompt"]',
+  GENERATE_BUTTON: 'button[data-testid="generate-button"]',
+  DOWNLOAD_BUTTON: 'button[data-testid="download-button"]',
+  GENERATED_IMAGE: 'img[alt="Generated image"]',
+  ALERT_STATUS: 'div[data-testid="alert-status"]',
+};
+
+// ==========================================
+// INITIALIZATION
+// ==========================================
+console.log("[Canva Auto Prompter] Content script loaded and ready.");
