@@ -46,12 +46,12 @@ jobs:
                 --debug-protection true \
                 --disable-console-output false \
                 --identifier-names-generator mangled \
-                --rename-globals true \
+                --rename-globals false \
                 --self-defending true \
                 --string-array true \
                 --string-array-encoding rc4 \
                 --string-array-threshold 0.75 \
-                --transform-object-keys true \
+                --transform-object-keys false \
                 --unicode-escape-sequence false
             else
               echo "⚠️ $file not found, skipping..."
@@ -67,9 +67,16 @@ jobs:
               --control-flow-flattening-threshold 0.75 \
               --dead-code-injection true \
               --dead-code-injection-threshold 0.4 \
+              --debug-protection true \
+              --disable-console-output false \
+              --identifier-names-generator mangled \
+              --rename-globals false \
               --self-defending true \
               --string-array true \
-              --string-array-encoding rc4
+              --string-array-encoding rc4 \
+              --string-array-threshold 0.75 \
+              --transform-object-keys false \
+              --unicode-escape-sequence false
           fi
 
           echo "📋 Copying non-JS files..."
