@@ -5,6 +5,11 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+  actions: read
+  issues: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,13 +21,9 @@ jobs:
         run: |
           echo "📦 Creating extension package..."
 
-          # Create temporary directory
           mkdir -p temp/canva-auto-prompter
 
-          # Copy required files (only those that exist)
           echo "📋 Copying files..."
-
-          # Core files (wajib)
           cp background.js temp/canva-auto-prompter/ 2>/dev/null || echo "⚠️ background.js not found"
           cp content.js temp/canva-auto-prompter/ 2>/dev/null || echo "⚠️ content.js not found"
           cp panel.js temp/canva-auto-prompter/ 2>/dev/null || echo "⚠️ panel.js not found"
@@ -32,7 +33,6 @@ jobs:
           cp icon.png temp/canva-auto-prompter/ 2>/dev/null || echo "⚠️ icon.png not found"
           cp README.md temp/canva-auto-prompter/ 2>/dev/null || echo "⚠️ README.md not found"
 
-          # Optional files (jika ada)
           if [ -f utils.js ]; then
             cp utils.js temp/canva-auto-prompter/
             echo "✅ utils.js copied"
@@ -43,28 +43,24 @@ jobs:
             echo "✅ icon.html copied"
           fi
 
-          # Check if any files were copied
           if [ -z "$(ls -A temp/canva-auto-prompter)" ]; then
             echo "❌ ERROR: No files were copied!"
             exit 1
           fi
 
-          # Create zip file
           echo "📦 Creating zip archive..."
           cd temp
           zip -r ../canva-auto-prompter-${GITHUB_REF_NAME#v}.zip canva-auto-prompter/
           cd ..
 
-          # Verify zip file exists
           if [ -f canva-auto-prompter-${GITHUB_REF_NAME#v}.zip ]; then
-            echo "✅ Zip created successfully: canva-auto-prompter-${GITHUB_REF_NAME#v}.zip"
+            echo "✅ Zip created: canva-auto-prompter-${GITHUB_REF_NAME#v}.zip"
             ls -lh canva-auto-prompter-${GITHUB_REF_NAME#v}.zip
           else
             echo "❌ ERROR: Failed to create zip file!"
             exit 1
           fi
 
-          # Clean up temp directory
           rm -rf temp
           echo "✅ Build complete!"
 
