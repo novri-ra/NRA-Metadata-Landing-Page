@@ -1139,9 +1139,17 @@ async function startMainLoop() {
           `[Canva Automation] 🛑 Cooldown detected: ${cooldownMs}ms. Waiting...`,
         );
 
-<<<<<<< HEAD
-        // Stamp the warning so it doesn't get double-counted later
-        tagGhostCooldowns();
+        // WARN-1 FIX: Send current progress indicator back to Side Panel UI with standardized action key
+        try {
+          chrome.runtime.sendMessage({
+            action: "PROGRESS_UPDATE",
+            progress: `${prompts.length} prompts remaining`,
+          });
+        } catch (err) {
+          console.warn("[Canva Automation] Progress update failed:", err);
+        }
+        sendStatusUpdate("Configuring settings...");
+>>>>>>> development
 =======
         // WARN-1 FIX: Send current progress indicator back to Side Panel UI with standardized action key
         try {
@@ -1157,9 +1165,14 @@ async function startMainLoop() {
 
         const targetEndTime = Date.now() + cooldownMs;
 
-<<<<<<< HEAD
-        while (Date.now() < targetEndTime) {
-          if (!isRunning) {
+        if (preFlightCooldown > 0) {
+          sessionStats.totalCooldowns++;
+          await chrome.storage.local.set({ sessionStats });
+          preFlightCooldown += 5000; // 5s safety buffer
+          console.warn(
+            `[Canva Automation] Serving pre-flight cooldown of ${preFlightCooldown}ms...`,
+          );
+>>>>>>> development
 =======
         if (preFlightCooldown > 0) {
           sessionStats.totalCooldowns++;
