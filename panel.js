@@ -8,6 +8,68 @@ function applyCustomUI(theme, font) {
   }
 }
 
+function syncRunButtonUI(isAutomating) {
+  const startBtn = document.getElementById("startBtn");
+  if (!startBtn) return;
+  isRunning = isAutomating; // Keep local tracker updated
+
+  if (isAutomating) {
+    startBtn.textContent = "Stop";
+    startBtn.style.background = "#e74c3c";
+    startBtn.style.boxShadow = "0 4px 15px rgba(231, 76, 60, 0.4)";
+  } else {
+    startBtn.textContent = "Run";
+    startBtn.style.background = "";
+    startBtn.style.boxShadow = "";
+
+    chrome.storage.local.set({ isPaused: false });
+    const pauseButton = document.getElementById("pauseButton");
+    if (pauseButton) {
+      pauseButton.textContent = "⏸ PAUSE";
+      pauseButton.style.background = "#f39c12";
+    }
+  }
+}
+
+function updateStatsUI(stats) {
+  if (!stats) return;
+
+  // Defensive parsing untuk mencegah NaN
+  const successCount = Number(stats.successCount) || 0;
+  const downloadCount = Number(stats.downloadCount) || 0;
+
+  const elProcessed = document.getElementById("stat-processed");
+  if (elProcessed) elProcessed.textContent = successCount;
+
+  const elDownloaded = document.getElementById("stat-downloaded");
+  if (elDownloaded) elDownloaded.textContent = downloadCount;
+
+  const elRate = document.getElementById("stat-rate");
+  if (elRate) {
+    if (successCount > 0) {
+      let rate = Math.round((downloadCount / successCount) * 100);
+      if (isNaN(rate)) rate = 0;
+      elRate.textContent = rate + "%";
+    } else {
+      elRate.textContent = "0%";
+    }
+  }
+
+  const elTime = document.getElementById("stat-time");
+  if (elTime) {
+    if (stats.startTime) {
+      let elapsedMs = Date.now() - Number(stats.startTime);
+      if (isNaN(elapsedMs) || elapsedMs < 0) elapsedMs = 0;
+      const elapsedSeconds = Math.floor(elapsedMs / 1000);
+      const minutes = Math.floor(elapsedSeconds / 60);
+      const seconds = elapsedSeconds % 60;
+      elTime.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+    } else {
+      elTime.textContent = "00:00";
+    }
+  }
+}
+
 // Shared DOM Elements
 let startBtn,
   promptInput,
@@ -459,29 +521,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // 🌟 CENTRALIZED UI SYNC FUNCTION
-  function syncRunButtonUI(isAutomating) {
-    if (!startBtn) return;
-    isRunning = isAutomating; // Keep local tracker updated
-
-    if (isAutomating) {
-      startBtn.textContent = "Stop";
-      startBtn.style.background = "#e74c3c";
-      startBtn.style.boxShadow = "0 4px 15px rgba(231, 76, 60, 0.4)";
-    } else {
-      startBtn.textContent = "Run";
-      startBtn.style.background = "";
-      startBtn.style.boxShadow = "";
-
-      chrome.storage.local.set({ isPaused: false });
-      const pauseButton = document.getElementById("pauseButton");
-      if (pauseButton) {
-        pauseButton.textContent = "⏸ PAUSE";
-        pauseButton.style.background = "#f39c12";
-      }
-    }
-  }
-
   // Pleasant, ascending 2-tone chime: 523.25Hz (150ms), then 659.25Hz (300ms)
   let sharedAudioCtx = null;
 
@@ -706,44 +745,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return true; // Keep channel open
   });
 
-  function updateStatsUI(stats) {
-    if (!stats) return;
-
-    // Defensive parsing untuk mencegah NaN
-    const successCount = Number(stats.successCount) || 0;
-    const downloadCount = Number(stats.downloadCount) || 0;
-
-    const elProcessed = document.getElementById("stat-processed");
-    if (elProcessed) elProcessed.textContent = successCount;
-
-    const elDownloaded = document.getElementById("stat-downloaded");
-    if (elDownloaded) elDownloaded.textContent = downloadCount;
-
-    const elRate = document.getElementById("stat-rate");
-    if (elRate) {
-      if (successCount > 0) {
-        let rate = Math.round((downloadCount / successCount) * 100);
-        if (isNaN(rate)) rate = 0;
-        elRate.textContent = rate + "%";
-      } else {
-        elRate.textContent = "0%";
-      }
-    }
-
-    const elTime = document.getElementById("stat-time");
-    if (elTime) {
-      if (stats.startTime) {
-        let elapsedMs = Date.now() - Number(stats.startTime);
-        if (isNaN(elapsedMs) || elapsedMs < 0) elapsedMs = 0;
-        const elapsedSeconds = Math.floor(elapsedMs / 1000);
-        const minutes = Math.floor(elapsedSeconds / 60);
-        const seconds = elapsedSeconds % 60;
-        elTime.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-      } else {
-        elTime.textContent = "00:00";
-      }
-    }
-  }
   // --- GOD-TIER 6-FEATURE UPDATE LOGIC ---
 
   // 1. Bulk File Importer
