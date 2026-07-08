@@ -1,4 +1,11 @@
+<<<<<<< HEAD
 document.addEventListener("DOMContentLoaded", () => {
+=======
+﻿document.addEventListener("DOMContentLoaded", () => {
+  console.log(
+    "[Panel] DOMContentLoaded fired. Event listeners are being attached...",
+  );
+>>>>>>> development
   const startBtn = document.getElementById("startBtn");
   const promptInput = document.getElementById("promptInput");
   const aspectRatioSelect = document.getElementById("aspectRatio");
@@ -29,6 +36,22 @@ document.addEventListener("DOMContentLoaded", () => {
       results.push(prompt.replace(/\{i\}/g, i));
     }
     return results;
+  }
+
+  // Save Delay Slider
+  const saveDelaySlider = document.getElementById("saveDelaySlider");
+  const saveDelayVal = document.getElementById("saveDelayVal");
+  if (saveDelaySlider && saveDelayVal) {
+    chrome.storage.local.get(["saveDelay"], function (res) {
+      const savedDelay = parseInt(res.saveDelay, 10) || 6;
+      saveDelaySlider.value = savedDelay;
+      saveDelayVal.textContent = savedDelay;
+    });
+    saveDelaySlider.addEventListener("input", function () {
+      const val = parseInt(this.value, 10);
+      saveDelayVal.textContent = val;
+      chrome.storage.local.set({ saveDelay: val });
+    });
   }
 
   // --- UNIVERSAL COLLAPSE LOGIC ---
@@ -183,7 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
     ],
     (result) => {
       if (result) {
-        if (result.sessionStats) updateAnalyticsUI(result.sessionStats);
+        if (result.sessionStats) updateStatsUI(result.sessionStats);
         // Load UI Preferences
         const savedTheme = result.uiTheme || "theme-retro";
         const savedFont = result.uiFont || "font-pixel";
@@ -198,6 +221,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const batchLimitInput = document.getElementById("batchLimitInput");
         const safetyDelaySlider = document.getElementById("safetyDelaySlider");
         const safetyDelayVal = document.getElementById("safetyDelayVal");
+        const saveDelaySlider = document.getElementById("saveDelaySlider");
+        const saveDelayVal = document.getElementById("saveDelayVal");
         const soundToggle = document.getElementById("soundToggle");
         const subfolderToggle = document.getElementById("subfolderToggle");
         const verboseLogsToggle = document.getElementById("verboseLogsToggle");
@@ -209,6 +234,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (result.safetyDelay !== undefined) {
           if (safetyDelaySlider) safetyDelaySlider.value = result.safetyDelay;
           if (safetyDelayVal) safetyDelayVal.textContent = result.safetyDelay;
+        }
+        if (result.saveDelay !== undefined) {
+          if (saveDelaySlider) saveDelaySlider.value = result.saveDelay;
+          if (saveDelayVal) saveDelayVal.textContent = result.saveDelay;
         }
         if (result.playSounds !== undefined && soundToggle)
           soundToggle.checked = result.playSounds;
@@ -443,7 +472,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Handle stats update for analytics dashboard
     if (request.action === "UPDATE_STATS") {
-      updateDashboard(request.stats);
+      updateStatsUI(request.stats);
       sendResponse({ success: true });
       return true;
     }
@@ -496,10 +525,10 @@ document.addEventListener("DOMContentLoaded", () => {
     return true; // Keep channel open
   });
 
-  function updateAnalyticsUI(stats) {
+  function updateStatsUI(stats) {
     if (!stats) return;
 
-    // Defensively parse values to avoid UI bugs if storage is corrupted
+    // Defensive parsing untuk mencegah NaN
     const successCount = Number(stats.successCount) || 0;
     const downloadCount = Number(stats.downloadCount) || 0;
 
@@ -512,9 +541,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const elRate = document.getElementById("stat-rate");
     if (elRate) {
       if (successCount > 0) {
-        // Safe division since successCount > 0
         let rate = Math.round((downloadCount / successCount) * 100);
-        if (isNaN(rate)) rate = 0; // Final boundary check
+        if (isNaN(rate)) rate = 0;
         elRate.textContent = rate + "%";
       } else {
         elRate.textContent = "0%";
@@ -525,66 +553,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (elTime) {
       if (stats.startTime) {
         let elapsedMs = Date.now() - Number(stats.startTime);
-        if (isNaN(elapsedMs) || elapsedMs < 0) elapsedMs = 0; // Sanitize timestamp arithmetic
-
+        if (isNaN(elapsedMs) || elapsedMs < 0) elapsedMs = 0;
         const elapsedSeconds = Math.floor(elapsedMs / 1000);
         const minutes = Math.floor(elapsedSeconds / 60);
         const seconds = elapsedSeconds % 60;
         elTime.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
       } else {
         elTime.textContent = "00:00";
-      }
-    }
-  }
-
-  // Create function to update dashboard
-  function updateDashboard(stats) {
-    if (!stats) return;
-
-    const promptsProcessedCount = Number(stats.promptsProcessed) || 0;
-    const imagesDownloadedCount = Number(stats.imagesDownloaded) || 0;
-    const successCount = Number(stats.successCount) || 0;
-    // Update prompts processed
-    const promptsProcessed = document.getElementById("stat-processed");
-    if (promptsProcessed) {
-      promptsProcessed.textContent = promptsProcessedCount.toString();
-    }
-
-    // Update images downloaded
-    const imagesDownloaded = document.getElementById("stat-downloaded");
-    if (imagesDownloaded) {
-      imagesDownloaded.textContent = imagesDownloadedCount.toString();
-    }
-
-    // Calculate and update success rate
-    const successRate = document.getElementById("stat-rate");
-    if (successRate) {
-      if (stats.promptsProcessed > 0) {
-        let rate = Math.round(
-          (stats.successCount / stats.promptsProcessed) * 100,
-        );
-        if (isNaN(rate)) rate = 0;
-        successRate.textContent = `${rate}%`;
-      } else {
-        successRate.textContent = "0%";
-      }
-    }
-
-    // Update time elapsed
-    const timeElapsed = document.getElementById("stat-time");
-    if (timeElapsed) {
-      if (stats.startTime) {
-        const currentTime = new Date().getTime();
-        const elapsedSeconds = Math.floor(
-          (currentTime - stats.startTime) / 1000,
-        );
-
-        // Format as MM:SS
-        const minutes = Math.floor(elapsedSeconds / 60);
-        const seconds = elapsedSeconds % 60;
-        timeElapsed.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-      } else {
-        timeElapsed.textContent = "00:00";
       }
     }
   }
@@ -597,19 +572,16 @@ document.addEventListener("DOMContentLoaded", () => {
         syncRunButtonUI(isNowAutomating === true);
       }
 
-      if (changes.sessionStats) {
-        updateAnalyticsUI(changes.sessionStats.newValue);
-      }
-
       // Handle stats updates
-      if (changes.stats) {
-        updateDashboard(changes.stats.newValue);
+      if (changes.sessionStats) {
+        updateStatsUI(changes.sessionStats.newValue);
       }
     }
   });
   // 🌟 CLEAN CLICK HANDLER
   // When clicked, check storage for ground truth, then toggle.
   // The onChanged listener above will handle UI changes reactively.
+  console.log("[Panel] startBtn found:", document.getElementById("startBtn"));
   if (startBtn) {
     startBtn.addEventListener("click", () => {
       chrome.storage.local.get(
@@ -630,16 +602,24 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
               }
               if (tabs && tabs.length > 0) {
-                chrome.tabs
-                  .sendMessage(tabs[0].id, { action: "STOP_AUTOMATION" })
-                  .catch((err) => {
-                    if (
-                      chrome.runtime?.lastError?.message !==
-                      "Extension context invalidated"
-                    ) {
-                      console.warn("[Panel] Message delivery failed:", err);
+                chrome.tabs.sendMessage(
+                  tabs[0].id,
+                  { action: "STOP_AUTOMATION" },
+                  (response) => {
+                    if (chrome.runtime.lastError) {
+                      console.warn(
+                        "[Canva Auto Prompter] Could not communicate with content script:",
+                        chrome.runtime.lastError.message,
+                      );
+                      statusText.textContent =
+                        "Error: Please refresh the Canva tab and try again.";
+                      statusDot.style.backgroundColor = "#ef4444";
+                      statusDot.classList.remove("active");
+                      chrome.storage.local.set({ isAutomating: false });
+                      return;
                     }
-                  });
+                  },
+                );
               }
             });
           } else {
@@ -746,6 +726,7 @@ document.addEventListener("DOMContentLoaded", () => {
                           statusDot.style.backgroundColor = "#ef4444";
                           statusDot.classList.remove("active");
                           chrome.storage.local.set({ isAutomating: false }); // Revert state safely
+                          return;
                         }
                       },
                     );
@@ -761,6 +742,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- GOD-TIER 6-FEATURE UPDATE LOGIC ---
 
   // 1. Bulk File Importer
+  console.log(
+    "[Panel] importFileBtn found:",
+    document.getElementById("importFileBtn"),
+  );
   const importFileBtn = document.getElementById("importFileBtn");
   const fileInput = document.getElementById("fileInput");
   if (importFileBtn && fileInput) {
@@ -782,6 +767,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 2. Export Logs
+  console.log(
+    "[Panel] exportLogsBtn found:",
+    document.getElementById("exportLogsBtn"),
+  );
   const exportLogsBtn = document.getElementById("exportLogsBtn");
   if (exportLogsBtn) {
     exportLogsBtn.addEventListener("click", () => {
@@ -797,6 +786,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 3. Pause / Resume Toggle
+  console.log(
+    "[Panel] pauseButton found:",
+    document.getElementById("pauseButton"),
+  );
   const pauseButton = document.getElementById("pauseButton");
   if (pauseButton) {
     pauseButton.addEventListener("click", () => {
@@ -814,6 +807,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 5. Retry Quarantine Logic - Pindahkan semua prompt dari Quarantine ke Prompt Input utama
+  console.log(
+    "[Panel] retryQuarantineBtn found:",
+    document.getElementById("retryQuarantineBtn"),
+  );
+  console.log(
+    "[Panel] clearQuarantineBtn found:",
+    document.getElementById("clearQuarantineBtn"),
+  );
   const retryQuarantineBtn = document.getElementById("retryQuarantineBtn");
   if (retryQuarantineBtn) {
     retryQuarantineBtn.addEventListener("click", () => {
@@ -861,6 +862,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- UTILITY ICONS LOGIC ---
 
   // 1. Open Dream Lab Shortcut
+  console.log(
+    "[Panel] openDreamLabBtn found:",
+    document.getElementById("openDreamLabBtn"),
+  );
   const openDreamLabBtn = document.getElementById("openDreamLabBtn");
   if (openDreamLabBtn) {
     openDreamLabBtn.addEventListener("click", () => {
@@ -869,6 +874,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 2. Clear Prompts Trash Can
+  console.log(
+    "[Panel] clearPromptsBtn found:",
+    document.getElementById("clearPromptsBtn"),
+  );
   const clearPromptsBtn = document.getElementById("clearPromptsBtn");
   if (clearPromptsBtn) {
     // Connection handshake function
@@ -977,6 +986,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   // 3. Clear Terminal Logs Trash Can
+  console.log(
+    "[Panel] clearLogsBtn found:",
+    document.getElementById("clearLogsBtn"),
+  );
   const clearLogsBtn = document.getElementById("clearLogsBtn");
   if (clearLogsBtn) {
     clearLogsBtn.addEventListener("click", () => {
@@ -988,6 +1001,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // --- UI SETTINGS MODAL LOGIC ---
+  console.log(
+    "[Panel] settingsBtn found:",
+    document.getElementById("settingsBtn"),
+  );
+  console.log(
+    "[Panel] closeSettingsBtn found:",
+    document.getElementById("closeSettingsBtn"),
+  );
   const settingsBtn = document.getElementById("settingsBtn");
   const closeSettingsBtn = document.getElementById("closeSettingsBtn");
   const settingsModal = document.getElementById("settingsModal");
