@@ -1,6 +1,13 @@
 ﻿let isRunning = false;
 let isDebugMode = false;
 
+function applyCustomUI(theme, font) {
+  document.body.className = "";
+  if (theme && font) {
+    document.body.classList.add(theme, font);
+  }
+}
+
 // Shared DOM Elements
 let startBtn,
   promptInput,
@@ -1060,13 +1067,6 @@ document.addEventListener("DOMContentLoaded", () => {
         document.body.classList.remove("modal-open");
       }
     });
-  }
-
-  function applyCustomUI(theme, font) {
-    document.body.className = ""; // Reset all classes on body
-    if (theme && font) {
-      document.body.classList.add(theme, font);
-    }
   }
 
   // Save and apply on change
