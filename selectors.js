@@ -6,7 +6,8 @@ const CANVA_SELECTORS = {
 
   // Button selectors
   SUBMIT_BUTTON: 'button[type="submit"]',
-  DOWNLOAD_BUTTON: 'button[aria-label="Download Image"]',
+  DOWNLOAD_BUTTON:
+    'button[aria-label*="Download" i], button[aria-label*="download" i], button[aria-label*="Unduh" i]',
 
   // Alert/status selectors
   ALERT_STATUS: '[@role="alert" or @role="status"]',

@@ -877,6 +877,41 @@
             value="0"
             style="width: 100%"
           />
+          <div
+            style="
+              font-size: 10px;
+              color: #64748b;
+              margin-top: 4px;
+              font-family: &quot;VT323&quot;, monospace;
+            "
+          >
+            ⏱️ Adds extra waiting time between generation steps. Increase if you
+            often hit Rate Limits.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="saveDelaySlider"
+            >Save Delay: <span id="saveDelayVal">6</span>s</label
+          >
+          <input
+            type="range"
+            id="saveDelaySlider"
+            min="1"
+            max="15"
+            value="6"
+            style="width: 100%"
+          />
+          <div
+            style="
+              font-size: 10px;
+              color: #64748b;
+              margin-top: 4px;
+              font-family: &quot;VT323&quot;, monospace;
+            "
+          >
+            ⏱️ Time to wait after each download batch before proceeding.
+          </div>
         </div>
 
         <div class="form-group">
