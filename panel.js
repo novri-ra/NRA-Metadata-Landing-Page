@@ -1,11 +1,7 @@
-<<<<<<< HEAD
-document.addEventListener("DOMContentLoaded", () => {
-=======
 ﻿document.addEventListener("DOMContentLoaded", () => {
   console.log(
     "[Panel] DOMContentLoaded fired. Event listeners are being attached...",
   );
->>>>>>> development
   const startBtn = document.getElementById("startBtn");
   const promptInput = document.getElementById("promptInput");
   const aspectRatioSelect = document.getElementById("aspectRatio");
@@ -137,12 +133,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       osc.start(now);
       osc.stop(now + 0.45);
-
-      // Cleanup nodes to prevent memory leak
-      osc.onended = () => {
-        osc.disconnect();
-        gain.disconnect();
-      };
     } catch (e) {
       console.warn("[Canva Auto Prompter] Web Audio alert failed:", e);
     }
@@ -416,30 +406,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Handle failed/skipped prompt reporting
     if (request.action === "PROMPT_FAILED") {
-      const MAX_FAILED_PROMPTS = 300;
-
-      const newPrompt =
-        request.failedPrompt || request.prompt || "Unknown Failed Prompt";
-
-      // Update failedPromptsTextarea
-      let failedArr = failedPromptsTextarea.value
-        .split("\n")
-        .filter((p) => p.trim().length > 0);
-      failedArr.push(newPrompt);
-      if (failedArr.length > MAX_FAILED_PROMPTS)
-        failedArr = failedArr.slice(-MAX_FAILED_PROMPTS);
-      failedPromptsTextarea.value = failedArr.join("\n");
-
-      // Update quarantineInput
-      const qInput = document.getElementById("quarantineInput");
-      if (qInput) {
-        let qArr = qInput.value.split("\n").filter((p) => p.trim().length > 0);
-        qArr.push(newPrompt);
-        if (qArr.length > MAX_FAILED_PROMPTS)
-          qArr = qArr.slice(-MAX_FAILED_PROMPTS);
-        qInput.value = qArr.join("\n");
+      if (failedPromptsTextarea.value) {
+        failedPromptsTextarea.value += "\n" + request.failedPrompt;
+      } else {
+        failedPromptsTextarea.value = request.failedPrompt;
       }
-
       chrome.storage.local.set({
         savedFailedPrompts: failedPromptsTextarea.value,
       });
@@ -805,6 +776,20 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
   }
+
+  // 4. Quarantine Catch Listener
+  chrome.runtime.onMessage.addListener((request) => {
+    if (request.action === "PROMPT_FAILED") {
+      const qInput = document.getElementById("quarantineInput");
+      if (qInput) {
+        // Use request.failedPrompt which is what content.js emits
+        qInput.value =
+          qInput.value +
+          (qInput.value ? "\n" : "") +
+          (request.failedPrompt || request.prompt || "Unknown Failed Prompt");
+      }
+    }
+  });
 
   // 5. Retry Quarantine Logic - Pindahkan semua prompt dari Quarantine ke Prompt Input utama
   console.log(
