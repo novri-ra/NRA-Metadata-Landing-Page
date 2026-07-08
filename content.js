@@ -657,11 +657,7 @@ async function cdpType(text) {
     );
     chrome.runtime.sendMessage({ action: "CDP_TYPE", text }, (res) => {
       clearTimeout(timer);
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve(res);
-      }
+      resolve(res);
     });
   });
   if (response && !response.success)
@@ -905,7 +901,7 @@ async function configureStyleAndRatio(imageStyle, aspectRatio) {
 }
 
 async function injectPrompt(currentPrompt) {
-  const textarea = await waitForElement(CANVA_SELECTORS.TEXTAREA);
+  const textarea = await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA);
   if (!textarea) throw new Error("Textarea not found");
   textarea.value = "";
   textarea.dispatchEvent(new Event("input", { bubbles: true }));
@@ -913,17 +909,137 @@ async function injectPrompt(currentPrompt) {
 }
 
 async function submitAndWaitForImages() {
-  const generateBtn = await waitForElement(CANVA_SELECTORS.GENERATE_BTN);
+  const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON);
   if (!generateBtn) throw new Error("Generate button not found");
+
   await safeCdpClick(generateBtn, "generate button");
-  await delay(5000);
+
+  console.log("[Canva Automation] Menunggu indikator loading muncul...");
+  chrome.runtime.sendMessage({
+    action: "STATUS_UPDATE",
+    status: "Waiting for generation to start...",
+  });
+
+  const checkLoadingIndicators = () => {
+    const progressBar = document.querySelector('[role="progressbar"]');
+    const generatingText = document.evaluate(
+      "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'generating') or contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'creating')]",
+      document,
+      null,
+      XPathResult.FIRST_ORDERED_NODE_TYPE,
+      null,
+    ).singleNodeValue;
+    const currentGenBtn = document.querySelector(CANVA_SELECTORS.SUBMIT_BUTTON);
+    const isBtnDisabled = currentGenBtn
+      ? currentGenBtn.disabled ||
+        currentGenBtn.getAttribute("aria-disabled") === "true"
+      : false;
+
+    return !!(progressBar || generatingText || isBtnDisabled);
+  };
+
+  // 1. Smart Wait: Tunggu indikator loading MUNCUL (maksimal 10 detik)
+  let loadingStarted = false;
+  let startElapsed = 0;
+  while (!loadingStarted && startElapsed < 10000) {
+    if (!isRunning) throw new Error("USER_STOPPED");
+    if (checkLoadingIndicators()) {
+      loadingStarted = true;
+      break;
+    }
+    await delay(500); // Polling cepat
+    startElapsed += 500;
+  }
+
+  if (!loadingStarted) {
+    console.warn(
+      "[Canva Automation] Indikator loading tidak terdeteksi setelah 10 detik. Mencoba melanjutkan pengecekan render...",
+    );
+  } else {
+    console.log(
+      "[Canva Automation] Indikator loading terdeteksi. Menunggu render selesai...",
+    );
+    chrome.runtime.sendMessage({
+      action: "STATUS_UPDATE",
+      status: "Generating images... (Waiting for render)",
+    });
+  }
+
+  // 2. Smart Wait: Tunggu indikator loading HILANG (maksimal 60 detik)
+  let isGenerating = true;
+  let renderElapsed = 0;
+  const timeout = 60000;
+
+  while (isGenerating && renderElapsed < timeout) {
+    if (!isRunning) throw new Error("USER_STOPPED");
+
+    if (!checkLoadingIndicators()) {
+      isGenerating = false;
+    } else {
+      await delay(1000); // Polling setiap 1 detik
+      renderElapsed += 1000;
+    }
+  }
+
+  if (renderElapsed >= timeout) {
+    console.warn(
+      "[Canva Automation] Timeout 60 detik terlampaui saat menunggu render gambar. Mencoba melanjutkan...",
+    );
+  } else {
+    console.log("[Canva Automation] Render gambar selesai!");
+  }
+
+  // Ekstra delay 1 detik untuk kestabilan DOM sebelum beralih fungsi
+  await delay(1000);
 }
 
-async function handleDownload() {
-  const downloadBtn = await waitForElement(CANVA_SELECTORS.DOWNLOAD_BTN);
-  if (!downloadBtn) throw new Error("Download button not found");
-  await safeCdpClick(downloadBtn, "download button");
-  await delay(3000);
+async function handleDownload(countSetting = "4") {
+  console.log(
+    "[Canva Automation] Memulai proses unduhan. Target: " +
+      countSetting +
+      " gambar.",
+  );
+
+  let targetCount = 4;
+  if (countSetting === "Random") {
+    targetCount = Math.floor(Math.random() * 4) + 1;
+  } else {
+    targetCount = parseInt(countSetting, 10) || 4;
+  }
+
+  await delay(2000);
+
+  // Ambil semua tombol download
+  let allDownloadButtons = document.querySelectorAll(
+    CANVA_SELECTORS.DOWNLOAD_BUTTON,
+  );
+
+  if (!allDownloadButtons || allDownloadButtons.length === 0) {
+    throw new Error("Download buttons not found.");
+  }
+
+  // AMBIL HANYA 4 TOMBOL TERAKHIR (Tombol yang baru muncul saja)
+  let latestButtons = Array.from(allDownloadButtons).slice(-4);
+
+  // Batasi sesuai setting count
+  let buttonsToClick = latestButtons.slice(0, targetCount);
+
+  console.log(
+    "[Canva Automation] Total tombol di layar: " +
+      allDownloadButtons.length +
+      ". Mengambil " +
+      buttonsToClick.length +
+      " tombol terbaru.",
+  );
+
+  for (let i = 0; i < buttonsToClick.length; i++) {
+    const btn = buttonsToClick[i];
+    console.log("[Canva Automation] Mengunduh gambar ke-" + (i + 1) + "...");
+
+    await safeCdpClick(btn, "download button " + (i + 1));
+
+    await delay(2500);
+  }
 }
 
 async function handleCooldown(cooldownMs, isStartup = false) {
@@ -1080,11 +1196,50 @@ async function startMainLoop() {
           await handleCooldown(cooldownMs, false);
         }
 
-        await handleDownload();
+        // Handle download with retry logic
+        let downloadSuccess = false;
+        let retryCount = 0;
+        const maxRetries = 3;
 
-        // Increment success counter
-        sessionStats.successCount++;
-        sessionStats.downloadCount++;
+        while (!downloadSuccess && retryCount < maxRetries) {
+          try {
+            await handleDownload(downloadCountSetting);
+            downloadSuccess = true;
+          } catch (error) {
+            console.error(
+              `[Canva Automation] Download attempt ${retryCount + 1} failed:`,
+              error.message,
+            );
+            retryCount++;
+
+            if (retryCount < maxRetries) {
+              console.log(
+                `[Canva Automation] Attempting recovery (${retryCount}/${maxRetries})...`,
+              );
+              // Refresh the page to reset state
+              window.location.reload();
+              // Wait for page to reload
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+              // Reconfigure style and ratio after refresh
+              await configureStyleAndRatio(imageStyle, aspectRatio);
+              // Re-inject the current prompt
+              await injectPrompt(currentPrompt);
+              // Re-submit the prompt
+              await submitAndWaitForImages();
+            }
+          }
+        }
+
+        if (!downloadSuccess) {
+          console.error(
+            "[Canva Automation] Failed to download images after maximum retries. Skipping to next prompt...",
+          );
+          // Still increment success counter since we processed the prompt
+          sessionStats.successCount++;
+        } else {
+          // Increment download counter only if download was successful
+          sessionStats.downloadCount++;
+        }
 
         // Update session stats in storage
         await chrome.storage.local.set({
@@ -1127,3 +1282,48 @@ async function startMainLoop() {
     throw err;
   }
 }
+
+// ==========================================
+// Message Listener: Menerima perintah dari Panel
+// ==========================================
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "PING") {
+    sendResponse({ status: "READY" });
+    return true;
+  }
+
+  if (request.action === "START_AUTOMATION") {
+    if (!isLoopActive) {
+      console.log("[Canva Automation] Menerima perintah START dari panel.");
+      isRunning = true;
+      isLoopActive = true;
+
+      startMainLoop()
+        .catch((err) => {
+          console.error("[Canva Automation] Main loop terhenti:", err);
+        })
+        .finally(() => {
+          isLoopActive = false;
+          isRunning = false;
+        });
+
+      sendResponse({ success: true });
+    } else {
+      console.warn(
+        "[Canva Automation] Perintah START diabaikan, loop sudah aktif.",
+      );
+      sendResponse({ success: false, error: "ALREADY_RUNNING" });
+    }
+    return true;
+  }
+
+  if (request.action === "STOP_AUTOMATION") {
+    console.log("[Canva Automation] Menerima perintah STOP dari panel.");
+    isRunning = false;
+    isLoopActive = false;
+    // Beri tahu background untuk detach debugger (opsional tapi disarankan)
+    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => {});
+    sendResponse({ success: true });
+    return true;
+  }
+});

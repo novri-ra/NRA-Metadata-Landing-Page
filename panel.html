@@ -181,7 +181,7 @@
         outline: none;
         cursor: pointer;
         appearance: none;
-        background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath d='M0 2h8L4 6z' fill='%234ade80'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22 viewBox=%220 0 8 8%22%3E%3Cpath d=%22M0 2h8L4 6z%22 fill=%22%234ade80%22/%3E%3C/svg%3E");
         background-repeat: no-repeat;
         background-position: right 12px center;
         background-size: 12px;
@@ -597,6 +597,58 @@
       </div>
     </div>
 
+    <!-- === PROMPT PRESETS SECTION (Collapsible) === -->
+    <div style="margin-bottom: 20px">
+      <div class="header-flex toggle-header" data-target="presetsContent">
+        <h3 style="margin: 0; font-size: 10px; color: #facc15">
+          PROMPT PRESETS
+        </h3>
+        <div class="header-icons">
+          <span class="toggle-icon">[-]</span>
+        </div>
+      </div>
+      <div id="presetsContent" class="section-content">
+        <div class="form-group">
+          <input
+            type="text"
+            id="presetNameInput"
+            placeholder="Preset Name..."
+            style="
+              width: 100%;
+              background: #020617;
+              border: 2px solid #475569;
+              color: #4ade80;
+              padding: 8px 10px;
+              font-family: &quot;VT323&quot;, monospace;
+              font-size: 18px;
+              outline: none;
+            "
+          />
+        </div>
+        <div class="form-group" style="display: flex; gap: 10px">
+          <button id="savePresetBtn" class="btn" style="flex: 1">Save</button>
+        </div>
+        <div class="form-group">
+          <select id="presetSelect"></select>
+        </div>
+        <div class="form-group" style="display: flex; gap: 10px">
+          <button id="loadPresetBtn" class="btn" style="flex: 1">Load</button>
+          <button
+            id="deletePresetBtn"
+            class="btn"
+            style="
+              flex: 1;
+              background: #ef4444;
+              border-color: #ef4444;
+              box-shadow: 4px 4px 0px #991b1b;
+            "
+          >
+            Del
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- === SETTINGS SECTION (Collapsible) === -->
     <div style="margin-bottom: 20px">
       <div class="header-flex toggle-header" data-target="settingsContent">
@@ -781,7 +833,7 @@
             background: #020617;
             padding: 8px 10px;
             font-family: &quot;VT323&quot;, monospace;
-            font-size: 18px;
+            font-size: 16px;
             outline: none;
           "
         ></textarea>
@@ -1071,6 +1123,8 @@
       </div>
     </div>
 
+    <script src="utils.js"></script>
     <script src="panel.js"></script>
+    <script src="preset.js"></script>
   </body>
 </html>

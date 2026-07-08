@@ -373,8 +373,10 @@ function initEventListeners() {
             promptsArray.length = 0;
             promptsArray.push(...expandedPrompts);
 
-            // PERBAIKAN: Perbarui textarea di panel agar menampung hasil ekspansi dan terlihat oleh user
-            promptInput.value = promptsArray.join("\n");
+            // UPDATE UI DAN STORAGE SEKALI SAJA DI AKHIR UNTUK MENCEGAH LAG
+            const finalPromptText = promptsArray.join("\n");
+            promptInput.value = finalPromptText;
+            chrome.storage.local.set({ savedPromptText: finalPromptText });
 
             if (promptsArray.length === 0) {
               alert("Please enter at least one prompt!");
