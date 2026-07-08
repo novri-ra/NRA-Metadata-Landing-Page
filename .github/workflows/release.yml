@@ -10,9 +10,6 @@ permissions:
   actions: read
   issues: read
 
-env:
-  ACTIONS_ALLOW_USE_UNSCALED_NODE_VERSION: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,40 +17,78 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Obfuscator
+        run: |
+          npm install -g javascript-obfuscator
+
+      - name: Obfuscate JavaScript files
+        run: |
+          echo "🔒 Obfuscating JavaScript files..."
+          mkdir -p obfuscated
+
+          # List of JS files to obfuscate
+          JS_FILES="background.js content.js panel.js selectors.js"
+
+          for file in $JS_FILES; do
+            if [ -f "$file" ]; then
+              echo "   Obfuscating $file..."
+              javascript-obfuscator "$file" --output "obfuscated/$file" \
+                --compact true \
+                --control-flow-flattening true \
+                --control-flow-flattening-threshold 0.75 \
+                --dead-code-injection true \
+                --dead-code-injection-threshold 0.4 \
+                --debug-protection true \
+                --disable-console-output false \
+                --identifier-names-generator mangled \
+                --rename-globals true \
+                --self-defending true \
+                --string-array true \
+                --string-array-encoding rc4 \
+                --string-array-threshold 0.75 \
+                --transform-object-keys true \
+                --unicode-escape-sequence false
+            else
+              echo "⚠️ $file not found, skipping..."
+            fi
+          done
+
+          # Handle utils.js if exists
+          if [ -f utils.js ]; then
+            echo "   Obfuscating utils.js..."
+            javascript-obfuscator utils.js --output "obfuscated/utils.js" \
+              --compact true \
+              --control-flow-flattening true \
+              --control-flow-flattening-threshold 0.75 \
+              --dead-code-injection true \
+              --dead-code-injection-threshold 0.4 \
+              --self-defending true \
+              --string-array true \
+              --string-array-encoding rc4
+          fi
+
+          echo "📋 Copying non-JS files..."
+          cp manifest.json obfuscated/
+          cp panel.html obfuscated/
+          cp icon.png obfuscated/
+          cp README.md obfuscated/
+
+          if [ -f icon.html ]; then
+            cp icon.html obfuscated/
+          fi
+
+          echo "✅ Obfuscation complete!"
+
       - name: Create extension package
         run: |
           echo "📦 Creating extension package..."
-
-          mkdir -p temp/canva-auto-prompter
-
-          echo "📋 Copying files..."
-          cp background.js temp/canva-auto-prompter/ 2>/dev/null || echo "⚠️ background.js not found"
-          cp content.js temp/canva-auto-prompter/ 2>/dev/null || echo "⚠️ content.js not found"
-          cp panel.js temp/canva-auto-prompter/ 2>/dev/null || echo "⚠️ panel.js not found"
-          cp panel.html temp/canva-auto-prompter/ 2>/dev/null || echo "⚠️ panel.html not found"
-          cp selectors.js temp/canva-auto-prompter/ 2>/dev/null || echo "⚠️ selectors.js not found"
-          cp manifest.json temp/canva-auto-prompter/ 2>/dev/null || echo "⚠️ manifest.json not found"
-          cp icon.png temp/canva-auto-prompter/ 2>/dev/null || echo "⚠️ icon.png not found"
-          cp README.md temp/canva-auto-prompter/ 2>/dev/null || echo "⚠️ README.md not found"
-
-          if [ -f utils.js ]; then
-            cp utils.js temp/canva-auto-prompter/
-            echo "✅ utils.js copied"
-          fi
-
-          if [ -f icon.html ]; then
-            cp icon.html temp/canva-auto-prompter/
-            echo "✅ icon.html copied"
-          fi
-
-          if [ -z "$(ls -A temp/canva-auto-prompter)" ]; then
-            echo "❌ ERROR: No files were copied!"
-            exit 1
-          fi
-
-          echo "📦 Creating zip archive..."
-          cd temp
-          zip -r ../canva-auto-prompter-${GITHUB_REF_NAME#v}.zip canva-auto-prompter/
+          cd obfuscated
+          zip -r ../canva-auto-prompter-${GITHUB_REF_NAME#v}.zip .
           cd ..
 
           if [ -f canva-auto-prompter-${GITHUB_REF_NAME#v}.zip ]; then
@@ -64,7 +99,7 @@ jobs:
             exit 1
           fi
 
-          rm -rf temp
+          rm -rf obfuscated
           echo "✅ Build complete!"
 
       - name: Create Release
