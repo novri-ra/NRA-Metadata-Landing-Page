@@ -26,21 +26,17 @@ jobs:
         run: |
           npm install -g javascript-obfuscator
 
-      - name: Obfuscate JavaScript files
+      - name: Obfuscate main JavaScript files
         run: |
-          echo "🔒 Obfuscating JavaScript files..."
+          echo "🔒 Obfuscating main JavaScript files..."
           mkdir -p obfuscated
 
-          # Files that need full obfuscation (contain business logic)
-          FULL_OBFUSCATE="background.js content.js panel.js"
+          # Only obfuscate files with business logic
+          FILES_TO_OBFUSCATE="background.js content.js panel.js"
 
-          # Files that only need minification (constants, no sensitive logic)
-          LIGHT_OBFUSCATE="selectors.js"
-
-          # Full obfuscation for sensitive files
-          for file in $FULL_OBFUSCATE; do
+          for file in $FILES_TO_OBFUSCATE; do
             if [ -f "$file" ]; then
-              echo "   🔒 Full obfuscation for $file..."
+              echo "   🔒 Obfuscating $file..."
               javascript-obfuscator "$file" --output "obfuscated/$file" \
                 --compact true \
                 --control-flow-flattening true \
@@ -62,36 +58,23 @@ jobs:
             fi
           done
 
-          # Light minification for selectors.js (only compact, no transformation)
-          for file in $LIGHT_OBFUSCATE; do
-            if [ -f "$file" ]; then
-              echo "   📄 Light minification for $file (no obfuscation)..."
-              javascript-obfuscator "$file" --output "obfuscated/$file" \
-                --compact true \
-                --identifier-names-generator mangled \
-                --rename-globals false \
-                --transform-object-keys false \
-                --string-array false \
-                --control-flow-flattening false \
-                --dead-code-injection false \
-                --self-defending false
-            else
-              echo "⚠️ $file not found, skipping..."
-            fi
-          done
+          # Copy selectors.js as-is (only constants, no business logic)
+          if [ -f selectors.js ]; then
+            echo "📄 Copying selectors.js (no obfuscation needed)..."
+            cp selectors.js obfuscated/
+          fi
 
-          # Handle utils.js if exists (full obfuscation if present)
+          # Copy utils.js if exists (with light obfuscation)
           if [ -f utils.js ]; then
-            echo "   🔒 Full obfuscation for utils.js..."
+            echo "🔒 Obfuscating utils.js..."
             javascript-obfuscator utils.js --output "obfuscated/utils.js" \
               --compact true \
               --control-flow-flattening true \
-              --control-flow-flattening-threshold 0.75 \
+              --control-flow-flattening-threshold 0.5 \
               --dead-code-injection true \
-              --dead-code-injection-threshold 0.4 \
+              --dead-code-injection-threshold 0.3 \
               --self-defending true \
-              --string-array true \
-              --string-array-encoding rc4
+              --string-array true
           fi
 
           echo "📋 Copying non-JS files..."
@@ -104,7 +87,7 @@ jobs:
             cp icon.html obfuscated/
           fi
 
-          echo "✅ Obfuscation complete!"
+          echo "✅ Build complete!"
 
       - name: Create extension package
         run: |
