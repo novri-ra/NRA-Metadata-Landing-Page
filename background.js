@@ -1,4 +1,16 @@
+=======
 // Canva Auto Prompter - Background Service Worker
+let isBackgroundCleanup = false;
+
+function sanitizeFilename(filename) {
+  return filename
+    .replace(/[<>:"/\\|?*]/g, "_")
+    .replace(/[\x00-\x1f]/g, "")
+    .replace(/^\.+/, "")
+    .replace(/\.+$/, "")
+    .trim()
+    .substring(0, 200);
+}
 
 // Enable opening the side panel when the extension action icon is clicked
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
@@ -7,6 +19,7 @@ console.log("[Canva Auto Prompter] Background Service Worker loaded.");
 
 // Mutex lock for debugger re-attachment to prevent race conditions during rapid CDP requests
 let isAttachingDebugger = false;
+const attachQueue = [];
 
 /**
  * WARN-1 FIX: Ensures the debugger is attached before sending CDP commands.
@@ -16,36 +29,65 @@ let isAttachingDebugger = false;
  * @param {number} tabId
  */
 async function ensureDebuggerAttached(tabId) {
+  // If already attaching, wait in queue
   if (isAttachingDebugger) {
-    // Wait for the active attachment process to finish with timeout
-    let retries = 0;
-    while (isAttachingDebugger && retries < 30) {
-      await new Promise((r) => setTimeout(r, 100));
-      retries++;
-    }
-    if (isAttachingDebugger) {
-      console.error("[Background] Mutex timeout waiting for debugger attach");
-      throw new Error("DEBUGGER_ATTACH_TIMEOUT");
-    }
-    return;
+    return new Promise((resolve, reject) => {
+      attachQueue.push({ resolve, reject, tabId });
+    });
   }
 
   isAttachingDebugger = true;
+
   try {
     const targets = await chrome.debugger.getTargets();
     const target = targets.find((t) => t.tabId === tabId);
 
     if (target && target.attached) {
-      return; // Already attached
+      isAttachingDebugger = false;
+      processQueue();
+      return;
     }
 
-    await chrome.debugger.attach({ tabId }, "1.3");
-  } catch (e) {
-    if (!e.message || !e.message.includes("already attached")) {
-      console.warn("[Background] ensureDebuggerAttached failed:", e);
+    let attached = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const targets = await chrome.debugger.getTargets();
+        const target = targets.find((t) => t.tabId === tabId);
+        if (target && target.attached) {
+          attached = true;
+          break;
+        }
+        await chrome.debugger.attach({ tabId }, "1.3");
+        attached = true;
+        break;
+      } catch (e) {
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
+    }
+    if (!attached) {
+      throw new Error("Failed to attach debugger after 3 attempts");
     }
   } finally {
     isAttachingDebugger = false;
+    processQueue();
+  }
+}
+
+function processQueue() {
+  while (attachQueue.length > 0) {
+    const next = attachQueue.shift();
+    ensureDebuggerAttached(next.tabId)
+      .then(() => next.resolve())
+      .catch((err) => next.reject(err));
+  }
+}
+
+function clearAttachQueue() {
+  while (attachQueue.length > 0) {
+    const next = attachQueue.shift();
+    next.reject(new Error("DEBUGGER_ATTACH_CANCELLED"));
   }
 }
 
@@ -69,17 +111,37 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
         await chrome.storage.local.set({ activeAutomationTab: targetId.tabId });
 
-        await chrome.debugger.attach(targetId, "1.3");
+        // Attach with retry logic (max 3 attempts)
+        let lastError = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            await chrome.debugger.attach(targetId, "1.3");
+            lastError = null;
+            break;
+          } catch (e) {
+            lastError = e;
+            if (e.message && e.message.includes("already attached")) {
+              lastError = null;
+              break;
+            }
+            if (attempt < 3) {
+              console.warn(
+                `[Background] Attach attempt ${attempt} failed, retrying...`,
+              );
+              await new Promise((r) => setTimeout(r, 1000));
+            }
+          }
+        }
 
-        // Prevent system from sleeping during long automation runs
+        if (lastError) throw lastError;
+
         chrome.power.requestKeepAwake("system");
-
         sendResponse({ success: true });
       } catch (e) {
-        // If already attached, consider it a success/warning but don't fail
         if (e.message && e.message.includes("already attached")) {
           sendResponse({ success: true, warning: e.message });
         } else {
+          await chrome.storage.local.remove(["activeAutomationTab"]);
           sendResponse({ success: false, error: e.message });
         }
       }
@@ -91,14 +153,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     (async () => {
       try {
         const targetId = { tabId: sender.tab.id };
-        chrome.storage.local.remove(["activeAutomationTab"]);
 
-        // Allow system to sleep again
+        await chrome.storage.local.remove(["activeAutomationTab"]);
         chrome.power.releaseKeepAwake();
 
-        await chrome.debugger.detach(targetId);
+        const detachPromise = chrome.debugger.detach(targetId);
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("DETACH_TIMEOUT")), 5000);
+        });
+
+        try {
+          await Promise.race([detachPromise, timeoutPromise]);
+        } catch (e) {
+          if (!e.message || !e.message.includes("not attached")) {
+            console.warn("[Background] Detach warning:", e);
+          }
+        }
+
         sendResponse({ success: true });
       } catch (e) {
+        await chrome.storage.local.remove(["activeAutomationTab"]);
+        chrome.power.releaseKeepAwake();
         sendResponse({ success: false, error: e.message });
       }
     })();
@@ -188,6 +263,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
  * Idempotent: safe to call multiple times.
  */
 function emergencyCleanup() {
+  clearAttachQueue();
   chrome.storage.local.set({ isAutomating: false }, () => {
     if (chrome.runtime.lastError) {
       console.warn(
@@ -211,12 +287,14 @@ function emergencyCleanup() {
 // Add listener for extension unloading
 chrome.runtime.onSuspend.addListener(() => {
   console.log("[Background] Extension unloading. Running emergency cleanup...");
+  isBackgroundCleanup = true;
   emergencyCleanup();
 });
 
 // Clear mutex lock if debugger detaches organically or extension unloads
 chrome.debugger.onDetach.addListener((source, reason) => {
   console.log(`[Background] Debugger detached due to: ${reason}`);
+  isBackgroundCleanup = true;
   emergencyCleanup();
 
   // Notify active tab that debugger has detached
@@ -254,7 +332,11 @@ chrome.debugger.onDetach.addListener((source, reason) => {
 // SMART AUTO-RENAME API – dengan Custom Folder
 // ==========================================
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
-  // Baca semua setting yang diperlukan
+  if (!item || !item.filename) {
+    suggest();
+    return;
+  }
+
   chrome.storage.local.get(
     [
       "activeAutomationTab",
@@ -263,22 +345,15 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
       "downloadFolder",
     ],
     (res) => {
-      if (chrome.runtime.lastError) {
-        console.warn(
-          "[Background] Storage error in download interceptor:",
-          chrome.runtime.lastError,
-        );
+      if (
+        chrome.runtime.lastError ||
+        !res.activeAutomationTab ||
+        !res.downloadingPrompt
+      ) {
         suggest();
         return;
       }
 
-      // Jika automation tidak aktif, download normal
-      if (!res.activeAutomationTab || !res.downloadingPrompt) {
-        suggest();
-        return;
-      }
-
-      // Clean nama file dari prompt
       let cleanName = res.downloadingPrompt
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "_")
@@ -287,23 +362,31 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
 
       if (!cleanName) cleanName = "canva_asset";
 
-      // Ekstensi file
       const fileExt = item.filename.split(".").pop() || "jpg";
+      const safeExt =
+        fileExt.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "jpg";
 
-      // Tentukan folder prefix
       let folderPrefix = "";
-
-      // Cek apakah user mengaktifkan Group Downloads
       if (res.createSubfolder === true) {
-        // Gunakan folder kustom jika diisi, atau default "Canva_Auto"
         const customFolder = res.downloadFolder
           ? res.downloadFolder.trim()
           : "";
-        folderPrefix = customFolder ? customFolder + "/" : "Canva_Auto/";
+        if (customFolder) {
+          const safeFolder = customFolder
+            .replace(/[^a-zA-Z0-9_\-\/]/g, "_")
+            .replace(/\/+/g, "/")
+            .replace(/^\/|\/$/g, "");
+          folderPrefix = safeFolder ? safeFolder + "/" : "Canva_Auto/";
+        } else {
+          folderPrefix = "Canva_Auto/";
+        }
       }
 
-      const finalName = `${folderPrefix}${cleanName}_${Date.now()}.${fileExt}`;
+      const timestamp = Date.now();
+      const safeBaseName = sanitizeFilename(`${cleanName}_${timestamp}`);
+      const finalName = `${folderPrefix}${safeBaseName}.${safeExt}`;
 
+      console.log(`[Background] Downloading: ${finalName}`);
       suggest({ filename: finalName, conflictAction: "uniquify" });
     },
   );

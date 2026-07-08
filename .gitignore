@@ -1,0 +1,25 @@
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Node (jika ada)
+node_modules/
+package-lock.json
+
+# Temporary files
+*.tmp
+*.temp
+
+# Extension build artifacts (opsional)
+*.zip
+/dist/

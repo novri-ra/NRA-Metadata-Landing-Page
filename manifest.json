@@ -32,7 +32,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.canva.com/dream-lab"],
-      "js": ["selectors.js", "content.js"],
+      "js": ["selectors.js", "utils.js", "content.js"],
       "run_at": "document_idle"
     }
   ]

@@ -1,0 +1,38 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create ZIP file
+        run: |
+          zip -r canva-auto-prompter.zip . \
+            -x "*.git*" \
+            -x ".github/*" \
+            -x "*.md" \
+            -x "*.html" \
+            -x "icon.html" \
+            -x "AUDIT_REPORT.md" \
+            -x ".gitignore" \
+            -x "LICENSE" \
+            -x "*.zip"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: canva-auto-prompter.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
