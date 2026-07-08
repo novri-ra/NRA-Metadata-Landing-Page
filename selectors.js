@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // Centralized DOM selectors for Canva Auto Prompter
 const CANVA_SELECTORS = {
   // Textarea selectors
@@ -28,7 +27,6 @@ const CANVA_SELECTORS = {
   MONTHLY_LIMIT_WARNING:
     "//*[contains(text(), 'monthly AI limit') or contains(text(), 'hit your plan') or contains(text(), 'Upgrade to get more AI')]",
 };
-=======
 // Centralized DOM selectors for Canva Auto Prompter
 const CANVA_SELECTORS = {
   // Textarea selectors
@@ -59,4 +57,3 @@ const CANVA_SELECTORS = {
   MONTHLY_LIMIT_WARNING:
     "//*[contains(text(), 'monthly AI limit') or contains(text(), 'hit your plan') or contains(text(), 'Upgrade to get more AI')]",
 };
->>>>>>> development
