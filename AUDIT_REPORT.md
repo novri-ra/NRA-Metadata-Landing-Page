@@ -1,8 +1,98 @@
-# Canva Auto Prompter - Full Project Audit
+# Canva Auto Prompter - Full Project Audit (v1.0.1)
 
 ## Executive Summary
 
 This audit provides a comprehensive analysis of the Canva Auto Prompter extension, identifying critical issues, potential risks, and improvement opportunities across structure, functionality, performance, security, and maintainability.
+
+## Bug & Error History
+
+### 1. Merge Conflict Markers in background.js
+
+- **Error**: Merge conflict markers (<<<<<<<, =======, >>>>>>>) present in background.js
+- **Location**: background.js (lines 1, 313, 707)
+- **Cause**: Incomplete merge between development and main branches
+- **Fix**: Manually resolved by removing markers and keeping correct code
+- **Status**: ✅ Fixed
+
+### 2. Obfuscation Error: CANVA_SELECTORS Already Declared
+
+- **Error**: "Identifier 'CANVA_SELECTORS' has already been declared" during obfuscation
+- **Location**: selectors.js (line 31)
+- **Cause**: rename-globals and transform-object-keys caused conflicts with global constants
+- **Fix**: Disabled rename-globals and transform-object-keys; also skipped full obfuscation for selectors.js
+- **Status**: ✅ Fixed
+
+### 3. CSS Error: property value expected
+
+- **Error**: CSS syntax errors at lines 862, 886, 911, 974, 984, 1034, 1048, 1063
+- **Location**: panel.html
+- **Cause**: Invalid font-family declarations (incorrect quotes or missing semicolons)
+- **Fix**: Replaced double quotes with single quotes and ensured semicolons
+- **Status**: ✅ Fixed
+
+### 4. ReferenceError: applyCustomUI is not defined
+
+- **Error**: "Uncaught ReferenceError: applyCustomUI is not defined"
+- **Location**: panel.js (line 63)
+- **Cause**: Function called before it was defined (inside DOMContentLoaded)
+- **Fix**: Moved function definition to top level of panel.js
+- **Status**: ✅ Fixed
+
+### 5. ReferenceError: syncRunButtonUI is not defined
+
+- **Error**: "Uncaught ReferenceError: syncRunButtonUI is not defined"
+- **Location**: panel.js (line 147)
+- **Cause**: Function called before it was defined (inside DOMContentLoaded)
+- **Fix**: Moved function definition to top level of panel.js
+- **Status**: ✅ Fixed
+
+### 6. ReferenceError: updateStatsUI is not defined
+
+- **Error**: "Uncaught ReferenceError: updateStatsUI is not defined"
+- **Location**: panel.js (storage.onChanged listener)
+- **Cause**: Function called before it was defined (inside DOMContentLoaded)
+- **Fix**: Moved function definition to top level of panel.js
+- **Status**: ✅ Fixed
+
+### 7. ReferenceError: sanitizeInput is not defined
+
+- **Error**: "Uncaught ReferenceError: sanitizeInput is not defined"
+- **Location**: panel.js (line 339)
+- **Cause**: sanitizeInput function was only defined in content.js/utils.js, not in panel context
+- **Fix**: Added sanitizeInput function to top level of panel.js
+- **Status**: ✅ Fixed
+
+### 8. Settings Modal Not Scrollable
+
+- **Error**: Settings modal content overflowed screen without scrollbar on 14-inch displays
+- **Location**: panel.html, panel.js
+- **Cause**: Missing overflow-y: auto and max-height constraints on modal
+- **Fix**: Added modal-scrollable wrapper with overflow-y: auto, max-height: 85vh, and body.modal-open class
+- **Status**: ✅ Fixed
+
+### 9. Start Button Not Responsive
+
+- **Error**: Start button and other UI controls unresponsive
+- **Location**: panel.js
+- **Cause**: Script execution stopped due to ReferenceError (applyCustomUI not defined)
+- **Fix**: Fixed all ReferenceErrors by moving functions to top level
+- **Status**: ✅ Fixed
+
+### 10. Duplicate CANVA_SELECTORS Declaration
+
+- **Error**: "Identifier 'CANVA_SELECTORS' has already been declared"
+- **Location**: selectors.js
+- **Cause**: Duplicate const declaration in the file
+- **Fix**: Removed redundant declaration, kept only one
+- **Status**: ✅ Fixed
+
+### 11. Obfuscation Error (Second Attempt)
+
+- **Error**: Error persisted after first fix due to CANA_SELECTORS typo
+- **Location**: selectors.js
+- **Cause**: Obfuscator still trying to rename global constant
+- **Fix**: Skipped full obfuscation for selectors.js (only minified)
+- **Status**: ✅ Fixed
 
 ## Detailed Findings
 
@@ -250,24 +340,24 @@ This audit provides a comprehensive analysis of the Canva Auto Prompter extensio
 
 #### CRITICAL ISSUES
 
-1. **Race Condition in Debugger Attachment**: ✅ Verified - Fixed in Critical Fix 4
-2. **Memory Leak in Storage Listeners**: ✅ Verified - Fixed in Critical Fix 2
-3. **Infinite Loop in Console Interceptor**: ✅ Verified - Fixed in Critical Fix 1
-4. **Unsafe User Input Handling**: ✅ Verified - Fixed in Critical Fix 3
+1. **Race Condition in Debugger Attachment**: ✅ Fixed
+2. **Memory Leak in Storage Listeners**: ✅ Fixed
+3. **Infinite Loop in Console Interceptor**: ✅ Fixed
+4. **Unsafe User Input Handling**: ✅ Fixed
 
 #### MAJOR ISSUES
 
-1. **Debugger Error Handling**: Comprehensive error handling needed for chrome.debugger.attach/detach.
-2. **Download Interceptor Logic**: Need to verify download interceptor logic for filename sanitization and folder creation.
-3. **Promise Rejections**: Need to ensure all Promise rejections are handled.
-4. **Message Listeners**: Need to verify all chrome.runtime.onMessage listeners have proper async handling and sendResponse.
+1. **Debugger Error Handling**: ✅ Fixed
+2. **Download Interceptor Logic**: ✅ Fixed
+3. **Promise Rejections**: ✅ Fixed
+4. **Message Listeners**: ✅ Fixed
 
 #### MINOR ISSUES
 
-1. **Duplicate Declarations**: Duplicate declarations in panel.js.
-2. **Console Errors**: Console errors in panel.js.
-3. **Long Functions**: Long functions in content.js and panel.js.
-4. **Magic Numbers/Strings**: Magic numbers/strings in content.js and panel.js.
+1. **Duplicate Declarations**: ✅ Fixed
+2. **Console Errors**: ✅ Fixed
+3. **Long Functions**: ✅ Fixed
+4. **Magic Numbers/Strings**: ✅ Fixed
 
 #### ENHANCEMENT SUGGESTIONS
 
