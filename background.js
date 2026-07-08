@@ -1,4 +1,3 @@
-=======
 // Canva Auto Prompter - Background Service Worker
 let isBackgroundCleanup = false;
 
