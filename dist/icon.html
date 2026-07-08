@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Icon Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    body { background: #0f172a; color: #4ade80; font-family: monospace; text-align: center; padding: 50px; }
+    canvas { border: 2px solid #475569; image-rendering: pixelated; margin: 20px; box-shadow: 8px 8px 0px #020617; }
+    button { background: #6366f1; color: white; border: 2px solid #818cf8; padding: 15px 30px; font-family: 'Press Start 2P', monospace; cursor: pointer; font-size: 12px; box-shadow: 4px 4px 0px #312e81; margin-top: 20px; }
+    button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0px #312e81; }
+  </style>
+</head>
+<body>
+  <h2>Terminal Icon Generator</h2>
+  <p>Tunggu sampai font retro termuat, lalu klik tombol di bawah.</p>
+  <canvas id="iconCanvas" width="128" height="128"></canvas><br>
+  <button onclick="downloadIcon()">DOWNLOAD ICON.PNG</button>
+
+  <script>
+    // Menunggu font "Press Start 2P" dari Google Fonts selesai dimuat
+    document.fonts.ready.then(function() {
+      const canvas = document.getElementById('iconCanvas');
+      const ctx = canvas.getContext('2d');
+
+      // Warna Latar Belakang (Retro Indigo)
+      ctx.fillStyle = '#6366f1';
+      ctx.fillRect(0, 0, 128, 128);
+
+      // Bayangan Tepi (Light Border)
+      ctx.fillStyle = '#818cf8';
+      ctx.fillRect(0, 0, 128, 8);
+      ctx.fillRect(0, 0, 8, 128);
+
+      // Bayangan Bawah & Kanan (Blocky Shadow)
+      ctx.fillStyle = '#312e81';
+      ctx.fillRect(0, 120, 128, 8);
+      ctx.fillRect(120, 0, 8, 128);
+
+      // Teks Pixel 'C' di tengah
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '72px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      // Menggeser sedikit agar pas di tengah (font 8-bit kadang tidak simetris)
+      ctx.fillText('C', 70, 74); 
+    });
+
+    function downloadIcon() {
+      const canvas = document.getElementById('iconCanvas');
+      const link = document.createElement('a');
+      link.download = 'icon.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+  </script>
+</body>
+</html>

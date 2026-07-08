@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "_Canva Auto Prompter",
+  "version": "1.1.2",
+  "description": "Automate text input on canva.com/ai and download images on canva.com/dream-lab.",
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
+  "action": {
+    "default_icon": "icon.png",
+    "default_title": "Canva Auto Prompter"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "sidePanel",
+    "notifications",
+    "debugger",
+    "power",
+    "downloads"
+  ],
+  "host_permissions": ["*://*.canva.com/*"],
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.canva.com/dream-lab"],
+      "js": ["selectors.js", "utils.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
