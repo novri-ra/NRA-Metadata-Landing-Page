@@ -1036,14 +1036,31 @@ document.addEventListener("DOMContentLoaded", () => {
   const safetyDelayVal = document.getElementById("safetyDelayVal");
   const soundToggle = document.getElementById("soundToggle");
 
-  if (settingsBtn)
-    settingsBtn.addEventListener("click", () =>
-      settingsModal.classList.remove("hidden"),
-    );
-  if (closeSettingsBtn)
-    closeSettingsBtn.addEventListener("click", () =>
-      settingsModal.classList.add("hidden"),
-    );
+  // Open settings modal
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", () => {
+      settingsModal.classList.remove("hidden");
+      document.body.classList.add("modal-open");
+    });
+  }
+
+  // Close settings modal
+  if (closeSettingsBtn) {
+    closeSettingsBtn.addEventListener("click", () => {
+      settingsModal.classList.add("hidden");
+      document.body.classList.remove("modal-open");
+    });
+  }
+
+  // Close modal when clicking outside
+  if (settingsModal) {
+    settingsModal.addEventListener("click", (e) => {
+      if (e.target === settingsModal) {
+        settingsModal.classList.add("hidden");
+        document.body.classList.remove("modal-open");
+      }
+    });
+  }
 
   function applyCustomUI(theme, font) {
     document.body.className = ""; // Reset all classes on body
