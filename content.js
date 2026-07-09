@@ -914,10 +914,10 @@ async function submitAndWaitForImages() {
 
   await safeCdpClick(generateBtn, "generate button");
 
-  console.log("[Canva Automation] Menunggu indikator loading muncul...");
+  console.log("[Canva Automation] Menunggu proses generasi selesai...");
   chrome.runtime.sendMessage({
     action: "STATUS_UPDATE",
-    status: "Waiting for generation to start...",
+    status: "Generating images... (Smart Polling)",
   });
 
   const checkLoadingIndicators = () => {
@@ -938,43 +938,23 @@ async function submitAndWaitForImages() {
     return !!(progressBar || generatingText || isBtnDisabled);
   };
 
-  // 1. Smart Wait: Tunggu indikator loading MUNCUL (maksimal 10 detik)
-  let loadingStarted = false;
-  let startElapsed = 0;
-  while (!loadingStarted && startElapsed < 10000) {
-    if (!isRunning) throw new Error("USER_STOPPED");
-    if (checkLoadingIndicators()) {
-      loadingStarted = true;
-      break;
-    }
-    await delay(500); // Polling cepat
-    startElapsed += 500;
-  }
+  // 1. SMART POLLING TERPADU (Maksimal 60 Detik Total)
+  // Menunggu 2 detik di awal agar React selesai me-render state loading
+  await delay(2000);
 
-  if (!loadingStarted) {
-    console.warn(
-      "[Canva Automation] Indikator loading tidak terdeteksi setelah 10 detik. Mencoba melanjutkan pengecekan render...",
-    );
-  } else {
-    console.log(
-      "[Canva Automation] Indikator loading terdeteksi. Menunggu render selesai...",
-    );
-    chrome.runtime.sendMessage({
-      action: "STATUS_UPDATE",
-      status: "Generating images... (Waiting for render)",
-    });
-  }
-
-  // 2. Smart Wait: Tunggu indikator loading HILANG (maksimal 60 detik)
-  let isGenerating = true;
   let renderElapsed = 0;
   const timeout = 60000;
+  let isGenerating = checkLoadingIndicators(); // Cek status awal
+
+  // Jika setelah 2 detik masih 'isGenerating', berarti proses sedang berlangsung.
+  // Jika tidak, bisa jadi sudah selesai sangat cepat, atau DOM-nya berbeda. Kita tetap tunggu sebentar (Fallback).
 
   while (isGenerating && renderElapsed < timeout) {
     if (!isRunning) throw new Error("USER_STOPPED");
 
     if (!checkLoadingIndicators()) {
       isGenerating = false;
+      break;
     } else {
       await delay(1000); // Polling setiap 1 detik
       renderElapsed += 1000;
@@ -982,15 +962,15 @@ async function submitAndWaitForImages() {
   }
 
   if (renderElapsed >= timeout) {
-    console.warn(
-      "[Canva Automation] Timeout 60 detik terlampaui saat menunggu render gambar. Mencoba melanjutkan...",
+    console.log(
+      "[Canva Automation] Timeout 60 detik tercapai. Mencoba melanjutkan ke tahap unduhan...",
     );
   } else {
-    console.log("[Canva Automation] Render gambar selesai!");
+    console.log("[Canva Automation] Siklus render selesai terdeteksi!");
   }
 
-  // Ekstra delay 1 detik untuk kestabilan DOM sebelum beralih fungsi
-  await delay(1000);
+  // Ekstra delay 2 detik untuk memastikan gambar benar-benar sudah merender di DOM sebelum diunduh
+  await delay(2000);
 }
 
 async function handleDownload(countSetting = "4") {
@@ -1148,11 +1128,8 @@ async function startMainLoop() {
 
     try {
       // 🌟 INITIAL STARTUP GATEKEEPER 🌟
-      let startupCooldown = getScreenCooldownMs();
-      if (startupCooldown > 0) {
-        const proceeded = await handleCooldown(startupCooldown, true);
-        if (!proceeded) return;
-      }
+      const canProceed = await checkAndHandleStartupCooldown();
+      if (!canProceed) return;
 
       let isConfigured = false;
 
@@ -1183,52 +1160,29 @@ async function startMainLoop() {
           status: `Processing prompt ${currentIndex + 1}/${sessionStats.totalPrompts}: ${currentPrompt}`,
         });
 
-        if (!isConfigured) {
-          await configureStyleAndRatio(imageStyle, aspectRatio);
-          isConfigured = true;
-        }
+        // A. Logika konfigurasi opsi (Style/Ratio) dan injeksi prompt (CDP Typing)
+        await prepareAndSubmitPrompt(
+          currentPrompt,
+          isConfigured,
+          imageStyle,
+          aspectRatio,
+        );
+        isConfigured = true;
 
-        await injectPrompt(currentPrompt);
-        await submitAndWaitForImages();
-
+        // B. Logika pengecekan dan eksekusi Cooldown/Rate Limit
         let cooldownMs = getScreenCooldownMs();
         if (cooldownMs > 0) {
           await handleCooldown(cooldownMs, false);
         }
 
-        // Handle download with retry logic
-        let downloadSuccess = false;
-        let retryCount = 0;
-        const maxRetries = 3;
-
-        while (!downloadSuccess && retryCount < maxRetries) {
-          try {
-            await handleDownload(downloadCountSetting);
-            downloadSuccess = true;
-          } catch (error) {
-            console.error(
-              `[Canva Automation] Download attempt ${retryCount + 1} failed:`,
-              error.message,
-            );
-            retryCount++;
-
-            if (retryCount < maxRetries) {
-              console.log(
-                `[Canva Automation] Attempting recovery (${retryCount}/${maxRetries})...`,
-              );
-              // Refresh the page to reset state
-              window.location.reload();
-              // Wait for page to reload
-              await new Promise((resolve) => setTimeout(resolve, 5000));
-              // Reconfigure style and ratio after refresh
-              await configureStyleAndRatio(imageStyle, aspectRatio);
-              // Re-inject the current prompt
-              await injectPrompt(currentPrompt);
-              // Re-submit the prompt
-              await submitAndWaitForImages();
-            }
-          }
-        }
+        // C. Logika pengunduhan (Download batch & Stale DOM check)
+        const downloadSuccess = await executeDownloadBatchWithRetry(
+          downloadCountSetting,
+          3,
+          currentPrompt,
+          imageStyle,
+          aspectRatio,
+        );
 
         if (!downloadSuccess) {
           console.error(
@@ -1281,6 +1235,72 @@ async function startMainLoop() {
     handleAutomationError(err);
     throw err;
   }
+}
+
+// ==========================================
+// Helpher Functions Extracted from startMainLoop
+// ==========================================
+async function checkAndHandleStartupCooldown() {
+  let startupCooldown = getScreenCooldownMs();
+  if (startupCooldown > 0) {
+    const proceeded = await handleCooldown(startupCooldown, true);
+    return proceeded;
+  }
+  return true;
+}
+
+async function prepareAndSubmitPrompt(
+  currentPrompt,
+  isConfigured,
+  imageStyle,
+  aspectRatio,
+) {
+  if (!isConfigured) {
+    await configureStyleAndRatio(imageStyle, aspectRatio);
+  }
+  await injectPrompt(currentPrompt);
+  await submitAndWaitForImages();
+}
+
+async function executeDownloadBatchWithRetry(
+  downloadCountSetting,
+  maxRetries,
+  currentPrompt,
+  imageStyle,
+  aspectRatio,
+) {
+  let downloadSuccess = false;
+  let retryCount = 0;
+
+  while (!downloadSuccess && retryCount < maxRetries) {
+    try {
+      await handleDownload(downloadCountSetting);
+      downloadSuccess = true;
+    } catch (error) {
+      console.error(
+        `[Canva Automation] Download attempt ${retryCount + 1} failed:`,
+        error.message,
+      );
+      retryCount++;
+
+      if (retryCount < maxRetries) {
+        console.log(
+          `[Canva Automation] Attempting recovery (${retryCount}/${maxRetries})...`,
+        );
+        // Refresh the page to reset state
+        window.location.reload();
+        // Wait for page to reload
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        // Reconfigure style and ratio after refresh
+        await configureStyleAndRatio(imageStyle, aspectRatio);
+        // Re-inject the current prompt
+        await injectPrompt(currentPrompt);
+        // Re-submit the prompt
+        await submitAndWaitForImages();
+      }
+    }
+  }
+  return downloadSuccess;
 }
 
 // ==========================================
