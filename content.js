@@ -961,7 +961,6 @@ async function submitAndWaitForImages() {
   }
 
   // 2. Smart Wait: Tunggu indikator loading HILANG (maksimal 60 detik)
-  let isGenerating = true;
   let renderElapsed = 0;
   const timeout = 60000;
   let isGenerating = checkLoadingIndicators(); // Cek status awal
