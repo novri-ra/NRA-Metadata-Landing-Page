@@ -44,7 +44,7 @@ console.error = function (...args) {
 // Global unhandled rejection handler
 window.addEventListener("unhandledrejection", function (event) {
   console.error(
-    "[Canva Automation] Unhandled Promise rejection:",
+    "[NRA DreamLab] Unhandled Promise rejection:",
     event.reason,
   );
   try {
@@ -74,7 +74,7 @@ async function logToTerminal(message, isVerboseOnly = false) {
   chrome.runtime.sendMessage({ action: "LOG_MESSAGE", message: fullMessage });
 }
 
-// Canva Auto Prompter - Content Script targeting canva.com/dream-lab
+// NRA DreamLab - Content Script targeting canva.com/dream-lab
 // Operates exclusively on https://www.canva.com/dream-lab
 
 function getStyleOptionsFromDOM() {
@@ -215,7 +215,7 @@ function sanitizeStats(stats) {
  * @param {string} statusText
  */
 function sendStatusUpdate(statusText) {
-  console.log(`[Canva Automation] Status update: ${statusText}`);
+  console.log(`[NRA DreamLab] Status update: ${statusText}`);
   chrome.runtime.sendMessage(
     { action: "STATUS_UPDATE", status: statusText },
     (response) => {
@@ -245,7 +245,7 @@ function initWorker() {
   const workerUrl = URL.createObjectURL(workerBlob);
   delayWorker = new Worker(workerUrl);
   URL.revokeObjectURL(workerUrl); // CRITICAL FIX: Frees the memory immediately
-  console.log("[Canva Automation] Web Worker initialized successfully.");
+  console.log("[NRA DreamLab] Web Worker initialized successfully.");
 }
 
 // Inisialisasi awal
@@ -259,7 +259,7 @@ initWorker();
  * @returns {Promise<void>}
  */
 function delay(ms) {
-  if (ms >= 1000) console.log(`[Canva Automation] Waiting for ${ms}ms...`);
+  if (ms >= 1000) console.log(`[NRA DreamLab] Waiting for ${ms}ms...`);
   return new Promise((resolve) => {
     let resolved = false;
 
@@ -271,7 +271,7 @@ function delay(ms) {
       if (!resolved) {
         resolved = true;
         console.warn(
-          `[Canva Automation] ⚠️ Delay fallback triggered after ${fallbackMs}ms (Worker mati atau lambat). Merestart worker...`,
+          `[NRA DreamLab] ⚠️ Delay fallback triggered after ${fallbackMs}ms (Worker mati atau lambat). Merestart worker...`,
         );
         initWorker(); // Restart worker agar panggilan selanjutnya tidak lambat
         resolve();
@@ -298,7 +298,7 @@ function delay(ms) {
     } catch (e) {
       // Terjadi error instan (misal worker mati, memory corrupt), langsung gunakan native
       console.warn(
-        `[Canva Automation] ⚠️ Worker error instan: ${e.message}. Menggunakan setTimeout native dan merestart worker...`,
+        `[NRA DreamLab] ⚠️ Worker error instan: ${e.message}. Menggunakan setTimeout native dan merestart worker...`,
       );
       initWorker(); // Re-init sekarang juga
 
@@ -494,7 +494,7 @@ function getScreenCooldownMs() {
     if (match) {
       if (key === "BUSY") {
         console.warn(
-          "[Canva Automation] Server overload detected. Defaulting to 3 minutes cooldown.",
+          "[NRA DreamLab] Server overload detected. Defaulting to 3 minutes cooldown.",
         );
         return 3 * 60 * 1000;
       } else if (key === "GENERATE" || key === "TRY") {
@@ -522,7 +522,7 @@ function handleAutomationError(err) {
   isLoopActive = false;
 
   if (err.message === "USER_STOPPED") {
-    console.log("[Canva Automation] Process stopped manually.");
+    console.log("[NRA DreamLab] Process stopped manually.");
     if (heartbeatInterval) {
       clearInterval(heartbeatInterval);
       heartbeatInterval = null;
@@ -535,7 +535,7 @@ function handleAutomationError(err) {
 
   if (err.message === "MONTHLY_LIMIT_REACHED") {
     console.error(
-      "[Canva Automation] Monthly AI limit reached. Stopping permanently.",
+      "[NRA DreamLab] Monthly AI limit reached. Stopping permanently.",
     );
     chrome.storage.local.set({ isAutomating: false, step: "ERROR" }, () => {
       sendStatusUpdate("🛑 Monthly Limit Reached. Stopped.");
@@ -549,7 +549,7 @@ function handleAutomationError(err) {
     return;
   }
 
-  console.error("[Canva Automation] Loop broken due to:", err);
+  console.error("[NRA DreamLab] Loop broken due to:", err);
   const errMsg = err.message || "Unknown error occurred.";
 
   // KRITIS-4 FIX: Include action key so panel.js processes the status correctly
@@ -565,7 +565,7 @@ async function safeCdpClick(element, context = "element") {
   try {
     await cdpClick(element);
   } catch (error) {
-    console.error(`[Canva Automation] 🛑 Failed to click ${context}:`, error);
+    console.error(`[NRA DreamLab] 🛑 Failed to click ${context}:`, error);
     chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
     throw new Error(`Click interaction failed for ${context}`); // Throw custom error instead of TypeError
   }
@@ -575,7 +575,7 @@ async function safeCdpTypeHuman(text, context = "input") {
   try {
     await cdpTypeHuman(text);
   } catch (error) {
-    console.error(`[Canva Automation] 🛑 Failed to type in ${context}:`, error);
+    console.error(`[NRA DreamLab] 🛑 Failed to type in ${context}:`, error);
     chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
     throw new Error(`Type interaction failed for ${context}`); // Throw custom error instead of TypeError
   }
@@ -588,7 +588,7 @@ async function cdpClick(element) {
   if (rect.width === 0 || rect.height === 0) {
     // LAYOUT TREE SUSPENDED (MINIMIZED/BACKGROUNDED TAB) -> Use native DOM events
     console.log(
-      `[Canva Automation] Tab backgrounded. Using native DOM click fallback.`,
+      `[NRA DreamLab] Tab backgrounded. Using native DOM click fallback.`,
     );
     element.dispatchEvent(
       new MouseEvent("mousedown", {
@@ -627,7 +627,7 @@ async function cdpClick(element) {
 
   if (response && !response.success) {
     console.warn(
-      `[Canva Automation] ⚠️ CDP click failed, attempting native DOM click fallback.`,
+      `[NRA DreamLab] ⚠️ CDP click failed, attempting native DOM click fallback.`,
     );
     element.dispatchEvent(
       new MouseEvent("mousedown", {
@@ -666,7 +666,7 @@ async function cdpType(text) {
 
 async function cdpTypeHuman(text) {
   console.log(
-    `[Canva Automation] Typing prompt with human animation (chunk size: 4)...`,
+    `[NRA DreamLab] Typing prompt with human animation (chunk size: 4)...`,
   );
   const CHUNK_SIZE = 4;
   for (let i = 0; i < text.length; i += CHUNK_SIZE) {
@@ -691,7 +691,7 @@ async function safeSelectCanvaConfiguration(typeLabel, optionText) {
     await selectCanvaConfiguration(typeLabel, optionText);
   } catch (error) {
     console.error(
-      `[Canva Automation] 🛑 Failed to configure ${typeLabel} with ${optionText}:`,
+      `[NRA DreamLab] 🛑 Failed to configure ${typeLabel} with ${optionText}:`,
       error,
     );
     chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
@@ -740,7 +740,7 @@ async function selectCanvaConfiguration(typeLabel, optionText) {
   // 1. OPEN THE MENU IF THE TARGET IS NOT VISIBLE
   if (!isTargetVisible) {
     console.log(
-      `[Canva Automation] ${typeLabel} menu seems closed. Searching for trigger button...`,
+      `[NRA DreamLab] ${typeLabel} menu seems closed. Searching for trigger button...`,
     );
 
     // Exhaustive list to catch the trigger button no matter what its current text is
@@ -830,7 +830,7 @@ async function selectCanvaConfiguration(typeLabel, optionText) {
         targetButton && targetButton.getBoundingClientRect().height > 0;
     } else {
       console.warn(
-        `[Canva Automation] ⚠️ Could not find the main trigger button to open the ${typeLabel} menu.`,
+        `[NRA DreamLab] ⚠️ Could not find the main trigger button to open the ${typeLabel} menu.`,
       );
     }
   }
@@ -838,7 +838,7 @@ async function selectCanvaConfiguration(typeLabel, optionText) {
   // 2. CHECK IF TARGET EXISTS IN DOM
   if (!targetButton) {
     console.warn(
-      `[Canva Automation] ⚠️ Option '${optionText}' not found on screen. Proceeding with current settings.`,
+      `[NRA DreamLab] ⚠️ Option '${optionText}' not found on screen. Proceeding with current settings.`,
     );
     return;
   }
@@ -846,13 +846,13 @@ async function selectCanvaConfiguration(typeLabel, optionText) {
   // 3. CHECK IF ALREADY ACTIVE (aria-pressed)
   if (targetButton.getAttribute("aria-pressed") === "true") {
     console.log(
-      `[Canva Automation] ${typeLabel} '${optionText}' is already active. Skipping click.`,
+      `[NRA DreamLab] ${typeLabel} '${optionText}' is already active. Skipping click.`,
     );
     return;
   }
 
   // 4. SCROLL AND CLICK TARGET OPTION
-  console.log(`[Canva Automation] Selecting ${typeLabel}: '${optionText}'...`);
+  console.log(`[NRA DreamLab] Selecting ${typeLabel}: '${optionText}'...`);
   targetButton.scrollIntoView({
     behavior: "smooth",
     block: "center",
@@ -865,7 +865,7 @@ async function selectCanvaConfiguration(typeLabel, optionText) {
   if (targetRect.width === 0 || targetRect.height === 0) {
     // Background Tab Fallback
     console.log(
-      "[Canva Automation] Tab is in background. Using native DOM click for ",
+      "[NRA DreamLab] Tab is in background. Using native DOM click for ",
       optionText,
     );
     targetButton.click();
@@ -883,7 +883,7 @@ async function selectCanvaConfiguration(typeLabel, optionText) {
     // Fallback if CDP fails
     if (!response || response.success === false) {
       console.warn(
-        `[Canva Automation]   CDP click failed, attempting native DOM click.`,
+        `[NRA DreamLab]   CDP click failed, attempting native DOM click.`,
       );
       targetButton.click();
     }
@@ -918,7 +918,7 @@ async function submitAndWaitForImages() {
 
   await safeCdpClick(generateBtn, "generate button");
 
-  console.log("[Canva Automation] Menunggu proses generasi selesai...");
+  console.log("[NRA DreamLab] Menunggu indikator loading muncul...");
   chrome.runtime.sendMessage({
     action: "STATUS_UPDATE",
     status: "Generating images... (Smart Polling)",
@@ -946,6 +946,22 @@ async function submitAndWaitForImages() {
   // Menunggu 2 detik di awal agar React selesai me-render state loading
   await delay(2000);
 
+  if (!loadingStarted) {
+    console.warn(
+      "[NRA DreamLab] Indikator loading tidak terdeteksi setelah 10 detik. Mencoba melanjutkan pengecekan render...",
+    );
+  } else {
+    console.log(
+      "[NRA DreamLab] Indikator loading terdeteksi. Menunggu render selesai...",
+    );
+    chrome.runtime.sendMessage({
+      action: "STATUS_UPDATE",
+      status: "Generating images... (Waiting for render)",
+    });
+  }
+
+  // 2. Smart Wait: Tunggu indikator loading HILANG (maksimal 60 detik)
+  let isGenerating = true;
   let renderElapsed = 0;
   const timeout = 60000;
   let isGenerating = checkLoadingIndicators(); // Cek status awal
@@ -966,11 +982,11 @@ async function submitAndWaitForImages() {
   }
 
   if (renderElapsed >= timeout) {
-    console.log(
-      "[Canva Automation] Timeout 60 detik tercapai. Mencoba melanjutkan ke tahap unduhan...",
+    console.warn(
+      "[NRA DreamLab] Timeout 60 detik terlampaui saat menunggu render gambar. Mencoba melanjutkan...",
     );
   } else {
-    console.log("[Canva Automation] Siklus render selesai terdeteksi!");
+    console.log("[NRA DreamLab] Render gambar selesai!");
   }
 
   // Ekstra delay 2 detik untuk memastikan gambar benar-benar sudah merender di DOM sebelum diunduh
@@ -979,7 +995,7 @@ async function submitAndWaitForImages() {
 
 async function handleDownload(countSetting = "4") {
   console.log(
-    "[Canva Automation] Memulai proses unduhan. Target: " +
+    "[NRA DreamLab] Memulai proses unduhan. Target: " +
     countSetting +
     " gambar.",
   );
@@ -995,7 +1011,7 @@ async function handleDownload(countSetting = "4") {
   }
 
   // 1. Smart Wait / Polling mechanism: Tunggu tombol unduh baru tersedia (maks 10 detik)
-  console.log("[Canva Automation] Menunggu tombol unduh baru tersedia di DOM...");
+  console.log("[NRA DreamLab] Menunggu tombol unduh baru tersedia di DOM...");
   let elapsed = 0;
   const timeout = 10000;
   const interval = 500;
@@ -1041,7 +1057,7 @@ async function handleDownload(countSetting = "4") {
     }
   } else {
     // Fallback: Timeout tercapai tanpa menemukan elemen baru (atau tag hilang karena re-render penuh tanpa penambahan).
-    console.warn("[Canva Automation] Timeout smart wait! Menggunakan fallback deteksi posisi statis.");
+    console.warn("[NRA DreamLab] Timeout smart wait! Menggunakan fallback deteksi posisi statis.");
     if (allDownloadButtons.length > targetCount) {
       // Fallback aman ke format lama: ambil elemen paling atas (karena Canva sekarang sering prepend)
       latestButtons = allDownloadButtons.slice(0, targetCount);
@@ -1053,7 +1069,7 @@ async function handleDownload(countSetting = "4") {
   let buttonsToClick = latestButtons.slice(0, targetCount);
 
   console.log(
-    "[Canva Automation] Total tombol di layar: " +
+    "[NRA DreamLab] Total tombol di layar: " +
     allDownloadButtons.length +
     ". Mengambil " +
     buttonsToClick.length +
@@ -1064,14 +1080,14 @@ async function handleDownload(countSetting = "4") {
     const btn = buttonsToClick[i];
 
     if (!btn || btn.getBoundingClientRect().width === 0) {
-      console.warn("[Canva Automation] Tombol tidak valid atau tidak terlihat, melewati...");
+      console.warn("[NRA DreamLab] Tombol tidak valid atau tidak terlihat, melewati...");
       continue;
     }
 
     // Tag tombol ini agar tidak didownload ulang pada prompt berikutnya
     btn.setAttribute("data-bot-seen", "true");
 
-    console.log("[Canva Automation] Mengunduh gambar ke-" + (i + 1) + "...");
+    console.log("[NRA DreamLab] Mengunduh gambar ke-" + (i + 1) + "...");
 
     // Gunakan Native DOM click agar lebih kompatibel dengan berbagai resolusi/DPI
     btn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
@@ -1086,7 +1102,7 @@ async function handleCooldown(cooldownMs, isStartup = false) {
   if (!isStartup) sessionStats.totalCooldowns++;
   cooldownMs += 5000;
   console.warn(
-    `[Canva Automation] 🛑 ${isStartup ? "Startup paused. Pre-existing cooldown" : "Cooldown"} detected: ${cooldownMs}ms. Waiting...`,
+    `[NRA DreamLab] 🛑 ${isStartup ? "Startup paused. Pre-existing cooldown" : "Cooldown"} detected: ${cooldownMs}ms. Waiting...`,
   );
   tagGhostCooldowns();
   const targetEndTime = Date.now() + cooldownMs;
@@ -1094,7 +1110,7 @@ async function handleCooldown(cooldownMs, isStartup = false) {
     if (!isRunning) {
       if (isStartup) {
         console.log(
-          "[Canva Automation] Automation aborted by user during startup cooldown.",
+          "[NRA DreamLab] Automation aborted by user during startup cooldown.",
         );
         return false;
       }
@@ -1109,7 +1125,7 @@ async function handleCooldown(cooldownMs, isStartup = false) {
   }
   tagGhostCooldowns();
   console.log(
-    `[Canva Automation] ${isStartup ? "Startup cooldown cleared. Proceeding to main generation loop..." : "Cooldown cleared. Resuming..."}`,
+    `[NRA DreamLab] ${isStartup ? "Startup cooldown cleared. Proceeding to main generation loop..." : "Cooldown cleared. Resuming..."}`,
   );
   chrome.runtime.sendMessage({
     action: "STATUS_UPDATE",
@@ -1122,7 +1138,7 @@ async function handleCooldown(cooldownMs, isStartup = false) {
  * Starts the main bulk automation loop, running sequentially without page reloads.
  */
 async function startMainLoop() {
-  console.log("[Canva Automation] Starting main automation loop...");
+  console.log("[NRA DreamLab] Starting main automation loop...");
   sendStatusUpdate("Starting automation...");
 
   // Initialize Session Statistics
@@ -1146,7 +1162,7 @@ async function startMainLoop() {
   let startIndex = 0;
   if (lastIndexResult.lastProcessedPromptIndex !== undefined) {
     startIndex = lastIndexResult.lastProcessedPromptIndex;
-    console.log(`[Canva Automation] Resuming from prompt index: ${startIndex}`);
+    console.log(`[NRA DreamLab] Resuming from prompt index: ${startIndex}`);
   }
 
   // Natively await storage here. Any pre-flight crash falls to the outer catch block.
@@ -1206,7 +1222,7 @@ async function startMainLoop() {
         }
 
         if (storageSnapshot.isPaused === true) {
-          console.log("[Canva Automation] Automation paused by user.");
+          console.log("[NRA DreamLab] Automation paused by user.");
           await delay(1000);
           continue;
         }
@@ -1235,18 +1251,43 @@ async function startMainLoop() {
           await handleCooldown(cooldownMs, false);
         }
 
-        // C. Logika pengunduhan (Download batch & Stale DOM check)
-        const downloadSuccess = await executeDownloadBatchWithRetry(
-          downloadCountSetting,
-          3,
-          currentPrompt,
-          imageStyle,
-          aspectRatio,
-        );
+        // Handle download with retry logic
+        let downloadSuccess = false;
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        while (!downloadSuccess && retryCount < maxRetries) {
+          try {
+            await handleDownload(downloadCountSetting);
+            downloadSuccess = true;
+          } catch (error) {
+            console.error(
+              `[NRA DreamLab] Download attempt ${retryCount + 1} failed:`,
+              error.message,
+            );
+            retryCount++;
+
+            if (retryCount < maxRetries) {
+              console.log(
+                `[NRA DreamLab] Attempting recovery (${retryCount}/${maxRetries})...`,
+              );
+              // Refresh the page to reset state
+              window.location.reload();
+              // Wait for page to reload
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+              // Reconfigure style and ratio after refresh
+              await configureStyleAndRatio(imageStyle, aspectRatio);
+              // Re-inject the current prompt
+              await injectPrompt(currentPrompt);
+              // Re-submit the prompt
+              await submitAndWaitForImages();
+            }
+          }
+        }
 
         if (!downloadSuccess) {
           console.error(
-            "[Canva Automation] Failed to download images after maximum retries. Skipping to next prompt...",
+            "[NRA DreamLab] Failed to download images after maximum retries. Skipping to next prompt...",
           );
           // Still increment success counter since we processed the prompt
           sessionStats.successCount++;
@@ -1267,7 +1308,7 @@ async function startMainLoop() {
           sessionStats.downloadCount >= batchLimitGlobal
         ) {
           console.log(
-            `[Canva Automation] Batch limit reached (${batchLimitGlobal}). Stopping.`,
+            `[NRA DreamLab] Batch limit reached (${batchLimitGlobal}). Stopping.`,
           );
           isRunning = false;
           chrome.storage.local.set({ isAutomating: false }, () => {
@@ -1282,7 +1323,7 @@ async function startMainLoop() {
 
       // Final cleanup
       if (isRunning) {
-        console.log("[Canva Automation] All prompts processed successfully.");
+        console.log("[NRA DreamLab] All prompts processed successfully.");
         chrome.storage.local.set({ isAutomating: false }, () => {
           sendStatusUpdate("All prompts processed successfully!");
         });
@@ -1374,13 +1415,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === "START_AUTOMATION") {
     if (!isLoopActive) {
-      console.log("[Canva Automation] Menerima perintah START dari panel.");
+      console.log("[NRA DreamLab] Menerima perintah START dari panel.");
       isRunning = true;
       isLoopActive = true;
 
       startMainLoop()
         .catch((err) => {
-          console.error("[Canva Automation] Main loop terhenti:", err);
+          console.error("[NRA DreamLab] Main loop terhenti:", err);
         })
         .finally(() => {
           isLoopActive = false;
@@ -1390,7 +1431,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: true });
     } else {
       console.warn(
-        "[Canva Automation] Perintah START diabaikan, loop sudah aktif.",
+        "[NRA DreamLab] Perintah START diabaikan, loop sudah aktif.",
       );
       sendResponse({ success: false, error: "ALREADY_RUNNING" });
     }
@@ -1398,7 +1439,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === "STOP_AUTOMATION") {
-    console.log("[Canva Automation] Menerima perintah STOP dari panel.");
+    console.log("[NRA DreamLab] Menerima perintah STOP dari panel.");
     isRunning = false;
     isLoopActive = false;
     // Beri tahu background untuk detach debugger (opsional tapi disarankan)

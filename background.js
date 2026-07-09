@@ -1,4 +1,4 @@
-// Canva Auto Prompter - Background Service Worker
+// NRA DreamLab - Background Service Worker
 let isBackgroundCleanup = false;
 
 function sanitizeFilename(filename) {
@@ -14,7 +14,7 @@ function sanitizeFilename(filename) {
 // Enable opening the side panel when the extension action icon is clicked
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
-console.log("[Canva Auto Prompter] Background Service Worker loaded.");
+console.log("[NRA DreamLab] Background Service Worker loaded.");
 
 // Mutex lock for debugger re-attachment to prevent race conditions during rapid CDP requests
 let isAttachingDebugger = false;

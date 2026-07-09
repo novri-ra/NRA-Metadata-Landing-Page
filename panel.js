@@ -276,7 +276,7 @@ function initEventListeners() {
       const folder = downloadFolderInput.value.trim();
       chrome.storage.local.set({ downloadFolder: folder });
       console.log(
-        "[Canva Auto Prompter] 📁 Download folder set to:",
+        "[NRA DreamLab] 📁 Download folder set to:",
         folder || "(default)",
       );
     });
@@ -411,7 +411,7 @@ function initEventListeners() {
             // Setting isAutomating: true will trigger the onChanged listener -> syncRunButtonUI(true)
             chrome.storage.local.set(state, () => {
               console.log(
-                "[Canva Auto Prompter] Bulk automation state saved:",
+                "[NRA DreamLab] Bulk automation state saved:",
                 state,
               );
               chrome.tabs.query(
@@ -503,12 +503,57 @@ function playAlertSound() {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) return;
 
-    if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
-      sharedAudioCtx = new AudioContextClass();
+      if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
+        sharedAudioCtx = new AudioContextClass();
+      }
+
+      if (sharedAudioCtx.state === "suspended") {
+        sharedAudioCtx.resume();
+      }
+
+      const osc = sharedAudioCtx.createOscillator();
+      const gain = sharedAudioCtx.createGain();
+
+      osc.connect(gain);
+      gain.connect(sharedAudioCtx.destination);
+
+      const now = sharedAudioCtx.currentTime;
+
+      // Tone 1: 523.25Hz for 150ms
+      osc.frequency.setValueAtTime(523.25, now);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+      // Tone 2: 659.25Hz for 300ms
+      osc.frequency.setValueAtTime(659.25, now + 0.15);
+      gain.gain.setValueAtTime(0.15, now + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+      osc.start(now);
+      osc.stop(now + 0.45);
+    } catch (e) {
+      console.warn("[NRA DreamLab] Web Audio alert failed:", e);
     }
 
-    if (sharedAudioCtx.state === "suspended") {
-      sharedAudioCtx.resume();
+  // System Notification
+  function showBrowserNotification() {
+    if (typeof chrome !== "undefined" && chrome.notifications) {
+      chrome.notifications.create(
+        {
+          type: "basic",
+          iconUrl: "icon.png",
+          title: "NRA DreamLab",
+          message: "Success! All prompts have been processed.",
+        },
+        (id) => {
+          if (chrome.runtime.lastError) {
+            console.warn(
+              "[NRA DreamLab] Notification alert failed:",
+              chrome.runtime.lastError.message,
+            );
+          }
+        },
+      );
     }
 
     const osc = sharedAudioCtx.createOscillator();
@@ -676,7 +721,7 @@ function initMessageListeners() {
       (request.action === "STATUS_UPDATE" ? request.status : null);
 
     if (statusValue) {
-      console.log("[Canva Auto Prompter] Received status update:", statusValue);
+      console.log("[NRA DreamLab] Received status update:", statusValue);
       statusText.textContent = statusValue;
 
       const statusLower = statusValue.toLowerCase();
@@ -866,6 +911,10 @@ function initExtendedFeatures() {
       if (progressText) {
         progressText.textContent = `Progress: ${currentPrompts.length} prompts remaining (with retry)`;
       }
+
+      console.log(
+        "[NRA DreamLab] ✅ Quarantined prompts moved back to main queue.",
+      );
     });
   }
 
