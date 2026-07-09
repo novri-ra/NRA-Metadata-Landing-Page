@@ -276,7 +276,7 @@ function initEventListeners() {
       const folder = downloadFolderInput.value.trim();
       chrome.storage.local.set({ downloadFolder: folder });
       console.log(
-        "[Canva Auto Prompter] 📁 Download folder set to:",
+        "[NRA DreamLab] 📁 Download folder set to:",
         folder || "(default)",
       );
     });
@@ -411,7 +411,7 @@ function initEventListeners() {
             // Setting isAutomating: true will trigger the onChanged listener -> syncRunButtonUI(true)
             chrome.storage.local.set(state, () => {
               console.log(
-                "[Canva Auto Prompter] Bulk automation state saved:",
+                "[NRA DreamLab] Bulk automation state saved:",
                 state,
               );
               chrome.tabs.query(
@@ -561,7 +561,7 @@ document.addEventListener("DOMContentLoaded", () => {
       osc.start(now);
       osc.stop(now + 0.45);
     } catch (e) {
-      console.warn("[Canva Auto Prompter] Web Audio alert failed:", e);
+      console.warn("[NRA DreamLab] Web Audio alert failed:", e);
     }
   }
 
@@ -572,13 +572,13 @@ document.addEventListener("DOMContentLoaded", () => {
         {
           type: "basic",
           iconUrl: "icon.png",
-          title: "Canva Auto Prompter",
+          title: "NRA DreamLab",
           message: "Success! All prompts have been processed.",
         },
         (id) => {
           if (chrome.runtime.lastError) {
             console.warn(
-              "[Canva Auto Prompter] Notification alert failed:",
+              "[NRA DreamLab] Notification alert failed:",
               chrome.runtime.lastError.message,
             );
           }
@@ -704,7 +704,7 @@ document.addEventListener("DOMContentLoaded", () => {
       (request.action === "STATUS_UPDATE" ? request.status : null);
 
     if (statusValue) {
-      console.log("[Canva Auto Prompter] Received status update:", statusValue);
+      console.log("[NRA DreamLab] Received status update:", statusValue);
       statusText.textContent = statusValue;
 
       const statusLower = statusValue.toLowerCase();
@@ -881,7 +881,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       console.log(
-        "[Canva Auto Prompter] ✅ Quarantined prompts moved back to main queue.",
+        "[NRA DreamLab] ✅ Quarantined prompts moved back to main queue.",
       );
     });
   }
