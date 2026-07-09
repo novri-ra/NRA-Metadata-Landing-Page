@@ -191,6 +191,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === "CDP_CLICK") {
+    // FIX: Await the async IIFE so the message port doesn't close prematurely.
+    // Also, returning true is enough to keep port open.
     (async () => {
       try {
         const targetId = { tabId: sender.tab.id };
@@ -227,6 +229,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === "CDP_TYPE") {
+    // FIX: Await the async IIFE so the message port doesn't close prematurely.
     (async () => {
       try {
         const targetId = { tabId: sender.tab.id };

@@ -466,41 +466,12 @@ document.addEventListener("DOMContentLoaded", () => {
   initUIElements();
   initStorageListeners();
   initEventListeners();
+  initCollapseLogic();
+  initMessageListeners();
+  initExtendedFeatures();
+}); // End of DOMContentLoaded
 
-  /**
-   * Expand prompt with {i} placeholder
-   * @param {string} prompt - Prompt text containing {i}
-   * @param {number} iterations - Number of iterations (default: 1)
-   * @returns {string[]} Array of expanded prompts
-   */
-  function expandPromptWithVariable(prompt, iterations) {
-    if (!prompt.includes("{i}") || iterations < 1) {
-      return [prompt];
-    }
-    const results = [];
-    for (let i = 1; i <= iterations; i++) {
-      results.push(prompt.replace(/\{i\}/g, i));
-    }
-    return results;
-  }
-
-  // Save Delay Slider
-  const saveDelaySlider = document.getElementById("saveDelaySlider");
-  const saveDelayVal = document.getElementById("saveDelayVal");
-  if (saveDelaySlider && saveDelayVal) {
-    chrome.storage.local.get(["saveDelay"], function (res) {
-      const savedDelay = parseInt(res.saveDelay, 10) || 6;
-      saveDelaySlider.value = savedDelay;
-      saveDelayVal.textContent = savedDelay;
-    });
-    saveDelaySlider.addEventListener("input", function () {
-      const val = parseInt(this.value, 10);
-      saveDelayVal.textContent = val;
-      chrome.storage.local.set({ saveDelay: val });
-    });
-  }
-
-  // --- UNIVERSAL COLLAPSE LOGIC ---
+function initCollapseLogic() {
   const toggleHeaders = document.querySelectorAll(".toggle-header");
 
   toggleHeaders.forEach((header) => {
@@ -522,71 +493,72 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+}
 
-  // Pleasant, ascending 2-tone chime: 523.25Hz (150ms), then 659.25Hz (300ms)
-  let sharedAudioCtx = null;
+// Pleasant, ascending 2-tone chime: 523.25Hz (150ms), then 659.25Hz (300ms)
+let sharedAudioCtx = null;
 
-  function playAlertSound() {
-    try {
-      const AudioContextClass =
-        window.AudioContext || window.webkitAudioContext;
-      if (!AudioContextClass) return;
+function playAlertSound() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
 
-      if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
-        sharedAudioCtx = new AudioContextClass();
-      }
-
-      if (sharedAudioCtx.state === "suspended") {
-        sharedAudioCtx.resume();
-      }
-
-      const osc = sharedAudioCtx.createOscillator();
-      const gain = sharedAudioCtx.createGain();
-
-      osc.connect(gain);
-      gain.connect(sharedAudioCtx.destination);
-
-      const now = sharedAudioCtx.currentTime;
-
-      // Tone 1: 523.25Hz for 150ms
-      osc.frequency.setValueAtTime(523.25, now);
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-
-      // Tone 2: 659.25Hz for 300ms
-      osc.frequency.setValueAtTime(659.25, now + 0.15);
-      gain.gain.setValueAtTime(0.15, now + 0.15);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-
-      osc.start(now);
-      osc.stop(now + 0.45);
-    } catch (e) {
-      console.warn("[Canva Auto Prompter] Web Audio alert failed:", e);
+    if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
+      sharedAudioCtx = new AudioContextClass();
     }
-  }
 
-  // System Notification
-  function showBrowserNotification() {
-    if (typeof chrome !== "undefined" && chrome.notifications) {
-      chrome.notifications.create(
-        {
-          type: "basic",
-          iconUrl: "icon.png",
-          title: "Canva Auto Prompter",
-          message: "Success! All prompts have been processed.",
-        },
-        (id) => {
-          if (chrome.runtime.lastError) {
-            console.warn(
-              "[Canva Auto Prompter] Notification alert failed:",
-              chrome.runtime.lastError.message,
-            );
-          }
-        },
-      );
+    if (sharedAudioCtx.state === "suspended") {
+      sharedAudioCtx.resume();
     }
-  }
 
+    const osc = sharedAudioCtx.createOscillator();
+    const gain = sharedAudioCtx.createGain();
+
+    osc.connect(gain);
+    gain.connect(sharedAudioCtx.destination);
+
+    const now = sharedAudioCtx.currentTime;
+
+    // Tone 1: 523.25Hz for 150ms
+    osc.frequency.setValueAtTime(523.25, now);
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+    // Tone 2: 659.25Hz for 300ms
+    osc.frequency.setValueAtTime(659.25, now + 0.15);
+    gain.gain.setValueAtTime(0.15, now + 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+    osc.start(now);
+    osc.stop(now + 0.45);
+  } catch (e) {
+    console.warn("[Canva Auto Prompter] Web Audio alert failed:", e);
+  }
+}
+
+// System Notification
+function showBrowserNotification() {
+  if (typeof chrome !== "undefined" && chrome.notifications) {
+    chrome.notifications.create(
+      {
+        type: "basic",
+        iconUrl: "icon.png",
+        title: "Canva Auto Prompter",
+        message: "Success! All prompts have been processed.",
+      },
+      (id) => {
+        if (chrome.runtime.lastError) {
+          console.warn(
+            "[Canva Auto Prompter] Notification alert failed:",
+            chrome.runtime.lastError.message,
+          );
+        }
+      },
+    );
+  }
+}
+
+function initMessageListeners() {
   // Helper to visually show tab status and progress on load
   chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
     if (tabs && tabs.length > 0) {
@@ -746,14 +718,45 @@ document.addEventListener("DOMContentLoaded", () => {
     sendResponse({ success: true });
     return true; // Keep channel open
   });
+}
+
+/**
+ * Expand prompt with {i} placeholder
+ * @param {string} prompt - Prompt text containing {i}
+ * @param {number} iterations - Number of iterations (default: 1)
+ * @returns {string[]} Array of expanded prompts
+ */
+function expandPromptWithVariable(prompt, iterations) {
+  if (!prompt.includes("{i}") || iterations < 1) {
+    return [prompt];
+  }
+  const results = [];
+  for (let i = 1; i <= iterations; i++) {
+    results.push(prompt.replace(/\{i\}/g, i));
+  }
+  return results;
+}
+
+function initExtendedFeatures() {
+  // Save Delay Slider
+  const saveDelaySlider = document.getElementById("saveDelaySlider");
+  const saveDelayVal = document.getElementById("saveDelayVal");
+  if (saveDelaySlider && saveDelayVal) {
+    chrome.storage.local.get(["saveDelay"], function (res) {
+      const savedDelay = parseInt(res.saveDelay, 10) || 6;
+      saveDelaySlider.value = savedDelay;
+      saveDelayVal.textContent = savedDelay;
+    });
+    saveDelaySlider.addEventListener("input", function () {
+      const val = parseInt(this.value, 10);
+      saveDelayVal.textContent = val;
+      chrome.storage.local.set({ saveDelay: val });
+    });
+  }
 
   // --- GOD-TIER 6-FEATURE UPDATE LOGIC ---
 
   // 1. Bulk File Importer
-  console.log(
-    "[Panel] importFileBtn found:",
-    document.getElementById("importFileBtn"),
-  );
   const importFileBtn = document.getElementById("importFileBtn");
   const fileInput = document.getElementById("fileInput");
   if (importFileBtn && fileInput) {
@@ -780,10 +783,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 2. Export Logs
-  console.log(
-    "[Panel] exportLogsBtn found:",
-    document.getElementById("exportLogsBtn"),
-  );
   const exportLogsBtn = document.getElementById("exportLogsBtn");
   if (exportLogsBtn) {
     exportLogsBtn.addEventListener("click", () => {
@@ -799,10 +798,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 3. Pause / Resume Toggle
-  console.log(
-    "[Panel] pauseButton found:",
-    document.getElementById("pauseButton"),
-  );
   const pauseButton = document.getElementById("pauseButton");
   if (pauseButton) {
     pauseButton.addEventListener("click", () => {
@@ -834,14 +829,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // 5. Retry Quarantine Logic - Pindahkan semua prompt dari Quarantine ke Prompt Input utama
-  console.log(
-    "[Panel] retryQuarantineBtn found:",
-    document.getElementById("retryQuarantineBtn"),
-  );
-  console.log(
-    "[Panel] clearQuarantineBtn found:",
-    document.getElementById("clearQuarantineBtn"),
-  );
   const retryQuarantineBtn = document.getElementById("retryQuarantineBtn");
   if (retryQuarantineBtn) {
     retryQuarantineBtn.addEventListener("click", () => {
@@ -879,20 +866,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (progressText) {
         progressText.textContent = `Progress: ${currentPrompts.length} prompts remaining (with retry)`;
       }
-
-      console.log(
-        "[Canva Auto Prompter] ✅ Quarantined prompts moved back to main queue.",
-      );
     });
   }
 
   // --- UTILITY ICONS LOGIC ---
 
   // 1. Open Dream Lab Shortcut
-  console.log(
-    "[Panel] openDreamLabBtn found:",
-    document.getElementById("openDreamLabBtn"),
-  );
   const openDreamLabBtn = document.getElementById("openDreamLabBtn");
   if (openDreamLabBtn) {
     openDreamLabBtn.addEventListener("click", () => {
@@ -901,10 +880,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 2. Clear Prompts Trash Can
-  console.log(
-    "[Panel] clearPromptsBtn found:",
-    document.getElementById("clearPromptsBtn"),
-  );
   const clearPromptsBtn = document.getElementById("clearPromptsBtn");
   if (clearPromptsBtn) {
     // Connection handshake function
@@ -952,43 +927,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // Call this function when the panel loads
     checkConnection();
 
-    // Listen for stats updates from content script
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-      if (request.action === "UPDATE_STATS") {
-        const stats = request.stats;
-
-        // Update the dashboard
-        const el = document.getElementById("stat-processed");
-        if (!el) return;
-        el.textContent = stats.successCount;
-        document.getElementById("stat-downloaded").textContent =
-          stats.downloadCount;
-
-        // Calculate success rate
-        const successRate =
-          stats.successCount > 0
-            ? ((stats.downloadCount / stats.successCount) * 100).toFixed(2)
-            : "0.00";
-        document.getElementById("stat-success").textContent = `${successRate}%`;
-
-        // Calculate time elapsed
-        if (stats.startTime) {
-          const elapsedMs = Date.now() - stats.startTime;
-          const hours = Math.floor(elapsedMs / (1000 * 60 * 60));
-          const minutes = Math.floor(
-            (elapsedMs % (1000 * 60 * 60)) / (1000 * 60),
-          );
-          const seconds = Math.floor((elapsedMs % (1000 * 60)) / 1000);
-
-          document.getElementById("stat-time").textContent = `
-          ${hours.toString().padStart(2, "0")}:
-          ${minutes.toString().padStart(2, "0")}:
-          ${seconds.toString().padStart(2, "0")}
-        `;
-        }
-      }
-    });
-
     clearPromptsBtn.addEventListener("click", () => {
       if (confirm("Are you sure you want to clear all prompts?")) {
         const promptInput = document.getElementById("promptInput");
@@ -1013,10 +951,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   // 3. Clear Terminal Logs Trash Can
-  console.log(
-    "[Panel] clearLogsBtn found:",
-    document.getElementById("clearLogsBtn"),
-  );
   const clearLogsBtn = document.getElementById("clearLogsBtn");
   if (clearLogsBtn) {
     clearLogsBtn.addEventListener("click", () => {
@@ -1028,14 +962,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // --- UI SETTINGS MODAL LOGIC ---
-  console.log(
-    "[Panel] settingsBtn found:",
-    document.getElementById("settingsBtn"),
-  );
-  console.log(
-    "[Panel] closeSettingsBtn found:",
-    document.getElementById("closeSettingsBtn"),
-  );
   const settingsBtn = document.getElementById("settingsBtn");
   const closeSettingsBtn = document.getElementById("closeSettingsBtn");
   const settingsModal = document.getElementById("settingsModal");
@@ -1127,10 +1053,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // (Opsional) Update shortcut display dengan shortcut yang sebenarnya dari manifest
-  // Karena kita tidak bisa membaca commands dari manifest secara langsung,
-  // kita tampilkan default saja. User bisa lihat & ubah di chrome://extensions/shortcuts.
-
   // Tapi kita bisa deteksi OS untuk menampilkan shortcut yang sesuai
   function updateShortcutDisplay() {
     const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
@@ -1144,4 +1066,4 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
   updateShortcutDisplay();
-});
+}
