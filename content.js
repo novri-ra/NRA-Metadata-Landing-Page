@@ -53,8 +53,8 @@ window.addEventListener("unhandledrejection", function (event) {
         action: "STATUS_UPDATE",
         status: `Error: ${event.reason?.message || "Unknown promise error"}`,
       })
-      .catch(() => {});
-  } catch (_) {}
+      .catch(() => { });
+  } catch (_) { }
   event.preventDefault();
 });
 
@@ -342,8 +342,8 @@ async function checkIfStopped() {
 function tagGhostCooldowns() {
   const warnings = document.evaluate(
     "//*[not(@data-bot-ignored='true') and (contains(text(), 'Lots of people are using Dream Lab') or (not(ancestor-or-self::*" +
-      CANVA_SELECTORS.ALERT_STATUS +
-      ") and (contains(text(), 'generate again in') or contains(text(), 'Try again in'))))]",
+    CANVA_SELECTORS.ALERT_STATUS +
+    ") and (contains(text(), 'generate again in') or contains(text(), 'Try again in'))))]",
     document,
     null,
     XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE,
@@ -449,7 +449,7 @@ function getScreenCooldownMs() {
   try {
     const nodes = document.querySelectorAll('[data-bot-ignored="true"]');
     if (nodes) ignoredNodes = Array.from(nodes);
-  } catch (e) {}
+  } catch (e) { }
   const originalStyles = [];
   ignoredNodes.forEach((node) => {
     originalStyles.push(node.style.display);
@@ -677,8 +677,8 @@ async function cdpTypeHuman(text) {
     if (!response || response.success === false) {
       throw new Error(
         response?.error ||
-          chrome.runtime.lastError?.message ||
-          "CDP connection lost during typing",
+        chrome.runtime.lastError?.message ||
+        "CDP connection lost during typing",
       );
     }
     const chunkDelay = Math.floor(Math.random() * 80) + 40;
@@ -912,6 +912,10 @@ async function submitAndWaitForImages() {
   const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON);
   if (!generateBtn) throw new Error("Generate button not found");
 
+  // Tag existing download buttons so we can detect dynamically added ones later
+  const existingButtons = document.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON);
+  existingButtons.forEach(btn => btn.setAttribute("data-bot-seen", "true"));
+
   await safeCdpClick(generateBtn, "generate button");
 
   console.log("[Canva Automation] Menunggu indikator loading muncul...");
@@ -932,7 +936,7 @@ async function submitAndWaitForImages() {
     const currentGenBtn = document.querySelector(CANVA_SELECTORS.SUBMIT_BUTTON);
     const isBtnDisabled = currentGenBtn
       ? currentGenBtn.disabled ||
-        currentGenBtn.getAttribute("aria-disabled") === "true"
+      currentGenBtn.getAttribute("aria-disabled") === "true"
       : false;
 
     return !!(progressBar || generatingText || isBtnDisabled);
@@ -996,9 +1000,12 @@ async function submitAndWaitForImages() {
 async function handleDownload(countSetting = "4") {
   console.log(
     "[Canva Automation] Memulai proses unduhan. Target: " +
-      countSetting +
-      " gambar.",
+    countSetting +
+    " gambar.",
   );
+
+  // Jeda ekstra agar DOM selesai merender sebelum mencari tombol
+  await delay(3500);
 
   let targetCount = 4;
   if (countSetting === "Random") {
@@ -1007,36 +1014,89 @@ async function handleDownload(countSetting = "4") {
     targetCount = parseInt(countSetting, 10) || 4;
   }
 
-  await delay(2000);
+  // 1. Smart Wait / Polling mechanism: Tunggu tombol unduh baru tersedia (maks 10 detik)
+  console.log("[Canva Automation] Menunggu tombol unduh baru tersedia di DOM...");
+  let elapsed = 0;
+  const timeout = 10000;
+  const interval = 500;
 
-  // Ambil semua tombol download
-  let allDownloadButtons = document.querySelectorAll(
-    CANVA_SELECTORS.DOWNLOAD_BUTTON,
-  );
+  let allDownloadButtons = [];
+  let newButtons = [];
 
-  if (!allDownloadButtons || allDownloadButtons.length === 0) {
+  while (elapsed < timeout) {
+    if (!isRunning) throw new Error("USER_STOPPED");
+
+    allDownloadButtons = Array.from(document.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON));
+    // Cari tombol yang belum di-tag oleh submitAndWaitForImages
+    newButtons = allDownloadButtons.filter(btn => btn.getAttribute("data-bot-seen") !== "true");
+
+    if (newButtons.length > 0) {
+      break;
+    }
+
+    await delay(interval);
+    elapsed += interval;
+  }
+
+  if (allDownloadButtons.length === 0) {
     throw new Error("Download buttons not found.");
   }
 
-  // AMBIL HANYA 4 TOMBOL TERAKHIR (Tombol yang baru muncul saja)
-  let latestButtons = Array.from(allDownloadButtons).slice(-4);
+  // 2. Logika Pemilihan Tombol (Slicing) Dinamis
+  let latestButtons = [];
 
-  // Batasi sesuai setting count
+  if (newButtons.length > 0) {
+    if (newButtons.length > targetCount) {
+      // Jika jumlah elemen baru lebih dari target, deteksi posisi penyisipan (prepend vs append)
+      const firstNewIndex = allDownloadButtons.indexOf(newButtons[0]);
+      const isPrepended = firstNewIndex < (allDownloadButtons.length / 2);
+
+      if (isPrepended) {
+        latestButtons = newButtons.slice(0, targetCount);
+      } else {
+        latestButtons = newButtons.slice(-targetCount);
+      }
+    } else {
+      latestButtons = newButtons;
+    }
+  } else {
+    // Fallback: Timeout tercapai tanpa menemukan elemen baru (atau tag hilang karena re-render penuh tanpa penambahan).
+    console.warn("[Canva Automation] Timeout smart wait! Menggunakan fallback deteksi posisi statis.");
+    if (allDownloadButtons.length > targetCount) {
+      // Fallback aman ke format lama: ambil elemen paling atas (karena Canva sekarang sering prepend)
+      latestButtons = allDownloadButtons.slice(0, targetCount);
+    } else {
+      latestButtons = allDownloadButtons;
+    }
+  }
+
   let buttonsToClick = latestButtons.slice(0, targetCount);
 
   console.log(
     "[Canva Automation] Total tombol di layar: " +
-      allDownloadButtons.length +
-      ". Mengambil " +
-      buttonsToClick.length +
-      " tombol terbaru.",
+    allDownloadButtons.length +
+    ". Mengambil " +
+    buttonsToClick.length +
+    " tombol terbaru secara dinamis.",
   );
 
   for (let i = 0; i < buttonsToClick.length; i++) {
     const btn = buttonsToClick[i];
+
+    if (!btn || btn.getBoundingClientRect().width === 0) {
+      console.warn("[Canva Automation] Tombol tidak valid atau tidak terlihat, melewati...");
+      continue;
+    }
+
+    // Tag tombol ini agar tidak didownload ulang pada prompt berikutnya
+    btn.setAttribute("data-bot-seen", "true");
+
     console.log("[Canva Automation] Mengunduh gambar ke-" + (i + 1) + "...");
 
-    await safeCdpClick(btn, "download button " + (i + 1));
+    // Gunakan Native DOM click agar lebih kompatibel dengan berbagai resolusi/DPI
+    btn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
+    btn.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
+    btn.click();
 
     await delay(2500);
   }
@@ -1322,7 +1382,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     isRunning = false;
     isLoopActive = false;
     // Beri tahu background untuk detach debugger (opsional tapi disarankan)
-    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => {});
+    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => { });
     sendResponse({ success: true });
     return true;
   }
