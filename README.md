@@ -29,12 +29,12 @@
 
 - **Bulk Prompt Queue** — Paste hundreds of prompts (one per line) or import from `.txt` files
 - **Auto Style & Aspect Ratio** — Set per-session or randomize per prompt
-- **Smart Download** — Polls DOM for newly rendered download buttons; no more stale-element bugs
-- **Native DOM Click** — Uses real browser click events for maximum stability across Canva UI updates
+- **Smart Download** — Polls DOM for newly rendered download buttons
+- **Native DOM Injection** — Stable, fast, and resolution-independent interaction (No CDP Debugger banner)
 - **Rate Limit Handling** — Auto-detects cooldown modals and waits before retrying
 - **Configurable Delays** — Safety delay, save delay, and batch auto-stop limit
-- **Session Analytics** — Live stats: prompts processed, images downloaded, success rate, ETA
-- **Prompt Presets** — Save/load/delete named prompt sets via `chrome.storage`
+- **Real-time Session Analytics** — Live stats: prompts processed, images downloaded, **Avg Speed, and ETA**
+- **Prompt Presets** — Save/load/delete named prompt sets
 - **Failed & Quarantine Queues** — Automatically rescues blocked prompts for retry
 - **Retro Pixel UI** — CRT scanline side-panel with multiple themes (Retro, Hacker, Light)
 - **Keyboard Shortcut** — `Ctrl+Shift+P` to pause/resume without opening the panel
@@ -45,49 +45,50 @@
 
 1. Download or clone this repository:
    ```bash
-   git clone https://github.com/novri-ra/Canva-Auto-Prompter.git
-   ```
-2. Open Chrome and navigate to `chrome://extensions/`
-3. Enable **Developer mode** (toggle in top-right)
-4. Click **Load unpacked** and select the project folder (the one containing `manifest.json`)
-5. Open [Canva Dream Lab](https://www.canva.com/dream-lab) — the extension side-panel will be available
+   git clone [https://github.com/novri-ra/Canva-Auto-Prompter.git](https://github.com/novri-ra/Canva-Auto-Prompter.git)
+Open Chrome and navigate to chrome://extensions/
 
----
+Enable Developer mode (toggle in top-right)
 
-## 🚀 Usage
+Click Load unpacked and select the project folder
 
-1. Click the extension icon or open the side panel on `canva.com/dream-lab`
-2. Paste your prompts (one per line) in the **Prompt Text** area
-3. Configure **Aspect Ratio**, **Image Style**, and **Download Count** in Settings
-4. Click **Run** — the bot will type each prompt, generate images, and download them automatically
-5. Monitor progress in **Session Analytics** and **Terminal Logs**
+Open Canva Dream Lab
 
----
+🚀 Usage
+Click the extension icon or open the side panel on canva.com/dream-lab
 
-## 📋 Release Notes
+Paste your prompts (one per line) in the Prompt Text area
 
-### v1.1.3 — NRA DreamLab Rebranding & Native DOM Click
+Configure Aspect Ratio, Image Style, and Download Count in Settings
 
-- **Rebranding**: Renamed from "Canva Auto Prompter" to **NRA DreamLab**
-- **Native DOM Click**: Migrated download trigger from CDP `Input.dispatchMouseEvent` to native `element.click()` for resolution-independent, stable downloading
-- **Smart Wait (Polling)**: Replaced hardcoded `delay(2000)` with DOM polling that waits for new download buttons to appear (up to 10s timeout), eliminating race conditions
-- **Dynamic Slicing**: Download button selection now captures only the N newest buttons instead of a static `.slice(-4)`, preventing stale-element downloads
+Click Run — the bot will type each prompt, generate images, and download them automatically
 
-### v1.1.2
+Monitor real-time progress, speed, and ETA in Session Analytics
 
-- Initial public release with CDP-based clicking, bulk prompt queue, and retro UI
+📋 Release Notes
+v1.1.4 — Production Polish & Real-time Analytics
+Native DOM Injection: Fully replaced CDP with native events for a cleaner, professional-grade user experience (no "Debugging" warning).
 
----
+Real-time Analytics: Added dynamic Avg Speed and ETA tracking.
 
-## 👤 Author
+Refining Radar: Updated XPath to detect "Refining" status, ensuring precise download timing.
 
-**Novri Rizki Akbar**
+System Stability: Added anti-sleep prevention to keep machines active during long batch sessions.
 
-- GitHub: [@novri-ra](https://github.com/novri-ra)
-- Support & Premium Products: [lynk.id/novri-ra](https://lynk.id/novri-ra)
+v1.1.3
+Rebranded to NRA DreamLab.
 
----
+Implemented robust DOM polling and dynamic button slicing.
 
-## 📄 License
+v1.1.2
+Initial release with CDP-based automation and core queueing.
 
-This project is for **educational purposes only**. See [LICENSE](LICENSE) for details.
+👤 Author
+Novri Rizki Akbar
+
+GitHub: @novri-ra
+
+Support & Premium Products: lynk.id/novri-ra
+
+📄 License
+This project is for educational purposes only. See LICENSE for details.
