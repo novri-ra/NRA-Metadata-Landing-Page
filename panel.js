@@ -533,6 +533,7 @@ function playAlertSound() {
     osc.stop(now + 0.45);
   } catch (e) {
     console.warn("[NRA DreamLab] Web Audio alert failed:", e);
+    return false;
   }
 }
 
