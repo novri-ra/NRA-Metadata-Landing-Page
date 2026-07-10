@@ -184,6 +184,37 @@ let sessionStats = {
   totalPrompts: 0,
 };
 
+async function smartWaitForElement(selector, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const existingElements = Array.from(document.querySelectorAll(selector)).filter(btn => btn.offsetParent !== null);
+    if (existingElements.length > 0) {
+      return resolve(existingElements);
+    }
+
+    let timer; // Deklarasi dinaikkan ke atas untuk mencegah ReferenceError
+
+    const observer = new MutationObserver((mutations, obs) => {
+      const elements = Array.from(document.querySelectorAll(selector)).filter(btn => btn.offsetParent !== null);
+      if (elements.length > 0) {
+        obs.disconnect();
+        if (timer) clearTimeout(timer);
+        resolve(elements);
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style']
+    });
+
+    timer = setTimeout(() => {
+      observer.disconnect();
+      reject(new Error("Timeout: Elemen " + selector + " tidak muncul setelah " + timeoutMs + "ms"));
+    }, timeoutMs);
+  });
+}
 /**
  * Helper function to sanitize sessionStats and prevent NaN values.
  * @param {Object} stats
@@ -700,196 +731,32 @@ async function safeSelectCanvaConfiguration(typeLabel, optionText) {
 }
 
 async function selectCanvaConfiguration(typeLabel, optionText) {
-  if (
-    !optionText ||
-    optionText === "None" ||
-    optionText === "" ||
-    optionText === "Random"
-  )
-    return;
+  if (!optionText || optionText === "None" || optionText === "" || optionText === "Random") return;
 
-  const escapedOption = optionText.replace(/'/g, "\\'");
+  const targetButton = document.querySelector("button[aria-label='" + optionText + "'], div[role='button'][aria-label='" + optionText + "']");
 
-  // Helper to find the target option inside the popover grid
-  const findTargetOption = () => {
-    let xpath = `//div[@role='button' and @aria-label='${escapedOption}']`;
-    let node = document.evaluate(
-      xpath,
-      document,
-      null,
-      XPathResult.FIRST_ORDERED_NODE_TYPE,
-      null,
-    ).singleNodeValue;
-    if (!node) {
-      xpath = `//*[(local-name()='button' or @role='button') and contains(normalize-space(), '${escapedOption}')]`;
-      node = document.evaluate(
-        xpath,
-        document,
-        null,
-        XPathResult.FIRST_ORDERED_NODE_TYPE,
-        null,
-      ).singleNodeValue;
-    }
-    return node;
-  };
+  if (targetButton) {
+    console.log("[NRA DreamLab] Memilih " + typeLabel + ": '" + optionText + "'...");
 
-  let targetButton = findTargetOption();
-  let isTargetVisible =
-    targetButton && targetButton.getBoundingClientRect().height > 0;
+    await safeCdpClick(targetButton, typeLabel);
+    await delay(1500);
 
-  // 1. OPEN THE MENU IF THE TARGET IS NOT VISIBLE
-  if (!isTargetVisible) {
-    console.log(
-      `[NRA DreamLab] ${typeLabel} menu seems closed. Searching for trigger button...`,
-    );
+    let menu = document.querySelector('[role="dialog"], [role="menu"]');
+    if (menu && menu.offsetParent !== null) {
+      console.warn("[NRA DreamLab] Menu " + typeLabel + " masih terbuka (CDP missed), mencoba Native Click...");
+      targetButton.click(); // Serangan lapis dua
+      await delay(1000);
 
-    // Exhaustive list to catch the trigger button no matter what its current text is
-    const styleKeywords = getStyleOptionsFromDOM();
-    // Add default trigger keywords for Style just in case DOM is not ready
-    if (!styleKeywords.includes("Style")) styleKeywords.unshift("Style");
-    if (!styleKeywords.includes("None")) styleKeywords.unshift("None");
-
-    const ratioKeywords = getRatioOptionsFromDOM();
-    // Add default trigger keywords for Ratio just in case DOM is not ready
-    if (!ratioKeywords.includes("Ratio")) ratioKeywords.unshift("Ratio");
-
-    const keywordsToSearch =
-      typeLabel === "Style" ? styleKeywords : ratioKeywords;
-    let triggerBtn = null;
-
-    // Search for exact match first
-    for (const kw of keywordsToSearch) {
-      const kwEsc = kw.replace(/'/g, "\\'");
-      const xpath = `//*[(local-name()='button' or @role='button') and normalize-space(text())='${kwEsc}']`;
-      const nodes = document.evaluate(
-        xpath,
-        document,
-        null,
-        XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-        null,
-      );
-      for (let i = 0; i < nodes.snapshotLength; i++) {
-        const n = nodes.snapshotItem(i);
-        if (n.getBoundingClientRect().height > 0) {
-          triggerBtn = n;
-          break;
-        }
-      }
-      if (triggerBtn) break;
-    }
-
-    // Fallback: search for partial match if exact match fails
-    if (!triggerBtn) {
-      for (const kw of keywordsToSearch) {
-        const kwEsc = kw.replace(/'/g, "\\'");
-        const xpath = `//*[(local-name()='button' or @role='button') and contains(normalize-space(), '${kwEsc}')]`;
-        const nodes = document.evaluate(
-          xpath,
-          document,
-          null,
-          XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-          null,
-        );
-        for (let i = 0; i < nodes.snapshotLength; i++) {
-          const n = nodes.snapshotItem(i);
-          if (n.getBoundingClientRect().height > 0) {
-            triggerBtn = n;
-            break;
-          }
-        }
-        if (triggerBtn) break;
+      menu = document.querySelector('[role="dialog"], [role="menu"]');
+      if (menu && menu.offsetParent !== null) {
+        console.warn("[NRA DreamLab] Menu " + typeLabel + " membandel, memaksa tutup...");
+        document.body.click(); // Serangan lapis tiga
+        await delay(1000);
       }
     }
-
-    // Click the trigger button if found
-    if (triggerBtn) {
-      triggerBtn.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-        inline: "center",
-      });
-      await delay(500);
-
-      const rect = triggerBtn.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) {
-        // Background Tab Fallback
-        triggerBtn.click();
-      } else {
-        const cx = Math.round(rect.left + rect.width / 2);
-        const cy = Math.round(rect.top + rect.height / 2);
-        await new Promise((r) =>
-          chrome.runtime.sendMessage({ action: "CDP_CLICK", x: cx, y: cy }, r),
-        );
-      }
-
-      await delay(1200); // Give the popover grid time to animate and open
-
-      // Re-evaluate target button after menu opens
-      targetButton = findTargetOption();
-      isTargetVisible =
-        targetButton && targetButton.getBoundingClientRect().height > 0;
-    } else {
-      console.warn(
-        `[NRA DreamLab] ⚠️ Could not find the main trigger button to open the ${typeLabel} menu.`,
-      );
-    }
-  }
-
-  // 2. CHECK IF TARGET EXISTS IN DOM
-  if (!targetButton) {
-    console.warn(
-      `[NRA DreamLab] ⚠️ Option '${optionText}' not found on screen. Proceeding with current settings.`,
-    );
-    return;
-  }
-
-  // 3. CHECK IF ALREADY ACTIVE (aria-pressed)
-  if (targetButton.getAttribute("aria-pressed") === "true") {
-    console.log(
-      `[NRA DreamLab] ${typeLabel} '${optionText}' is already active. Skipping click.`,
-    );
-    return;
-  }
-
-  // 4. SCROLL AND CLICK TARGET OPTION
-  console.log(`[NRA DreamLab] Selecting ${typeLabel}: '${optionText}'...`);
-  targetButton.scrollIntoView({
-    behavior: "smooth",
-    block: "center",
-    inline: "center",
-  });
-  await delay(700);
-
-  const targetRect = targetButton.getBoundingClientRect();
-
-  if (targetRect.width === 0 || targetRect.height === 0) {
-    // Background Tab Fallback
-    console.log(
-      "[NRA DreamLab] Tab is in background. Using native DOM click for ",
-      optionText,
-    );
-    targetButton.click();
   } else {
-    // Active Tab CDP Click
-    const clickX = Math.round(targetRect.left + targetRect.width / 2);
-    const clickY = Math.round(targetRect.top + targetRect.height / 2);
-    const response = await new Promise((resolve) => {
-      chrome.runtime.sendMessage(
-        { action: "CDP_CLICK", x: clickX, y: clickY },
-        resolve,
-      );
-    });
-
-    // Fallback if CDP fails
-    if (!response || response.success === false) {
-      console.warn(
-        `[NRA DreamLab]   CDP click failed, attempting native DOM click.`,
-      );
-      targetButton.click();
-    }
+    console.warn("[NRA DreamLab] Opsi '" + optionText + "' tidak ditemukan di DOM.");
   }
-
-  await delay(1000); // Stabilize UI before proceeding
 }
 
 /**
@@ -912,17 +779,16 @@ async function submitAndWaitForImages() {
   const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON);
   if (!generateBtn) throw new Error("Generate button not found");
 
-  // Tag existing download buttons so we can detect dynamically added ones later
-  const existingButtons = document.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON);
-  existingButtons.forEach(btn => btn.setAttribute("data-bot-seen", "true"));
-
   await safeCdpClick(generateBtn, "generate button");
 
-  console.log("[NRA DreamLab] Menunggu indikator loading muncul...");
+  console.log("[NRA DreamLab] Menunggu proses generasi selesai...");
   chrome.runtime.sendMessage({
     action: "STATUS_UPDATE",
-    status: "Generating images... (Smart Polling)",
+    status: "Generating...",
   });
+
+  // Tunggu 3 detik penuh agar UI Canva punya waktu merespons klik dan memunculkan loading state
+  await delay(3000);
 
   const checkLoadingIndicators = () => {
     const progressBar = document.querySelector('[role="progressbar"]');
@@ -931,172 +797,72 @@ async function submitAndWaitForImages() {
       document,
       null,
       XPathResult.FIRST_ORDERED_NODE_TYPE,
-      null,
+      null
     ).singleNodeValue;
-    const currentGenBtn = document.querySelector(CANVA_SELECTORS.SUBMIT_BUTTON);
-    const isBtnDisabled = currentGenBtn
-      ? currentGenBtn.disabled ||
-      currentGenBtn.getAttribute("aria-disabled") === "true"
-      : false;
 
-    return !!(progressBar || generatingText || isBtnDisabled);
+    const currentGenBtn = document.querySelector(CANVA_SELECTORS.SUBMIT_BUTTON);
+    const isBtnDisabled = currentGenBtn ? (currentGenBtn.disabled || currentGenBtn.getAttribute("aria-disabled") === "true") : false;
+
+    const cancelBtn = document.querySelector('button[aria-label="Cancel"], button[aria-label="Batalkan"]');
+
+    return !!(progressBar || generatingText || isBtnDisabled || cancelBtn);
   };
 
-  // 1. SMART POLLING TERPADU (Maksimal 60 Detik Total)
-  // Menunggu 2 detik di awal agar React selesai me-render state loading
-  await delay(2000);
-
-  if (!loadingStarted) {
-    console.warn(
-      "[NRA DreamLab] Indikator loading tidak terdeteksi setelah 10 detik. Mencoba melanjutkan pengecekan render...",
-    );
-  } else {
-    console.log(
-      "[NRA DreamLab] Indikator loading terdeteksi. Menunggu render selesai...",
-    );
-    chrome.runtime.sendMessage({
-      action: "STATUS_UPDATE",
-      status: "Generating images... (Waiting for render)",
-    });
-  }
-
-  // 2. Smart Wait: Tunggu indikator loading HILANG (maksimal 60 detik)
   let renderElapsed = 0;
   const timeout = 60000;
-  let isGenerating = checkLoadingIndicators(); // Cek status awal
+  let isGenerating = checkLoadingIndicators();
 
-  // Jika setelah 2 detik masih 'isGenerating', berarti proses sedang berlangsung.
-  // Jika tidak, bisa jadi sudah selesai sangat cepat, atau DOM-nya berbeda. Kita tetap tunggu sebentar (Fallback).
+  if (!isGenerating) {
+    console.warn("[NRA DreamLab] Indikator loading tidak terdeteksi (DOM berubah/meleset). Menggunakan Fallback Delay 15 detik...");
+    await delay(15000);
+  } else {
+    while (isGenerating && renderElapsed < timeout) {
+      if (!isRunning) throw new Error("USER_STOPPED");
 
-  while (isGenerating && renderElapsed < timeout) {
-    if (!isRunning) throw new Error("USER_STOPPED");
-
-    if (!checkLoadingIndicators()) {
-      isGenerating = false;
-      break;
-    } else {
-      await delay(1000); // Polling setiap 1 detik
-      renderElapsed += 1000;
+      if (!checkLoadingIndicators()) {
+        isGenerating = false;
+        break;
+      } else {
+        await delay(2000);
+        renderElapsed += 2000;
+      }
     }
   }
 
   if (renderElapsed >= timeout) {
-    console.warn(
-      "[NRA DreamLab] Timeout 60 detik terlampaui saat menunggu render gambar. Mencoba melanjutkan...",
-    );
+    console.log("[NRA DreamLab] Timeout 60 detik tercapai. Mencoba melanjutkan...");
   } else {
-    console.log("[NRA DreamLab] Render gambar selesai!");
+    console.log("[NRA DreamLab] Siklus render selesai terdeteksi!");
   }
 
-  // Ekstra delay 2 detik untuk memastikan gambar benar-benar sudah merender di DOM sebelum diunduh
-  await delay(2000);
+  // Waktu stabilisasi mutlak: pastikan file gambar (blob) benar-benar ter-load sebelum diunduh
+  console.log("[NRA DreamLab] Stabilisasi DOM gambar...");
+  await delay(4000);
 }
 
 async function handleDownload(countSetting = "4") {
-  console.log(
-    "[NRA DreamLab] Memulai proses unduhan. Target: " +
-    countSetting +
-    " gambar.",
-  );
-
-  // Jeda ekstra agar DOM selesai merender sebelum mencari tombol
-  await delay(3500);
-
-  let targetCount = 4;
-  if (countSetting === "Random") {
-    targetCount = Math.floor(Math.random() * 4) + 1;
-  } else {
-    targetCount = parseInt(countSetting, 10) || 4;
-  }
-
-  // 1. Smart Wait / Polling mechanism: Tunggu tombol unduh baru tersedia (maks 10 detik)
-  console.log("[NRA DreamLab] Menunggu tombol unduh baru tersedia di DOM...");
-  let elapsed = 0;
-  const timeout = 10000;
-  const interval = 500;
+  console.log("[NRA DreamLab] Memantau kemunculan tombol unduh secara dinamis...");
 
   let allDownloadButtons = [];
-  let newButtons = [];
-
-  while (elapsed < timeout) {
-    if (!isRunning) throw new Error("USER_STOPPED");
-
-    allDownloadButtons = Array.from(document.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON));
-    // Cari tombol yang belum di-tag oleh submitAndWaitForImages
-    newButtons = allDownloadButtons.filter(btn => btn.getAttribute("data-bot-seen") !== "true");
-
-    if (newButtons.length > 0) {
-      break;
-    }
-
-    await delay(interval);
-    elapsed += interval;
+  try {
+    allDownloadButtons = await smartWaitForElement(CANVA_SELECTORS.DOWNLOAD_BUTTON, 15000);
+  } catch (error) {
+    throw new Error("Download buttons not found: " + error.message);
   }
 
-  if (allDownloadButtons.length === 0) {
-    throw new Error("Download buttons not found.");
-  }
+  let targetCount = parseInt(countSetting, 10) || 4;
 
-  // 2. Logika Pemilihan Tombol (Slicing) Dinamis
-  let latestButtons = [];
+  // PERBAIKAN KRUSIAL: Ambil dari index 0 (paling atas/terbaru), BUKAN dari bawah (-4)
+  let buttonsToClick = allDownloadButtons.slice(0, targetCount);
 
-  if (newButtons.length > 0) {
-    if (newButtons.length > targetCount) {
-      // Jika jumlah elemen baru lebih dari target, deteksi posisi penyisipan (prepend vs append)
-      const firstNewIndex = allDownloadButtons.indexOf(newButtons[0]);
-      const isPrepended = firstNewIndex < (allDownloadButtons.length / 2);
-
-      if (isPrepended) {
-        latestButtons = newButtons.slice(0, targetCount);
-      } else {
-        latestButtons = newButtons.slice(-targetCount);
-      }
-    } else {
-      latestButtons = newButtons;
-    }
-  } else {
-    // Fallback: Timeout tercapai tanpa menemukan elemen baru (atau tag hilang karena re-render penuh tanpa penambahan).
-    console.warn("[NRA DreamLab] Timeout smart wait! Menggunakan fallback deteksi posisi statis.");
-    if (allDownloadButtons.length > targetCount) {
-      // Fallback aman ke format lama: ambil elemen paling atas (karena Canva sekarang sering prepend)
-      latestButtons = allDownloadButtons.slice(0, targetCount);
-    } else {
-      latestButtons = allDownloadButtons;
-    }
-  }
-
-  let buttonsToClick = latestButtons.slice(0, targetCount);
-
-  console.log(
-    "[NRA DreamLab] Total tombol di layar: " +
-    allDownloadButtons.length +
-    ". Mengambil " +
-    buttonsToClick.length +
-    " tombol terbaru secara dinamis.",
-  );
+  console.log("[NRA DreamLab] Total tombol terlihat: " + allDownloadButtons.length + ". Mengambil " + buttonsToClick.length + " tombol teratas (terbaru).");
 
   for (let i = 0; i < buttonsToClick.length; i++) {
     const btn = buttonsToClick[i];
-
-    if (!btn || btn.getBoundingClientRect().width === 0) {
-      console.warn("[NRA DreamLab] Tombol tidak valid atau tidak terlihat, melewati...");
-      continue;
-    }
-
-    // Tag tombol ini agar tidak didownload ulang pada prompt berikutnya
-    btn.setAttribute("data-bot-seen", "true");
-
-    console.log("[NRA DreamLab] Mengunduh gambar ke-" + (i + 1) + "...");
-
-    // Gunakan Native DOM click agar lebih kompatibel dengan berbagai resolusi/DPI
-    btn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
-    btn.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
-    btn.click();
-
-    await delay(2500);
+    await safeCdpClick(btn, "download button " + (i + 1));
+    await delay(3000); // Delay aman untuk mencegah blokir server
   }
 }
-
 async function handleCooldown(cooldownMs, isStartup = false) {
   if (!isStartup) sessionStats.totalCooldowns++;
   cooldownMs += 5000;
@@ -1182,6 +948,8 @@ async function startMainLoop() {
     sessionStats.startTime = Date.now();
     const aspectRatio = result.aspectRatio;
     const imageStyle = result.imageStyle;
+    const limitRes = await chrome.storage.local.get(["batchLimit"]);
+    batchLimitGlobal = parseInt(limitRes.batchLimit, 10) || 0;
     const downloadCountSetting = result.downloadCount || "4";
 
     if (prompts.length === 0) {
@@ -1232,7 +1000,7 @@ async function startMainLoop() {
 
         chrome.runtime.sendMessage({
           action: "STATUS_UPDATE",
-          status: `Processing prompt ${currentIndex + 1}/${sessionStats.totalPrompts}: ${currentPrompt}`,
+          status: `Processing prompt ${currentIndex + 1} of ${sessionStats.totalPrompts}...`,
         });
 
         // A. Logika konfigurasi opsi (Style/Ratio) dan injeksi prompt (CDP Typing)
@@ -1362,41 +1130,21 @@ async function prepareAndSubmitPrompt(
   await submitAndWaitForImages();
 }
 
-async function executeDownloadBatchWithRetry(
-  downloadCountSetting,
-  maxRetries,
-  currentPrompt,
-  imageStyle,
-  aspectRatio,
-) {
+async function executeDownloadBatchWithRetry(downloadCountSetting, maxRetries, currentPrompt, imageStyle, aspectRatio) {
   let downloadSuccess = false;
   let retryCount = 0;
-
   while (!downloadSuccess && retryCount < maxRetries) {
     try {
       await handleDownload(downloadCountSetting);
       downloadSuccess = true;
     } catch (error) {
-      console.error(
-        `[Canva Automation] Download attempt ${retryCount + 1} failed:`,
-        error.message,
-      );
+      console.error("[Canva Automation] Download attempt " + (retryCount + 1) + " failed:", error.message);
       retryCount++;
-
       if (retryCount < maxRetries) {
-        console.log(
-          `[Canva Automation] Attempting recovery (${retryCount}/${maxRetries})...`,
-        );
-        // Refresh the page to reset state
+        console.log("[Canva Automation] Attempting recovery...");
+        await chrome.storage.local.set({ isRecovering: true });
         window.location.reload();
-        // Wait for page to reload
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-        // Reconfigure style and ratio after refresh
-        await configureStyleAndRatio(imageStyle, aspectRatio);
-        // Re-inject the current prompt
-        await injectPrompt(currentPrompt);
-        // Re-submit the prompt
-        await submitAndWaitForImages();
+        return false;
       }
     }
   }
@@ -1445,5 +1193,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => { });
     sendResponse({ success: true });
     return true;
+  }
+});
+
+chrome.storage.local.get(['isAutomating', 'isRecovering'], (res) => {
+  if (res.isAutomating === true && res.isRecovering === true) {
+    console.log("[Canva Automation] Memulihkan sesi setelah reload...");
+    chrome.storage.local.set({ isRecovering: false }, () => {
+      setTimeout(() => {
+        if (!isLoopActive) {
+          isRunning = true;
+          isLoopActive = true;
+          startMainLoop().catch(err => console.error(err)).finally(() => {
+            isLoopActive = false;
+            isRunning = false;
+          });
+        }
+      }, 3000);
+    });
   }
 });

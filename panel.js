@@ -503,57 +503,12 @@ function playAlertSound() {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) return;
 
-      if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
-        sharedAudioCtx = new AudioContextClass();
-      }
-
-      if (sharedAudioCtx.state === "suspended") {
-        sharedAudioCtx.resume();
-      }
-
-      const osc = sharedAudioCtx.createOscillator();
-      const gain = sharedAudioCtx.createGain();
-
-      osc.connect(gain);
-      gain.connect(sharedAudioCtx.destination);
-
-      const now = sharedAudioCtx.currentTime;
-
-      // Tone 1: 523.25Hz for 150ms
-      osc.frequency.setValueAtTime(523.25, now);
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-
-      // Tone 2: 659.25Hz for 300ms
-      osc.frequency.setValueAtTime(659.25, now + 0.15);
-      gain.gain.setValueAtTime(0.15, now + 0.15);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-
-      osc.start(now);
-      osc.stop(now + 0.45);
-    } catch (e) {
-      console.warn("[NRA DreamLab] Web Audio alert failed:", e);
+    if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
+      sharedAudioCtx = new AudioContextClass();
     }
 
-  // System Notification
-  function showBrowserNotification() {
-    if (typeof chrome !== "undefined" && chrome.notifications) {
-      chrome.notifications.create(
-        {
-          type: "basic",
-          iconUrl: "icon.png",
-          title: "NRA DreamLab",
-          message: "Success! All prompts have been processed.",
-        },
-        (id) => {
-          if (chrome.runtime.lastError) {
-            console.warn(
-              "[NRA DreamLab] Notification alert failed:",
-              chrome.runtime.lastError.message,
-            );
-          }
-        },
-      );
+    if (sharedAudioCtx.state === "suspended") {
+      sharedAudioCtx.resume();
     }
 
     const osc = sharedAudioCtx.createOscillator();
@@ -577,7 +532,8 @@ function playAlertSound() {
     osc.start(now);
     osc.stop(now + 0.45);
   } catch (e) {
-    console.warn("[Canva Auto Prompter] Web Audio alert failed:", e);
+    console.warn("[NRA DreamLab] Web Audio alert failed:", e);
+    return false;
   }
 }
 
@@ -723,6 +679,12 @@ function initMessageListeners() {
     if (statusValue) {
       console.log("[NRA DreamLab] Received status update:", statusValue);
       statusText.textContent = statusValue;
+      statusText.style.whiteSpace = "nowrap";
+      statusText.style.overflow = "hidden";
+      statusText.style.textOverflow = "ellipsis";
+      statusText.style.maxWidth = "250px";
+      statusText.style.display = "inline-block";
+      statusText.style.verticalAlign = "middle";
 
       const statusLower = statusValue.toLowerCase();
       if (
