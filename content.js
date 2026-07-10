@@ -655,27 +655,29 @@ async function selectCanvaConfiguration(label, value) {
 
   console.info(`[NRA DreamLab] Mencoba memilih '${value}' untuk ${label}...`);
 
-  // Polling intensif selama 10 detik
-  for (let i = 0; i < 10; i++) {
-    // Cari semua tombol atau elemen yang mengandung teks value
-    const buttons = Array.from(document.querySelectorAll('*'));
-    const target = buttons.find(el =>
-      el.textContent &&
-      el.textContent.trim().toLowerCase() === value.toLowerCase() &&
-      (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button' || el.classList.length > 0)
-    );
+  // Cari tombol berdasarkan aria-label yang mengandung value
+  const xpath = `//*[@role='button'][contains(@aria-label, '${value}')]`;
 
-    if (target) {
-      target.click();
-      console.info(`[NRA DreamLab] Berhasil klik '${value}'`);
-      await new Promise(r => setTimeout(r, 800)); // Jeda stabilitas
+  for (let i = 0; i < 10; i++) {
+    const element = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+
+    if (element) {
+      // Cek apakah sudah terpilih (aria-pressed="true")
+      const isPressed = element.getAttribute('aria-pressed') === 'true';
+      if (!isPressed) {
+        element.click();
+        console.info(`[NRA DreamLab] Berhasil klik '${value}'`);
+      } else {
+        console.info(`[NRA DreamLab] Opsi '${value}' sudah terpilih.`);
+      }
+      await new Promise(r => setTimeout(r, 1000));
       return true;
     }
     console.info(`[NRA DreamLab] Opsi '${value}' belum terlihat, menunggu (percobaan ${i + 1}/10)...`);
     await new Promise(r => setTimeout(r, 1000));
   }
 
-  console.error(`[NRA DreamLab] GAGAL: Opsi '${value}' tetap tidak ditemukan di DOM.`);
+  console.error(`[NRA DreamLab] GAGAL: Opsi '${value}' (via aria-label) tetap tidak ditemukan.`);
   return false;
 }
 
