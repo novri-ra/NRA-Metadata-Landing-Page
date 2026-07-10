@@ -653,30 +653,31 @@ async function safeSelectCanvaConfiguration(typeLabel, optionText) {
 async function selectCanvaConfiguration(typeLabel, optionText) {
   if (!optionText || optionText === "None" || optionText === "" || optionText === "Random") return;
 
-  const targetButton = document.querySelector("button[aria-label='" + optionText + "'], div[role='button'][aria-label='" + optionText + "']");
+  console.info(`[NRA DreamLab] Mencari opsi ${typeLabel} dengan nilai '${optionText}'...`);
 
-  if (targetButton) {
-    console.log("[NRA DreamLab] Memilih " + typeLabel + ": '" + optionText + "'...");
+  // Retry loop untuk memastikan elemen muncul
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const xpath = `//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '${optionText.toLowerCase()}')]`;
+    const element = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
 
-    await safeCdpClick(targetButton, typeLabel);
-    await delay(1500);
+    if (element) {
+      console.info(`[NRA DreamLab] Opsi '${optionText}' ditemukan pada percobaan ke-${attempt + 1}. Mengklik...`);
+      element.click();
+      await new Promise(r => setTimeout(r, 1000));
 
-    let menu = document.querySelector('[role="dialog"], [role="menu"]');
-    if (menu && menu.offsetParent !== null) {
-      console.warn("[NRA DreamLab] Menu " + typeLabel + " masih terbuka (CDP missed), mencoba Native Click...");
-      targetButton.click(); // Serangan lapis dua
-      await delay(1000);
-
-      menu = document.querySelector('[role="dialog"], [role="menu"]');
+      let menu = document.querySelector('[role="dialog"], [role="menu"]');
       if (menu && menu.offsetParent !== null) {
         console.warn("[NRA DreamLab] Menu " + typeLabel + " membandel, memaksa tutup...");
-        document.body.click(); // Serangan lapis tiga
-        await delay(1000);
+        document.body.click();
+        await new Promise(r => setTimeout(r, 1000));
       }
+      return true;
     }
-  } else {
-    console.warn("[NRA DreamLab] Opsi '" + optionText + "' tidak ditemukan di DOM.");
+    console.info(`[NRA DreamLab] Opsi '${optionText}' belum terlihat, menunggu (percobaan ${attempt + 1}/5)...`);
+    await new Promise(r => setTimeout(r, 2000)); // Tunggu 2 detik sebelum retry
   }
+  console.warn(`[NRA DreamLab] Opsi '${optionText}' tidak ditemukan setelah beberapa percobaan.`);
+  return false;
 }
 
 /**
@@ -696,9 +697,11 @@ async function injectPrompt(currentPrompt) {
 }
 
 async function submitAndWaitForImages() {
+  console.info("[NRA DreamLab] Mencari tombol Generate...");
   const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON);
   if (!generateBtn) throw new Error("Generate button not found");
 
+  console.info("[NRA DreamLab] Tombol Generate ditemukan, melakukan klik...");
   await safeCdpClick(generateBtn, "generate button");
 
   console.log("[NRA DreamLab] Menunggu proses generasi selesai...");
@@ -761,11 +764,26 @@ async function submitAndWaitForImages() {
 }
 
 async function handleDownload(countSetting = "4") {
-  console.log("[NRA DreamLab] Memantau kemunculan tombol unduh secara dinamis...");
+  console.info("[NRA DreamLab] Memantau kemunculan tombol unduh secara dinamis...");
 
   let allDownloadButtons = [];
   try {
-    allDownloadButtons = await smartWaitForElement(CANVA_SELECTORS.DOWNLOAD_BUTTON, 15000);
+    // Retry loop untuk tombol download dengan smartWaitForElement
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        allDownloadButtons = await smartWaitForElement(CANVA_SELECTORS.DOWNLOAD_BUTTON, 5000); // Wait 5s per attempt
+        if (allDownloadButtons && allDownloadButtons.length > 0) {
+          console.info(`[NRA DreamLab] Tombol unduh ditemukan pada percobaan ke-${attempt + 1}.`);
+          break; // Berhasil menemukan
+        }
+      } catch (e) {
+        console.info(`[NRA DreamLab] Tombol unduh belum terlihat, menunggu (percobaan ${attempt + 1}/5)...`);
+      }
+    }
+
+    if (!allDownloadButtons || allDownloadButtons.length === 0) {
+      throw new Error("Download buttons not found after all retries.");
+    }
   } catch (error) {
     throw new Error("Download buttons not found: " + error.message);
   }
