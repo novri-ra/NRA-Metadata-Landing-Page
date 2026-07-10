@@ -34,9 +34,9 @@ function syncRunButtonUI(isAutomating) {
 function updateStatsUI(stats) {
   if (!stats) return;
 
-  // Defensive parsing untuk mencegah NaN
   const successCount = Number(stats.successCount) || 0;
   const downloadCount = Number(stats.downloadCount) || 0;
+  const totalPrompts = Number(stats.totalPrompts) || 0;
 
   const elProcessed = document.getElementById("stat-processed");
   if (elProcessed) elProcessed.textContent = successCount;
@@ -47,26 +47,49 @@ function updateStatsUI(stats) {
   const elRate = document.getElementById("stat-rate");
   if (elRate) {
     if (successCount > 0) {
-      let rate = Math.round((downloadCount / successCount) * 100);
-      if (isNaN(rate)) rate = 0;
+      const failedCount = Number(stats.failedCount) || 0;
+      const successfulPrompts = successCount - failedCount;
+      let rate = Math.round((successfulPrompts / successCount) * 100);
+      if (isNaN(rate) || rate < 0) rate = 0;
       elRate.textContent = rate + "%";
     } else {
       elRate.textContent = "0%";
     }
   }
 
+  let elapsedSeconds = 0;
   const elTime = document.getElementById("stat-time");
-  if (elTime) {
-    if (stats.startTime) {
-      let elapsedMs = Date.now() - Number(stats.startTime);
-      if (isNaN(elapsedMs) || elapsedMs < 0) elapsedMs = 0;
-      const elapsedSeconds = Math.floor(elapsedMs / 1000);
-      const minutes = Math.floor(elapsedSeconds / 60);
-      const seconds = elapsedSeconds % 60;
-      elTime.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  if (stats.startTime) {
+    let elapsedMs = Date.now() - Number(stats.startTime);
+    if (isNaN(elapsedMs) || elapsedMs < 0) elapsedMs = 0;
+    elapsedSeconds = Math.floor(elapsedMs / 1000);
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const seconds = elapsedSeconds % 60;
+    if (elTime) elTime.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  } else {
+    if (elTime) elTime.textContent = "00:00";
+  }
+
+  // --- LOGIKA BARU: AVG SPEED & ETA ---
+  const elAvgSpeed = document.getElementById("stat-avg-speed");
+  const elEta = document.getElementById("stat-eta");
+
+  if (successCount > 0 && elapsedSeconds > 0) {
+    const avgSeconds = elapsedSeconds / successCount;
+    if (elAvgSpeed) elAvgSpeed.textContent = Math.round(avgSeconds) + "s/prompt";
+
+    const remainingPrompts = Math.max(0, totalPrompts - successCount);
+    if (remainingPrompts > 0) {
+      const etaSeconds = Math.round(remainingPrompts * avgSeconds);
+      const etaMins = Math.floor(etaSeconds / 60);
+      const etaSecs = etaSeconds % 60;
+      if (elEta) elEta.textContent = `${etaMins.toString().padStart(2, "0")}:${etaSecs.toString().padStart(2, "0")}`;
     } else {
-      elTime.textContent = "00:00";
+      if (elEta) elEta.textContent = "00:00";
     }
+  } else {
+    if (elAvgSpeed) elAvgSpeed.textContent = "--";
+    if (elEta) elEta.textContent = "--:--";
   }
 }
 
