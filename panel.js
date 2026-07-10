@@ -679,6 +679,12 @@ function initMessageListeners() {
     if (statusValue) {
       console.log("[NRA DreamLab] Received status update:", statusValue);
       statusText.textContent = statusValue;
+      statusText.style.whiteSpace = "nowrap";
+      statusText.style.overflow = "hidden";
+      statusText.style.textOverflow = "ellipsis";
+      statusText.style.maxWidth = "250px";
+      statusText.style.display = "inline-block";
+      statusText.style.verticalAlign = "middle";
 
       const statusLower = statusValue.toLowerCase();
       if (

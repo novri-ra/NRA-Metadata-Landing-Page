@@ -945,11 +945,14 @@ async function submitAndWaitForImages() {
 
   await safeCdpClick(generateBtn, "generate button");
 
-  console.log("[Canva Automation] Menunggu proses generasi selesai...");
+  console.log("[NRA DreamLab] Menunggu proses generasi selesai...");
   chrome.runtime.sendMessage({
     action: "STATUS_UPDATE",
     status: "Generating...",
   });
+
+  // Tunggu 3 detik penuh agar UI Canva punya waktu merespons klik dan memunculkan loading state
+  await delay(3000);
 
   const checkLoadingIndicators = () => {
     const progressBar = document.querySelector('[role="progressbar"]');
@@ -958,44 +961,47 @@ async function submitAndWaitForImages() {
       document,
       null,
       XPathResult.FIRST_ORDERED_NODE_TYPE,
-      null,
+      null
     ).singleNodeValue;
+
     const currentGenBtn = document.querySelector(CANVA_SELECTORS.SUBMIT_BUTTON);
-    const isBtnDisabled = currentGenBtn
-      ? currentGenBtn.disabled ||
-      currentGenBtn.getAttribute("aria-disabled") === "true"
-      : false;
+    const isBtnDisabled = currentGenBtn ? (currentGenBtn.disabled || currentGenBtn.getAttribute("aria-disabled") === "true") : false;
 
-    return !!(progressBar || generatingText || isBtnDisabled);
+    const cancelBtn = document.querySelector('button[aria-label="Cancel"], button[aria-label="Batalkan"]');
+
+    return !!(progressBar || generatingText || isBtnDisabled || cancelBtn);
   };
-
-  await delay(2000);
 
   let renderElapsed = 0;
   const timeout = 60000;
-
-  // DEKLARASI HANYA DILAKUKAN SATU KALI DI SINI
   let isGenerating = checkLoadingIndicators();
 
-  while (isGenerating && renderElapsed < timeout) {
-    if (!isRunning) throw new Error("USER_STOPPED");
+  if (!isGenerating) {
+    console.warn("[NRA DreamLab] Indikator loading tidak terdeteksi (DOM berubah/meleset). Menggunakan Fallback Delay 15 detik...");
+    await delay(15000);
+  } else {
+    while (isGenerating && renderElapsed < timeout) {
+      if (!isRunning) throw new Error("USER_STOPPED");
 
-    if (!checkLoadingIndicators()) {
-      isGenerating = false;
-      break;
-    } else {
-      await delay(1000);
-      renderElapsed += 1000;
+      if (!checkLoadingIndicators()) {
+        isGenerating = false;
+        break;
+      } else {
+        await delay(2000);
+        renderElapsed += 2000;
+      }
     }
   }
 
   if (renderElapsed >= timeout) {
-    console.log("[Canva Automation] Timeout 60 detik tercapai. Mencoba melanjutkan...");
+    console.log("[NRA DreamLab] Timeout 60 detik tercapai. Mencoba melanjutkan...");
   } else {
-    console.log("[Canva Automation] Siklus render selesai terdeteksi!");
+    console.log("[NRA DreamLab] Siklus render selesai terdeteksi!");
   }
 
-  await delay(2000);
+  // Waktu stabilisasi mutlak: pastikan file gambar (blob) benar-benar ter-load sebelum diunduh
+  console.log("[NRA DreamLab] Stabilisasi DOM gambar...");
+  await delay(4000);
 }
 
 async function handleDownload(countSetting = "4") {
@@ -1158,7 +1164,7 @@ async function startMainLoop() {
 
         chrome.runtime.sendMessage({
           action: "STATUS_UPDATE",
-          status: `Processing prompt ${currentIndex + 1}/${sessionStats.totalPrompts}: ${currentPrompt}`,
+          status: `Processing prompt ${currentIndex + 1} of ${sessionStats.totalPrompts}...`,
         });
 
         // A. Logika konfigurasi opsi (Style/Ratio) dan injeksi prompt (CDP Typing)
