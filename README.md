@@ -45,50 +45,54 @@
 
 1. Download or clone this repository:
    ```bash
-   git clone [https://github.com/novri-ra/Canva-Auto-Prompter.git](https://github.com/novri-ra/Canva-Auto-Prompter.git)
-Open Chrome and navigate to chrome://extensions/
+   git clone https://github.com/novri-ra/Canva-Auto-Prompter.git
+   ```
+2. Open Chrome and navigate to `chrome://extensions/`
+3. Enable **Developer mode** (toggle in top-right)
+4. Click **Load unpacked** and select the project folder
+5. Open [Canva Dream Lab](https://www.canva.com/dream-lab)
 
-Enable Developer mode (toggle in top-right)
+---
 
-Click Load unpacked and select the project folder
+## 🚀 Usage
 
-Open Canva Dream Lab
+1. Click the extension icon or open the **side panel** on `canva.com/dream-lab`
+2. Paste your prompts (one per line) in the **Prompt Text** area
+3. Configure **Aspect Ratio**, **Image Style**, and **Download Count** in Settings
+4. Click **Run** — the bot will type each prompt, generate images, and download them automatically
+5. Monitor real-time progress, speed, and ETA in **Session Analytics**
 
-🚀 Usage
-Click the extension icon or open the side panel on canva.com/dream-lab
+---
 
-Paste your prompts (one per line) in the Prompt Text area
+## 📋 Release Notes
 
-Configure Aspect Ratio, Image Style, and Download Count in Settings
+### v1.1.4 — Production Polish & Real-time Analytics
 
-Click Run — the bot will type each prompt, generate images, and download them automatically
+- **Native DOM Injection:** Fully replaced CDP with native events for a cleaner, professional-grade user experience (no "Debugging" warning).
+- **Real-time Analytics:** Added dynamic Avg Speed and ETA tracking.
+- **Refining Radar:** Updated XPath to detect "Refining" status, ensuring precise download timing.
+- **System Stability:** Added anti-sleep prevention to keep machines active during long batch sessions.
 
-Monitor real-time progress, speed, and ETA in Session Analytics
+### v1.1.3
 
-📋 Release Notes
-v1.1.4 — Production Polish & Real-time Analytics
-Native DOM Injection: Fully replaced CDP with native events for a cleaner, professional-grade user experience (no "Debugging" warning).
+- Rebranded to **NRA DreamLab**.
+- Implemented robust DOM polling and dynamic button slicing.
 
-Real-time Analytics: Added dynamic Avg Speed and ETA tracking.
+### v1.1.2
 
-Refining Radar: Updated XPath to detect "Refining" status, ensuring precise download timing.
+- Initial release with CDP-based automation and core queueing.
 
-System Stability: Added anti-sleep prevention to keep machines active during long batch sessions.
+---
 
-v1.1.3
-Rebranded to NRA DreamLab.
+## 👤 Author
 
-Implemented robust DOM polling and dynamic button slicing.
+**Novri Rizki Akbar**
 
-v1.1.2
-Initial release with CDP-based automation and core queueing.
+- GitHub: [@novri-ra](https://github.com/novri-ra)
+- Support & Premium Products: [lynk.id/novri-ra](https://lynk.id/novri-ra)
 
-👤 Author
-Novri Rizki Akbar
+---
 
-GitHub: @novri-ra
+## 📄 License
 
-Support & Premium Products: lynk.id/novri-ra
-
-📄 License
-This project is for educational purposes only. See LICENSE for details.
+This project is for educational purposes only. See [LICENSE](LICENSE) for details.
