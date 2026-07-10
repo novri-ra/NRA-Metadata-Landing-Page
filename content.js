@@ -912,16 +912,12 @@ async function submitAndWaitForImages() {
   const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON);
   if (!generateBtn) throw new Error("Generate button not found");
 
-  // Tag existing download buttons so we can detect dynamically added ones later
-  const existingButtons = document.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON);
-  existingButtons.forEach(btn => btn.setAttribute("data-bot-seen", "true"));
-
   await safeCdpClick(generateBtn, "generate button");
 
-  console.log("[NRA DreamLab] Menunggu indikator loading muncul...");
+  console.log("[Canva Automation] Menunggu proses generasi selesai...");
   chrome.runtime.sendMessage({
     action: "STATUS_UPDATE",
-    status: "Generating images... (Smart Polling)",
+    status: "Generating...",
   });
 
   const checkLoadingIndicators = () => {
@@ -942,32 +938,13 @@ async function submitAndWaitForImages() {
     return !!(progressBar || generatingText || isBtnDisabled);
   };
 
-  // 1. SMART POLLING TERPADU (Maksimal 60 Detik Total)
-  // Menunggu 2 detik di awal agar React selesai me-render state loading
   await delay(2000);
 
-  if (!loadingStarted) {
-    console.warn(
-      "[NRA DreamLab] Indikator loading tidak terdeteksi setelah 10 detik. Mencoba melanjutkan pengecekan render...",
-    );
-  } else {
-    console.log(
-      "[NRA DreamLab] Indikator loading terdeteksi. Menunggu render selesai...",
-    );
-    chrome.runtime.sendMessage({
-      action: "STATUS_UPDATE",
-      status: "Generating images... (Waiting for render)",
-    });
-  }
-
-  // 2. Smart Wait: Tunggu indikator loading HILANG (maksimal 60 detik)
-  let isGenerating = true;
   let renderElapsed = 0;
   const timeout = 60000;
-  let isGenerating = checkLoadingIndicators(); // Cek status awal
 
-  // Jika setelah 2 detik masih 'isGenerating', berarti proses sedang berlangsung.
-  // Jika tidak, bisa jadi sudah selesai sangat cepat, atau DOM-nya berbeda. Kita tetap tunggu sebentar (Fallback).
+  // DEKLARASI HANYA DILAKUKAN SATU KALI DI SINI
+  let isGenerating = checkLoadingIndicators();
 
   while (isGenerating && renderElapsed < timeout) {
     if (!isRunning) throw new Error("USER_STOPPED");
@@ -976,20 +953,17 @@ async function submitAndWaitForImages() {
       isGenerating = false;
       break;
     } else {
-      await delay(1000); // Polling setiap 1 detik
+      await delay(1000);
       renderElapsed += 1000;
     }
   }
 
   if (renderElapsed >= timeout) {
-    console.warn(
-      "[NRA DreamLab] Timeout 60 detik terlampaui saat menunggu render gambar. Mencoba melanjutkan...",
-    );
+    console.log("[Canva Automation] Timeout 60 detik tercapai. Mencoba melanjutkan...");
   } else {
-    console.log("[NRA DreamLab] Render gambar selesai!");
+    console.log("[Canva Automation] Siklus render selesai terdeteksi!");
   }
 
-  // Ekstra delay 2 detik untuk memastikan gambar benar-benar sudah merender di DOM sebelum diunduh
   await delay(2000);
 }
 
@@ -1183,6 +1157,8 @@ async function startMainLoop() {
     sessionStats.startTime = Date.now();
     const aspectRatio = result.aspectRatio;
     const imageStyle = result.imageStyle;
+    const limitRes = await chrome.storage.local.get(["batchLimit"]);
+    batchLimitGlobal = parseInt(limitRes.batchLimit, 10) || 0;
     const downloadCountSetting = result.downloadCount || "4";
 
     if (prompts.length === 0) {
@@ -1363,41 +1339,21 @@ async function prepareAndSubmitPrompt(
   await submitAndWaitForImages();
 }
 
-async function executeDownloadBatchWithRetry(
-  downloadCountSetting,
-  maxRetries,
-  currentPrompt,
-  imageStyle,
-  aspectRatio,
-) {
+async function executeDownloadBatchWithRetry(downloadCountSetting, maxRetries, currentPrompt, imageStyle, aspectRatio) {
   let downloadSuccess = false;
   let retryCount = 0;
-
   while (!downloadSuccess && retryCount < maxRetries) {
     try {
       await handleDownload(downloadCountSetting);
       downloadSuccess = true;
     } catch (error) {
-      console.error(
-        `[Canva Automation] Download attempt ${retryCount + 1} failed:`,
-        error.message,
-      );
+      console.error("[Canva Automation] Download attempt " + (retryCount + 1) + " failed:", error.message);
       retryCount++;
-
       if (retryCount < maxRetries) {
-        console.log(
-          `[Canva Automation] Attempting recovery (${retryCount}/${maxRetries})...`,
-        );
-        // Refresh the page to reset state
+        console.log("[Canva Automation] Attempting recovery...");
+        await chrome.storage.local.set({ isRecovering: true });
         window.location.reload();
-        // Wait for page to reload
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-        // Reconfigure style and ratio after refresh
-        await configureStyleAndRatio(imageStyle, aspectRatio);
-        // Re-inject the current prompt
-        await injectPrompt(currentPrompt);
-        // Re-submit the prompt
-        await submitAndWaitForImages();
+        return false;
       }
     }
   }
@@ -1446,5 +1402,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => { });
     sendResponse({ success: true });
     return true;
+  }
+});
+
+chrome.storage.local.get(['isAutomating', 'isRecovering'], (res) => {
+  if (res.isAutomating === true && res.isRecovering === true) {
+    console.log("[Canva Automation] Memulihkan sesi setelah reload...");
+    chrome.storage.local.set({ isRecovering: false }, () => {
+      setTimeout(() => {
+        if (!isLoopActive) {
+          isRunning = true;
+          isLoopActive = true;
+          startMainLoop().catch(err => console.error(err)).finally(() => {
+            isLoopActive = false;
+            isRunning = false;
+          });
+        }
+      }, 3000);
+    });
   }
 });

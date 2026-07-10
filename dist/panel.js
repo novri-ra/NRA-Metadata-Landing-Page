@@ -1,1 +1,1118 @@
-const a0_0xea7320=a0_0x2216;(function(_0x4eed50,_0x259d19){const _0x1fdd4f=a0_0x2216,_0xda99b5=_0x4eed50();while(!![]){try{const _0x4171e6=parseInt(_0x1fdd4f(0x206))/0x1*(-parseInt(_0x1fdd4f(0x142))/0x2)+parseInt(_0x1fdd4f(0x169))/0x3+parseInt(_0x1fdd4f(0x127))/0x4+parseInt(_0x1fdd4f(0x1e4))/0x5*(parseInt(_0x1fdd4f(0x138))/0x6)+parseInt(_0x1fdd4f(0x1f1))/0x7+parseInt(_0x1fdd4f(0x145))/0x8*(parseInt(_0x1fdd4f(0x1b4))/0x9)+-parseInt(_0x1fdd4f(0x182))/0xa*(parseInt(_0x1fdd4f(0x194))/0xb);if(_0x4171e6===_0x259d19)break;else _0xda99b5['push'](_0xda99b5['shift']());}catch(_0x798bb5){_0xda99b5['push'](_0xda99b5['shift']());}}}(a0_0x3980,0x8aeb0));let isRunning=![],isDebugMode=![];function applyCustomUI(_0x433105,_0x3c45f1){const _0x49593a=a0_0x2216;document['body']['className']='',_0x433105&&_0x3c45f1&&document[_0x49593a(0x19e)][_0x49593a(0x17b)]['add'](_0x433105,_0x3c45f1);}function syncRunButtonUI(_0x4e2187){const _0x1c41dc=a0_0x2216,_0xd2b285=document[_0x1c41dc(0x11c)](_0x1c41dc(0x19a));if(!_0xd2b285)return;isRunning=_0x4e2187;if(_0x4e2187)_0xd2b285[_0x1c41dc(0x1c7)]=_0x1c41dc(0x164),_0xd2b285['style']['background']=_0x1c41dc(0x1a1),_0xd2b285[_0x1c41dc(0x117)]['boxShadow']=_0x1c41dc(0x124);else{_0xd2b285[_0x1c41dc(0x1c7)]='Run',_0xd2b285[_0x1c41dc(0x117)]['background']='',_0xd2b285[_0x1c41dc(0x117)][_0x1c41dc(0x126)]='',chrome[_0x1c41dc(0x116)][_0x1c41dc(0x1cc)][_0x1c41dc(0x1d7)]({'isPaused':![]});const _0x5622c5=document[_0x1c41dc(0x11c)](_0x1c41dc(0x1f8));_0x5622c5&&(_0x5622c5['textContent']=_0x1c41dc(0x18d),_0x5622c5[_0x1c41dc(0x117)][_0x1c41dc(0x147)]=_0x1c41dc(0x1ea));}}function updateStatsUI(_0x4d8e44){const _0x33de1e=a0_0x2216;if(!_0x4d8e44)return;const _0x3aa102=Number(_0x4d8e44['successCount'])||0x0,_0x373b5=Number(_0x4d8e44[_0x33de1e(0x171)])||0x0,_0x5d2034=document['getElementById'](_0x33de1e(0x137));if(_0x5d2034)_0x5d2034[_0x33de1e(0x1c7)]=_0x3aa102;const _0x24b580=document[_0x33de1e(0x11c)](_0x33de1e(0x166));if(_0x24b580)_0x24b580[_0x33de1e(0x1c7)]=_0x373b5;const _0x4aad01=document['getElementById']('stat-rate');if(_0x4aad01){if(_0x3aa102>0x0){let _0x63bb36=Math[_0x33de1e(0x16d)](_0x373b5/_0x3aa102*0x64);if(isNaN(_0x63bb36))_0x63bb36=0x0;_0x4aad01[_0x33de1e(0x1c7)]=_0x63bb36+'%';}else _0x4aad01['textContent']='0%';}const _0x3368e8=document[_0x33de1e(0x11c)](_0x33de1e(0x17d));if(_0x3368e8){if(_0x4d8e44[_0x33de1e(0x12b)]){let _0x197f3a=Date[_0x33de1e(0x207)]()-Number(_0x4d8e44['startTime']);if(isNaN(_0x197f3a)||_0x197f3a<0x0)_0x197f3a=0x0;const _0x4155d2=Math[_0x33de1e(0x15b)](_0x197f3a/0x3e8),_0x2a5a26=Math[_0x33de1e(0x15b)](_0x4155d2/0x3c),_0x395e6b=_0x4155d2%0x3c;_0x3368e8['textContent']=_0x2a5a26[_0x33de1e(0x1b3)]()['padStart'](0x2,'0')+':'+_0x395e6b[_0x33de1e(0x1b3)]()[_0x33de1e(0x1e1)](0x2,'0');}else _0x3368e8[_0x33de1e(0x1c7)]='00:00';}}let startBtn,promptInput,aspectRatioSelect,imageStyleSelect,downloadCountSelect,debugModeSelect,progressText,statusText,statusDot,failedPromptsTextarea,consoleLogs;function initUIElements(){const _0x4ea2d6=a0_0x2216;startBtn=document[_0x4ea2d6(0x11c)]('startBtn'),promptInput=document[_0x4ea2d6(0x11c)](_0x4ea2d6(0x13d)),aspectRatioSelect=document[_0x4ea2d6(0x11c)](_0x4ea2d6(0x20d)),imageStyleSelect=document[_0x4ea2d6(0x11c)](_0x4ea2d6(0x141)),downloadCountSelect=document[_0x4ea2d6(0x11c)](_0x4ea2d6(0x171)),debugModeSelect=document[_0x4ea2d6(0x11c)]('debugMode'),progressText=document[_0x4ea2d6(0x11c)](_0x4ea2d6(0x1af)),statusText=document[_0x4ea2d6(0x11c)]('statusText'),statusDot=document[_0x4ea2d6(0x11c)](_0x4ea2d6(0x155)),failedPromptsTextarea=document[_0x4ea2d6(0x11c)]('failedPrompts'),consoleLogs=document[_0x4ea2d6(0x11c)](_0x4ea2d6(0x1fa));}function initStorageListeners(){const _0x5060c8=a0_0x2216;chrome[_0x5060c8(0x116)][_0x5060c8(0x1cc)][_0x5060c8(0x1d3)](['prompts',_0x5060c8(0x168),_0x5060c8(0x1ff),_0x5060c8(0x20d),_0x5060c8(0x141),_0x5060c8(0x15f),_0x5060c8(0x151),_0x5060c8(0x184),_0x5060c8(0x131),_0x5060c8(0x12d),_0x5060c8(0x197),_0x5060c8(0x1a0),_0x5060c8(0x1a5),_0x5060c8(0x113),'createSubfolder',_0x5060c8(0x143),'sessionStats'],_0x4e9e55=>{const _0x443b5b=_0x5060c8;if(_0x4e9e55){if(_0x4e9e55['sessionStats'])updateStatsUI(_0x4e9e55[_0x443b5b(0x14d)]);const _0x28532b=_0x4e9e55[_0x443b5b(0x131)]||_0x443b5b(0x1c4),_0x101017=_0x4e9e55[_0x443b5b(0x12d)]||_0x443b5b(0x1f4);if(document[_0x443b5b(0x11c)](_0x443b5b(0x174)))document[_0x443b5b(0x11c)](_0x443b5b(0x174))['value']=_0x28532b;if(document['getElementById']('fontSelect'))document[_0x443b5b(0x11c)](_0x443b5b(0x17f))['value']=_0x101017;applyCustomUI(_0x28532b,_0x101017);const _0x4ea072=document[_0x443b5b(0x11c)](_0x443b5b(0x1b2)),_0x3d1792=document[_0x443b5b(0x11c)](_0x443b5b(0x148)),_0x1130e6=document[_0x443b5b(0x11c)]('safetyDelaySlider'),_0x406d14=document[_0x443b5b(0x11c)]('safetyDelayVal'),_0x43f5ae=document[_0x443b5b(0x11c)]('saveDelaySlider'),_0x5ef506=document[_0x443b5b(0x11c)](_0x443b5b(0x1ec)),_0x4dd081=document[_0x443b5b(0x11c)]('soundToggle'),_0xb20b79=document['getElementById'](_0x443b5b(0x1b1)),_0x53be9e=document[_0x443b5b(0x11c)](_0x443b5b(0x205));if(_0x4e9e55[_0x443b5b(0x113)]&&_0x4ea072)_0x4ea072['value']=_0x4e9e55[_0x443b5b(0x113)];if(_0x4e9e55[_0x443b5b(0x197)]!==undefined&&_0x3d1792)_0x3d1792['value']=_0x4e9e55[_0x443b5b(0x197)];if(_0x4e9e55[_0x443b5b(0x1a0)]!==undefined){if(_0x1130e6)_0x1130e6['value']=_0x4e9e55[_0x443b5b(0x1a0)];if(_0x406d14)_0x406d14[_0x443b5b(0x1c7)]=_0x4e9e55['safetyDelay'];}if(_0x4e9e55[_0x443b5b(0x18f)]!==undefined){if(_0x43f5ae)_0x43f5ae[_0x443b5b(0x198)]=_0x4e9e55[_0x443b5b(0x18f)];if(_0x5ef506)_0x5ef506[_0x443b5b(0x1c7)]=_0x4e9e55[_0x443b5b(0x18f)];}if(_0x4e9e55[_0x443b5b(0x1a5)]!==undefined&&_0x4dd081)_0x4dd081[_0x443b5b(0x114)]=_0x4e9e55[_0x443b5b(0x1a5)];if(_0xb20b79)_0xb20b79[_0x443b5b(0x114)]=_0x4e9e55[_0x443b5b(0x1c2)]===!![];if(_0x53be9e)_0x53be9e[_0x443b5b(0x114)]=_0x4e9e55[_0x443b5b(0x133)]!==![];if(_0x4e9e55[_0x443b5b(0x168)]===!![]&&_0x4e9e55['prompts']&&_0x4e9e55['prompts'][_0x443b5b(0x1a3)]>0x0)progressText['textContent']='Progress:\x20'+_0x4e9e55[_0x443b5b(0x1c0)][_0x443b5b(0x1a3)]+_0x443b5b(0x183),promptInput[_0x443b5b(0x198)]=_0x4e9e55['prompts']['join']('\x0a');else _0x4e9e55['savedPromptText']!==undefined&&(promptInput[_0x443b5b(0x198)]=_0x4e9e55[_0x443b5b(0x1ff)]);_0x4e9e55[_0x443b5b(0x20d)]&&(aspectRatioSelect[_0x443b5b(0x198)]=_0x4e9e55[_0x443b5b(0x20d)]);_0x4e9e55[_0x443b5b(0x141)]&&(imageStyleSelect[_0x443b5b(0x198)]=_0x4e9e55['imageStyle']);_0x4e9e55[_0x443b5b(0x15f)]&&(downloadCountSelect[_0x443b5b(0x198)]=_0x4e9e55['savedDownloadCount']);_0x4e9e55[_0x443b5b(0x184)]!==undefined&&(isDebugMode=_0x4e9e55['savedDebugMode']===!![],debugModeSelect[_0x443b5b(0x198)]=isDebugMode?_0x443b5b(0x1ca):_0x443b5b(0x16a));_0x4e9e55['savedFailedPrompts']&&(failedPromptsTextarea[_0x443b5b(0x198)]=_0x4e9e55[_0x443b5b(0x151)]);if(_0x4e9e55[_0x443b5b(0x143)]>0x0){const _0x35dd1f=document[_0x443b5b(0x11c)](_0x443b5b(0x1b8));if(_0x35dd1f){const _0x13fedd=document['createElement'](_0x443b5b(0x1dc));_0x13fedd['className']=_0x443b5b(0x1c6),_0x13fedd[_0x443b5b(0x1c7)]=_0x443b5b(0x11f)+(_0x4e9e55[_0x443b5b(0x143)]+0x1)+'?',_0x35dd1f[_0x443b5b(0x129)](_0x13fedd);}}syncRunButtonUI(_0x4e9e55[_0x443b5b(0x168)]===!![]);}}),chrome['storage'][_0x5060c8(0x176)][_0x5060c8(0x1d8)]((_0x397881,_0x3b2f68)=>{const _0x3750d0=_0x5060c8;if(_0x3b2f68===_0x3750d0(0x1cc)){if(_0x397881['isAutomating']){const _0x2869c8=_0x397881[_0x3750d0(0x168)][_0x3750d0(0x1cf)];syncRunButtonUI(_0x2869c8===!![]);}_0x397881[_0x3750d0(0x14d)]&&updateStatsUI(_0x397881[_0x3750d0(0x14d)][_0x3750d0(0x1cf)]);}});const _0x48a640=document[_0x5060c8(0x11c)](_0x5060c8(0x18c));chrome[_0x5060c8(0x116)][_0x5060c8(0x1cc)][_0x5060c8(0x1d3)](['downloadFolder'],_0x3f4047=>{const _0x48f2c9=_0x5060c8;_0x48a640&&_0x3f4047[_0x48f2c9(0x18e)]!==undefined&&(_0x48a640[_0x48f2c9(0x198)]=_0x3f4047['downloadFolder']);});}function initEventListeners(){const _0x5864e0=a0_0x2216;let _0x34b451;promptInput[_0x5864e0(0x1c5)]('input',()=>{clearTimeout(_0x34b451),_0x34b451=setTimeout(()=>{const _0x541526=a0_0x2216;chrome[_0x541526(0x116)]['local']['set']({'savedPromptText':promptInput[_0x541526(0x198)]});},0x1f4);}),aspectRatioSelect[_0x5864e0(0x1c5)](_0x5864e0(0x1e8),()=>{const _0x157e4b=_0x5864e0;chrome[_0x157e4b(0x116)][_0x157e4b(0x1cc)][_0x157e4b(0x1d7)]({'savedAspectRatio':aspectRatioSelect[_0x157e4b(0x198)]});}),imageStyleSelect[_0x5864e0(0x1c5)]('change',()=>{const _0x4ed66d=_0x5864e0;chrome[_0x4ed66d(0x116)][_0x4ed66d(0x1cc)]['set']({'savedImageStyle':imageStyleSelect[_0x4ed66d(0x198)]});}),downloadCountSelect[_0x5864e0(0x1c5)]('change',()=>{const _0x1a9264=_0x5864e0;chrome[_0x1a9264(0x116)][_0x1a9264(0x1cc)][_0x1a9264(0x1d7)]({'savedDownloadCount':downloadCountSelect['value']});}),debugModeSelect[_0x5864e0(0x1c5)](_0x5864e0(0x1e8),()=>{const _0x353341=_0x5864e0;isDebugMode=debugModeSelect['value']===_0x353341(0x1ca),chrome[_0x353341(0x116)][_0x353341(0x1cc)]['set']({'savedDebugMode':isDebugMode});});const _0x1e7d66=document[_0x5864e0(0x11c)](_0x5864e0(0x1b1));_0x1e7d66&&_0x1e7d66[_0x5864e0(0x1c5)](_0x5864e0(0x1e8),()=>{const _0x38bde5=_0x5864e0;chrome[_0x38bde5(0x116)][_0x38bde5(0x1cc)][_0x38bde5(0x1d7)]({'createSubfolder':_0x1e7d66[_0x38bde5(0x114)]});});const _0x227edb=document[_0x5864e0(0x11c)]('downloadFolderInput');_0x227edb&&_0x227edb[_0x5864e0(0x1c5)](_0x5864e0(0x1e8),()=>{const _0x59151e=_0x5864e0,_0x21d07f=_0x227edb[_0x59151e(0x198)]['trim']();chrome[_0x59151e(0x116)][_0x59151e(0x1cc)]['set']({'downloadFolder':_0x21d07f}),console[_0x59151e(0x14b)](_0x59151e(0x130),_0x21d07f||'(default)');});const _0x447234=document[_0x5864e0(0x11c)](_0x5864e0(0x205));_0x447234&&_0x447234[_0x5864e0(0x1c5)]('change',()=>{const _0x2ef74e=_0x5864e0;chrome['storage'][_0x2ef74e(0x1cc)][_0x2ef74e(0x1d7)]({'verboseLogs':_0x447234[_0x2ef74e(0x114)]});}),startBtn&&startBtn[_0x5864e0(0x1c5)](_0x5864e0(0x125),()=>{const _0x19d24c=_0x5864e0;chrome[_0x19d24c(0x116)]['local'][_0x19d24c(0x1d3)]([_0x19d24c(0x168),_0x19d24c(0x143)],_0x253371=>{const _0x563b72=_0x19d24c,_0x309a51=_0x253371[_0x563b72(0x168)]===!![];if(_0x309a51)chrome[_0x563b72(0x116)][_0x563b72(0x1cc)][_0x563b72(0x1d7)]({'isAutomating':![],'step':_0x563b72(0x157)}),statusText[_0x563b72(0x1c7)]=_0x563b72(0x120),statusDot[_0x563b72(0x117)][_0x563b72(0x172)]=_0x563b72(0x1de),statusDot[_0x563b72(0x17b)][_0x563b72(0x195)](_0x563b72(0x186)),chrome[_0x563b72(0x150)][_0x563b72(0x1a9)]({'url':_0x563b72(0x1e7)},_0x5e1761=>{const _0x45acba=_0x563b72;if(_0x5e1761[_0x45acba(0x1a3)]===0x0){console[_0x45acba(0x11b)](_0x45acba(0x1e5));return;}_0x5e1761&&_0x5e1761[_0x45acba(0x1a3)]>0x0&&chrome[_0x45acba(0x150)]['sendMessage'](_0x5e1761[0x0]['id'],{'action':'STOP_AUTOMATION'},_0x167d30=>{const _0x494a4c=_0x45acba;if(chrome['runtime'][_0x494a4c(0x160)]){console[_0x494a4c(0x11b)](_0x494a4c(0x13b),chrome[_0x494a4c(0x13f)][_0x494a4c(0x160)][_0x494a4c(0x14e)]),statusText['textContent']=_0x494a4c(0x167),statusDot[_0x494a4c(0x117)][_0x494a4c(0x172)]='#ef4444',statusDot[_0x494a4c(0x17b)][_0x494a4c(0x195)](_0x494a4c(0x186)),chrome[_0x494a4c(0x116)][_0x494a4c(0x1cc)][_0x494a4c(0x1d7)]({'isAutomating':![]});return;}});});else{chrome[_0x563b72(0x116)][_0x563b72(0x1cc)][_0x563b72(0x1d7)]({'isPaused':![]});const _0x15bb4e=promptInput['value'],_0x2f981e=_0x15bb4e[_0x563b72(0x17c)]('\x0a')['map'](_0x3b6b04=>sanitizeInput(_0x3b6b04['trim']()))['filter'](_0x5d3626=>_0x5d3626[_0x563b72(0x1a3)]>0x0);let _0x57648f=[];for(let _0xa2f5d5 of _0x2f981e){if(_0xa2f5d5[_0x563b72(0x1fd)](_0x563b72(0x175))){const _0x25af01=prompt(_0x563b72(0x159)+_0xa2f5d5+_0x563b72(0x1fb),'5');if(_0x25af01===null){_0x57648f[_0x563b72(0x1ee)](_0xa2f5d5);continue;}const _0x45f203=parseInt(_0x25af01,0xa);if(isNaN(_0x45f203)||_0x45f203<0x1){alert(_0x563b72(0x1f0)),_0x57648f['push'](_0xa2f5d5);continue;}const _0x203d17=expandPromptWithVariable(_0xa2f5d5,_0x45f203);_0x57648f['push'](..._0x203d17);}else _0x57648f[_0x563b72(0x1ee)](_0xa2f5d5);}_0x2f981e[_0x563b72(0x1a3)]=0x0,_0x2f981e[_0x563b72(0x1ee)](..._0x57648f);const _0x3a3f95=_0x2f981e[_0x563b72(0x1c8)]('\x0a');promptInput[_0x563b72(0x198)]=_0x3a3f95,chrome[_0x563b72(0x116)][_0x563b72(0x1cc)][_0x563b72(0x1d7)]({'savedPromptText':_0x3a3f95});if(_0x2f981e['length']===0x0){alert(_0x563b72(0x1b5));return;}failedPromptsTextarea['value']='',chrome[_0x563b72(0x116)][_0x563b72(0x1cc)][_0x563b72(0x1d7)]({'savedFailedPrompts':''});let _0x3f4560=0x0;if(_0x253371['lastProcessedPromptIndex']>0x0){_0x3f4560=_0x253371[_0x563b72(0x143)];const _0x555906=_0x2f981e[_0x563b72(0x1b7)](_0x3f4560);progressText[_0x563b72(0x1c7)]=_0x563b72(0x15e)+_0x555906['length']+'\x20prompts\x20remaining\x20(resuming\x20from\x20#'+(_0x3f4560+0x1)+')';}else progressText[_0x563b72(0x1c7)]=_0x563b72(0x15e)+_0x2f981e['length']+_0x563b72(0x183);statusText['textContent']=_0x563b72(0x115);const _0x47367b={'isAutomating':!![],'step':_0x563b72(0x119),'prompts':_0x2f981e,'aspectRatio':aspectRatioSelect[_0x563b72(0x198)],'imageStyle':imageStyleSelect['value'],'downloadCount':downloadCountSelect['value']};chrome['storage'][_0x563b72(0x1cc)][_0x563b72(0x1d7)](_0x47367b,()=>{const _0x2a73d1=_0x563b72;console[_0x2a73d1(0x14b)](_0x2a73d1(0x19d),_0x47367b),chrome[_0x2a73d1(0x150)][_0x2a73d1(0x1a9)]({'url':_0x2a73d1(0x1e7)},_0x250114=>{const _0x5ef26d=_0x2a73d1;if(_0x250114[_0x5ef26d(0x1a3)]===0x0){console[_0x5ef26d(0x11b)](_0x5ef26d(0x1e5));return;}_0x250114&&_0x250114[_0x5ef26d(0x1a3)]>0x0&&chrome[_0x5ef26d(0x150)]['sendMessage'](_0x250114[0x0]['id'],{'action':_0x5ef26d(0x1dd)},_0x173847=>{const _0x567602=_0x5ef26d;if(chrome[_0x567602(0x13f)]['lastError']){console[_0x567602(0x11b)]('[Panel]\x20sendMessage\x20failed:',chrome['runtime'][_0x567602(0x160)][_0x567602(0x14e)]),statusText[_0x567602(0x1c7)]=_0x567602(0x167),statusDot[_0x567602(0x117)][_0x567602(0x172)]='#ef4444',statusDot['classList'][_0x567602(0x195)]('active'),chrome[_0x567602(0x116)]['local']['set']({'isAutomating':![]});return;}});});});}});});}function a0_0x2216(_0x2aa988,_0x54f8ee){_0x2aa988=_0x2aa988-0x113;const _0x3980d0=a0_0x3980();let _0x2216a8=_0x3980d0[_0x2aa988];return _0x2216a8;}document[a0_0xea7320(0x1c5)]('DOMContentLoaded',()=>{const _0x1b82d2=a0_0xea7320;console[_0x1b82d2(0x14b)](_0x1b82d2(0x1b6)),window[_0x1b82d2(0x1c5)]('unhandledrejection',function(_0x300e8b){const _0x3b0cac=_0x1b82d2;console[_0x3b0cac(0x1fc)](_0x3b0cac(0x1e9),_0x300e8b[_0x3b0cac(0x204)]),statusText&&(statusText['textContent']='Error:\x20'+(_0x300e8b['reason']?.['message']||_0x3b0cac(0x165))),_0x300e8b[_0x3b0cac(0x1ba)]();}),initUIElements(),initStorageListeners(),initEventListeners(),initCollapseLogic(),initMessageListeners(),initExtendedFeatures();});function initCollapseLogic(){const _0x431f8a=a0_0xea7320,_0x4c4ba2=document[_0x431f8a(0x11e)](_0x431f8a(0x132));_0x4c4ba2[_0x431f8a(0x192)](_0x460847=>{const _0x3efe4a=_0x431f8a;_0x460847['addEventListener'](_0x3efe4a(0x125),_0x3c0741=>{const _0x3bff25=_0x3efe4a;if(_0x3c0741[_0x3bff25(0x188)]['closest'](_0x3bff25(0x185)))return;const _0x43ea2c=_0x460847[_0x3bff25(0x20f)](_0x3bff25(0x15c)),_0x3ad8e7=document[_0x3bff25(0x11c)](_0x43ea2c),_0x239360=_0x460847[_0x3bff25(0x121)](_0x3bff25(0x1df));_0x3ad8e7&&(_0x3ad8e7['classList'][_0x3bff25(0x1d2)]('collapsed'),_0x3ad8e7[_0x3bff25(0x17b)]['contains'](_0x3bff25(0x18b))?_0x239360['textContent']=_0x3bff25(0x200):_0x239360['textContent']=_0x3bff25(0x146));});});}function a0_0x3980(){const _0xc0f49c=['split','stat-time','Please\x20open\x20Canva\x20Dream\x20Lab','fontSelect','suspended','importFileBtn','1395960kDTrip','\x20prompts\x20remaining','savedDebugMode','.icon-btn','active','webkitAudioContext','target','Tidak\x20ada\x20prompt\x20di\x20Quarantine\x20untuk\x20diulang.','[Canva\x20Auto\x20Prompter]\x20Received\x20status\x20update:','collapsed','downloadFolderInput','⏸\x20PAUSE','downloadFolder','saveDelay','resume','borderColor','forEach','icon.png','220xdQESI','remove','UPDATE_STATS','batchLimit','value','getTime','startBtn','complete','safetyDelayVal','[Canva\x20Auto\x20Prompter]\x20Bulk\x20automation\x20state\x20saved:','body','Connected','safetyDelay','#e74c3c','Are\x20you\x20sure\x20you\x20want\x20to\x20clear\x20all\x20prompts?','length','gain','playSounds','className','.txt','stats','query','#a855f7','[?]','saveDelaySlider','STATUS_UPDATE','AudioContext','progressText','PING','subfolderToggle','typingModeSelect','toString','90eashvP','Please\x20enter\x20at\x20least\x20one\x20prompt!','[Panel]\x20DOMContentLoaded\x20fired.\x20Event\x20listeners\x20are\x20being\x20attached...','slice','status-container','readAsText','preventDefault','toLowerCase','currentTime','setValueAtTime','PROGRESS_UPDATE','innerText','prompts','scrollTop','createSubfolder','result','theme-retro','addEventListener','resume-message','textContent','join','openDreamLabBtn','true','basic','local','createGain','retryQuarantineBtn','newValue','createOscillator','exponentialRampToValueAtTime','toggle','get','READY','stop','connect','set','addListener','PROMPT_FAILED','failedPrompt','4px\x204px\x200px\x20#b9770e','div','START_AUTOMATION','#ef4444','.toggle-icon','4px\x204px\x200px\x20#27ae60','padStart','safetyDelaySlider','en-US','5HYBAEo','No\x20active\x20Dream\x20Lab\x20tab\x20found.','create','*://*.canva.com/dream-lab*','change','[Panel]\x20Unhandled\x20Promise\x20rejection:','#f39c12','frequency','saveDelayVal','settingsModal','push','shortcutDisplay','Jumlah\x20iterasi\x20harus\x20berupa\x20angka\x20positif.\x20Prompt\x20akan\x20digunakan\x20apa\x20adanya.','5354370pueHVe','#10b981','destination','font-pixel','toUpperCase','level','Unknown\x20Failed\x20Prompt','pauseButton','files','consoleLogs','\x22\x20mengandung\x20{i}.\x20Berapa\x20jumlah\x20iterasi\x20yang\x20diinginkan?','error','includes','filter','savedPromptText','[+]','platform','revokeObjectURL','[>]','reason','verboseLogsToggle','974OZdZlj','now','status','undefined','hidden','▶\x20RESUME','isPaused','aspectRatio','trim','getAttribute','typingMode','checked','Starting...','storage','style','Success!\x20All\x20prompts\x20have\x20been\x20processed.','INJECT_PROMPT','.resume-message','warn','getElementById','Progress:\x200\x20prompts\x20remaining','querySelectorAll','Resume\x20from\x20prompt\x20#','Stopping\x20automation...','querySelector','log-entry\x20log-','PLAY_COMPLETION_SOUND','0\x204px\x2015px\x20rgba(231,\x2076,\x2060,\x200.4)','click','boxShadow','3962032XIZOHX','UPDATE_TEXTAREA','appendChild','scrollHeight','startTime','Cmd+Shift+P','uiFont','action','createElement','[Canva\x20Auto\x20Prompter]\x20📁\x20Download\x20folder\x20set\x20to:','uiTheme','.toggle-header','verboseLogs','notifications','add','closeSettingsBtn','stat-processed','1753668AyxKyY','https://www.canva.com/dream-lab','text/plain','[Panel]\x20sendMessage\x20failed:','Ctrl+Shift+P','promptInput','input','runtime','map','imageStyle','1460NXRtwo','lastProcessedPromptIndex','toLocaleTimeString','715952KvfamI','[-]','background','batchLimitInput','removeChild','ERROR','log','firstElementChild','sessionStats','message','Canva_Logs_','tabs','savedFailedPrompts','Canva\x20Connected','WARN','remainingPrompts','statusIndicator','#2ecc71','IDLE','Canva\x20Auto\x20Prompter','Prompt\x20\x22','modal-open','floor','data-target','onload','Progress:\x20','savedDownloadCount','lastError','prompt','onMessage','[!]','Stop','Unknown\x20error','stat-downloaded','Error:\x20Cannot\x20communicate\x20with\x20Canva\x20tab.\x20Please\x20refresh.','isAutomating','3387936XTduyC','false','Error:\x20Please\x20refresh\x20the\x20Canva\x20tab','chrome://extensions/shortcuts','round','INFO','state','soundToggle','downloadCount','backgroundColor','CONSOLE_LOG','themeSelect','{i}','onChanged','[Canva\x20Auto\x20Prompter]\x20Notification\x20alert\x20failed:','MAC','childElementCount','createObjectURL','classList'];a0_0x3980=function(){return _0xc0f49c;};return a0_0x3980();}let sharedAudioCtx=null;function playAlertSound(){const _0x4fcea9=a0_0xea7320;try{const _0x44e8f6=window[_0x4fcea9(0x1ae)]||window[_0x4fcea9(0x187)];if(!_0x44e8f6)return;(!sharedAudioCtx||sharedAudioCtx[_0x4fcea9(0x16f)]==='closed')&&(sharedAudioCtx=new _0x44e8f6());sharedAudioCtx[_0x4fcea9(0x16f)]===_0x4fcea9(0x180)&&sharedAudioCtx[_0x4fcea9(0x190)]();const _0x28d536=sharedAudioCtx[_0x4fcea9(0x1d0)](),_0x5eed3e=sharedAudioCtx[_0x4fcea9(0x1cd)]();_0x28d536['connect'](_0x5eed3e),_0x5eed3e[_0x4fcea9(0x1d6)](sharedAudioCtx[_0x4fcea9(0x1f3)]);const _0x323d23=sharedAudioCtx[_0x4fcea9(0x1bc)];_0x28d536[_0x4fcea9(0x1eb)][_0x4fcea9(0x1bd)](523.25,_0x323d23),_0x5eed3e[_0x4fcea9(0x1a4)][_0x4fcea9(0x1bd)](0.15,_0x323d23),_0x5eed3e[_0x4fcea9(0x1a4)][_0x4fcea9(0x1d1)](0.001,_0x323d23+0.15),_0x28d536[_0x4fcea9(0x1eb)][_0x4fcea9(0x1bd)](659.25,_0x323d23+0.15),_0x5eed3e[_0x4fcea9(0x1a4)][_0x4fcea9(0x1bd)](0.15,_0x323d23+0.15),_0x5eed3e[_0x4fcea9(0x1a4)]['exponentialRampToValueAtTime'](0.001,_0x323d23+0.45),_0x28d536['start'](_0x323d23),_0x28d536[_0x4fcea9(0x1d5)](_0x323d23+0.45);}catch(_0x26833d){console[_0x4fcea9(0x11b)]('[Canva\x20Auto\x20Prompter]\x20Web\x20Audio\x20alert\x20failed:',_0x26833d);}}function showBrowserNotification(){const _0x345a27=a0_0xea7320;typeof chrome!==_0x345a27(0x209)&&chrome[_0x345a27(0x134)]&&chrome[_0x345a27(0x134)]['create']({'type':_0x345a27(0x1cb),'iconUrl':_0x345a27(0x193),'title':_0x345a27(0x158),'message':_0x345a27(0x118)},_0x2575b4=>{const _0x1151cf=_0x345a27;chrome[_0x1151cf(0x13f)][_0x1151cf(0x160)]&&console[_0x1151cf(0x11b)](_0x1151cf(0x177),chrome['runtime']['lastError'][_0x1151cf(0x14e)]);});}function initMessageListeners(){const _0x382eac=a0_0xea7320;chrome[_0x382eac(0x150)][_0x382eac(0x1a9)]({'url':_0x382eac(0x1e7)},_0x3e0dfc=>{const _0xf376a=_0x382eac;_0x3e0dfc&&_0x3e0dfc[_0xf376a(0x1a3)]>0x0?(statusText[_0xf376a(0x1c7)]=_0xf376a(0x152),statusDot[_0xf376a(0x17b)]['add'](_0xf376a(0x186)),statusDot[_0xf376a(0x117)][_0xf376a(0x172)]=_0xf376a(0x1f2)):(statusText['textContent']=_0xf376a(0x17e),statusDot[_0xf376a(0x17b)][_0xf376a(0x195)](_0xf376a(0x186)),statusDot[_0xf376a(0x117)][_0xf376a(0x172)]=_0xf376a(0x1de));}),chrome['runtime'][_0x382eac(0x162)][_0x382eac(0x1d8)]((_0x2c1569,_0x508759,_0x20e500)=>{const _0x370aec=_0x382eac;if(!_0x2c1569)return![];const _0x1abf0c=new Set(['CONSOLE_LOG',_0x370aec(0x1d9),'UPDATE_TEXTAREA',_0x370aec(0x1ad),_0x370aec(0x1be),_0x370aec(0x123),_0x370aec(0x196)]);if(_0x2c1569[_0x370aec(0x12e)]&&!_0x1abf0c['has'](_0x2c1569['action']))return![];if(_0x2c1569[_0x370aec(0x12e)]===_0x370aec(0x173)){if(!isDebugMode&&_0x2c1569[_0x370aec(0x1f6)]===_0x370aec(0x16e))return _0x20e500({'success':!![]}),!![];if(consoleLogs){const _0x2f83e7=new Date()[_0x370aec(0x144)](_0x370aec(0x1e3),{'hour12':![]}),_0x2f9edf=_0x2c1569[_0x370aec(0x1f6)]===_0x370aec(0x14a)?_0x370aec(0x163):_0x2c1569['level']===_0x370aec(0x153)?_0x370aec(0x1ab):_0x370aec(0x203),_0x5353b3=document[_0x370aec(0x12f)](_0x370aec(0x1dc));_0x5353b3[_0x370aec(0x1a6)]=_0x370aec(0x122)+_0x2c1569[_0x370aec(0x1f6)]['toLowerCase'](),_0x5353b3[_0x370aec(0x1c7)]=_0x2f83e7+'\x20'+_0x2f9edf+'\x20'+_0x2c1569['message'],consoleLogs['appendChild'](_0x5353b3);const _0x32d94e=0x1f4;while(consoleLogs[_0x370aec(0x179)]>_0x32d94e){consoleLogs[_0x370aec(0x149)](consoleLogs[_0x370aec(0x14c)]);}consoleLogs[_0x370aec(0x1c1)]=consoleLogs[_0x370aec(0x12a)];}return _0x20e500({'success':!![]}),!![];}if(_0x2c1569[_0x370aec(0x12e)]===_0x370aec(0x1d9))return failedPromptsTextarea[_0x370aec(0x198)]?failedPromptsTextarea[_0x370aec(0x198)]+='\x0a'+_0x2c1569['failedPrompt']:failedPromptsTextarea['value']=_0x2c1569[_0x370aec(0x1da)],chrome['storage']['local'][_0x370aec(0x1d7)]({'savedFailedPrompts':failedPromptsTextarea[_0x370aec(0x198)]}),_0x20e500({'success':!![]}),!![];if(_0x2c1569['action']===_0x370aec(0x128))return promptInput[_0x370aec(0x198)]=_0x2c1569[_0x370aec(0x154)]['join']('\x0a'),progressText[_0x370aec(0x1c7)]=_0x370aec(0x15e)+_0x2c1569[_0x370aec(0x154)][_0x370aec(0x1a3)]+_0x370aec(0x183),chrome[_0x370aec(0x116)][_0x370aec(0x1cc)]['set']({'savedPromptText':promptInput[_0x370aec(0x198)]}),_0x20e500({'success':!![]}),!![];if(_0x2c1569[_0x370aec(0x12e)]===_0x370aec(0x1be)){if(progressText)progressText[_0x370aec(0x1c7)]=_0x2c1569['progress'];return _0x20e500({'success':!![]}),!![];}if(_0x2c1569[_0x370aec(0x12e)]===_0x370aec(0x123))return playAlertSound(),_0x20e500({'success':!![]}),!![];if(_0x2c1569['action']===_0x370aec(0x196))return updateStatsUI(_0x2c1569[_0x370aec(0x1a8)]),_0x20e500({'success':!![]}),!![];const _0x11c2fc=_0x2c1569['status']||(_0x2c1569['action']===_0x370aec(0x1ad)?_0x2c1569[_0x370aec(0x208)]:null);if(_0x11c2fc){console[_0x370aec(0x14b)](_0x370aec(0x18a),_0x11c2fc),statusText['textContent']=_0x11c2fc;const _0x21635e=_0x11c2fc[_0x370aec(0x1bb)]();_0x21635e['includes'](_0x370aec(0x1fc))||_0x21635e['includes']('stopped')||_0x21635e[_0x370aec(0x1fd)](_0x370aec(0x19b))?(syncRunButtonUI(![]),_0x21635e[_0x370aec(0x1fd)](_0x370aec(0x1fc))?(statusDot[_0x370aec(0x117)]['backgroundColor']='#ef4444',statusDot['classList'][_0x370aec(0x195)](_0x370aec(0x186))):(statusDot[_0x370aec(0x117)][_0x370aec(0x172)]=_0x370aec(0x1f2),statusDot['classList'][_0x370aec(0x135)](_0x370aec(0x186)),_0x21635e['includes']('complete')&&(playAlertSound(),showBrowserNotification()))):(statusDot[_0x370aec(0x117)][_0x370aec(0x172)]=_0x370aec(0x1aa),statusDot[_0x370aec(0x17b)][_0x370aec(0x135)]('active')),chrome[_0x370aec(0x116)][_0x370aec(0x1cc)]['get']([_0x370aec(0x1c0)],_0x22ba36=>{const _0x3a5c3b=_0x370aec;_0x22ba36&&_0x22ba36['prompts']&&(progressText[_0x3a5c3b(0x1c7)]=_0x3a5c3b(0x15e)+_0x22ba36[_0x3a5c3b(0x1c0)][_0x3a5c3b(0x1a3)]+_0x3a5c3b(0x183));});}return _0x20e500({'success':!![]}),!![];});}function expandPromptWithVariable(_0x233edb,_0x51fa2f){const _0x47ae64=a0_0xea7320;if(!_0x233edb[_0x47ae64(0x1fd)]('{i}')||_0x51fa2f<0x1)return[_0x233edb];const _0x593025=[];for(let _0x1457e2=0x1;_0x1457e2<=_0x51fa2f;_0x1457e2++){_0x593025[_0x47ae64(0x1ee)](_0x233edb['replace'](/\{i\}/g,_0x1457e2));}return _0x593025;}function initExtendedFeatures(){const _0x41e356=a0_0xea7320,_0x35383e=document['getElementById'](_0x41e356(0x1ac)),_0x186464=document[_0x41e356(0x11c)](_0x41e356(0x1ec));_0x35383e&&_0x186464&&(chrome['storage'][_0x41e356(0x1cc)][_0x41e356(0x1d3)](['saveDelay'],function(_0x4917af){const _0x2ed2d8=_0x41e356,_0x25f6bf=parseInt(_0x4917af[_0x2ed2d8(0x18f)],0xa)||0x6;_0x35383e[_0x2ed2d8(0x198)]=_0x25f6bf,_0x186464['textContent']=_0x25f6bf;}),_0x35383e[_0x41e356(0x1c5)](_0x41e356(0x13e),function(){const _0x5239da=_0x41e356,_0xb9a728=parseInt(this[_0x5239da(0x198)],0xa);_0x186464[_0x5239da(0x1c7)]=_0xb9a728,chrome[_0x5239da(0x116)]['local'][_0x5239da(0x1d7)]({'saveDelay':_0xb9a728});}));const _0x2af9e3=document[_0x41e356(0x11c)](_0x41e356(0x181)),_0x2092ab=document[_0x41e356(0x11c)]('fileInput');_0x2af9e3&&_0x2092ab&&(_0x2af9e3['addEventListener'](_0x41e356(0x125),()=>_0x2092ab['click']()),_0x2092ab['addEventListener']('change',_0x9e1ec5=>{const _0x3edb02=_0x41e356,_0x524074=_0x9e1ec5[_0x3edb02(0x188)][_0x3edb02(0x1f9)][0x0];if(!_0x524074)return;const _0x27b200=new FileReader();_0x27b200[_0x3edb02(0x15d)]=_0xfe935e=>{const _0x325d9d=_0x3edb02,_0x24fd3=document[_0x325d9d(0x11c)](_0x325d9d(0x13d)),_0x6d2163=_0xfe935e['target'][_0x325d9d(0x1c3)],_0x1305be=_0x6d2163[_0x325d9d(0x17c)]('\x0a')[_0x325d9d(0x140)](_0x1f7823=>sanitizeInput(_0x1f7823))[_0x325d9d(0x1c8)]('\x0a');_0x24fd3['value']=_0x24fd3[_0x325d9d(0x198)]+(_0x24fd3['value']?'\x0a':'')+_0x1305be,chrome[_0x325d9d(0x116)][_0x325d9d(0x1cc)][_0x325d9d(0x1d7)]({'savedPromptText':_0x24fd3['value']});},_0x27b200[_0x3edb02(0x1b9)](_0x524074);}));const _0x7ec1fa=document['getElementById']('exportLogsBtn');_0x7ec1fa&&_0x7ec1fa[_0x41e356(0x1c5)](_0x41e356(0x125),()=>{const _0x76e43d=_0x41e356,_0x49ea9c=document[_0x76e43d(0x11c)]('consoleLogs')[_0x76e43d(0x1bf)],_0x169a49=new Blob([_0x49ea9c],{'type':_0x76e43d(0x13a)}),_0x24d134=URL[_0x76e43d(0x17a)](_0x169a49),_0x505d38=document[_0x76e43d(0x12f)]('a');_0x505d38['href']=_0x24d134,_0x505d38['download']=_0x76e43d(0x14f)+new Date()[_0x76e43d(0x199)]()+_0x76e43d(0x1a7),_0x505d38['click'](),URL[_0x76e43d(0x202)](_0x24d134);});const _0x7e1673=document[_0x41e356(0x11c)](_0x41e356(0x1f8));_0x7e1673&&_0x7e1673[_0x41e356(0x1c5)](_0x41e356(0x125),()=>{const _0x27f286=_0x41e356;chrome[_0x27f286(0x116)][_0x27f286(0x1cc)][_0x27f286(0x1d3)]([_0x27f286(0x20c)],_0x17a631=>{const _0x258e15=_0x27f286,_0x5ba8c8=!_0x17a631[_0x258e15(0x20c)];chrome[_0x258e15(0x116)][_0x258e15(0x1cc)][_0x258e15(0x1d7)]({'isPaused':_0x5ba8c8}),_0x7e1673[_0x258e15(0x1c7)]=_0x5ba8c8?_0x258e15(0x20b):'⏸\x20PAUSE',_0x7e1673[_0x258e15(0x117)][_0x258e15(0x147)]=_0x5ba8c8?_0x258e15(0x156):_0x258e15(0x1ea),_0x7e1673[_0x258e15(0x117)][_0x258e15(0x191)]=_0x5ba8c8?_0x258e15(0x156):_0x258e15(0x1ea),_0x7e1673[_0x258e15(0x117)]['boxShadow']=_0x5ba8c8?_0x258e15(0x1e0):_0x258e15(0x1db);});});chrome[_0x41e356(0x13f)]['onMessage'][_0x41e356(0x1d8)](_0xa3a87d=>{const _0x15c042=_0x41e356;if(_0xa3a87d[_0x15c042(0x12e)]===_0x15c042(0x1d9)){const _0x21807b=document[_0x15c042(0x11c)]('quarantineInput');_0x21807b&&(_0x21807b[_0x15c042(0x198)]=_0x21807b['value']+(_0x21807b[_0x15c042(0x198)]?'\x0a':'')+(_0xa3a87d[_0x15c042(0x1da)]||_0xa3a87d[_0x15c042(0x161)]||_0x15c042(0x1f7)));}});const _0x20ace9=document[_0x41e356(0x11c)](_0x41e356(0x1ce));_0x20ace9&&_0x20ace9[_0x41e356(0x1c5)]('click',()=>{const _0x481208=_0x41e356,_0x5dc929=document['getElementById']('quarantineInput'),_0x1c6e7c=document[_0x481208(0x11c)]('promptInput'),_0x15a8ea=_0x5dc929[_0x481208(0x198)][_0x481208(0x20e)]();if(!_0x15a8ea){alert(_0x481208(0x189));return;}_0x1c6e7c[_0x481208(0x198)][_0x481208(0x20e)]()?_0x1c6e7c[_0x481208(0x198)]+='\x0a'+_0x15a8ea:_0x1c6e7c['value']=_0x15a8ea;_0x5dc929[_0x481208(0x198)]='',chrome[_0x481208(0x116)][_0x481208(0x1cc)][_0x481208(0x1d7)]({'savedPromptText':_0x1c6e7c[_0x481208(0x198)],'savedFailedPrompts':''});const _0x431b1d=document['getElementById'](_0x481208(0x1af)),_0x140f86=_0x1c6e7c['value'][_0x481208(0x17c)]('\x0a')[_0x481208(0x1fe)](_0x40489f=>_0x40489f[_0x481208(0x20e)]()[_0x481208(0x1a3)]>0x0);_0x431b1d&&(_0x431b1d[_0x481208(0x1c7)]='Progress:\x20'+_0x140f86[_0x481208(0x1a3)]+'\x20prompts\x20remaining\x20(with\x20retry)');});const _0x1bfa38=document['getElementById'](_0x41e356(0x1c9));_0x1bfa38&&_0x1bfa38[_0x41e356(0x1c5)](_0x41e356(0x125),()=>{const _0x53f76f=_0x41e356;chrome['tabs'][_0x53f76f(0x1e6)]({'url':_0x53f76f(0x139)});});const _0x462238=document[_0x41e356(0x11c)]('clearPromptsBtn');if(_0x462238){async function _0x2e0dce(){return new Promise(_0x5c7073=>{const _0x382134=a0_0x2216;chrome[_0x382134(0x150)]['query']({'active':!![],'currentWindow':!![]},_0x24983c=>{const _0x2d140f=_0x382134;if(_0x24983c[_0x2d140f(0x1a3)]===0x0){_0x5c7073(![]);return;}const _0x5566ee=setTimeout(()=>{_0x5c7073(![]);},0x7d0);chrome[_0x2d140f(0x150)]['sendMessage'](_0x24983c[0x0]['id'],{'action':_0x2d140f(0x1b0)},_0x406269=>{const _0x47e70f=_0x2d140f;clearTimeout(_0x5566ee),chrome['runtime'][_0x47e70f(0x160)]?_0x5c7073(![]):_0x5c7073(_0x406269?.[_0x47e70f(0x208)]===_0x47e70f(0x1d4));});});});}async function _0x360aa9(){const _0x14920d=_0x41e356,_0x2c5631=await _0x2e0dce();_0x2c5631?(statusText[_0x14920d(0x1c7)]=_0x14920d(0x19f),statusDot[_0x14920d(0x17b)][_0x14920d(0x135)](_0x14920d(0x186))):(statusText[_0x14920d(0x1c7)]=_0x14920d(0x16b),statusDot[_0x14920d(0x17b)][_0x14920d(0x195)]('active'));}_0x360aa9(),_0x462238['addEventListener'](_0x41e356(0x125),()=>{const _0x12cfd1=_0x41e356;if(confirm(_0x12cfd1(0x1a2))){const _0x32cc9c=document['getElementById']('promptInput');if(_0x32cc9c){_0x32cc9c[_0x12cfd1(0x198)]='',chrome[_0x12cfd1(0x116)]['local'][_0x12cfd1(0x1d7)]({'savedPromptText':'','lastProcessedPromptIndex':0x0});const _0x429791=document['getElementById'](_0x12cfd1(0x1af));if(_0x429791)_0x429791['textContent']=_0x12cfd1(0x11d);const _0x52a648=document[_0x12cfd1(0x121)](_0x12cfd1(0x11a));_0x52a648&&_0x52a648['remove']();}}});}const _0x4d4599=document[_0x41e356(0x11c)]('clearLogsBtn');_0x4d4599&&_0x4d4599[_0x41e356(0x1c5)](_0x41e356(0x125),()=>{const _0x3b178d=_0x41e356,_0xb674d6=document[_0x3b178d(0x11c)](_0x3b178d(0x1fa));_0xb674d6&&(_0xb674d6['innerHTML']='');});const _0x400d82=document[_0x41e356(0x11c)]('settingsBtn'),_0x584f95=document[_0x41e356(0x11c)](_0x41e356(0x136)),_0x22ae2c=document[_0x41e356(0x11c)](_0x41e356(0x1ed)),_0x5390ef=document[_0x41e356(0x11c)](_0x41e356(0x174)),_0x5834c6=document[_0x41e356(0x11c)](_0x41e356(0x17f)),_0x418905=document[_0x41e356(0x11c)](_0x41e356(0x148)),_0x1ceac7=document[_0x41e356(0x11c)](_0x41e356(0x1e2)),_0x4d6633=document[_0x41e356(0x11c)](_0x41e356(0x19c)),_0x46236c=document[_0x41e356(0x11c)](_0x41e356(0x170));_0x400d82&&_0x400d82[_0x41e356(0x1c5)](_0x41e356(0x125),()=>{const _0x590536=_0x41e356;_0x22ae2c[_0x590536(0x17b)][_0x590536(0x195)](_0x590536(0x20a)),document['body']['classList']['add']('modal-open');});_0x584f95&&_0x584f95[_0x41e356(0x1c5)]('click',()=>{const _0xda4c32=_0x41e356;_0x22ae2c[_0xda4c32(0x17b)][_0xda4c32(0x135)](_0xda4c32(0x20a)),document['body'][_0xda4c32(0x17b)][_0xda4c32(0x195)](_0xda4c32(0x15a));});_0x22ae2c&&_0x22ae2c[_0x41e356(0x1c5)]('click',_0x4d6b51=>{const _0x3c2741=_0x41e356;_0x4d6b51['target']===_0x22ae2c&&(_0x22ae2c[_0x3c2741(0x17b)][_0x3c2741(0x135)](_0x3c2741(0x20a)),document[_0x3c2741(0x19e)][_0x3c2741(0x17b)]['remove']('modal-open'));});_0x5390ef&&_0x5390ef[_0x41e356(0x1c5)](_0x41e356(0x1e8),()=>{const _0x3e6c67=_0x41e356;chrome['storage'][_0x3e6c67(0x1cc)]['set']({'uiTheme':_0x5390ef['value']}),applyCustomUI(_0x5390ef[_0x3e6c67(0x198)],_0x5834c6[_0x3e6c67(0x198)]);});_0x5834c6&&_0x5834c6[_0x41e356(0x1c5)]('change',()=>{const _0x7a1013=_0x41e356;chrome[_0x7a1013(0x116)]['local'][_0x7a1013(0x1d7)]({'uiFont':_0x5834c6[_0x7a1013(0x198)]}),applyCustomUI(_0x5390ef['value'],_0x5834c6[_0x7a1013(0x198)]);});_0x1ceac7&&_0x4d6633&&_0x1ceac7['addEventListener']('input',()=>{const _0xd2517e=_0x41e356;_0x4d6633['textContent']=_0x1ceac7[_0xd2517e(0x198)],chrome[_0xd2517e(0x116)]['local'][_0xd2517e(0x1d7)]({'safetyDelay':parseInt(_0x1ceac7[_0xd2517e(0x198)],0xa)});});_0x418905&&_0x418905['addEventListener'](_0x41e356(0x1e8),()=>{const _0xe3f26c=_0x41e356;chrome[_0xe3f26c(0x116)]['local'][_0xe3f26c(0x1d7)]({'batchLimit':parseInt(_0x418905['value'],0xa)||0x0});});_0x46236c&&_0x46236c[_0x41e356(0x1c5)]('change',()=>{const _0x42ca98=_0x41e356;chrome[_0x42ca98(0x116)]['local'][_0x42ca98(0x1d7)]({'playSounds':_0x46236c[_0x42ca98(0x114)]});});const _0x4520b1=document[_0x41e356(0x11c)]('typingModeSelect');_0x4520b1&&_0x4520b1['addEventListener'](_0x41e356(0x1e8),()=>{const _0x5c7aca=_0x41e356;chrome[_0x5c7aca(0x116)][_0x5c7aca(0x1cc)]['set']({'typingMode':_0x4520b1[_0x5c7aca(0x198)]});});const _0x129144=document['getElementById']('customizeShortcutBtn');_0x129144&&_0x129144['addEventListener'](_0x41e356(0x125),()=>{const _0x59a2ad=_0x41e356;chrome['tabs']['create']({'url':_0x59a2ad(0x16c)});});function _0xa6d2e2(){const _0x4f743e=_0x41e356,_0x186b18=navigator[_0x4f743e(0x201)][_0x4f743e(0x1f5)]()['indexOf'](_0x4f743e(0x178))>=0x0,_0x56851b=document[_0x4f743e(0x11c)](_0x4f743e(0x1ef));_0x56851b&&(_0x186b18?_0x56851b[_0x4f743e(0x1c7)]=_0x4f743e(0x12c):_0x56851b['textContent']=_0x4f743e(0x13c));}_0xa6d2e2();}
+﻿let isRunning = false;
+let isDebugMode = false;
+
+function applyCustomUI(theme, font) {
+  document.body.className = "";
+  if (theme && font) {
+    document.body.classList.add(theme, font);
+  }
+}
+
+function syncRunButtonUI(isAutomating) {
+  const startBtn = document.getElementById("startBtn");
+  if (!startBtn) return;
+  isRunning = isAutomating; // Keep local tracker updated
+
+  if (isAutomating) {
+    startBtn.textContent = "Stop";
+    startBtn.style.background = "#e74c3c";
+    startBtn.style.boxShadow = "0 4px 15px rgba(231, 76, 60, 0.4)";
+  } else {
+    startBtn.textContent = "Run";
+    startBtn.style.background = "";
+    startBtn.style.boxShadow = "";
+
+    chrome.storage.local.set({ isPaused: false });
+    const pauseButton = document.getElementById("pauseButton");
+    if (pauseButton) {
+      pauseButton.textContent = "⏸ PAUSE";
+      pauseButton.style.background = "#f39c12";
+    }
+  }
+}
+
+function updateStatsUI(stats) {
+  if (!stats) return;
+
+  // Defensive parsing untuk mencegah NaN
+  const successCount = Number(stats.successCount) || 0;
+  const downloadCount = Number(stats.downloadCount) || 0;
+
+  const elProcessed = document.getElementById("stat-processed");
+  if (elProcessed) elProcessed.textContent = successCount;
+
+  const elDownloaded = document.getElementById("stat-downloaded");
+  if (elDownloaded) elDownloaded.textContent = downloadCount;
+
+  const elRate = document.getElementById("stat-rate");
+  if (elRate) {
+    if (successCount > 0) {
+      let rate = Math.round((downloadCount / successCount) * 100);
+      if (isNaN(rate)) rate = 0;
+      elRate.textContent = rate + "%";
+    } else {
+      elRate.textContent = "0%";
+    }
+  }
+
+  const elTime = document.getElementById("stat-time");
+  if (elTime) {
+    if (stats.startTime) {
+      let elapsedMs = Date.now() - Number(stats.startTime);
+      if (isNaN(elapsedMs) || elapsedMs < 0) elapsedMs = 0;
+      const elapsedSeconds = Math.floor(elapsedMs / 1000);
+      const minutes = Math.floor(elapsedSeconds / 60);
+      const seconds = elapsedSeconds % 60;
+      elTime.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+    } else {
+      elTime.textContent = "00:00";
+    }
+  }
+}
+
+// Shared DOM Elements
+let startBtn,
+  promptInput,
+  aspectRatioSelect,
+  imageStyleSelect,
+  downloadCountSelect,
+  debugModeSelect,
+  progressText,
+  statusText,
+  statusDot,
+  failedPromptsTextarea,
+  consoleLogs;
+
+function initUIElements() {
+  startBtn = document.getElementById("startBtn");
+  promptInput = document.getElementById("promptInput");
+  aspectRatioSelect = document.getElementById("aspectRatio");
+  imageStyleSelect = document.getElementById("imageStyle");
+  downloadCountSelect = document.getElementById("downloadCount");
+  debugModeSelect = document.getElementById("debugMode");
+  progressText = document.getElementById("progressText");
+  statusText = document.getElementById("statusText");
+  statusDot = document.getElementById("statusIndicator");
+  failedPromptsTextarea = document.getElementById("failedPrompts");
+  consoleLogs = document.getElementById("consoleLogs");
+}
+
+function initStorageListeners() {
+  // Pull existing progress from storage on startup and sync running state
+  chrome.storage.local.get(
+    [
+      "prompts",
+      "isAutomating",
+      "savedPromptText",
+      "aspectRatio",
+      "imageStyle",
+      "savedDownloadCount",
+      "savedFailedPrompts",
+      "savedDebugMode",
+      "uiTheme",
+      "uiFont",
+      "batchLimit",
+      "safetyDelay",
+      "playSounds",
+      "typingMode",
+      "createSubfolder",
+      "lastProcessedPromptIndex",
+      "sessionStats",
+    ],
+    (result) => {
+      if (result) {
+        if (result.sessionStats) updateStatsUI(result.sessionStats);
+        // Load UI Preferences
+        const savedTheme = result.uiTheme || "theme-retro";
+        const savedFont = result.uiFont || "font-pixel";
+        if (document.getElementById("themeSelect"))
+          document.getElementById("themeSelect").value = savedTheme;
+        if (document.getElementById("fontSelect"))
+          document.getElementById("fontSelect").value = savedFont;
+        applyCustomUI(savedTheme, savedFont);
+
+        // Load Advanced Settings
+        const typingModeSelect = document.getElementById("typingModeSelect");
+        const batchLimitInput = document.getElementById("batchLimitInput");
+        const safetyDelaySlider = document.getElementById("safetyDelaySlider");
+        const safetyDelayVal = document.getElementById("safetyDelayVal");
+        const saveDelaySlider = document.getElementById("saveDelaySlider");
+        const saveDelayVal = document.getElementById("saveDelayVal");
+        const soundToggle = document.getElementById("soundToggle");
+        const subfolderToggle = document.getElementById("subfolderToggle");
+        const verboseLogsToggle = document.getElementById("verboseLogsToggle");
+
+        if (result.typingMode && typingModeSelect)
+          typingModeSelect.value = result.typingMode;
+        if (result.batchLimit !== undefined && batchLimitInput)
+          batchLimitInput.value = result.batchLimit;
+        if (result.safetyDelay !== undefined) {
+          if (safetyDelaySlider) safetyDelaySlider.value = result.safetyDelay;
+          if (safetyDelayVal) safetyDelayVal.textContent = result.safetyDelay;
+        }
+        if (result.saveDelay !== undefined) {
+          if (saveDelaySlider) saveDelaySlider.value = result.saveDelay;
+          if (saveDelayVal) saveDelayVal.textContent = result.saveDelay;
+        }
+        if (result.playSounds !== undefined && soundToggle)
+          soundToggle.checked = result.playSounds;
+        if (subfolderToggle)
+          subfolderToggle.checked = result.createSubfolder === true;
+        if (verboseLogsToggle)
+          verboseLogsToggle.checked = result.verboseLogs !== false;
+
+        // Prioritize active processing prompts if automating, otherwise fall back to auto-saved prompt text
+        if (
+          result.isAutomating === true &&
+          result.prompts &&
+          result.prompts.length > 0
+        ) {
+          progressText.textContent = `Progress: ${result.prompts.length} prompts remaining`;
+          promptInput.value = result.prompts.join("\n");
+        } else if (result.savedPromptText !== undefined) {
+          promptInput.value = result.savedPromptText;
+        }
+
+        // Restore dropdown settings if they were auto-saved
+        if (result.aspectRatio) {
+          aspectRatioSelect.value = result.aspectRatio;
+        }
+        if (result.imageStyle) {
+          imageStyleSelect.value = result.imageStyle;
+        }
+        if (result.savedDownloadCount) {
+          downloadCountSelect.value = result.savedDownloadCount;
+        }
+        if (result.savedDebugMode !== undefined) {
+          isDebugMode = result.savedDebugMode === true;
+          debugModeSelect.value = isDebugMode ? "true" : "false";
+        }
+
+        // Restore failed/skipped prompts log if auto-saved
+        if (result.savedFailedPrompts) {
+          failedPromptsTextarea.value = result.savedFailedPrompts;
+        }
+
+        // Check for lastProcessedPromptIndex and display resume message if needed
+        if (result.lastProcessedPromptIndex > 0) {
+          const statusContainer = document.getElementById("status-container");
+          if (statusContainer) {
+            const resumeMessage = document.createElement("div");
+            resumeMessage.className = "resume-message";
+            resumeMessage.textContent = `Resume from prompt #${result.lastProcessedPromptIndex + 1}?`;
+            statusContainer.appendChild(resumeMessage);
+          }
+        }
+
+        // 🌟 FORCE CHECK ON PANEL LOAD
+        // As soon as the panel opens, check reality and force the button to match.
+        syncRunButtonUI(result.isAutomating === true);
+      }
+    },
+  );
+
+  // Global storage listener to keep UI in sync if automation state changes elsewhere
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === "local") {
+      // Handle automation state changes
+      if (changes.isAutomating) {
+        const isNowAutomating = changes.isAutomating.newValue;
+        syncRunButtonUI(isNowAutomating === true);
+      }
+
+      // Handle stats updates
+      if (changes.sessionStats) {
+        updateStatsUI(changes.sessionStats.newValue);
+      }
+    }
+  });
+
+  // Muat folder dari storage saat panel dibuka
+  const downloadFolderInput = document.getElementById("downloadFolderInput");
+  chrome.storage.local.get(["downloadFolder"], (res) => {
+    if (downloadFolderInput && res.downloadFolder !== undefined) {
+      downloadFolderInput.value = res.downloadFolder;
+    }
+  });
+}
+
+function initEventListeners() {
+  // Real-time Save (Input/Change Listeners to prevent data loss)
+  let saveTimeout;
+  promptInput.addEventListener("input", () => {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      chrome.storage.local.set({ savedPromptText: promptInput.value });
+    }, 500); // 500ms debounce
+  });
+
+  aspectRatioSelect.addEventListener("change", () => {
+    chrome.storage.local.set({ savedAspectRatio: aspectRatioSelect.value });
+  });
+
+  imageStyleSelect.addEventListener("change", () => {
+    chrome.storage.local.set({ savedImageStyle: imageStyleSelect.value });
+  });
+
+  downloadCountSelect.addEventListener("change", () => {
+    chrome.storage.local.set({ savedDownloadCount: downloadCountSelect.value });
+  });
+
+  debugModeSelect.addEventListener("change", () => {
+    isDebugMode = debugModeSelect.value === "true";
+    chrome.storage.local.set({ savedDebugMode: isDebugMode });
+  });
+
+  const subfolderToggle = document.getElementById("subfolderToggle");
+  if (subfolderToggle) {
+    subfolderToggle.addEventListener("change", () => {
+      chrome.storage.local.set({ createSubfolder: subfolderToggle.checked });
+    });
+  }
+
+  const downloadFolderInput = document.getElementById("downloadFolderInput");
+  if (downloadFolderInput) {
+    downloadFolderInput.addEventListener("change", () => {
+      const folder = downloadFolderInput.value.trim();
+      chrome.storage.local.set({ downloadFolder: folder });
+      console.log(
+        "[NRA DreamLab] 📁 Download folder set to:",
+        folder || "(default)",
+      );
+    });
+  }
+
+  const verboseLogsToggle = document.getElementById("verboseLogsToggle");
+  if (verboseLogsToggle) {
+    verboseLogsToggle.addEventListener("change", () => {
+      chrome.storage.local.set({ verboseLogs: verboseLogsToggle.checked });
+    });
+  }
+
+  // Handle start/stop button
+  if (startBtn) {
+    startBtn.addEventListener("click", () => {
+      chrome.storage.local.get(
+        ["isAutomating", "lastProcessedPromptIndex"],
+        (result) => {
+          const isCurrentlyRunning = result.isAutomating === true;
+
+          if (isCurrentlyRunning) {
+            // WE ARE STOPPING
+            chrome.storage.local.set({ isAutomating: false, step: "IDLE" });
+            statusText.textContent = "Stopping automation...";
+            statusDot.style.backgroundColor = "#ef4444";
+            statusDot.classList.remove("active");
+
+            chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
+              if (tabs.length === 0) {
+                console.warn("No active Dream Lab tab found.");
+                return;
+              }
+              if (tabs && tabs.length > 0) {
+                chrome.tabs.sendMessage(
+                  tabs[0].id,
+                  { action: "STOP_AUTOMATION" },
+                  (response) => {
+                    if (chrome.runtime.lastError) {
+                      console.warn(
+                        "[Panel] sendMessage failed:",
+                        chrome.runtime.lastError.message,
+                      );
+                      statusText.textContent =
+                        "Error: Cannot communicate with Canva tab. Please refresh.";
+                      statusDot.style.backgroundColor = "#ef4444";
+                      statusDot.classList.remove("active");
+                      chrome.storage.local.set({ isAutomating: false });
+                      return;
+                    }
+                  },
+                );
+              }
+            });
+          } else {
+            // WE ARE STARTING
+            chrome.storage.local.set({ isPaused: false });
+            const rawPromptText = promptInput.value;
+            const promptsArray = rawPromptText
+              .split("\n")
+              .map((p) => sanitizeInput(p.trim()))
+              .filter((p) => p.length > 0);
+
+            // Expand prompts with {i} placeholder
+            let expandedPrompts = [];
+            for (let p of promptsArray) {
+              if (p.includes("{i}")) {
+                // Tanya user berapa iterasi
+                const iterationsInput = prompt(
+                  `Prompt "${p}" mengandung {i}. Berapa jumlah iterasi yang diinginkan?`,
+                  "5",
+                );
+                if (iterationsInput === null) {
+                  // User cancel, skip ekspansi, gunakan prompt asli
+                  expandedPrompts.push(p);
+                  continue;
+                }
+                const iterations = parseInt(iterationsInput, 10);
+                if (isNaN(iterations) || iterations < 1) {
+                  alert(
+                    "Jumlah iterasi harus berupa angka positif. Prompt akan digunakan apa adanya.",
+                  );
+                  expandedPrompts.push(p);
+                  continue;
+                }
+                // Ekspansi prompt
+                const expanded = expandPromptWithVariable(p, iterations);
+                expandedPrompts.push(...expanded);
+              } else {
+                expandedPrompts.push(p);
+              }
+            }
+
+            // Ganti promptsArray dengan hasil ekspansi
+            promptsArray.length = 0;
+            promptsArray.push(...expandedPrompts);
+
+            // UPDATE UI DAN STORAGE SEKALI SAJA DI AKHIR UNTUK MENCEGAH LAG
+            const finalPromptText = promptsArray.join("\n");
+            promptInput.value = finalPromptText;
+            chrome.storage.local.set({ savedPromptText: finalPromptText });
+
+            if (promptsArray.length === 0) {
+              alert("Please enter at least one prompt!");
+              return;
+            }
+
+            failedPromptsTextarea.value = "";
+            chrome.storage.local.set({ savedFailedPrompts: "" });
+
+            // Check if we're resuming from a previous session
+            let startIndex = 0;
+            if (result.lastProcessedPromptIndex > 0) {
+              startIndex = result.lastProcessedPromptIndex;
+              // Remove already processed prompts from the array
+              const remainingPrompts = promptsArray.slice(startIndex);
+              progressText.textContent = `Progress: ${remainingPrompts.length} prompts remaining (resuming from #${startIndex + 1})`;
+            } else {
+              progressText.textContent = `Progress: ${promptsArray.length} prompts remaining`;
+            }
+
+            statusText.textContent = "Starting...";
+
+            const state = {
+              isAutomating: true,
+              step: "INJECT_PROMPT",
+              prompts: promptsArray,
+              aspectRatio: aspectRatioSelect.value,
+              imageStyle: imageStyleSelect.value,
+              downloadCount: downloadCountSelect.value,
+            };
+
+            // Setting isAutomating: true will trigger the onChanged listener -> syncRunButtonUI(true)
+            chrome.storage.local.set(state, () => {
+              console.log(
+                "[NRA DreamLab] Bulk automation state saved:",
+                state,
+              );
+              chrome.tabs.query(
+                { url: "*://*.canva.com/dream-lab*" },
+                (tabs) => {
+                  if (tabs.length === 0) {
+                    console.warn("No active Dream Lab tab found.");
+                    return;
+                  }
+                  if (tabs && tabs.length > 0) {
+                    chrome.tabs.sendMessage(
+                      tabs[0].id,
+                      { action: "START_AUTOMATION" },
+                      (response) => {
+                        if (chrome.runtime.lastError) {
+                          console.warn(
+                            "[Panel] sendMessage failed:",
+                            chrome.runtime.lastError.message,
+                          );
+                          statusText.textContent =
+                            "Error: Cannot communicate with Canva tab. Please refresh.";
+                          statusDot.style.backgroundColor = "#ef4444";
+                          statusDot.classList.remove("active");
+                          chrome.storage.local.set({ isAutomating: false }); // Revert state safely
+                          return;
+                        }
+                      },
+                    );
+                  }
+                },
+              );
+            });
+          }
+        },
+      );
+    });
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  console.log(
+    "[Panel] DOMContentLoaded fired. Event listeners are being attached...",
+  );
+  window.addEventListener("unhandledrejection", function (event) {
+    console.error("[Panel] Unhandled Promise rejection:", event.reason);
+    if (statusText) {
+      statusText.textContent = `Error: ${event.reason?.message || "Unknown error"}`;
+    }
+    event.preventDefault();
+  });
+
+  initUIElements();
+  initStorageListeners();
+  initEventListeners();
+  initCollapseLogic();
+  initMessageListeners();
+  initExtendedFeatures();
+}); // End of DOMContentLoaded
+
+function initCollapseLogic() {
+  const toggleHeaders = document.querySelectorAll(".toggle-header");
+
+  toggleHeaders.forEach((header) => {
+    header.addEventListener("click", (e) => {
+      // Prevent toggling if the user clicked directly on an icon button
+      if (e.target.closest(".icon-btn")) return;
+
+      const targetId = header.getAttribute("data-target");
+      const contentDiv = document.getElementById(targetId);
+      const toggleIcon = header.querySelector(".toggle-icon");
+
+      if (contentDiv) {
+        contentDiv.classList.toggle("collapsed");
+        if (contentDiv.classList.contains("collapsed")) {
+          toggleIcon.textContent = "[+]";
+        } else {
+          toggleIcon.textContent = "[-]";
+        }
+      }
+    });
+  });
+}
+
+// Pleasant, ascending 2-tone chime: 523.25Hz (150ms), then 659.25Hz (300ms)
+let sharedAudioCtx = null;
+
+function playAlertSound() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+
+      if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
+        sharedAudioCtx = new AudioContextClass();
+      }
+
+      if (sharedAudioCtx.state === "suspended") {
+        sharedAudioCtx.resume();
+      }
+
+      const osc = sharedAudioCtx.createOscillator();
+      const gain = sharedAudioCtx.createGain();
+
+      osc.connect(gain);
+      gain.connect(sharedAudioCtx.destination);
+
+      const now = sharedAudioCtx.currentTime;
+
+      // Tone 1: 523.25Hz for 150ms
+      osc.frequency.setValueAtTime(523.25, now);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+      // Tone 2: 659.25Hz for 300ms
+      osc.frequency.setValueAtTime(659.25, now + 0.15);
+      gain.gain.setValueAtTime(0.15, now + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+      osc.start(now);
+      osc.stop(now + 0.45);
+    } catch (e) {
+      console.warn("[NRA DreamLab] Web Audio alert failed:", e);
+    }
+
+  // System Notification
+  function showBrowserNotification() {
+    if (typeof chrome !== "undefined" && chrome.notifications) {
+      chrome.notifications.create(
+        {
+          type: "basic",
+          iconUrl: "icon.png",
+          title: "NRA DreamLab",
+          message: "Success! All prompts have been processed.",
+        },
+        (id) => {
+          if (chrome.runtime.lastError) {
+            console.warn(
+              "[NRA DreamLab] Notification alert failed:",
+              chrome.runtime.lastError.message,
+            );
+          }
+        },
+      );
+    }
+
+    const osc = sharedAudioCtx.createOscillator();
+    const gain = sharedAudioCtx.createGain();
+
+    osc.connect(gain);
+    gain.connect(sharedAudioCtx.destination);
+
+    const now = sharedAudioCtx.currentTime;
+
+    // Tone 1: 523.25Hz for 150ms
+    osc.frequency.setValueAtTime(523.25, now);
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+    // Tone 2: 659.25Hz for 300ms
+    osc.frequency.setValueAtTime(659.25, now + 0.15);
+    gain.gain.setValueAtTime(0.15, now + 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+    osc.start(now);
+    osc.stop(now + 0.45);
+  } catch (e) {
+    console.warn("[Canva Auto Prompter] Web Audio alert failed:", e);
+  }
+}
+
+// System Notification
+function showBrowserNotification() {
+  if (typeof chrome !== "undefined" && chrome.notifications) {
+    chrome.notifications.create(
+      {
+        type: "basic",
+        iconUrl: "icon.png",
+        title: "Canva Auto Prompter",
+        message: "Success! All prompts have been processed.",
+      },
+      (id) => {
+        if (chrome.runtime.lastError) {
+          console.warn(
+            "[Canva Auto Prompter] Notification alert failed:",
+            chrome.runtime.lastError.message,
+          );
+        }
+      },
+    );
+  }
+}
+
+function initMessageListeners() {
+  // Helper to visually show tab status and progress on load
+  chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
+    if (tabs && tabs.length > 0) {
+      statusText.textContent = "Canva Connected";
+      statusDot.classList.add("active");
+      statusDot.style.backgroundColor = "#10b981";
+    } else {
+      statusText.textContent = "Please open Canva Dream Lab";
+      statusDot.classList.remove("active");
+      statusDot.style.backgroundColor = "#ef4444";
+    }
+  });
+
+  // Listen for STATUS_UPDATE or direct status/progress/UI synchronization messages from content.js
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (!request) return false;
+
+    // WARN-7 FIX: Only handle actions explicitly intended for the panel.
+    // Ignore CDP/debugger commands so we don't hijack background.js responses.
+    const PANEL_ACTIONS = new Set([
+      "CONSOLE_LOG",
+      "PROMPT_FAILED",
+      "UPDATE_TEXTAREA",
+      "STATUS_UPDATE",
+      "PROGRESS_UPDATE",
+      "PLAY_COMPLETION_SOUND",
+      "UPDATE_STATS",
+    ]);
+
+    // If message has an action that is NOT for the panel, return early without responding
+    if (request.action && !PANEL_ACTIONS.has(request.action)) {
+      return false; // Do not call sendResponse, do not keep channel open
+    }
+
+    if (request.action === "CONSOLE_LOG") {
+      // Block verbose INFO logs if Debug Mode is Off
+      if (!isDebugMode && request.level === "INFO") {
+        sendResponse({ success: true });
+        return true;
+      }
+
+      if (consoleLogs) {
+        const time = new Date().toLocaleTimeString("en-US", { hour12: false });
+        const prefix =
+          request.level === "ERROR"
+            ? "[!]"
+            : request.level === "WARN"
+              ? "[?]"
+              : "[>]";
+
+        const logDiv = document.createElement("div");
+        logDiv.className = `log-entry log-${request.level.toLowerCase()}`;
+        logDiv.textContent = `${time} ${prefix} ${request.message}`;
+
+        consoleLogs.appendChild(logDiv);
+
+        // OPT-7 FIX: Cap terminal log DOM nodes to prevent memory bloat on long sessions
+        const MAX_LOG_ENTRIES = 500;
+        while (consoleLogs.childElementCount > MAX_LOG_ENTRIES) {
+          consoleLogs.removeChild(consoleLogs.firstElementChild);
+        }
+
+        consoleLogs.scrollTop = consoleLogs.scrollHeight; // Auto-scroll
+      }
+      sendResponse({ success: true });
+      return true;
+    }
+
+    // Handle failed/skipped prompt reporting
+    if (request.action === "PROMPT_FAILED") {
+      if (failedPromptsTextarea.value) {
+        failedPromptsTextarea.value += "\n" + request.failedPrompt;
+      } else {
+        failedPromptsTextarea.value = request.failedPrompt;
+      }
+      chrome.storage.local.set({
+        savedFailedPrompts: failedPromptsTextarea.value,
+      });
+      sendResponse({ success: true });
+      return true;
+    }
+
+    // Direct UI update for the destructive Queue
+    if (request.action === "UPDATE_TEXTAREA") {
+      promptInput.value = request.remainingPrompts.join("\n");
+      progressText.textContent = `Progress: ${request.remainingPrompts.length} prompts remaining`;
+      chrome.storage.local.set({ savedPromptText: promptInput.value });
+      sendResponse({ success: true });
+      return true;
+    }
+
+    // Handle progress
+    if (request.action === "PROGRESS_UPDATE") {
+      if (progressText) progressText.textContent = request.progress;
+      sendResponse({ success: true });
+      return true;
+    }
+
+    // Handle completion sound
+    if (request.action === "PLAY_COMPLETION_SOUND") {
+      playAlertSound();
+      sendResponse({ success: true });
+      return true;
+    }
+
+    // Handle stats update for analytics dashboard
+    if (request.action === "UPDATE_STATS") {
+      updateStatsUI(request.stats);
+      sendResponse({ success: true });
+      return true;
+    }
+
+    const statusValue =
+      request.status ||
+      (request.action === "STATUS_UPDATE" ? request.status : null);
+
+    if (statusValue) {
+      console.log("[NRA DreamLab] Received status update:", statusValue);
+      statusText.textContent = statusValue;
+
+      const statusLower = statusValue.toLowerCase();
+      if (
+        statusLower.includes("error") ||
+        statusLower.includes("stopped") ||
+        statusLower.includes("complete")
+      ) {
+        syncRunButtonUI(false);
+
+        if (statusLower.includes("error")) {
+          statusDot.style.backgroundColor = "#ef4444";
+          statusDot.classList.remove("active");
+        } else {
+          statusDot.style.backgroundColor = "#10b981";
+          statusDot.classList.add("active");
+
+          // Trigger alerts on clean completion
+          if (statusLower.includes("complete")) {
+            playAlertSound();
+            showBrowserNotification();
+          }
+        }
+      } else {
+        // Active automation pulse
+        statusDot.style.backgroundColor = "#a855f7";
+        statusDot.classList.add("active");
+      }
+
+      // Dynamically fetch and synchronize progress text from local storage
+      chrome.storage.local.get(["prompts"], (result) => {
+        if (result && result.prompts) {
+          progressText.textContent = `Progress: ${result.prompts.length} prompts remaining`;
+        }
+      });
+    }
+
+    // Respond to acknowledged status/progress messages
+    sendResponse({ success: true });
+    return true; // Keep channel open
+  });
+}
+
+/**
+ * Expand prompt with {i} placeholder
+ * @param {string} prompt - Prompt text containing {i}
+ * @param {number} iterations - Number of iterations (default: 1)
+ * @returns {string[]} Array of expanded prompts
+ */
+function expandPromptWithVariable(prompt, iterations) {
+  if (!prompt.includes("{i}") || iterations < 1) {
+    return [prompt];
+  }
+  const results = [];
+  for (let i = 1; i <= iterations; i++) {
+    results.push(prompt.replace(/\{i\}/g, i));
+  }
+  return results;
+}
+
+function initExtendedFeatures() {
+  // Save Delay Slider
+  const saveDelaySlider = document.getElementById("saveDelaySlider");
+  const saveDelayVal = document.getElementById("saveDelayVal");
+  if (saveDelaySlider && saveDelayVal) {
+    chrome.storage.local.get(["saveDelay"], function (res) {
+      const savedDelay = parseInt(res.saveDelay, 10) || 6;
+      saveDelaySlider.value = savedDelay;
+      saveDelayVal.textContent = savedDelay;
+    });
+    saveDelaySlider.addEventListener("input", function () {
+      const val = parseInt(this.value, 10);
+      saveDelayVal.textContent = val;
+      chrome.storage.local.set({ saveDelay: val });
+    });
+  }
+
+  // --- GOD-TIER 6-FEATURE UPDATE LOGIC ---
+
+  // 1. Bulk File Importer
+  const importFileBtn = document.getElementById("importFileBtn");
+  const fileInput = document.getElementById("fileInput");
+  if (importFileBtn && fileInput) {
+    importFileBtn.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const promptInput = document.getElementById("promptInput");
+        const content = event.target.result;
+        const sanitizedContent = content
+          .split("\n")
+          .map((line) => sanitizeInput(line))
+          .join("\n");
+        promptInput.value =
+          promptInput.value +
+          (promptInput.value ? "\n" : "") +
+          sanitizedContent;
+        chrome.storage.local.set({ savedPromptText: promptInput.value });
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  // 2. Export Logs
+  const exportLogsBtn = document.getElementById("exportLogsBtn");
+  if (exportLogsBtn) {
+    exportLogsBtn.addEventListener("click", () => {
+      const logs = document.getElementById("consoleLogs").innerText;
+      const blob = new Blob([logs], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Canva_Logs_${new Date().getTime()}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // 3. Pause / Resume Toggle
+  const pauseButton = document.getElementById("pauseButton");
+  if (pauseButton) {
+    pauseButton.addEventListener("click", () => {
+      chrome.storage.local.get(["isPaused"], (res) => {
+        const newState = !res.isPaused;
+        chrome.storage.local.set({ isPaused: newState });
+        pauseButton.textContent = newState ? "▶ RESUME" : "⏸ PAUSE";
+        pauseButton.style.background = newState ? "#2ecc71" : "#f39c12";
+        pauseButton.style.borderColor = newState ? "#2ecc71" : "#f39c12";
+        pauseButton.style.boxShadow = newState
+          ? "4px 4px 0px #27ae60"
+          : "4px 4px 0px #b9770e";
+      });
+    });
+  }
+
+  // 4. Quarantine Catch Listener
+  chrome.runtime.onMessage.addListener((request) => {
+    if (request.action === "PROMPT_FAILED") {
+      const qInput = document.getElementById("quarantineInput");
+      if (qInput) {
+        // Use request.failedPrompt which is what content.js emits
+        qInput.value =
+          qInput.value +
+          (qInput.value ? "\n" : "") +
+          (request.failedPrompt || request.prompt || "Unknown Failed Prompt");
+      }
+    }
+  });
+
+  // 5. Retry Quarantine Logic - Pindahkan semua prompt dari Quarantine ke Prompt Input utama
+  const retryQuarantineBtn = document.getElementById("retryQuarantineBtn");
+  if (retryQuarantineBtn) {
+    retryQuarantineBtn.addEventListener("click", () => {
+      const quarantineInput = document.getElementById("quarantineInput");
+      const promptInput = document.getElementById("promptInput");
+      const quarantineText = quarantineInput.value.trim();
+
+      // Jika quarantine kosong, beri tahu user
+      if (!quarantineText) {
+        alert("Tidak ada prompt di Quarantine untuk diulang.");
+        return;
+      }
+
+      // Append teks quarantine ke prompt input utama
+      if (promptInput.value.trim()) {
+        promptInput.value += "\n" + quarantineText;
+      } else {
+        promptInput.value = quarantineText;
+      }
+
+      // Kosongkan quarantine
+      quarantineInput.value = "";
+
+      // Simpan ke Chrome Storage
+      chrome.storage.local.set({
+        savedPromptText: promptInput.value,
+        savedFailedPrompts: "",
+      });
+
+      // Update progress text (opsional)
+      const progressText = document.getElementById("progressText");
+      const currentPrompts = promptInput.value
+        .split("\n")
+        .filter((p) => p.trim().length > 0);
+      if (progressText) {
+        progressText.textContent = `Progress: ${currentPrompts.length} prompts remaining (with retry)`;
+      }
+
+      console.log(
+        "[NRA DreamLab] ✅ Quarantined prompts moved back to main queue.",
+      );
+    });
+  }
+
+  // --- UTILITY ICONS LOGIC ---
+
+  // 1. Open Dream Lab Shortcut
+  const openDreamLabBtn = document.getElementById("openDreamLabBtn");
+  if (openDreamLabBtn) {
+    openDreamLabBtn.addEventListener("click", () => {
+      chrome.tabs.create({ url: "https://www.canva.com/dream-lab" });
+    });
+  }
+
+  // 2. Clear Prompts Trash Can
+  const clearPromptsBtn = document.getElementById("clearPromptsBtn");
+  if (clearPromptsBtn) {
+    // Connection handshake function
+    async function initConnection() {
+      return new Promise((resolve) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs.length === 0) {
+            resolve(false);
+            return;
+          }
+
+          const timeout = setTimeout(() => {
+            resolve(false);
+          }, 2000);
+
+          chrome.tabs.sendMessage(
+            tabs[0].id,
+            { action: "PING" },
+            (response) => {
+              clearTimeout(timeout);
+              if (chrome.runtime.lastError) {
+                resolve(false);
+              } else {
+                resolve(response?.status === "READY");
+              }
+            },
+          );
+        });
+      });
+    }
+
+    // Modify the existing error handling logic
+    async function checkConnection() {
+      const isConnected = await initConnection();
+
+      if (isConnected) {
+        statusText.textContent = "Connected";
+        statusDot.classList.add("active");
+      } else {
+        statusText.textContent = "Error: Please refresh the Canva tab";
+        statusDot.classList.remove("active");
+      }
+    }
+
+    // Call this function when the panel loads
+    checkConnection();
+
+    clearPromptsBtn.addEventListener("click", () => {
+      if (confirm("Are you sure you want to clear all prompts?")) {
+        const promptInput = document.getElementById("promptInput");
+        if (promptInput) {
+          promptInput.value = "";
+          chrome.storage.local.set({
+            savedPromptText: "",
+            lastProcessedPromptIndex: 0,
+          });
+
+          const progressText = document.getElementById("progressText");
+          if (progressText)
+            progressText.textContent = "Progress: 0 prompts remaining";
+
+          // Remove resume message if it exists
+          const resumeMessage = document.querySelector(".resume-message");
+          if (resumeMessage) {
+            resumeMessage.remove();
+          }
+        }
+      }
+    });
+  }
+  // 3. Clear Terminal Logs Trash Can
+  const clearLogsBtn = document.getElementById("clearLogsBtn");
+  if (clearLogsBtn) {
+    clearLogsBtn.addEventListener("click", () => {
+      const consoleLogs = document.getElementById("consoleLogs");
+      if (consoleLogs) {
+        consoleLogs.innerHTML = ""; // Wipe all log divs
+      }
+    });
+  }
+
+  // --- UI SETTINGS MODAL LOGIC ---
+  const settingsBtn = document.getElementById("settingsBtn");
+  const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+  const settingsModal = document.getElementById("settingsModal");
+  const themeSelect = document.getElementById("themeSelect");
+  const fontSelect = document.getElementById("fontSelect");
+  const batchLimitInput = document.getElementById("batchLimitInput");
+  const safetyDelaySlider = document.getElementById("safetyDelaySlider");
+  const safetyDelayVal = document.getElementById("safetyDelayVal");
+  const soundToggle = document.getElementById("soundToggle");
+
+  // Open settings modal
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", () => {
+      settingsModal.classList.remove("hidden");
+      document.body.classList.add("modal-open");
+    });
+  }
+
+  // Close settings modal
+  if (closeSettingsBtn) {
+    closeSettingsBtn.addEventListener("click", () => {
+      settingsModal.classList.add("hidden");
+      document.body.classList.remove("modal-open");
+    });
+  }
+
+  // Close modal when clicking outside
+  if (settingsModal) {
+    settingsModal.addEventListener("click", (e) => {
+      if (e.target === settingsModal) {
+        settingsModal.classList.add("hidden");
+        document.body.classList.remove("modal-open");
+      }
+    });
+  }
+
+  // Save and apply on change
+  if (themeSelect) {
+    themeSelect.addEventListener("change", () => {
+      chrome.storage.local.set({ uiTheme: themeSelect.value });
+      applyCustomUI(themeSelect.value, fontSelect.value);
+    });
+  }
+
+  if (fontSelect) {
+    fontSelect.addEventListener("change", () => {
+      chrome.storage.local.set({ uiFont: fontSelect.value });
+      applyCustomUI(themeSelect.value, fontSelect.value);
+    });
+  }
+
+  // Advanced Settings Listeners
+  if (safetyDelaySlider && safetyDelayVal) {
+    safetyDelaySlider.addEventListener("input", () => {
+      safetyDelayVal.textContent = safetyDelaySlider.value;
+      chrome.storage.local.set({
+        safetyDelay: parseInt(safetyDelaySlider.value, 10),
+      });
+    });
+  }
+
+  if (batchLimitInput) {
+    batchLimitInput.addEventListener("change", () => {
+      chrome.storage.local.set({
+        batchLimit: parseInt(batchLimitInput.value, 10) || 0,
+      });
+    });
+  }
+
+  if (soundToggle) {
+    soundToggle.addEventListener("change", () => {
+      chrome.storage.local.set({ playSounds: soundToggle.checked });
+    });
+  }
+
+  const typingModeSelect = document.getElementById("typingModeSelect");
+  if (typingModeSelect) {
+    typingModeSelect.addEventListener("change", () => {
+      chrome.storage.local.set({ typingMode: typingModeSelect.value });
+    });
+  }
+
+  // 6. Customize Shortcut Button - Buka halaman shortcut Chrome
+  const customizeShortcutBtn = document.getElementById("customizeShortcutBtn");
+  if (customizeShortcutBtn) {
+    customizeShortcutBtn.addEventListener("click", () => {
+      // Buka tab baru ke halaman shortcut extensions
+      chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
+    });
+  }
+
+  // Tapi kita bisa deteksi OS untuk menampilkan shortcut yang sesuai
+  function updateShortcutDisplay() {
+    const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+    const shortcutDisplay = document.getElementById("shortcutDisplay");
+    if (shortcutDisplay) {
+      if (isMac) {
+        shortcutDisplay.textContent = "Cmd+Shift+P";
+      } else {
+        shortcutDisplay.textContent = "Ctrl+Shift+P";
+      }
+    }
+  }
+  updateShortcutDisplay();
+}
