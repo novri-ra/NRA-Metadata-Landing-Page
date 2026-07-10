@@ -228,6 +228,7 @@ function sanitizeStats(stats) {
       downloadCount: 0,
       totalCooldowns: 0,
       totalPrompts: 0,
+      failedCount: 0,
     };
 
   return {
@@ -238,6 +239,7 @@ function sanitizeStats(stats) {
       ? 0
       : Number(stats.totalCooldowns),
     totalPrompts: isNaN(stats.totalPrompts) ? 0 : Number(stats.totalPrompts),
+    failedCount: isNaN(stats.failedCount) ? 0 : Number(stats.failedCount),
   };
 }
 
@@ -861,6 +863,12 @@ async function handleDownload(countSetting = "4") {
     const btn = buttonsToClick[i];
     await safeCdpClick(btn, "download button " + (i + 1));
     await delay(3000); // Delay aman untuk mencegah blokir server
+    sessionStats.downloadCount++;
+    chrome.runtime.sendMessage({
+      action: "UPDATE_STATS",
+      stats: sanitizeStats(sessionStats)
+    });
+    await chrome.storage.local.set({ sessionStats: sanitizeStats(sessionStats) });
   }
 }
 async function handleCooldown(cooldownMs, isStartup = false) {
@@ -1056,14 +1064,14 @@ async function startMainLoop() {
           console.error(
             "[NRA DreamLab] Failed to download images after maximum retries. Skipping to next prompt...",
           );
+          sessionStats.failedCount = (sessionStats.failedCount || 0) + 1;
           // Lemparkan prompt yang gagal ke Quarantine
           chrome.runtime.sendMessage({
             action: "PROMPT_FAILED",
             failedPrompt: currentPrompt
           });
         } else {
-          // Increment download counter only if download was successful
-          sessionStats.downloadCount++;
+          // Increment done real-time in handleDownload
         }
 
         // Selalu hitung sebagai prompt yang diproses apa pun hasil unduhannya
