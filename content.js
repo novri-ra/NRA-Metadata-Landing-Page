@@ -639,7 +639,7 @@ async function cdpTypeHuman(text) {
 
 async function safeSelectCanvaConfiguration(typeLabel, optionText) {
   try {
-    await selectCanvaConfiguration(typeLabel, optionText);
+    return await selectCanvaConfiguration(typeLabel, optionText);
   } catch (error) {
     console.error(
       `[NRA DreamLab] 🛑 Failed to configure ${typeLabel} with ${optionText}:`,
@@ -650,33 +650,32 @@ async function safeSelectCanvaConfiguration(typeLabel, optionText) {
   }
 }
 
-async function selectCanvaConfiguration(typeLabel, optionText) {
-  if (!optionText || optionText === "None" || optionText === "" || optionText === "Random") return;
+async function selectCanvaConfiguration(label, value) {
+  if (!value || value === "None" || value === "" || value === "Random") return true;
 
-  console.info(`[NRA DreamLab] Mencari opsi ${typeLabel} dengan nilai '${optionText}'...`);
+  console.info(`[NRA DreamLab] Mencoba memilih '${value}' untuk ${label}...`);
 
-  // Retry loop untuk memastikan elemen muncul
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const xpath = `//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '${optionText.toLowerCase()}')]`;
-    const element = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+  // Polling intensif selama 10 detik
+  for (let i = 0; i < 10; i++) {
+    // Cari semua tombol atau elemen yang mengandung teks value
+    const buttons = Array.from(document.querySelectorAll('*'));
+    const target = buttons.find(el =>
+      el.textContent &&
+      el.textContent.trim().toLowerCase() === value.toLowerCase() &&
+      (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button' || el.classList.length > 0)
+    );
 
-    if (element) {
-      console.info(`[NRA DreamLab] Opsi '${optionText}' ditemukan pada percobaan ke-${attempt + 1}. Mengklik...`);
-      element.click();
-      await new Promise(r => setTimeout(r, 1000));
-
-      let menu = document.querySelector('[role="dialog"], [role="menu"]');
-      if (menu && menu.offsetParent !== null) {
-        console.warn("[NRA DreamLab] Menu " + typeLabel + " membandel, memaksa tutup...");
-        document.body.click();
-        await new Promise(r => setTimeout(r, 1000));
-      }
+    if (target) {
+      target.click();
+      console.info(`[NRA DreamLab] Berhasil klik '${value}'`);
+      await new Promise(r => setTimeout(r, 800)); // Jeda stabilitas
       return true;
     }
-    console.info(`[NRA DreamLab] Opsi '${optionText}' belum terlihat, menunggu (percobaan ${attempt + 1}/5)...`);
-    await new Promise(r => setTimeout(r, 2000)); // Tunggu 2 detik sebelum retry
+    console.info(`[NRA DreamLab] Opsi '${value}' belum terlihat, menunggu (percobaan ${i + 1}/10)...`);
+    await new Promise(r => setTimeout(r, 1000));
   }
-  console.warn(`[NRA DreamLab] Opsi '${optionText}' tidak ditemukan setelah beberapa percobaan.`);
+
+  console.error(`[NRA DreamLab] GAGAL: Opsi '${value}' tetap tidak ditemukan di DOM.`);
   return false;
 }
 
@@ -684,8 +683,17 @@ async function selectCanvaConfiguration(typeLabel, optionText) {
  * Starts the main bulk automation loop, running sequentially without page reloads.
  */
 async function configureStyleAndRatio(imageStyle, aspectRatio) {
-  await safeSelectCanvaConfiguration("Style", imageStyle);
-  await safeSelectCanvaConfiguration("Ratio", aspectRatio);
+  const styleOk = await safeSelectCanvaConfiguration("Style", imageStyle);
+  if (styleOk === false) {
+    console.error("[NRA DreamLab] Gagal memilih Style, tidak melanjutkan ke Ratio.");
+    return false;
+  }
+  const ratioOk = await safeSelectCanvaConfiguration("Ratio", aspectRatio);
+  if (ratioOk === false) {
+    console.error("[NRA DreamLab] Gagal memilih Ratio.");
+    return false;
+  }
+  return true;
 }
 
 async function injectPrompt(currentPrompt) {
