@@ -592,6 +592,7 @@ function handleAutomationError(err) {
       status: "Error: " + errMsg,
     });
   });
+  chrome.runtime.sendMessage({ action: "RELEASE_AWAKE" }).catch(() => ({}));
 }
 
 async function safeCdpClick(element, context = "element") {
@@ -614,109 +615,26 @@ async function safeCdpTypeHuman(text, context = "input") {
   }
 }
 async function cdpClick(element) {
-  element.scrollIntoView({ behavior: "instant", block: "center" });
+  element.scrollIntoView({ behavior: "smooth", block: "center" });
   await delay(300);
-  const rect = element.getBoundingClientRect();
 
-  if (rect.width === 0 || rect.height === 0) {
-    // LAYOUT TREE SUSPENDED (MINIMIZED/BACKGROUNDED TAB) -> Use native DOM events
-    console.log(
-      `[NRA DreamLab] Tab backgrounded. Using native DOM click fallback.`,
-    );
-    element.dispatchEvent(
-      new MouseEvent("mousedown", {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-      }),
-    );
-    element.dispatchEvent(
-      new MouseEvent("mouseup", {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-      }),
-    );
-    element.click();
-    return;
-  }
-
-  // NORMAL ACTIVE TAB -> Use CDP Click
-  const x = Math.round(rect.left + rect.width / 2);
-  const y = Math.round(rect.top + rect.height / 2);
-
-  // Timeout wrapper (10 detik maksimal)
-  const response = await new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () =>
-        reject(new Error("CDP_CLICK timeout: Background script unresponsive")),
-      10000,
-    );
-    chrome.runtime.sendMessage({ action: "CDP_CLICK", x, y }, (res) => {
-      clearTimeout(timer);
-      resolve(res);
-    });
-  });
-
-  if (response && !response.success) {
-    console.warn(
-      `[NRA DreamLab] ⚠️ CDP click failed, attempting native DOM click fallback.`,
-    );
-    element.dispatchEvent(
-      new MouseEvent("mousedown", {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-      }),
-    );
-    element.dispatchEvent(
-      new MouseEvent("mouseup", {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-      }),
-    );
-    element.click();
-  }
-}
-
-async function cdpType(text) {
-  // Timeout wrapper (10 detik maksimal)
-  const response = await new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () =>
-        reject(new Error("CDP_TYPE timeout: Background script unresponsive")),
-      10000,
-    );
-    chrome.runtime.sendMessage({ action: "CDP_TYPE", text }, (res) => {
-      clearTimeout(timer);
-      resolve(res);
-    });
-  });
-  if (response && !response.success)
-    throw new Error(response.error || "Unknown CDP_TYPE error");
+  // Suntikkan event klik murni ke DOM (mengakali perlindungan React/Next.js)
+  element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
+  element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
+  element.click();
 }
 
 async function cdpTypeHuman(text) {
-  console.log(
-    `[NRA DreamLab] Typing prompt with human animation (chunk size: 4)...`,
-  );
-  const CHUNK_SIZE = 4;
-  for (let i = 0; i < text.length; i += CHUNK_SIZE) {
-    const chunk = text.substring(i, i + CHUNK_SIZE);
-    const response = await new Promise((resolve) => {
-      chrome.runtime.sendMessage({ action: "CDP_TYPE", text: chunk }, resolve);
-    });
-    if (!response || response.success === false) {
-      throw new Error(
-        response?.error ||
-        chrome.runtime.lastError?.message ||
-        "CDP connection lost during typing",
-      );
-    }
-    const chunkDelay = Math.floor(Math.random() * 80) + 40;
-    await delay(chunkDelay);
-  }
+  console.log(`[NRA DreamLab] Typing prompt using Native DOM Injection...`);
+  const textarea = await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA);
+  if (!textarea) throw new Error("Textarea not found");
+
+  // Bypass perlindungan React/Next.js untuk memasukkan teks secara instan
+  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+  nativeInputValueSetter.call(textarea, text);
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+
+  await delay(300);
 }
 
 async function safeSelectCanvaConfiguration(typeLabel, optionText) {
@@ -795,7 +713,7 @@ async function submitAndWaitForImages() {
   const checkLoadingIndicators = () => {
     const progressBar = document.querySelector('[role="progressbar"]');
     const generatingText = document.evaluate(
-      "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'generating') or contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'creating')]",
+      "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'generating') or contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'creating') or contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'refining')]",
       document,
       null,
       XPathResult.FIRST_ORDERED_NODE_TYPE,
@@ -967,15 +885,8 @@ async function startMainLoop() {
     // Mark status as active automation
     await chrome.storage.local.set({ isAutomating: true });
 
-    // Explicitly attach the debugger before starting the loop
-    await Promise.race([
-      new Promise((resolve) =>
-        chrome.runtime.sendMessage({ action: "ATTACH_DEBUGGER" }, resolve),
-      ),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("ATTACH_DEBUGGER_TIMEOUT")), 10000),
-      ),
-    ]);
+    // Request Keep Awake to prevent system sleep during automation
+    await chrome.runtime.sendMessage({ action: "KEEP_AWAKE" }).catch(() => ({}));
 
     try {
       // 🌟 INITIAL STARTUP GATEKEEPER 🌟
@@ -1064,14 +975,14 @@ async function startMainLoop() {
           console.error(
             "[NRA DreamLab] Failed to download images after maximum retries. Skipping to next prompt...",
           );
-          sessionStats.failedCount = (sessionStats.failedCount || 0) + 1;
           // Lemparkan prompt yang gagal ke Quarantine
           chrome.runtime.sendMessage({
             action: "PROMPT_FAILED",
             failedPrompt: currentPrompt
           });
         } else {
-          // Increment done real-time in handleDownload
+          // Increment download counter only if download was successful
+          sessionStats.downloadCount++;
         }
 
         // Selalu hitung sebagai prompt yang diproses apa pun hasil unduhannya
@@ -1115,6 +1026,7 @@ async function startMainLoop() {
         chrome.storage.local.set({ isAutomating: false }, () => {
           sendStatusUpdate("All prompts processed successfully!");
         });
+        chrome.runtime.sendMessage({ action: "RELEASE_AWAKE" }).catch(() => ({}));
       }
     } catch (err) {
       handleAutomationError(err);
@@ -1210,8 +1122,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log("[NRA DreamLab] Menerima perintah STOP dari panel.");
     isRunning = false;
     isLoopActive = false;
-    // Beri tahu background untuk detach debugger (opsional tapi disarankan)
-    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => { });
+    // Beri tahu background untuk release power
+    chrome.runtime.sendMessage({ action: "RELEASE_AWAKE" }).catch(() => ({}));
     sendResponse({ success: true });
     return true;
   }
