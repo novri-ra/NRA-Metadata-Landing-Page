@@ -1056,17 +1056,30 @@ async function startMainLoop() {
           console.error(
             "[NRA DreamLab] Failed to download images after maximum retries. Skipping to next prompt...",
           );
-          // Still increment success counter since we processed the prompt
-          sessionStats.successCount++;
+          // Lemparkan prompt yang gagal ke Quarantine
+          chrome.runtime.sendMessage({
+            action: "PROMPT_FAILED",
+            failedPrompt: currentPrompt
+          });
         } else {
           // Increment download counter only if download was successful
           sessionStats.downloadCount++;
         }
 
-        // Update session stats in storage
+        // Selalu hitung sebagai prompt yang diproses apa pun hasil unduhannya
+        sessionStats.successCount++;
+
+        // Update session stats & SINKRONISASI sisa prompt ke storage
         await chrome.storage.local.set({
+          prompts: prompts,
           sessionStats: sanitizeStats(sessionStats),
           lastProcessedPromptIndex: currentIndex,
+        });
+
+        // Perbarui UI Textarea di Panel agar prompt tereliminasi dari layar
+        chrome.runtime.sendMessage({
+          action: "UPDATE_TEXTAREA",
+          remainingPrompts: prompts
         });
 
         // Check if we need to stop after this download
