@@ -1001,23 +1001,28 @@ async function submitAndWaitForImages() {
 async function handleDownload(countSetting = "4") {
   console.log("[NRA DreamLab] Memantau kemunculan tombol unduh secara dinamis...");
 
-  let allDownloadButtons = [];
+  const oldButtons = document.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON);
+  oldButtons.forEach(btn => btn.setAttribute('data-bot-seen', 'true'));
+
+  const newButtonSelector = CANVA_SELECTORS.DOWNLOAD_BUTTON + ':not([data-bot-seen="true"])';
+
+  let newDownloadButtons = [];
   try {
-    allDownloadButtons = await smartWaitForElement(CANVA_SELECTORS.DOWNLOAD_BUTTON, 15000);
+    newDownloadButtons = await smartWaitForElement(newButtonSelector, 60000);
   } catch (error) {
     throw new Error("Download buttons not found: " + error.message);
   }
 
-  let latestButtons = allDownloadButtons.slice(-4);
   let targetCount = parseInt(countSetting, 10) || 4;
-  let buttonsToClick = latestButtons.slice(0, targetCount);
+  let buttonsToClick = newDownloadButtons.slice(0, targetCount);
 
-  console.log("[NRA DreamLab] Total tombol terlihat: " + allDownloadButtons.length + ". Mengambil " + buttonsToClick.length + " tombol terbaru.");
+  console.log("[NRA DreamLab] Ditemukan " + newDownloadButtons.length + " tombol baru. Mengklik " + buttonsToClick.length + " tombol.");
 
   for (let i = 0; i < buttonsToClick.length; i++) {
     const btn = buttonsToClick[i];
+    btn.setAttribute('data-bot-seen', 'true');
     await safeCdpClick(btn, "download button " + (i + 1));
-    await delay(3000); // Delay antar-klik tetap diperlukan agar server Canva tidak menganggapnya spam
+    await delay(3000);
   }
 }
 async function handleCooldown(cooldownMs, isStartup = false) {
