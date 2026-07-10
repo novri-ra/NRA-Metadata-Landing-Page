@@ -184,6 +184,37 @@ let sessionStats = {
   totalPrompts: 0,
 };
 
+async function smartWaitForElement(selector, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const existingElements = Array.from(document.querySelectorAll(selector)).filter(btn => btn.offsetParent !== null);
+    if (existingElements.length > 0) {
+      return resolve(existingElements);
+    }
+
+    let timer; // Deklarasi dinaikkan ke atas untuk mencegah ReferenceError
+
+    const observer = new MutationObserver((mutations, obs) => {
+      const elements = Array.from(document.querySelectorAll(selector)).filter(btn => btn.offsetParent !== null);
+      if (elements.length > 0) {
+        obs.disconnect();
+        if (timer) clearTimeout(timer);
+        resolve(elements);
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style']
+    });
+
+    timer = setTimeout(() => {
+      observer.disconnect();
+      reject(new Error("Timeout: Elemen " + selector + " tidak muncul setelah " + timeoutMs + "ms"));
+    }, timeoutMs);
+  });
+}
 /**
  * Helper function to sanitize sessionStats and prevent NaN values.
  * @param {Object} stats
@@ -968,110 +999,27 @@ async function submitAndWaitForImages() {
 }
 
 async function handleDownload(countSetting = "4") {
-  console.log(
-    "[NRA DreamLab] Memulai proses unduhan. Target: " +
-    countSetting +
-    " gambar.",
-  );
-
-  // Jeda ekstra agar DOM selesai merender sebelum mencari tombol
-  await delay(3500);
-
-  let targetCount = 4;
-  if (countSetting === "Random") {
-    targetCount = Math.floor(Math.random() * 4) + 1;
-  } else {
-    targetCount = parseInt(countSetting, 10) || 4;
-  }
-
-  // 1. Smart Wait / Polling mechanism: Tunggu tombol unduh baru tersedia (maks 10 detik)
-  console.log("[NRA DreamLab] Menunggu tombol unduh baru tersedia di DOM...");
-  let elapsed = 0;
-  const timeout = 10000;
-  const interval = 500;
+  console.log("[NRA DreamLab] Memantau kemunculan tombol unduh secara dinamis...");
 
   let allDownloadButtons = [];
-  let newButtons = [];
-
-  while (elapsed < timeout) {
-    if (!isRunning) throw new Error("USER_STOPPED");
-
-    allDownloadButtons = Array.from(document.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON));
-    // Cari tombol yang belum di-tag oleh submitAndWaitForImages
-    newButtons = allDownloadButtons.filter(btn => btn.getAttribute("data-bot-seen") !== "true");
-
-    if (newButtons.length > 0) {
-      break;
-    }
-
-    await delay(interval);
-    elapsed += interval;
+  try {
+    allDownloadButtons = await smartWaitForElement(CANVA_SELECTORS.DOWNLOAD_BUTTON, 15000);
+  } catch (error) {
+    throw new Error("Download buttons not found: " + error.message);
   }
 
-  if (allDownloadButtons.length === 0) {
-    throw new Error("Download buttons not found.");
-  }
-
-  // 2. Logika Pemilihan Tombol (Slicing) Dinamis
-  let latestButtons = [];
-
-  if (newButtons.length > 0) {
-    if (newButtons.length > targetCount) {
-      // Jika jumlah elemen baru lebih dari target, deteksi posisi penyisipan (prepend vs append)
-      const firstNewIndex = allDownloadButtons.indexOf(newButtons[0]);
-      const isPrepended = firstNewIndex < (allDownloadButtons.length / 2);
-
-      if (isPrepended) {
-        latestButtons = newButtons.slice(0, targetCount);
-      } else {
-        latestButtons = newButtons.slice(-targetCount);
-      }
-    } else {
-      latestButtons = newButtons;
-    }
-  } else {
-    // Fallback: Timeout tercapai tanpa menemukan elemen baru (atau tag hilang karena re-render penuh tanpa penambahan).
-    console.warn("[NRA DreamLab] Timeout smart wait! Menggunakan fallback deteksi posisi statis.");
-    if (allDownloadButtons.length > targetCount) {
-      // Fallback aman ke format lama: ambil elemen paling atas (karena Canva sekarang sering prepend)
-      latestButtons = allDownloadButtons.slice(0, targetCount);
-    } else {
-      latestButtons = allDownloadButtons;
-    }
-  }
-
+  let latestButtons = allDownloadButtons.slice(-4);
+  let targetCount = parseInt(countSetting, 10) || 4;
   let buttonsToClick = latestButtons.slice(0, targetCount);
 
-  console.log(
-    "[NRA DreamLab] Total tombol di layar: " +
-    allDownloadButtons.length +
-    ". Mengambil " +
-    buttonsToClick.length +
-    " tombol terbaru secara dinamis.",
-  );
+  console.log("[NRA DreamLab] Total tombol terlihat: " + allDownloadButtons.length + ". Mengambil " + buttonsToClick.length + " tombol terbaru.");
 
   for (let i = 0; i < buttonsToClick.length; i++) {
     const btn = buttonsToClick[i];
-
-    if (!btn || btn.getBoundingClientRect().width === 0) {
-      console.warn("[NRA DreamLab] Tombol tidak valid atau tidak terlihat, melewati...");
-      continue;
-    }
-
-    // Tag tombol ini agar tidak didownload ulang pada prompt berikutnya
-    btn.setAttribute("data-bot-seen", "true");
-
-    console.log("[NRA DreamLab] Mengunduh gambar ke-" + (i + 1) + "...");
-
-    // Gunakan Native DOM click agar lebih kompatibel dengan berbagai resolusi/DPI
-    btn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
-    btn.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
-    btn.click();
-
-    await delay(2500);
+    await safeCdpClick(btn, "download button " + (i + 1));
+    await delay(3000); // Delay antar-klik tetap diperlukan agar server Canva tidak menganggapnya spam
   }
 }
-
 async function handleCooldown(cooldownMs, isStartup = false) {
   if (!isStartup) sessionStats.totalCooldowns++;
   cooldownMs += 5000;
