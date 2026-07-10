@@ -731,196 +731,32 @@ async function safeSelectCanvaConfiguration(typeLabel, optionText) {
 }
 
 async function selectCanvaConfiguration(typeLabel, optionText) {
-  if (
-    !optionText ||
-    optionText === "None" ||
-    optionText === "" ||
-    optionText === "Random"
-  )
-    return;
+  if (!optionText || optionText === "None" || optionText === "" || optionText === "Random") return;
 
-  const escapedOption = optionText.replace(/'/g, "\\'");
+  const targetButton = document.querySelector("button[aria-label='" + optionText + "'], div[role='button'][aria-label='" + optionText + "']");
 
-  // Helper to find the target option inside the popover grid
-  const findTargetOption = () => {
-    let xpath = `//div[@role='button' and @aria-label='${escapedOption}']`;
-    let node = document.evaluate(
-      xpath,
-      document,
-      null,
-      XPathResult.FIRST_ORDERED_NODE_TYPE,
-      null,
-    ).singleNodeValue;
-    if (!node) {
-      xpath = `//*[(local-name()='button' or @role='button') and contains(normalize-space(), '${escapedOption}')]`;
-      node = document.evaluate(
-        xpath,
-        document,
-        null,
-        XPathResult.FIRST_ORDERED_NODE_TYPE,
-        null,
-      ).singleNodeValue;
-    }
-    return node;
-  };
+  if (targetButton) {
+    console.log("[NRA DreamLab] Memilih " + typeLabel + ": '" + optionText + "'...");
 
-  let targetButton = findTargetOption();
-  let isTargetVisible =
-    targetButton && targetButton.getBoundingClientRect().height > 0;
+    await safeCdpClick(targetButton, typeLabel);
+    await delay(1500);
 
-  // 1. OPEN THE MENU IF THE TARGET IS NOT VISIBLE
-  if (!isTargetVisible) {
-    console.log(
-      `[NRA DreamLab] ${typeLabel} menu seems closed. Searching for trigger button...`,
-    );
+    let menu = document.querySelector('[role="dialog"], [role="menu"]');
+    if (menu && menu.offsetParent !== null) {
+      console.warn("[NRA DreamLab] Menu " + typeLabel + " masih terbuka (CDP missed), mencoba Native Click...");
+      targetButton.click(); // Serangan lapis dua
+      await delay(1000);
 
-    // Exhaustive list to catch the trigger button no matter what its current text is
-    const styleKeywords = getStyleOptionsFromDOM();
-    // Add default trigger keywords for Style just in case DOM is not ready
-    if (!styleKeywords.includes("Style")) styleKeywords.unshift("Style");
-    if (!styleKeywords.includes("None")) styleKeywords.unshift("None");
-
-    const ratioKeywords = getRatioOptionsFromDOM();
-    // Add default trigger keywords for Ratio just in case DOM is not ready
-    if (!ratioKeywords.includes("Ratio")) ratioKeywords.unshift("Ratio");
-
-    const keywordsToSearch =
-      typeLabel === "Style" ? styleKeywords : ratioKeywords;
-    let triggerBtn = null;
-
-    // Search for exact match first
-    for (const kw of keywordsToSearch) {
-      const kwEsc = kw.replace(/'/g, "\\'");
-      const xpath = `//*[(local-name()='button' or @role='button') and normalize-space(text())='${kwEsc}']`;
-      const nodes = document.evaluate(
-        xpath,
-        document,
-        null,
-        XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-        null,
-      );
-      for (let i = 0; i < nodes.snapshotLength; i++) {
-        const n = nodes.snapshotItem(i);
-        if (n.getBoundingClientRect().height > 0) {
-          triggerBtn = n;
-          break;
-        }
-      }
-      if (triggerBtn) break;
-    }
-
-    // Fallback: search for partial match if exact match fails
-    if (!triggerBtn) {
-      for (const kw of keywordsToSearch) {
-        const kwEsc = kw.replace(/'/g, "\\'");
-        const xpath = `//*[(local-name()='button' or @role='button') and contains(normalize-space(), '${kwEsc}')]`;
-        const nodes = document.evaluate(
-          xpath,
-          document,
-          null,
-          XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-          null,
-        );
-        for (let i = 0; i < nodes.snapshotLength; i++) {
-          const n = nodes.snapshotItem(i);
-          if (n.getBoundingClientRect().height > 0) {
-            triggerBtn = n;
-            break;
-          }
-        }
-        if (triggerBtn) break;
+      menu = document.querySelector('[role="dialog"], [role="menu"]');
+      if (menu && menu.offsetParent !== null) {
+        console.warn("[NRA DreamLab] Menu " + typeLabel + " membandel, memaksa tutup...");
+        document.body.click(); // Serangan lapis tiga
+        await delay(1000);
       }
     }
-
-    // Click the trigger button if found
-    if (triggerBtn) {
-      triggerBtn.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-        inline: "center",
-      });
-      await delay(500);
-
-      const rect = triggerBtn.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) {
-        // Background Tab Fallback
-        triggerBtn.click();
-      } else {
-        const cx = Math.round(rect.left + rect.width / 2);
-        const cy = Math.round(rect.top + rect.height / 2);
-        await new Promise((r) =>
-          chrome.runtime.sendMessage({ action: "CDP_CLICK", x: cx, y: cy }, r),
-        );
-      }
-
-      await delay(1200); // Give the popover grid time to animate and open
-
-      // Re-evaluate target button after menu opens
-      targetButton = findTargetOption();
-      isTargetVisible =
-        targetButton && targetButton.getBoundingClientRect().height > 0;
-    } else {
-      console.warn(
-        `[NRA DreamLab] ⚠️ Could not find the main trigger button to open the ${typeLabel} menu.`,
-      );
-    }
-  }
-
-  // 2. CHECK IF TARGET EXISTS IN DOM
-  if (!targetButton) {
-    console.warn(
-      `[NRA DreamLab] ⚠️ Option '${optionText}' not found on screen. Proceeding with current settings.`,
-    );
-    return;
-  }
-
-  // 3. CHECK IF ALREADY ACTIVE (aria-pressed)
-  if (targetButton.getAttribute("aria-pressed") === "true") {
-    console.log(
-      `[NRA DreamLab] ${typeLabel} '${optionText}' is already active. Skipping click.`,
-    );
-    return;
-  }
-
-  // 4. SCROLL AND CLICK TARGET OPTION
-  console.log(`[NRA DreamLab] Selecting ${typeLabel}: '${optionText}'...`);
-  targetButton.scrollIntoView({
-    behavior: "smooth",
-    block: "center",
-    inline: "center",
-  });
-  await delay(700);
-
-  const targetRect = targetButton.getBoundingClientRect();
-
-  if (targetRect.width === 0 || targetRect.height === 0) {
-    // Background Tab Fallback
-    console.log(
-      "[NRA DreamLab] Tab is in background. Using native DOM click for ",
-      optionText,
-    );
-    targetButton.click();
   } else {
-    // Active Tab CDP Click
-    const clickX = Math.round(targetRect.left + targetRect.width / 2);
-    const clickY = Math.round(targetRect.top + targetRect.height / 2);
-    const response = await new Promise((resolve) => {
-      chrome.runtime.sendMessage(
-        { action: "CDP_CLICK", x: clickX, y: clickY },
-        resolve,
-      );
-    });
-
-    // Fallback if CDP fails
-    if (!response || response.success === false) {
-      console.warn(
-        `[NRA DreamLab]   CDP click failed, attempting native DOM click.`,
-      );
-      targetButton.click();
-    }
+    console.warn("[NRA DreamLab] Opsi '" + optionText + "' tidak ditemukan di DOM.");
   }
-
-  await delay(1000); // Stabilize UI before proceeding
 }
 
 /**
