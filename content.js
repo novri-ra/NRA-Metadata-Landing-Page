@@ -722,21 +722,20 @@ async function submitAndWaitForImages() {
   await delay(3000);
 
   const checkLoadingIndicators = () => {
-    const progressBar = document.querySelector('[role="progressbar"]');
-    const generatingText = document.evaluate(
-      "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'generating') or contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'creating') or contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'refining')]",
-      document,
-      null,
-      XPathResult.FIRST_ORDERED_NODE_TYPE,
-      null
-    ).singleNodeValue;
+    const loadingTexts = ['generating', 'creating', 'refining', 'processing', 'rendering'];
 
-    const currentGenBtn = document.querySelector(CANVA_SELECTORS.SUBMIT_BUTTON);
-    const isBtnDisabled = currentGenBtn ? (currentGenBtn.disabled || currentGenBtn.getAttribute("aria-disabled") === "true") : false;
+    // 1. Cek apakah teks loading masih ada di layar
+    const elements = Array.from(document.querySelectorAll('*'));
+    const isStillLoading = elements.some(el =>
+      el.textContent &&
+      loadingTexts.some(text => el.textContent.toLowerCase().includes(text))
+    );
 
-    const cancelBtn = document.querySelector('button[aria-label="Cancel"], button[aria-label="Batalkan"]');
+    // 2. Cek apakah tombol download sudah tersedia (jika tombol ada, loading dianggap selesai)
+    const downloadButton = document.querySelector('button[data-testid="download-button"]');
 
-    return !!(progressBar || generatingText || isBtnDisabled || cancelBtn);
+    // Jika masih ada teks loading, return true. Jika teks hilang DAN tombol download ada, return false.
+    return isStillLoading && !downloadButton;
   };
 
   let renderElapsed = 0;
@@ -754,8 +753,8 @@ async function submitAndWaitForImages() {
         isGenerating = false;
         break;
       } else {
-        await delay(2000);
-        renderElapsed += 2000;
+        await delay(500);
+        renderElapsed += 500;
       }
     }
   }
