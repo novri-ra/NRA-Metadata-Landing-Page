@@ -1,1 +1,1148 @@
-(function(_0x2def57,_0x4e713f){const _0x323cb1=a1_0x2f73,_0x37f384=_0x2def57();while(!![]){try{const _0x2f2c4c=-parseInt(_0x323cb1(0x127))/0x1*(parseInt(_0x323cb1(0x103))/0x2)+-parseInt(_0x323cb1(0x11a))/0x3*(-parseInt(_0x323cb1(0x100))/0x4)+parseInt(_0x323cb1(0xb7))/0x5+parseInt(_0x323cb1(0x18d))/0x6+-parseInt(_0x323cb1(0x178))/0x7*(parseInt(_0x323cb1(0x138))/0x8)+parseInt(_0x323cb1(0xa8))/0x9*(-parseInt(_0x323cb1(0xe3))/0xa)+parseInt(_0x323cb1(0xcf))/0xb*(parseInt(_0x323cb1(0xc6))/0xc);if(_0x2f2c4c===_0x4e713f)break;else _0x37f384['push'](_0x37f384['shift']());}catch(_0x14aa94){_0x37f384['push'](_0x37f384['shift']());}}}(a1_0x3b0f,0xea1c9),function(_0x367b67,_0x4ef279){const _0x1c3de3=a1_0x2f73,_0x27ebc8=a1_0x29b0,_0x918d70=_0x367b67();while(!![]){try{const _0x71724d=-parseInt(_0x27ebc8(0x85))/0x1*(parseInt(_0x27ebc8(0xe0))/0x2)+parseInt(_0x27ebc8(0xfd))/0x3+-parseInt(_0x27ebc8(0x116))/0x4*(parseInt(_0x27ebc8(0x14f))/0x5)+-parseInt(_0x27ebc8(0xad))/0x6*(parseInt(_0x27ebc8(0xd1))/0x7)+-parseInt(_0x27ebc8(0xea))/0x8*(parseInt(_0x27ebc8(0xb7))/0x9)+-parseInt(_0x27ebc8(0xfe))/0xa+-parseInt(_0x27ebc8(0xe6))/0xb*(-parseInt(_0x27ebc8(0xbb))/0xc);if(_0x71724d===_0x4ef279)break;else _0x918d70['push'](_0x918d70[_0x1c3de3(0xa3)]());}catch(_0x94f8b1){_0x918d70['push'](_0x918d70[_0x1c3de3(0xa3)]());}}}(a1_0x2a39,0x796be));const a1_0x789d4=a1_0x1af7;(function(_0x115dc8,_0x5de7a2){const _0x3ab3ed=a1_0x2f73,_0x4aec5d=a1_0x29b0,_0x351fe2=a1_0x1af7,_0x4748ae=_0x115dc8();while(!![]){try{const _0xf97b95=parseInt(_0x351fe2(0x12a))/0x1*(-parseInt(_0x351fe2(0x1c3))/0x2)+parseInt(_0x351fe2(0x1fa))/0x3+-parseInt(_0x351fe2(0x1bc))/0x4*(parseInt(_0x351fe2(0x129))/0x5)+-parseInt(_0x351fe2(0x1f0))/0x6+-parseInt(_0x351fe2(0x1a7))/0x7+-parseInt(_0x351fe2(0x185))/0x8*(parseInt(_0x351fe2(0x182))/0x9)+parseInt(_0x351fe2(0x1ec))/0xa*(parseInt(_0x351fe2(0x1a0))/0xb);if(_0xf97b95===_0x5de7a2)break;else _0x4748ae[_0x4aec5d(0xd7)](_0x4748ae[_0x3ab3ed(0xa3)]());}catch(_0x578295){_0x4748ae[_0x4aec5d(0xd7)](_0x4748ae[_0x4aec5d(0xfc)]());}}}(a1_0x129f,0xc7ec6));const a1_0xc8f98=a1_0x40f2;(function(_0x260370,_0x11add7){const _0x3f6906=a1_0x29b0,_0xd31c47=a1_0x1af7,_0x87c46f=a1_0x40f2,_0x8d2819=_0x260370();while(!![]){try{const _0xbc5ed3=-parseInt(_0x87c46f(0x1bb))/0x1+parseInt(_0x87c46f(0x26c))/0x2+parseInt(_0x87c46f(0x223))/0x3+-parseInt(_0x87c46f(0x213))/0x4+-parseInt(_0x87c46f(0x1ee))/0x5*(parseInt(_0x87c46f(0x1d7))/0x6)+-parseInt(_0x87c46f(0x26e))/0x7+-parseInt(_0x87c46f(0x209))/0x8*(-parseInt(_0x87c46f(0x1ff))/0x9);if(_0xbc5ed3===_0x11add7)break;else _0x8d2819[_0xd31c47(0x213)](_0x8d2819[_0xd31c47(0x1d7)]());}catch(_0x40ab8d){_0x8d2819[_0xd31c47(0x213)](_0x8d2819[_0x3f6906(0xfc)]());}}}(a1_0x1aec,0x36561));const a1_0x3f0e71=a1_0x27e5;(function(_0x43c734,_0x3cf356){const _0xa92cfa=a1_0x1af7,_0x24d9e8=a1_0x40f2,_0x21fe96=a1_0x27e5,_0x4fb0a7=_0x43c734();while(!![]){try{const _0x2695b6=parseInt(_0x21fe96(0x1b4))/0x1*(parseInt(_0x21fe96(0xff))/0x2)+-parseInt(_0x21fe96(0x1a0))/0x3*(-parseInt(_0x21fe96(0xf1))/0x4)+parseInt(_0x21fe96(0x1c2))/0x5*(-parseInt(_0x21fe96(0xea))/0x6)+parseInt(_0x21fe96(0x101))/0x7+-parseInt(_0x21fe96(0x1cf))/0x8+parseInt(_0x21fe96(0x13f))/0x9+parseInt(_0x21fe96(0x156))/0xa;if(_0x2695b6===_0x3cf356)break;else _0x4fb0a7[_0x24d9e8(0x1c6)](_0x4fb0a7[_0x24d9e8(0x224)]());}catch(_0x417ace){_0x4fb0a7[_0x24d9e8(0x1c6)](_0x4fb0a7[_0xa92cfa(0x1d7)]());}}}(a1_0x3250,0x74c3b));const originalConsoleLog=console[a1_0x3f0e71(0x192)],originalConsoleWarn=console[a1_0x3f0e71(0xfb)],originalConsoleError=console[a1_0x3f0e71(0x1e1)];let isLogging=![];function broadcastLog(_0x342ef4,..._0x88cd56){const _0x3a8e4=a1_0x40f2,_0x545213=a1_0x3f0e71;if(isLogging)return;isLogging=!![];try{const _0x4248de=_0x88cd56[_0x545213(0x118)](_0x30065c=>typeof _0x30065c===_0x545213(0x139)?JSON[_0x545213(0x1ba)](_0x30065c):String(_0x30065c))[_0x545213(0xf6)]('\x20');chrome[_0x3a8e4(0x264)][_0x545213(0x191)]({'action':_0x545213(0xf7),'level':_0x342ef4,'message':_0x4248de})[_0x545213(0x163)](_0x51d54b=>{});}catch(_0x4ec4b0){}finally{isLogging=![];}}console[a1_0x3f0e71(0x192)]=function(..._0x35ea54){const _0x3c6036=a1_0x3f0e71;originalConsoleLog[_0x3c6036(0x1de)](console,_0x35ea54),broadcastLog(_0x3c6036(0x172),..._0x35ea54);},console[a1_0x3f0e71(0xfb)]=function(..._0x3a5711){const _0x213d4b=a1_0x3f0e71;originalConsoleWarn[_0x213d4b(0x1de)](console,_0x3a5711),broadcastLog(_0x213d4b(0x109),..._0x3a5711);},console[a1_0x3f0e71(0x1e1)]=function(..._0x18dd5d){const _0x45fdd9=a1_0x3f0e71;originalConsoleError[_0x45fdd9(0x1de)](console,_0x18dd5d),broadcastLog(_0x45fdd9(0x110),..._0x18dd5d);},window[a1_0x3f0e71(0x10a)](a1_0xc8f98(0x27e),function(_0x4dbf40){const _0x441967=a1_0x1af7,_0x1f36cc=a1_0x3f0e71;console[_0x1f36cc(0x1e1)](_0x1f36cc(0x114),_0x4dbf40[_0x1f36cc(0x115)]);try{chrome[_0x1f36cc(0x19e)][_0x1f36cc(0x191)]({'action':_0x1f36cc(0x14d),'status':_0x1f36cc(0x12c)+(_0x4dbf40[_0x1f36cc(0x115)]?.[_0x1f36cc(0x190)]||_0x1f36cc(0x196))})[_0x1f36cc(0x163)](()=>{});}catch(_0x2db798){}_0x4dbf40[_0x441967(0x159)]();});function a1_0x3250(){const _0xc87556=a1_0x2f73,_0x524c25=a1_0x29b0,_0x4c0b69=a1_0x1af7,_0x4310ef=a1_0xc8f98,_0x2479e6=[_0x4310ef(0x1ca),_0x524c25(0xb9),_0x4310ef(0x1e4),_0x4c0b69(0x156),_0x4310ef(0x245),_0x4310ef(0x1eb),_0x4310ef(0x27d),_0x4c0b69(0x134),_0x4310ef(0x226),_0x4310ef(0x1af),_0x4310ef(0x1e7),_0x4310ef(0x26d),_0x4310ef(0x26b),_0x524c25(0x158),_0x524c25(0x174),_0x4310ef(0x1f2),_0x4310ef(0x19c),_0x4310ef(0x2a0),_0x4310ef(0x1bc),_0x4310ef(0x24b),_0x4310ef(0x240),_0x4310ef(0x299),_0x4310ef(0x1c2),_0x4310ef(0x227),_0x4310ef(0x25c),_0x4310ef(0x290),_0x4310ef(0x1fa),_0x4310ef(0x252),_0x4310ef(0x29e),_0x4c0b69(0x132),_0x4310ef(0x199),_0x4310ef(0x1ce),_0x4c0b69(0x151),_0x4c0b69(0x18f),_0x4310ef(0x1f1),_0x524c25(0xd7),_0x4310ef(0x29a),_0x4310ef(0x210),_0x4310ef(0x217),_0x4310ef(0x1c3),_0x4310ef(0x224),_0x524c25(0xa7),_0x4310ef(0x232),_0x4310ef(0x1b5),_0x4310ef(0x21c),_0x4310ef(0x247),_0x4310ef(0x22e),_0x4c0b69(0x1f6),_0x4310ef(0x256),_0x4c0b69(0x1ac),_0x4c0b69(0x137),_0x4310ef(0x27c),_0x4310ef(0x23f),_0x4310ef(0x214),_0x4310ef(0x20e),_0x4310ef(0x262),_0x4310ef(0x216),_0x4310ef(0x1db),_0x4310ef(0x23b),_0x4310ef(0x1de),_0x4c0b69(0x16e),_0x4c0b69(0x18e),_0x4310ef(0x242),_0xc87556(0xdd),_0x4310ef(0x24e),_0x4310ef(0x1d4),_0x4310ef(0x29c),_0x524c25(0xd5),_0x4310ef(0x279),_0x4310ef(0x22d),_0x4c0b69(0x1fd),_0x4310ef(0x275),_0x4310ef(0x1a0),_0x4310ef(0x1b6),_0x4310ef(0x205),_0x4310ef(0x22c),_0x4310ef(0x1a4),_0x4c0b69(0x14a),_0x4310ef(0x215),_0x4310ef(0x1b7),_0x4310ef(0x1d8),_0x4310ef(0x258),_0x4310ef(0x254),_0x4c0b69(0x1ff),_0x4310ef(0x1d3),_0x4310ef(0x27a),_0x4310ef(0x1da),_0x4310ef(0x19a),_0x4c0b69(0x205),_0x4c0b69(0x1da),_0x4c0b69(0x1b1),_0x4c0b69(0x121),_0x4310ef(0x19e),_0x4310ef(0x255),_0x4310ef(0x281),_0x4310ef(0x1e2),_0x4310ef(0x19b),_0x4310ef(0x1e5),_0x4310ef(0x234),_0x4310ef(0x273),_0x4310ef(0x1f7),_0x4310ef(0x282),_0x4310ef(0x264),_0x4c0b69(0x16b),_0x4310ef(0x1d9),_0x4310ef(0x1c0),_0x4310ef(0x1ef),_0x4310ef(0x260),_0x4c0b69(0x1dc),_0x4310ef(0x29d),_0x4310ef(0x1d5),_0x4c0b69(0x17f),_0x4310ef(0x1ed),_0x4310ef(0x23e),_0x4310ef(0x1bf),_0x4310ef(0x24c),_0x4310ef(0x1f3),_0x4c0b69(0x1d5),_0x4310ef(0x218),_0x4310ef(0x280),_0x4310ef(0x1c1),_0x4310ef(0x220),_0x4310ef(0x1d6),_0x4310ef(0x1fc),_0x4310ef(0x211),_0x524c25(0x9a),_0x4310ef(0x238),_0x4310ef(0x268),_0x4310ef(0x1e9),_0x4310ef(0x1a9),_0x4310ef(0x291),_0x4310ef(0x25f),_0x4310ef(0x1d1),_0x4310ef(0x203),_0x4310ef(0x1a5),_0x4c0b69(0x1a8),_0x4c0b69(0x1b3),_0x4310ef(0x204),_0x4c0b69(0x1b2),_0x4310ef(0x22b),_0x4310ef(0x201),_0x4310ef(0x1e1),_0x4310ef(0x1a3),_0x4310ef(0x28a),_0x4310ef(0x1a6),_0x4310ef(0x292),_0x524c25(0xf3),_0x4310ef(0x1c4),_0x4310ef(0x1ec),_0x4310ef(0x244),_0x4310ef(0x20b),_0x4310ef(0x27f),_0x4310ef(0x25e),_0x4310ef(0x1e8),_0x4310ef(0x200),_0x4310ef(0x270),_0x4310ef(0x1b4),_0x4c0b69(0x11f),_0x4c0b69(0x181),_0x4310ef(0x1b2),_0x4310ef(0x1f0),_0x4c0b69(0x19e),_0x4310ef(0x206),_0x4310ef(0x26f),_0x4310ef(0x21b),_0xc87556(0x166),_0x4310ef(0x1f4),_0x4310ef(0x286),_0x4310ef(0x294),_0x4310ef(0x1be),_0x4c0b69(0x1f5),_0x4310ef(0x1b3),_0x4310ef(0x23d),'querySelector',_0x4310ef(0x243),_0x4310ef(0x241),_0x4310ef(0x1df),_0x4310ef(0x257),_0x4310ef(0x219),_0x4310ef(0x1bd),_0x4310ef(0x1a2),_0x4c0b69(0x174),_0x4310ef(0x272),_0x4310ef(0x237),_0x4310ef(0x28e),_0x4310ef(0x285),_0x4310ef(0x25a),_0x4c0b69(0x19b),_0x4c0b69(0x20d),_0x4310ef(0x228),_0x4310ef(0x21e),_0x4310ef(0x1fe),_0x4310ef(0x1cc),_0x4310ef(0x265),_0x4310ef(0x1cf),_0x4310ef(0x202),_0x4310ef(0x1b0),_0x4310ef(0x29b),_0x4310ef(0x288),_0x4310ef(0x235),_0x4c0b69(0x1d3),_0x4310ef(0x22a),_0x4310ef(0x212),'Ratio',_0x524c25(0xcb),_0x4310ef(0x230),_0x4310ef(0x297),_0x4310ef(0x208),_0x4310ef(0x222),_0x4310ef(0x221),_0x4c0b69(0x180),_0x4310ef(0x26a),_0x4310ef(0x261),_0x4310ef(0x1f8),_0x4310ef(0x25b),_0x524c25(0x161),_0x4310ef(0x21d),_0x4c0b69(0x178),_0x4310ef(0x1ab),_0x4310ef(0x277),_0x4310ef(0x1f9),_0x4310ef(0x1ae),_0x4310ef(0x1fd),_0x4c0b69(0x17d),_0x4310ef(0x1e0),_0x4310ef(0x1cd),_0x4310ef(0x267),_0x4c0b69(0x146),_0x524c25(0xec),_0x4310ef(0x248),_0x4310ef(0x1fb),_0x4310ef(0x29f),_0x4310ef(0x28c),_0x4310ef(0x295),_0x4310ef(0x253),_0x4310ef(0x20a),_0x4310ef(0x298),_0x4310ef(0x1c5),_0x4310ef(0x229),_0x4310ef(0x287),_0x4310ef(0x1c8),_0x4310ef(0x207),_0x4310ef(0x20f),_0x4310ef(0x259),_0x524c25(0x133),_0x4310ef(0x274),_0x4310ef(0x24f),_0x4310ef(0x28b),_0x4310ef(0x231),_0x4310ef(0x25d),_0x4310ef(0x269),_0x4310ef(0x197),_0x4310ef(0x20d),_0x4310ef(0x22f),_0x4310ef(0x1b8),_0x4310ef(0x276),_0x4310ef(0x1e6),_0x4310ef(0x24d),_0x4310ef(0x1ba),_0x4310ef(0x233),_0x4c0b69(0x1fe),_0x4c0b69(0x1d6),_0x4310ef(0x1aa)];return a1_0x3250=function(){return _0x2479e6;},a1_0x3250();}async function logToTerminal(_0x35d32e,_0x269bea=![]){const _0xbf9c9b=a1_0xc8f98,_0x4b0247=a1_0x3f0e71,_0x185ede=await chrome[_0x4b0247(0x1ca)][_0x4b0247(0xe5)][_0x4b0247(0xf3)]([_0xbf9c9b(0x1c7)]),_0x4cbc85=_0x185ede[_0x4b0247(0x136)]!==![];if(_0x269bea&&!_0x4cbc85)return;const _0x3d3c7a=new Date()[_0x4b0247(0xee)](),_0x48900e='['+_0x3d3c7a+']\x20'+_0x35d32e;console[_0x4b0247(0x192)](_0x48900e),chrome[_0x4b0247(0x19e)][_0x4b0247(0x191)]({'action':_0xbf9c9b(0x283),'message':_0x48900e});}function getStyleOptionsFromDOM(){const _0x2d7cfc=a1_0x1af7,_0x4460f1=a1_0xc8f98,_0x4a762f=a1_0x3f0e71,_0x653470=[],_0x4f9f49=document[_0x4a762f(0x1e5)](_0x4a762f(0x134))||document[_0x4a762f(0x1e5)](_0x4a762f(0x1d8));if(_0x4f9f49){const _0xda3ace=_0x4f9f49[_0x4a762f(0x1db)](_0x4a762f(0x18b));_0xda3ace[_0x4a762f(0x138)](function(_0x5c6330){const _0x4872a7=a1_0x40f2,_0x1d9f0c=_0x4a762f,_0x348e26=_0x5c6330[_0x1d9f0c(0x152)](_0x1d9f0c(0x1d6))||_0x5c6330[_0x4872a7(0x1cb)][_0x1d9f0c(0x188)]();_0x348e26&&_0x348e26[_0x1d9f0c(0x137)]>0x0&&_0x348e26!==_0x1d9f0c(0xfd)&&_0x653470[_0x4872a7(0x1c6)](_0x348e26);});}if(_0x653470[_0x4a762f(0x137)]===0x0)return[_0x4a762f(0x170),_0x4a762f(0x197),_0x4a762f(0x1d0),_0x4a762f(0xe8),_0x2d7cfc(0x1c9),_0x4a762f(0x119),_0x4a762f(0x1c0),_0x4a762f(0x153),_0x4a762f(0x1a1),_0x4a762f(0x15d),_0x4460f1(0x20c),_0x4a762f(0x1a8),_0x4a762f(0xf4),_0x4a762f(0x16e),_0x4460f1(0x27b),_0x4a762f(0x105),_0x4a762f(0x1b2),_0x4460f1(0x1a1)];return _0x653470;}function getRatioOptionsFromDOM(){const _0x32f8e0=a1_0x1af7,_0x37b9c8=a1_0xc8f98,_0x2494aa=a1_0x3f0e71,_0x5a8fbb=[],_0x2a8c6c=document[_0x2494aa(0x1e5)](_0x2494aa(0x134))||document[_0x2494aa(0x1e5)](_0x32f8e0(0x199));if(_0x2a8c6c){const _0x8e43f5=_0x2a8c6c[_0x37b9c8(0x26f)](_0x2494aa(0x18b));_0x8e43f5[_0x2494aa(0x138)](function(_0x95584d){const _0x5c85eb=a1_0x2f73,_0x284761=_0x32f8e0,_0x530e97=_0x37b9c8,_0x30900f=_0x2494aa,_0x5746d3=_0x95584d[_0x30900f(0x152)](_0x30900f(0x1d6))||_0x95584d[_0x30900f(0x193)][_0x5c85eb(0xbb)]();_0x5746d3&&(_0x5746d3[_0x30900f(0x10d)](':')||_0x5746d3===_0x30900f(0x16f)||_0x5746d3===_0x530e97(0x22f)||_0x5746d3===_0x30900f(0x1a4)||_0x5746d3===_0x284761(0x14f)||_0x5746d3===_0x30900f(0x12b)||_0x5746d3===_0x30900f(0x178)||_0x5746d3===_0x30900f(0x185))&&_0x5a8fbb[_0x30900f(0x15b)](_0x5746d3);});}if(_0x5a8fbb[_0x2494aa(0x137)]===0x0)return[_0x2494aa(0x16f),_0x2494aa(0x12e),_0x37b9c8(0x296),_0x2494aa(0x18f),_0x32f8e0(0x167),_0x37b9c8(0x24e),_0x2494aa(0x185)];return _0x5a8fbb;}function a1_0x2f73(_0x535ec8,_0x517a4e){_0x535ec8=_0x535ec8-0x8d;const _0x3b0fd4=a1_0x3b0f();let _0x2f7389=_0x3b0fd4[_0x535ec8];return _0x2f7389;}let isPausedGlobal=![],batchLimitGlobal=0x0;function a1_0x40f2(_0x4af4eb,_0x1321e7){_0x4af4eb=_0x4af4eb-0x197;const _0x135eee=a1_0x1aec();let _0x44ba0d=_0x135eee[_0x4af4eb];return _0x44ba0d;}chrome[a1_0x3f0e71(0x1ca)][a1_0x3f0e71(0x1c1)][a1_0x3f0e71(0x1a9)]((_0x5acf8d,_0x3f6f72)=>{const _0x48611f=a1_0xc8f98,_0x4533b6=a1_0x3f0e71;_0x3f6f72===_0x4533b6(0xe5)&&(_0x5acf8d[_0x4533b6(0x194)]!==undefined&&(isPausedGlobal=_0x5acf8d[_0x4533b6(0x194)][_0x4533b6(0x16b)]===!![]),_0x5acf8d[_0x48611f(0x1af)]!==undefined&&(batchLimitGlobal=parseInt(_0x5acf8d[_0x4533b6(0x141)][_0x48611f(0x27c)],0xa)||0x0));}),chrome[a1_0x3f0e71(0x1ca)][a1_0x3f0e71(0xe5)][a1_0x3f0e71(0xf3)]([a1_0x789d4(0x18b),a1_0x3f0e71(0x141)],_0x2ab18f=>{const _0x135542=a1_0xc8f98,_0x23a897=a1_0x3f0e71;if(_0x2ab18f[_0x23a897(0x194)]!==undefined)isPausedGlobal=_0x2ab18f[_0x23a897(0x194)]===!![];if(_0x2ab18f[_0x135542(0x1af)]!==undefined)batchLimitGlobal=parseInt(_0x2ab18f[_0x135542(0x1af)],0xa)||0x0;});function a1_0x1aec(){const _0x37defa=a1_0x2f73,_0x5b8966=a1_0x29b0,_0x56e3c9=a1_0x789d4,_0x5785f8=[_0x56e3c9(0x1dd),_0x5b8966(0x95),_0x56e3c9(0x127),_0x56e3c9(0x20e),_0x56e3c9(0x186),_0x56e3c9(0x191),_0x5b8966(0xee),_0x56e3c9(0x179),_0x56e3c9(0x1f2),_0x56e3c9(0x20a),_0x56e3c9(0x148),_0x56e3c9(0x15f),_0x56e3c9(0x1b8),_0x56e3c9(0x1b6),_0x56e3c9(0x17a),_0x56e3c9(0x1bd),_0x56e3c9(0x1ee),_0x56e3c9(0x20f),_0x56e3c9(0x1cc),_0x56e3c9(0x198),_0x56e3c9(0x12d),_0x56e3c9(0x13c),_0x5b8966(0x105),_0x5b8966(0x112),_0x56e3c9(0x17e),_0x56e3c9(0x1c5),_0x37defa(0xda),_0x56e3c9(0x18c),_0x56e3c9(0x157),_0x5b8966(0x148),_0x56e3c9(0x142),_0x56e3c9(0x1ce),_0x56e3c9(0x1ae),_0x56e3c9(0x1c0),_0x56e3c9(0x17c),_0x56e3c9(0x1d0),_0x56e3c9(0x205),_0x37defa(0xed),_0x56e3c9(0x1e0),_0x5b8966(0x113),_0x56e3c9(0x1a1),_0x56e3c9(0x176),_0x56e3c9(0x133),_0x56e3c9(0x1ef),_0x5b8966(0xa0),_0x5b8966(0x72),_0x56e3c9(0x1d7),_0x56e3c9(0x141),_0x56e3c9(0x1e4),_0x56e3c9(0x168),_0x56e3c9(0x171),_0x56e3c9(0x149),_0x56e3c9(0x16a),_0x56e3c9(0x1fb),_0x56e3c9(0x1e5),_0x56e3c9(0x1cb),_0x56e3c9(0x1a9),_0x56e3c9(0x131),_0x56e3c9(0x1a5),_0x56e3c9(0x177),_0x5b8966(0x6d),_0x56e3c9(0x1f9),_0x56e3c9(0x20c),_0x56e3c9(0x140),_0x56e3c9(0x147),_0x56e3c9(0x1cf),_0x5b8966(0xd6),_0x5b8966(0x10e),_0x56e3c9(0x20d),_0x37defa(0x17d),_0x5b8966(0x13c),_0x56e3c9(0x1f7),_0x56e3c9(0x1b9),_0x56e3c9(0x19c),_0x5b8966(0xac),_0x37defa(0x151),_0x5b8966(0x16e),_0x5b8966(0x86),_0x56e3c9(0x13e),_0x5b8966(0x171),_0x56e3c9(0x12e),_0x56e3c9(0x15a),_0x56e3c9(0x1d8),_0x56e3c9(0x1f5),_0x5b8966(0xcb),_0x56e3c9(0x1cd),_0x56e3c9(0x1de),_0x56e3c9(0x192),_0x56e3c9(0x201),_0x56e3c9(0x218),_0x5b8966(0x103),_0x56e3c9(0x166),_0x56e3c9(0x207),_0x56e3c9(0x124),_0x56e3c9(0x212),_0x56e3c9(0x1bf),_0x5b8966(0x15a),_0x5b8966(0xdf),_0x5b8966(0x104),_0x56e3c9(0x184),_0x56e3c9(0x1c8),_0x5b8966(0xff),_0x56e3c9(0x1ca),_0x56e3c9(0x1ed),_0x56e3c9(0x1b7),_0x56e3c9(0x214),_0x56e3c9(0x13b),_0x56e3c9(0x155),_0x56e3c9(0x202),_0x56e3c9(0x189),_0x37defa(0xcd),_0x56e3c9(0x16f),_0x5b8966(0x129),_0x56e3c9(0x19a),_0x5b8966(0x76),_0x56e3c9(0x167),_0x56e3c9(0x123),_0x56e3c9(0x136),_0x56e3c9(0x145),_0x56e3c9(0x203),_0x56e3c9(0x211),_0x56e3c9(0x154),_0x56e3c9(0x138),_0x56e3c9(0x17f),_0x56e3c9(0x126),'Processing\x20prompt\x20',_0x56e3c9(0x208),_0x56e3c9(0x195),_0x56e3c9(0x190),_0x56e3c9(0x215),_0x56e3c9(0x1d5),_0x5b8966(0x11d),_0x56e3c9(0x1f8),_0x37defa(0x8d),_0x56e3c9(0x14b),_0x56e3c9(0x158),_0x56e3c9(0x12c),_0x5b8966(0x8f),_0x56e3c9(0x1c2),_0x5b8966(0xeb),_0x56e3c9(0x12f),_0x56e3c9(0x18a),_0x56e3c9(0x1db),_0x56e3c9(0x1e3),_0x56e3c9(0x13d),_0x56e3c9(0x13f),_0x56e3c9(0x15e),_0x56e3c9(0x1af),_0x5b8966(0x142),_0x56e3c9(0x130),_0x37defa(0x125),_0x5b8966(0x80),_0x56e3c9(0x160),_0x56e3c9(0x135),_0x56e3c9(0x1bb),_0x56e3c9(0x1fc),_0x37defa(0xff),_0x56e3c9(0x1be),_0x56e3c9(0x169),_0x56e3c9(0x1c6),_0x5b8966(0x15d),_0x5b8966(0x136),_0x56e3c9(0x219),_0x37defa(0x163),_0x56e3c9(0x1aa),_0x56e3c9(0x1eb),_0x56e3c9(0x164),_0x5b8966(0x15c),_0x56e3c9(0x1ea),_0x5b8966(0x7c),_0x56e3c9(0x1ab),_0x5b8966(0x165),_0x56e3c9(0x125),_0x56e3c9(0x20b),_0x56e3c9(0x14f),_0x5b8966(0xbf),_0x56e3c9(0x14c),_0x37defa(0x12f),_0x5b8966(0x140),_0x56e3c9(0x1e2),_0x56e3c9(0x204),_0x56e3c9(0x161),_0x56e3c9(0x1a3),_0x56e3c9(0x175),_0x56e3c9(0x1b0),_0x56e3c9(0x19d),_0x56e3c9(0x1e9),_0x56e3c9(0x216),_0x56e3c9(0x16b),_0x56e3c9(0x150),_0x56e3c9(0x1b5),_0x56e3c9(0x15d),_0x56e3c9(0x152),_0x5b8966(0x11f),_0x56e3c9(0x187),_0x56e3c9(0x16d),_0x56e3c9(0x18d),_0x56e3c9(0x173),_0x5b8966(0xd3),_0x56e3c9(0x1f4),_0x56e3c9(0x16c),_0x5b8966(0x101),_0x56e3c9(0x1e1),_0x5b8966(0x163),_0x56e3c9(0x128),_0x56e3c9(0x120),_0x56e3c9(0x165),_0x56e3c9(0x1a6),_0x56e3c9(0x139),_0x37defa(0xe9),_0x37defa(0x131),_0x56e3c9(0x194),_0x5b8966(0x117),_0x56e3c9(0x1d4),_0x56e3c9(0x1e6),_0x5b8966(0xe1),_0x5b8966(0xc4),_0x56e3c9(0x13a),_0x5b8966(0xd7),_0x56e3c9(0x1d6),_0x56e3c9(0x210),_0x5b8966(0xa5),_0x56e3c9(0x1ba),_0x56e3c9(0x121),_0x37defa(0x104),_0x5b8966(0xe8),_0x56e3c9(0x1a2),'get',_0x56e3c9(0x1b1),_0x5b8966(0x90),_0x56e3c9(0x1b4),'[NRA\x20DreamLab]\x20Tombol\x20tidak\x20valid\x20atau\x20tidak\x20terlihat,\x20melewati...',_0x56e3c9(0x1c4),_0x56e3c9(0x217),_0x56e3c9(0x209),_0x5b8966(0x94),_0x56e3c9(0x183),_0x56e3c9(0x14d),_0x56e3c9(0x170),_0x5b8966(0x138),_0x56e3c9(0x1da),_0x37defa(0xbc),_0x56e3c9(0x15b),_0x56e3c9(0x1f3),_0x56e3c9(0x15c),_0x5b8966(0x93),_0x56e3c9(0x162),_0x56e3c9(0x1e7),_0x5b8966(0xce),_0x56e3c9(0x172),_0x56e3c9(0x1d9),_0x5b8966(0x11e),_0x56e3c9(0x19f),_0x56e3c9(0x1ad),_0x5b8966(0x73),_0x5b8966(0x84),_0x56e3c9(0x1d1),_0x56e3c9(0x193),_0x56e3c9(0x1a4),_0x56e3c9(0x122),_0x56e3c9(0x199),_0x56e3c9(0x12b),_0x37defa(0xe1),_0x56e3c9(0x206),_0x56e3c9(0x196),_0x56e3c9(0x1df)];return a1_0x1aec=function(){return _0x5785f8;},a1_0x1aec();}let isRunning=![],isLoopActive=![],heartbeatInterval=null,prompts=[],sessionStats={'startTime':null,'successCount':0x0,'downloadCount':0x0,'totalCooldowns':0x0,'totalPrompts':0x0};function sanitizeStats(_0x581da3){const _0x14130f=a1_0x789d4,_0x435dac=a1_0xc8f98,_0x4dd423=a1_0x3f0e71;if(!_0x581da3)return{'startTime':Date[_0x4dd423(0x14b)](),'successCount':0x0,'downloadCount':0x0,'totalCooldowns':0x0,'totalPrompts':0x0};return{'startTime':_0x581da3[_0x4dd423(0x183)]||Date[_0x4dd423(0x14b)](),'successCount':isNaN(_0x581da3[_0x4dd423(0x19a)])?0x0:Number(_0x581da3[_0x14130f(0x20c)]),'downloadCount':isNaN(_0x581da3[_0x4dd423(0x18e)])?0x0:Number(_0x581da3[_0x4dd423(0x18e)]),'totalCooldowns':isNaN(_0x581da3[_0x4dd423(0x1a7)])?0x0:Number(_0x581da3[_0x435dac(0x271)]),'totalPrompts':isNaN(_0x581da3[_0x4dd423(0x1e8)])?0x0:Number(_0x581da3[_0x4dd423(0x1e8)])};}function sendStatusUpdate(_0xc44d09){const _0x2a7c32=a1_0x29b0,_0x25bc3e=a1_0x789d4,_0x3ecb6f=a1_0x3f0e71;console[_0x3ecb6f(0x192)](_0x25bc3e(0x143)+_0xc44d09),chrome[_0x3ecb6f(0x19e)][_0x3ecb6f(0x191)]({'action':_0x2a7c32(0x139),'status':_0xc44d09},_0x1fdcc8=>{const _0x518d00=a1_0x40f2,_0x5d11aa=_0x3ecb6f;if(chrome[_0x5d11aa(0x19e)][_0x518d00(0x1bd)])return;});}function a1_0x1af7(_0x8bee8c,_0xe4343c){_0x8bee8c=_0x8bee8c-0x11f;const _0x17177d=a1_0x129f();let _0x397a3d=_0x17177d[_0x8bee8c];return _0x397a3d;}function a1_0x2a39(){const _0x5e450e=a1_0x2f73,_0x41a285=[_0x5e450e(0x149),_0x5e450e(0x101),'sendMessage',_0x5e450e(0x194),'toString',_0x5e450e(0xf6),_0x5e450e(0x133),_0x5e450e(0xb6),_0x5e450e(0x111),_0x5e450e(0xe5),_0x5e450e(0xef),_0x5e450e(0x145),_0x5e450e(0xdc),_0x5e450e(0x192),_0x5e450e(0x11b),_0x5e450e(0x163),_0x5e450e(0x141),_0x5e450e(0xa2),'terminate',_0x5e450e(0x10d),_0x5e450e(0x19d),_0x5e450e(0xf5),_0x5e450e(0x1a4),_0x5e450e(0x108),'style',_0x5e450e(0x128),_0x5e450e(0xfd),_0x5e450e(0x18f),'117XzvivA',_0x5e450e(0x124),_0x5e450e(0x18a),'ORDERED_NODE_SNAPSHOT_TYPE',_0x5e450e(0x13d),_0x5e450e(0x197),'[NRA\x20DreamLab]\x20Tab\x20is\x20in\x20background.\x20Using\x20native\x20DOM\x20click\x20for\x20',_0x5e450e(0x18b),_0x5e450e(0x168),_0x5e450e(0x10a),_0x5e450e(0xa6),'Startup\x20Paused\x20(Limit\x20Active)','1UocVKf','prompt\x20input',_0x5e450e(0x121),_0x5e450e(0xd2),_0x5e450e(0x160),_0x5e450e(0xaa),_0x5e450e(0xc5),_0x5e450e(0x11e),_0x5e450e(0xab),_0x5e450e(0x17f),_0x5e450e(0x188),_0x5e450e(0x91),_0x5e450e(0xb8),'[role=\x22button\x22]',_0x5e450e(0xa1),_0x5e450e(0x92),_0x5e450e(0x159),'Configuration\x20interaction\x20failed\x20for\x20','[class*=\x22status\x22],\x20[class*=\x22alert\x22],\x20[class*=\x22warning\x22]',_0x5e450e(0xbd),_0x5e450e(0x9c),_0x5e450e(0xa9),'[NRA\x20DreamLab]\x20⚠️\x20Worker\x20error\x20instan:\x20',_0x5e450e(0x16b),'includes',_0x5e450e(0x9d),_0x5e450e(0xfb),_0x5e450e(0x153),_0x5e450e(0xca),_0x5e450e(0xaf),_0x5e450e(0x13b),'isRecovering',_0x5e450e(0x97),_0x5e450e(0x139),_0x5e450e(0x195),_0x5e450e(0x135),'[NRA\x20DreamLab]\x20Failed\x20to\x20download\x20images\x20after\x20maximum\x20retries.\x20Skipping\x20to\x20next\x20prompt...','\x27\x20not\x20found\x20on\x20screen.\x20Proceeding\x20with\x20current\x20settings.',_0x5e450e(0x152),'div',_0x5e450e(0xff),_0x5e450e(0x16e),'9fdLxyp','585306WKGkIi','[NRA\x20DreamLab]\x20Menerima\x20perintah\x20START\x20dari\x20panel.',_0x5e450e(0x136),_0x5e450e(0xe6),_0x5e450e(0xd6),_0x5e450e(0x148),_0x5e450e(0xb9),_0x5e450e(0xb4),_0x5e450e(0x17c),_0x5e450e(0xfc),_0x5e450e(0xa4),_0x5e450e(0x19e),_0x5e450e(0x19c),_0x5e450e(0x154),_0x5e450e(0xf9),_0x5e450e(0x146),_0x5e450e(0x9a),_0x5e450e(0xde),_0x5e450e(0xbe),_0x5e450e(0x161),_0x5e450e(0x14b),_0x5e450e(0xbb),_0x5e450e(0x199),'CDP_TYPE\x20timeout:\x20Background\x20script\x20unresponsive',_0x5e450e(0x16c),_0x5e450e(0x170),_0x5e450e(0xe4),_0x5e450e(0xe2),_0x5e450e(0x147),_0x5e450e(0xd5),_0x5e450e(0x114),_0x5e450e(0xd8),_0x5e450e(0x182),_0x5e450e(0xc7),_0x5e450e(0x14c),_0x5e450e(0x98),'9530GDdtjD',_0x5e450e(0x12d),_0x5e450e(0x102),'5965834HRSijA',_0x5e450e(0x186),'unhandledrejection','16:9',_0x5e450e(0x169),'3:2',_0x5e450e(0x158),_0x5e450e(0x19b),'snapshotLength','onChanged','snapshotItem',_0x5e450e(0xbf),_0x5e450e(0x9e),_0x5e450e(0xa0),_0x5e450e(0xeb),_0x5e450e(0xc8),_0x5e450e(0x156),_0x5e450e(0x179),_0x5e450e(0x142),'application/javascript',_0x5e450e(0x189),_0x5e450e(0xe0),_0x5e450e(0xf2),_0x5e450e(0x19a),_0x5e450e(0x1a3),_0x5e450e(0xf8),_0x5e450e(0x10f),_0x5e450e(0xb2),_0x5e450e(0x120),_0x5e450e(0xc1),_0x5e450e(0xc9),_0x5e450e(0x19f),_0x5e450e(0x187),_0x5e450e(0x13e),'12aYhgXb',_0x5e450e(0xce),_0x5e450e(0x11c),_0x5e450e(0x177),_0x5e450e(0x15b),'Bokeh','singleNodeValue','\x20menu\x20seems\x20closed.\x20Searching\x20for\x20trigger\x20button...','ms.\x20Waiting...',_0x5e450e(0xac),_0x5e450e(0x15f),_0x5e450e(0xf0),_0x5e450e(0x96),_0x5e450e(0x150),_0x5e450e(0x16a),_0x5e450e(0x9b),_0x5e450e(0x106),_0x5e450e(0x180),_0x5e450e(0x143),'[NRA\x20DreamLab]\x20\x20\x20CDP\x20click\x20failed,\x20attempting\x20native\x20DOM\x20click.',_0x5e450e(0x14e),'FIRST_ORDERED_NODE_TYPE',_0x5e450e(0x11f),'Resuming\x20',_0x5e450e(0x18e),_0x5e450e(0x137),_0x5e450e(0x11d),_0x5e450e(0x176),_0x5e450e(0x183),_0x5e450e(0x140),'addEventListener','disabled',_0x5e450e(0xf1),_0x5e450e(0x115),'value',_0x5e450e(0x184),_0x5e450e(0x107),_0x5e450e(0x119),_0x5e450e(0x15c),_0x5e450e(0x132),'ALREADY_RUNNING',_0x5e450e(0x1a0),_0x5e450e(0x134),_0x5e450e(0xd9),'apply',_0x5e450e(0x162),'mouseup','8RqtUwz',_0x5e450e(0x117),'reason',_0x5e450e(0xc0),_0x5e450e(0x113),_0x5e450e(0x105),'Startup\x20paused.\x20Pre-existing\x20cooldown',_0x5e450e(0x109),_0x5e450e(0x129),_0x5e450e(0xf7),_0x5e450e(0x95),'aspectRatio',_0x5e450e(0x171),_0x5e450e(0xd1),_0x5e450e(0x16d),'[NRA\x20DreamLab]\x20Tab\x20backgrounded.\x20Using\x20native\x20DOM\x20click\x20fallback.',_0x5e450e(0x1a2),_0x5e450e(0x8e),_0x5e450e(0xa3),_0x5e450e(0xcc),_0x5e450e(0xe7),'finally',_0x5e450e(0x193),'catch','body','[NRA\x20DreamLab]\x20⚠️\x20Option\x20\x27',_0x5e450e(0xec),_0x5e450e(0xfe),_0x5e450e(0xc2),'width',_0x5e450e(0x123),_0x5e450e(0x15a),_0x5e450e(0x90),_0x5e450e(0xb3),_0x5e450e(0xb1),_0x5e450e(0x15d),'querySelector',_0x5e450e(0x185),_0x5e450e(0xad),_0x5e450e(0x99),'[Canva\x20Automation]\x20Timeout\x2060\x20detik\x20tercapai.\x20Mencoba\x20melanjutkan...',_0x5e450e(0x17a),_0x5e450e(0x116),_0x5e450e(0xa5),_0x5e450e(0x155),_0x5e450e(0x144),_0x5e450e(0x14a),_0x5e450e(0x181),_0x5e450e(0xd3),'instant',_0x5e450e(0x15e),_0x5e450e(0x16f),_0x5e450e(0x13a),_0x5e450e(0x164),'display','none',_0x5e450e(0x172),_0x5e450e(0xa7),_0x5e450e(0xfa),_0x5e450e(0x12b),_0x5e450e(0xd7),_0x5e450e(0xe8),_0x5e450e(0x17b),_0x5e450e(0xcb)];return a1_0x2a39=function(){return _0x41a285;},a1_0x2a39();}let delayWorker=null;function initWorker(){const _0x142266=a1_0x789d4,_0x45466b=a1_0xc8f98,_0x27ce18=a1_0x3f0e71;if(delayWorker)try{delayWorker[_0x45466b(0x23c)]();}catch(_0x353c64){}const _0x5d1ed3=new Blob([_0x45466b(0x1b9)],{'type':_0x27ce18(0x14c)}),_0x56fa2a=URL[_0x142266(0x197)](_0x5d1ed3);delayWorker=new Worker(_0x56fa2a),URL[_0x27ce18(0x151)](_0x56fa2a),console[_0x27ce18(0x192)](_0x27ce18(0x11c));}initWorker();function delay(_0x576d20){const _0x419475=a1_0x789d4,_0x28a667=a1_0x3f0e71;if(_0x576d20>=0x3e8)console[_0x28a667(0x192)](_0x419475(0x17b)+_0x576d20+_0x28a667(0x18a));return new Promise(_0x5a9113=>{const _0x543d9e=_0x419475,_0x434091=a1_0x40f2,_0x338646=_0x28a667;let _0x8ad45c=![];const _0x10633d=_0x576d20+0x3e8,_0x2c850c=setTimeout(()=>{const _0x16ecbd=a1_0x1af7,_0x442ef6=a1_0x27e5;!_0x8ad45c&&(_0x8ad45c=!![],console[_0x16ecbd(0x157)](_0x442ef6(0x17c)+_0x10633d+_0x442ef6(0x1ce)),initWorker(),_0x5a9113());},_0x10633d);try{if(!delayWorker)throw new Error(_0x338646(0x15c));const _0x19637a=Math[_0x338646(0x1e2)]()[_0x434091(0x23a)](),_0x10aa73=_0x44c58f=>{const _0x37ba64=_0x338646;_0x44c58f[_0x37ba64(0x124)]===_0x19637a&&(delayWorker[_0x37ba64(0x1e9)](_0x37ba64(0x190),_0x10aa73),!_0x8ad45c&&(_0x8ad45c=!![],clearTimeout(_0x2c850c),_0x5a9113()));};delayWorker[_0x338646(0x10a)](_0x338646(0x190),_0x10aa73),delayWorker[_0x434091(0x1dd)]({'id':_0x19637a,'time':_0x576d20});}catch(_0x95a3c8){console[_0x338646(0xfb)](_0x338646(0x1aa)+_0x95a3c8[_0x338646(0x190)]+_0x543d9e(0x188)),initWorker(),setTimeout(()=>{!_0x8ad45c&&(_0x8ad45c=!![],clearTimeout(_0x2c850c),_0x5a9113());},_0x576d20);}});}function formatTime(_0x22fbe1){const _0x7b0361=a1_0x789d4,_0x5201ae=a1_0x3f0e71,_0x4b0d7e=Math[_0x7b0361(0x1d2)](_0x22fbe1/0x3c),_0x485400=(_0x22fbe1%0x3c)[_0x5201ae(0xed)]()[_0x5201ae(0xec)](0x2,'0');return _0x4b0d7e+':'+_0x485400;}async function checkIfStopped(){const _0x26d59c=a1_0x3f0e71,_0xafb993=await chrome[_0x26d59c(0x1ca)][_0x26d59c(0xe5)][_0x26d59c(0xf3)]([_0x26d59c(0x1dd)]);return _0xafb993&&_0xafb993[_0x26d59c(0x1dd)]===![];}function tagGhostCooldowns(){const _0x43dc16=a1_0x29b0,_0x14e42c=a1_0x789d4,_0x1861d7=a1_0xc8f98,_0x548664=a1_0x3f0e71,_0x49114c=document[_0x548664(0x1ad)](_0x548664(0x140)+CANVA_SELECTORS[_0x548664(0x103)]+_0x548664(0x165),document,null,XPathResult[_0x548664(0x1e0)],null);for(let _0xca62fd=0x0;_0xca62fd<_0x49114c[_0x548664(0xfe)];_0xca62fd++){const _0x26456a=_0x49114c[_0x1861d7(0x1a8)](_0xca62fd);_0x26456a[_0x548664(0x12f)](_0x548664(0x189),_0x548664(0x17f)),_0x26456a[_0x548664(0x1c7)][_0x14e42c(0x1c7)]=_0x1861d7(0x1f5);const _0x3dceb3=_0x26456a[_0x43dc16(0xb5)](_0x548664(0xf5))?.[_0x1861d7(0x239)](_0x548664(0x132));if(_0x3dceb3)_0x3dceb3[_0x548664(0x131)]();}}async function waitForElement(_0x6976fc,_0x499d8a=![],_0xddff69=0x2710){return new Promise((_0x56b808,_0x1fdb4a)=>{const _0x533b1d=0x12c;let _0x566a17=0x0;const _0x6fb8c=setInterval(()=>{const _0x167e0f=a1_0x1af7,_0x3236c1=a1_0x40f2,_0xa9aa6e=a1_0x27e5;if(!isRunning){clearInterval(_0x6fb8c),_0x1fdb4a(new Error(_0x167e0f(0x123)));return;}let _0x3f66f5=null;_0x499d8a?_0x3f66f5=document[_0xa9aa6e(0x1ad)](_0x6976fc,document,null,XPathResult[_0x3236c1(0x1f8)],null)[_0xa9aa6e(0x179)]:_0x3f66f5=document[_0xa9aa6e(0x1e5)](_0x6976fc),_0x3f66f5?(clearInterval(_0x6fb8c),_0x56b808(_0x3f66f5)):(_0x566a17+=_0x533b1d,_0x566a17>=_0xddff69&&(clearInterval(_0x6fb8c),_0x1fdb4a(new Error(_0xa9aa6e(0x173)+_0x6976fc))));},_0x533b1d);});}function a1_0x3b0f(){const _0x4bc7d3=['UNORDERED_NODE_SNAPSHOT_TYPE','lastError','USER_STOPPED','[Canva\x20Automation]\x20Attempting\x20recovery...','data-bot-ignored','CDP_TYPE','ms\x20(Worker\x20mati\x20atau\x20lambat).\x20Merestart\x20worker...','Smart','Stock\x20Photo','message','[NRA\x20DreamLab]\x20Attempting\x20recovery\x20(','LOG_MESSAGE','self.onmessage\x20=\x20function(e)\x20{\x20setTimeout(()\x20=>\x20postMessage(e.data.id),\x20e.data.time);\x20}','IDLE','[NRA\x20DreamLab]\x20Status\x20update:\x20','storage','random','[NRA\x20DreamLab]\x20Total\x20tombol\x20di\x20layar:\x20','querySelectorAll','URL_MISMATCH','2874354zZpkrw','[role=\x22progressbar\x22]','Moody','floor','103364lbppET','5BfJKWC','totalPrompts','2EbaUhs','772372HHbqsw','33070NRPrKC','Style','removeEventListener','Macro','preventDefault','5WLeYbd','batchLimit','190136UBkLKp','toLocaleTimeString','createObjectURL','Canva\x20Automation\x20Halted','\x20menu.','CDP_CLICK','Unknown\x20CDP_TYPE\x20error','START_AUTOMATION','[NRA\x20DreamLab]\x20Menunggu\x20tombol\x20unduh\x20baru\x20tersedia\x20di\x20DOM...','EMERGENCY_CLEANUP',':\x20\x27','Unknown\x20promise\x20error','downloadCount','1411930hITZeo','108ZkcMWL','[role=\x22alert\x22],\x20[role=\x22status\x22]','Generate\x20button\x20not\x20found','\x20found','local','6934865sxSPmz','closest','[NRA\x20DreamLab]\x20Automation\x20aborted\x20by\x20user\x20during\x20startup\x20cooldown.','onMessage','STOP_AUTOMATION','href','Illustration','Unknown\x20error\x20occurred.','398530wXFhTP','\x20gambar.','[NRA\x20DreamLab]\x20Selecting\x20','636562pMpuDU','ms...','7882310GfmCzb','scrollIntoView','[NRA\x20DreamLab]\x20Loop\x20broken\x20due\x20to:','automation','[NRA\x20DreamLab]\x20Typing\x20prompt\x20with\x20human\x20animation\x20(chunk\x20size:\x204)...','error','setAttribute','Pop\x20Art','click','Automation\x20stopped\x20by\x20user.','3:4','9414352gXKnDy','2139128xXTBfl','now','ATTACH_DEBUGGER','Sketch\x20-\x20Color','\x27)]','indexOf','Click\x20interaction\x20failed\x20for\x20','1:1','[NRA\x20DreamLab]\x20All\x20prompts\x20processed\x20successfully.',').\x20Stopping.','ceil','.\x20Mengambil\x20','Fashion','revokeObjectURL','You\x27ve\x20hit\x20your\x20plan\x27s\x20monthly\x20AI\x20limit!\x20Automation\x20has\x20been\x20permanently\x20stopped.','data','race','4:3','Vector','[NRA\x20DreamLab]\x20','18cJZPvz','Portrait','innerText','3LMVFld','log','[NRA\x20DreamLab]\x20⚠️\x20CDP\x20click\x20failed,\x20attempting\x20native\x20DOM\x20click\x20fallback.','entries','forEach','Cooldown\x20cleared.\x20Resuming...','1047804QFadFx','1eugMUE','ATTACH_DEBUGGER_TIMEOUT','2:3','after\x20cooldown','3D\x20Render','from','None','Generating...','mousedown','1164303ZMEwzS','imageStyle','1pBFmtP','[NRA\x20DreamLab]\x20Batch\x20limit\x20reached\x20(','STATUS_UPDATE','MONTHLY_LIMIT_REACHED',')...','isAutomating','[NRA\x20DreamLab]\x20Main\x20loop\x20terhenti:','🛑\x20Monthly\x20Limit\x20Reached.\x20Stopped.','\x20with\x20','Vibrant','\x20detected:\x20','smooth','READY','reload','[NRA\x20DreamLab]\x20⚠️\x20Delay\x20fallback\x20triggered\x20after\x20','[NRA\x20DreamLab]\x20🛑\x20','[NRA\x20DreamLab]\x20Perintah\x20START\x20diabaikan,\x20loop\x20sudah\x20aktif.','[NRA\x20DreamLab]\x20Process\x20stopped\x20manually.','aria-disabled','startTime','5773746JohplN','action','evaluate','49FdjoxV','447710mtxfOj','WARN','lastProcessedPromptIndex','[NRA\x20DreamLab]\x20Memulai\x20proses\x20unduhan.\x20Target:\x20','INFO','[NRA\x20DreamLab]\x20Resuming\x20from\x20prompt\x20index:\x20','\x27\x20is\x20already\x20active.\x20Skipping\x20click.','top','[data-bot-ignored=\x22true\x22]','GENERATE','push','SHOW_NOTIFICATION','Batch\x20limit\x20reached.\x20Automation\x20stopped.','sessionStats','object','\x20failed:','6PmVGxA','159740Jvuubc','totalCooldowns','[role=\x22dialog\x22]','6328656hBFtez','startsWith','[Canva\x20Automation]\x20Siklus\x20render\x20selesai\x20terdeteksi!','button[aria-label=\x22Dismiss\x22]','Type\x20interaction\x20failed\x20for\x20','match','[Canva\x20Automation]\x20Menunggu\x20proses\x20generasi\x20selesai...','Cinematic\x20Concept','...','opacity','[NRA\x20DreamLab]\x20Web\x20Worker\x20initialized\x20successfully.','successCount','202488NvEMtq','Download\x20buttons\x20not\x20found.','5617913UveBtE','.\x20Menggunakan\x20setTimeout\x20native\x20dan\x20merestart\x20worker...','8665ZArTlu','Cinematic','round',')\x20and\x20(contains(text(),\x20\x27generate\x20again\x20in\x27)\x20or\x20contains(text(),\x20\x27Try\x20again\x20in\x27))))]','All\x20prompts\x20processed\x20successfully!','No\x20prompts\x20found\x20in\x20storage.','2658UvCgGs','isPaused','Ray\x20Traced','SUBMIT_BUTTON','0.3','height','9:16','BUSY','unshift','431545yoInXp','Creative','padStart','[NRA\x20DreamLab]\x20🛑\x20Failed\x20to\x20type\x20in\x20','input','[NRA\x20DreamLab]\x20🛑\x20Failed\x20to\x20configure\x20','center','verboseLogs','true','[NRA\x20DreamLab]\x20Waiting\x20for\x20','//div[@role=\x27button\x27\x20and\x20@aria-label=\x27','\x20is\x20NULL/NOT\x20FOUND','DIAGNOSTIC\x20ERROR:\x20Selector\x20','[NRA\x20DreamLab]\x20Download\x20attempt\x20','warn','shift','map','addListener','ERROR','//*[(local-name()=\x27button\x27\x20or\x20@role=\x27button\x27)\x20and\x20normalize-space(text())=\x27','18rQTIoF','200816APalrf','stringify','[NRA\x20DreamLab]\x20Menerima\x20perintah\x20STOP\x20dari\x20panel.','[Canva\x20Automation]\x20Memulihkan\x20sesi\x20setelah\x20reload...','generate\x20button','10714STFfyP','[Canva\x20Automation]\x20Download\x20attempt\x20','Random','//*[not(@data-bot-ignored=\x27true\x27)\x20and\x20(contains(text(),\x20\x27Lots\x20of\x20people\x20are\x20using\x20Dream\x20Lab\x27)\x20or\x20(not(ancestor-or-self::*','[NRA\x20DreamLab]\x20Starting\x20main\x20automation\x20loop...','dispatchEvent','//*[contains(translate(text(),\x20\x27ABCDEFGHIJKLMNOPQRSTUVWXYZ\x27,\x20\x27abcdefghijklmnopqrstuvwxyz\x27),\x20\x27generating\x27)\x20or\x20contains(translate(text(),\x20\x27ABCDEFGHIJKLMNOPQRSTUVWXYZ\x27,\x20\x27abcdefghijklmnopqrstuvwxyz\x27),\x20\x27creating\x27)]','Cooldown','\x20tombol\x20terbaru\x20secara\x20dinamis.','7238565unvQgf','Textarea\x20not\x20found','[NRA\x20DreamLab]\x20⚠️\x20Could\x20not\x20find\x20the\x20main\x20trigger\x20button\x20to\x20open\x20the\x20','[NRA\x20DreamLab]\x20Automation\x20paused\x20by\x20user.','trim','postMessage','Error:\x20','location','Worker\x20is\x20null','success','DIAGNOSTIC\x20OK:\x20Selector\x20','getBoundingClientRect','newValue','Timeout\x20waiting\x20for\x20element\x20matching:\x20','replace','35484QepyQm','Starting\x20automation...','Startup\x20cooldown\x20cleared.\x20Proceeding\x20to\x20main\x20generation\x20loop...','5171445sGpwcH','prompts','dream-lab','446337JeNtCF','runtime','CONSOLE_LOG','1903xpNKjY','[NRA\x20DreamLab]\x20Unhandled\x20Promise\x20rejection:','[NRA\x20DreamLab]\x20Mengunduh\x20gambar\x20ke-','[NRA\x20DreamLab]\x20Monthly\x20AI\x20limit\x20reached.\x20Stopping\x20permanently.','textContent','set','6342568MOKWnI','element','slice','getAttribute','42557867HtuJNC','Minimalist','left','404392aRJTdN','//*[(local-name()=\x27button\x27\x20or\x20@role=\x27button\x27)\x20and\x20contains(normalize-space(),\x20\x27','[NRA\x20DreamLab]\x20🛑\x20Failed\x20to\x20click\x20','join','PROMPT_TEXTAREA','DOWNLOAD_BUTTON','PING','3575690wuLyAS','CDP_CLICK\x20timeout:\x20Background\x20script\x20unresponsive','\x27...','[NRA\x20DreamLab]\x20Timeout\x20smart\x20wait!\x20Menggunakan\x20fallback\x20deteksi\x20posisi\x20statis.','9871180qGFWxa'];a1_0x3b0f=function(){return _0x4bc7d3;};return a1_0x3b0f();}function auditSelectors(){const _0x50805e=a1_0x2f73,_0x3a9474=a1_0x789d4,_0x151e2a=a1_0xc8f98,_0xd01875=a1_0x3f0e71;for(const [_0x52e86e,_0x5a0713]of Object[_0xd01875(0x162)](CANVA_SELECTORS)){let _0xaf9366;if(_0x5a0713[_0xd01875(0x1d7)]('//')){const _0x246d5d=document[_0x3a9474(0x1d5)](_0x5a0713,document,null,XPathResult[_0xd01875(0x106)],null);_0xaf9366=_0x246d5d[_0x151e2a(0x1d4)];}else _0xaf9366=document[_0xd01875(0x1e5)](_0x5a0713);!_0xaf9366?console[_0x50805e(0x131)](_0xd01875(0x100)+_0x52e86e+_0xd01875(0x1cd)):console[_0xd01875(0x192)](_0xd01875(0x11b)+_0x52e86e+_0xd01875(0x17b));}}function getScreenCooldownMs(){const _0x1d9bb2=a1_0x29b0,_0x12b030=a1_0x789d4,_0xa241a1=a1_0xc8f98,_0x12b727=a1_0x3f0e71;let _0x5a89bb=[];try{const _0x49b594=document[_0x12b727(0x1db)](_0xa241a1(0x236));if(_0x49b594)_0x5a89bb=Array[_0x1d9bb2(0xbf)](_0x49b594);}catch(_0x217ecf){}const _0x95e6a6=[];_0x5a89bb[_0x12b727(0x138)](_0x44b330=>{const _0x1a239a=_0xa241a1,_0x3935e8=_0x12b727;_0x95e6a6[_0x3935e8(0x15b)](_0x44b330[_0x3935e8(0x1c7)][_0x1a239a(0x282)]),_0x44b330[_0x3935e8(0x1c7)][_0x3935e8(0x19d)]=_0x3935e8(0x13e);});const _0x1de437={'BUSY':/Lots of people are using/i,'GENERATE':/generate again in/i,'TRY':/Try again in/i};let _0x1d392f='';const _0x5f3e60=document[_0x12b030(0x154)](_0x12b727(0x171));_0x5f3e60[_0x12b727(0x138)](function(_0x5da2f7){const _0x102ba0=_0x12b727;_0x1d392f+=_0x5da2f7[_0x102ba0(0x10e)]+'\x20';});if(!_0x1d392f[_0x12b030(0x183)]()){const _0x5b1567=document[_0x12b727(0x1db)](_0xa241a1(0x289));_0x5b1567[_0x12b727(0x138)](function(_0x486c94){const _0x2ffdd9=_0x12b727;_0x1d392f+=_0x486c94[_0x2ffdd9(0x10e)]+'\x20';});}!_0x1d392f[_0x12b727(0x188)]()&&(_0x1d392f=document[_0x12b727(0x169)][_0x12b727(0x10e)]),_0x5a89bb[_0x12b727(0x138)]((_0x1ae5cb,_0x3a48c3)=>{const _0x1b37e=_0xa241a1,_0x47d9a7=_0x12b727;_0x1ae5cb[_0x1b37e(0x28a)][_0x47d9a7(0x19d)]=_0x95e6a6[_0x3a48c3];});for(const [_0x1700c1,_0x409bf0]of Object[_0x12b727(0x162)](_0x1de437)){const _0x693158=_0x1d392f[_0x1d9bb2(0x137)](_0x409bf0);if(_0x693158){if(_0x1700c1===_0x12b727(0x108))return console[_0x12b727(0xfb)](_0xa241a1(0x21f)),0x3*0x3c*0x3e8;else{if(_0x1700c1===_0x12b727(0xe6)||_0x1700c1===_0x12b727(0x12a)){const _0x155311=_0x1d392f[_0xa241a1(0x1f6)](/(\d+):(\d+)/);if(_0x155311)return(parseInt(_0x155311[0x1],0xa)*0x3c+parseInt(_0x155311[0x2],0xa))*0x3e8;}}}}return 0x0;}function handleAutomationError(_0x50d2e7){const _0x8ab94c=a1_0x789d4,_0x5e3cba=a1_0xc8f98,_0x1f7e6a=a1_0x3f0e71;isRunning=![],isLoopActive=![];if(_0x50d2e7[_0x1f7e6a(0x190)]===_0x1f7e6a(0x104)){console[_0x1f7e6a(0x192)](_0x1f7e6a(0x11e)),heartbeatInterval&&(clearInterval(heartbeatInterval),heartbeatInterval=null),chrome[_0x5e3cba(0x28f)][_0x1f7e6a(0xe5)][_0x5e3cba(0x1d5)]({'isAutomating':![],'step':_0x1f7e6a(0x17a)},()=>{const _0x27d38a=a1_0x1af7;sendStatusUpdate(_0x27d38a(0x1f1));});return;}if(_0x50d2e7[_0x5e3cba(0x21a)]===_0x5e3cba(0x1ad)){console[_0x1f7e6a(0x1e1)](_0x1f7e6a(0x1b8)),chrome[_0x1f7e6a(0x1ca)][_0x5e3cba(0x1a2)][_0x1f7e6a(0x1a6)]({'isAutomating':![],'step':_0x1f7e6a(0x110)},()=>{const _0x4abc67=_0x5e3cba,_0x3de11d=_0x1f7e6a;sendStatusUpdate(_0x4abc67(0x1ac)),chrome[_0x4abc67(0x264)][_0x4abc67(0x1dc)]({'action':_0x3de11d(0x1d3),'title':_0x3de11d(0xef),'message':_0x3de11d(0x111)});});return;}console[_0x1f7e6a(0x1e1)](_0x1f7e6a(0x1bb),_0x50d2e7);const _0x3e6aaa=_0x50d2e7[_0x1f7e6a(0x190)]||_0x8ab94c(0x144);chrome[_0x1f7e6a(0x1ca)][_0x1f7e6a(0xe5)][_0x1f7e6a(0x1a6)]({'isAutomating':![],'step':_0x1f7e6a(0x110)},()=>{const _0x26c151=_0x5e3cba,_0x512b97=_0x1f7e6a;chrome[_0x512b97(0x19e)][_0x512b97(0x191)]({'action':_0x26c151(0x299),'status':_0x512b97(0x12c)+_0x3e6aaa});});}async function safeCdpClick(_0x2e57f3,_0x52c9c2=a1_0x3f0e71(0x1b7)){const _0x164e88=a1_0xc8f98,_0x7033de=a1_0x3f0e71;try{await cdpClick(_0x2e57f3);}catch(_0x31a2cf){console[_0x7033de(0x1e1)](_0x7033de(0x148)+_0x52c9c2+':',_0x31a2cf),chrome[_0x7033de(0x19e)][_0x7033de(0x191)]({'action':_0x164e88(0x280)});throw new Error(_0x7033de(0x116)+_0x52c9c2);}}async function safeCdpTypeHuman(_0xe0cff8,_0x1f7ae4=a1_0x3f0e71(0x19c)){const _0x37d91c=a1_0x789d4,_0x2c121c=a1_0x3f0e71;try{await cdpTypeHuman(_0xe0cff8);}catch(_0x2b014c){console[_0x2c121c(0x1e1)](_0x2c121c(0x123)+_0x1f7ae4+':',_0x2b014c),chrome[_0x2c121c(0x19e)][_0x2c121c(0x191)]({'action':_0x37d91c(0x1c2)});throw new Error(_0x2c121c(0x1cc)+_0x1f7ae4);}}async function cdpClick(_0x5ea9b0){const _0x32aff3=a1_0x789d4,_0x4d98c9=a1_0xc8f98,_0x2c157f=a1_0x3f0e71;_0x5ea9b0[_0x2c157f(0x1df)]({'behavior':_0x2c157f(0x164),'block':_0x2c157f(0x1c4)}),await delay(0x12c);const _0x7d5feb=_0x5ea9b0[_0x4d98c9(0x22d)]();if(_0x7d5feb[_0x4d98c9(0x28e)]===0x0||_0x7d5feb[_0x2c157f(0x144)]===0x0){console[_0x2c157f(0x192)](_0x32aff3(0x153)),_0x5ea9b0[_0x2c157f(0x1d4)](new MouseEvent(_0x2c157f(0xf8),{'bubbles':!![],'cancelable':!![],'view':window})),_0x5ea9b0[_0x2c157f(0x1d4)](new MouseEvent(_0x2c157f(0x102),{'bubbles':!![],'cancelable':!![],'view':window})),_0x5ea9b0[_0x2c157f(0x131)]();return;}const _0xc28eb7=Math[_0x4d98c9(0x1a9)](_0x7d5feb[_0x2c157f(0x14e)]+_0x7d5feb[_0x2c157f(0xe9)]/0x2),_0x129f9d=Math[_0x4d98c9(0x1a9)](_0x7d5feb[_0x2c157f(0x182)]+_0x7d5feb[_0x2c157f(0x144)]/0x2),_0x44ca1c=await new Promise((_0x166015,_0x525b76)=>{const _0x4d82c8=a1_0x29b0,_0x5635b1=_0x2c157f,_0x53b63c=setTimeout(()=>_0x525b76(new Error(_0x4d82c8(0x8c))),0x2710);chrome[_0x5635b1(0x19e)][_0x5635b1(0x191)]({'action':_0x5635b1(0x11d),'x':_0xc28eb7,'y':_0x129f9d},_0x1846fe=>{clearTimeout(_0x53b63c),_0x166015(_0x1846fe);});});_0x44ca1c&&!_0x44ca1c[_0x2c157f(0x121)]&&(console[_0x2c157f(0xfb)](_0x2c157f(0x1e7)),_0x5ea9b0[_0x2c157f(0x1d4)](new MouseEvent(_0x2c157f(0xf8),{'bubbles':!![],'cancelable':!![],'view':window})),_0x5ea9b0[_0x4d98c9(0x1b4)](new MouseEvent(_0x2c157f(0x102),{'bubbles':!![],'cancelable':!![],'view':window})),_0x5ea9b0[_0x2c157f(0x131)]());}async function cdpType(_0x35ac52){const _0x274464=a1_0x2f73,_0xfd029e=a1_0x3f0e71,_0x50042e=await new Promise((_0xa4f5da,_0x1dca52)=>{const _0x6a0247=a1_0x27e5,_0x2d3708=setTimeout(()=>_0x1dca52(new Error(_0x6a0247(0x18d))),0x2710);chrome[_0x6a0247(0x19e)][_0x6a0247(0x191)]({'action':_0x6a0247(0x1dc),'text':_0x35ac52},_0x115bd5=>{clearTimeout(_0x2d3708),_0xa4f5da(_0x115bd5);});});if(_0x50042e&&!_0x50042e[_0xfd029e(0x121)])throw new Error(_0x50042e[_0x274464(0x131)]||_0xfd029e(0x1d2));}async function cdpTypeHuman(_0x246801){const _0x4806f8=a1_0xc8f98,_0xcc278c=a1_0x3f0e71;console[_0xcc278c(0x192)](_0xcc278c(0x1b0));const _0x19d768=0x4;for(let _0x2b8495=0x0;_0x2b8495<_0x246801[_0xcc278c(0x137)];_0x2b8495+=_0x19d768){const _0x211e5b=_0x246801[_0xcc278c(0x128)](_0x2b8495,_0x2b8495+_0x19d768),_0x1e3bbf=await new Promise(_0x5c1af8=>{const _0x27f810=_0xcc278c;chrome[_0x27f810(0x19e)][_0x27f810(0x191)]({'action':_0x27f810(0x1dc),'text':_0x211e5b},_0x5c1af8);});if(!_0x1e3bbf||_0x1e3bbf[_0xcc278c(0x121)]===![])throw new Error(_0x1e3bbf?.[_0xcc278c(0x1e1)]||chrome[_0x4806f8(0x264)][_0xcc278c(0xe4)]?.[_0x4806f8(0x21a)]||'CDP\x20connection\x20lost\x20during\x20typing');const _0x514527=Math[_0xcc278c(0x1c9)](Math[_0x4806f8(0x249)]()*0x50)+0x28;await delay(_0x514527);}}async function safeSelectCanvaConfiguration(_0x9ba22d,_0x5af69b){const _0x132589=a1_0x2f73,_0x2c9faa=a1_0xc8f98,_0x35b928=a1_0x3f0e71;try{await selectCanvaConfiguration(_0x9ba22d,_0x5af69b);}catch(_0x383e6d){console[_0x2c9faa(0x1be)](_0x35b928(0x11a)+_0x9ba22d+_0x35b928(0x154)+_0x5af69b+':',_0x383e6d),chrome[_0x132589(0xcd)][_0x35b928(0x191)]({'action':_0x35b928(0x1af)});throw new Error(_0x35b928(0x187)+_0x9ba22d);}}async function selectCanvaConfiguration(_0x12f6bd,_0x176381){const _0x143da5=a1_0x29b0,_0x17c8e1=a1_0x789d4,_0x4f8016=a1_0xc8f98,_0x253007=a1_0x3f0e71;if(!_0x176381||_0x176381===_0x253007(0x15f)||_0x176381===''||_0x176381===_0x253007(0x117))return;const _0x43e60e=_0x176381[_0x253007(0x145)](/'/g,'\x5c\x27'),_0x222dbc=()=>{const _0x3ae46a=a1_0x40f2,_0x5d44d1=_0x253007;let _0x2897bb=_0x3ae46a(0x1c9)+_0x43e60e+'\x27]',_0x4d4eae=document[_0x5d44d1(0x1ad)](_0x2897bb,document,null,XPathResult[_0x5d44d1(0x106)],null)[_0x3ae46a(0x1d4)];return!_0x4d4eae&&(_0x2897bb=_0x5d44d1(0x177)+_0x43e60e+_0x5d44d1(0xfa),_0x4d4eae=document[_0x5d44d1(0x1ad)](_0x2897bb,document,null,XPathResult[_0x5d44d1(0x106)],null)[_0x5d44d1(0x179)]),_0x4d4eae;};let _0x1dce07=_0x222dbc(),_0x2bcd3d=_0x1dce07&&_0x1dce07[_0x253007(0x17d)]()[_0x253007(0x144)]>0x0;if(!_0x2bcd3d){console[_0x253007(0x192)](_0x253007(0x1e6)+_0x12f6bd+_0x253007(0x17e));const _0x4fc6ef=getStyleOptionsFromDOM();if(!_0x4fc6ef[_0x253007(0x10d)](_0x253007(0xfd)))_0x4fc6ef[_0x253007(0x181)](_0x253007(0xfd));if(!_0x4fc6ef[_0x253007(0x10d)](_0x253007(0x15f)))_0x4fc6ef[_0x253007(0x181)](_0x4f8016(0x1c3));const _0x2b82c8=getRatioOptionsFromDOM();if(!_0x2b82c8[_0x253007(0x10d)](_0x253007(0xfc)))_0x2b82c8[_0x4f8016(0x1b6)](_0x253007(0xfc));const _0x240855=_0x12f6bd===_0x4f8016(0x24a)?_0x4fc6ef:_0x2b82c8;let _0x2e9550=null;for(const _0x289ca4 of _0x240855){const _0xdbd500=_0x289ca4[_0x253007(0x145)](/'/g,'\x5c\x27'),_0x4fdd16=_0x253007(0xeb)+_0xdbd500+'\x27]',_0x551ecd=document[_0x4f8016(0x278)](_0x4fdd16,document,null,XPathResult[_0x253007(0x1e4)],null);for(let _0xb0a8b5=0x0;_0xb0a8b5<_0x551ecd[_0x253007(0xfe)];_0xb0a8b5++){const _0x10e4c9=_0x551ecd[_0x253007(0x19f)](_0xb0a8b5);if(_0x10e4c9[_0x253007(0x17d)]()[_0x253007(0x144)]>0x0){_0x2e9550=_0x10e4c9;break;}}if(_0x2e9550)break;}if(!_0x2e9550)for(const _0x10283a of _0x240855){const _0x1a3856=_0x10283a[_0x253007(0x145)](/'/g,'\x5c\x27'),_0x5b57a0=_0x253007(0x177)+_0x1a3856+_0x253007(0xfa),_0x4e3524=document[_0x253007(0x1ad)](_0x5b57a0,document,null,XPathResult[_0x4f8016(0x23d)],null);for(let _0x347bdc=0x0;_0x347bdc<_0x4e3524[_0x253007(0xfe)];_0x347bdc++){const _0x35ff3d=_0x4e3524[_0x253007(0x19f)](_0x347bdc);if(_0x35ff3d[_0x253007(0x17d)]()[_0x253007(0x144)]>0x0){_0x2e9550=_0x35ff3d;break;}}if(_0x2e9550)break;}if(_0x2e9550){_0x2e9550[_0x253007(0x1df)]({'behavior':_0x4f8016(0x19f),'block':_0x17c8e1(0x15f),'inline':_0x4f8016(0x201)}),await delay(0x1f4);const _0x4dd654=_0x2e9550[_0x4f8016(0x22d)]();if(_0x4dd654[_0x253007(0xe9)]===0x0||_0x4dd654[_0x253007(0x144)]===0x0)_0x2e9550[_0x253007(0x131)]();else{const _0x5c32fd=Math[_0x253007(0x1b9)](_0x4dd654[_0x253007(0x14e)]+_0x4dd654[_0x253007(0xe9)]/0x2),_0x12d73e=Math[_0x253007(0x1b9)](_0x4dd654[_0x253007(0x182)]+_0x4dd654[_0x253007(0x144)]/0x2);await new Promise(_0x376e0f=>chrome[_0x253007(0x19e)][_0x253007(0x191)]({'action':_0x253007(0x11d),'x':_0x5c32fd,'y':_0x12d73e},_0x376e0f));}await delay(0x4b0),_0x1dce07=_0x222dbc(),_0x2bcd3d=_0x1dce07&&_0x1dce07[_0x253007(0x17d)]()[_0x253007(0x144)]>0x0;}else console[_0x253007(0xfb)](_0x4f8016(0x293)+_0x12f6bd+_0x253007(0xf0));}if(!_0x1dce07){console[_0x4f8016(0x212)](_0x4f8016(0x250)+_0x176381+_0x253007(0x1e3));return;}if(_0x1dce07[_0x253007(0x152)](_0x253007(0x175))===_0x253007(0x17f)){console[_0x253007(0x192)](_0x253007(0x1e6)+_0x12f6bd+'\x20\x27'+_0x176381+_0x253007(0x1a3));return;}console[_0x253007(0x192)](_0x253007(0x126)+_0x12f6bd+_0x17c8e1(0x1e8)+_0x176381+_0x253007(0x125)),_0x1dce07[_0x253007(0x1df)]({'behavior':_0x4f8016(0x19f),'block':_0x253007(0x1c4),'inline':_0x253007(0x1c4)}),await delay(0x2bc);const _0x4f57f6=_0x1dce07[_0x253007(0x17d)]();if(_0x4f57f6[_0x253007(0xe9)]===0x0||_0x4f57f6[_0x253007(0x144)]===0x0)console[_0x4f8016(0x1d0)](_0x253007(0x16a),_0x176381),_0x1dce07[_0x253007(0x131)]();else{const _0x498eaa=Math[_0x253007(0x1b9)](_0x4f57f6[_0x253007(0x14e)]+_0x4f57f6[_0x253007(0xe9)]/0x2),_0x4a449e=Math[_0x143da5(0xb8)](_0x4f57f6[_0x4f8016(0x205)]+_0x4f57f6[_0x253007(0x144)]/0x2),_0x22ab92=await new Promise(_0x40fc54=>{const _0x29d6bf=_0x253007;chrome[_0x29d6bf(0x19e)][_0x29d6bf(0x191)]({'action':_0x29d6bf(0x11d),'x':_0x498eaa,'y':_0x4a449e},_0x40fc54);});(!_0x22ab92||_0x22ab92[_0x253007(0x121)]===![])&&(console[_0x4f8016(0x212)](_0x253007(0x13a)),_0x1dce07[_0x4f8016(0x1e6)]());}await delay(0x3e8);}function a1_0x29b0(_0x5087d7,_0x202b1a){_0x5087d7=_0x5087d7-0x6a;const _0x522316=a1_0x2a39();let _0x2010dc=_0x522316[_0x5087d7];return _0x2010dc;}async function configureStyleAndRatio(_0x232be1,_0x55ea74){const _0x315b47=a1_0x3f0e71;await safeSelectCanvaConfiguration(_0x315b47(0xfd),_0x232be1),await safeSelectCanvaConfiguration(_0x315b47(0xfc),_0x55ea74);}async function injectPrompt(_0x7b45ff){const _0x2bdd54=a1_0x3f0e71,_0xb895c6=await waitForElement(CANVA_SELECTORS[_0x2bdd54(0x1d1)]);if(!_0xb895c6)throw new Error(_0x2bdd54(0x10f));_0xb895c6[_0x2bdd54(0x158)]='',_0xb895c6[_0x2bdd54(0x1d4)](new Event(_0x2bdd54(0x19c),{'bubbles':!![]})),await safeCdpTypeHuman(_0x7b45ff,_0x2bdd54(0xf2));}async function submitAndWaitForImages(){const _0x4732bc=a1_0x789d4,_0x1d4f25=a1_0xc8f98,_0x33ba3b=a1_0x3f0e71,_0x73331c=await waitForElement(CANVA_SELECTORS[_0x33ba3b(0xe3)]);if(!_0x73331c)throw new Error(_0x33ba3b(0x195));await safeCdpClick(_0x73331c,_0x33ba3b(0xe7)),console[_0x4732bc(0x1b1)](_0x33ba3b(0x1bf)),chrome[_0x33ba3b(0x19e)][_0x1d4f25(0x1dc)]({'action':_0x33ba3b(0x14d),'status':_0x33ba3b(0x1d5)});const _0x4622f7=()=>{const _0x1e4264=_0x1d4f25,_0x17c734=_0x33ba3b,_0x29da66=document[_0x1e4264(0x239)](_0x17c734(0x1a2)),_0x23beda=document[_0x17c734(0x1ad)](_0x17c734(0x11f),document,null,XPathResult[_0x17c734(0x106)],null)[_0x17c734(0x179)],_0x168e1f=document[_0x17c734(0x1e5)](CANVA_SELECTORS[_0x17c734(0xe3)]),_0x52a33c=_0x168e1f?_0x168e1f[_0x17c734(0x1c6)]||_0x168e1f[_0x17c734(0x152)](_0x17c734(0x135))===_0x17c734(0x17f):![];return!!(_0x29da66||_0x23beda||_0x52a33c);};await delay(0x7d0);let _0x18c5cb=0x0;const _0x37c27a=0xea60;let _0x34118a=_0x4622f7();while(_0x34118a&&_0x18c5cb<_0x37c27a){if(!isRunning)throw new Error(_0x1d4f25(0x26a));if(!_0x4622f7()){_0x34118a=![];break;}else await delay(0x3e8),_0x18c5cb+=0x3e8;}_0x18c5cb>=_0x37c27a?console[_0x33ba3b(0x192)](_0x33ba3b(0x12d)):console[_0x33ba3b(0x192)](_0x33ba3b(0x113)),await delay(0x7d0);}async function handleDownload(_0x4d7b1a='4'){const _0x155217=a1_0x789d4,_0x134a52=a1_0xc8f98,_0x42ce90=a1_0x3f0e71;console[_0x134a52(0x1d0)](_0x42ce90(0x13b)+_0x4d7b1a+_0x42ce90(0x15a)),await delay(0xdac);let _0x4708a6=0x4;_0x4d7b1a===_0x42ce90(0x117)?_0x4708a6=Math[_0x42ce90(0x1c9)](Math[_0x42ce90(0x1e2)]()*0x4)+0x1:_0x4708a6=parseInt(_0x4d7b1a,0xa)||0x4,console[_0x42ce90(0x192)](_0x42ce90(0x1bc));let _0x48d045=0x0;const _0x13535e=0x2710,_0x58a8b4=0x1f4;let _0x40b548=[],_0x3cbd3d=[];while(_0x48d045<_0x13535e){if(!isRunning)throw new Error(_0x42ce90(0x104));_0x40b548=Array[_0x42ce90(0x198)](document[_0x42ce90(0x1db)](CANVA_SELECTORS[_0x42ce90(0x147)])),_0x3cbd3d=_0x40b548[_0x42ce90(0x15e)](_0x343f30=>_0x343f30[_0x42ce90(0x152)](_0x42ce90(0x1da))!==_0x42ce90(0x17f));if(_0x3cbd3d[_0x42ce90(0x137)]>0x0)break;await delay(_0x58a8b4),_0x48d045+=_0x58a8b4;}if(_0x40b548[_0x42ce90(0x137)]===0x0)throw new Error(_0x134a52(0x246));let _0x5badd7=[];if(_0x3cbd3d[_0x42ce90(0x137)]>0x0){if(_0x3cbd3d[_0x42ce90(0x137)]>_0x4708a6){const _0x2377d5=_0x40b548[_0x42ce90(0xf9)](_0x3cbd3d[0x0]),_0x35c355=_0x2377d5<_0x40b548[_0x134a52(0x1aa)]/0x2;_0x35c355?_0x5badd7=_0x3cbd3d[_0x42ce90(0x1c3)](0x0,_0x4708a6):_0x5badd7=_0x3cbd3d[_0x155217(0x1fb)](-_0x4708a6);}else _0x5badd7=_0x3cbd3d;}else console[_0x134a52(0x212)](_0x134a52(0x251)),_0x40b548[_0x155217(0x1b5)]>_0x4708a6?_0x5badd7=_0x40b548[_0x42ce90(0x1c3)](0x0,_0x4708a6):_0x5badd7=_0x40b548;let _0x1481de=_0x5badd7[_0x42ce90(0x1c3)](0x0,_0x4708a6);console[_0x42ce90(0x192)](_0x134a52(0x28d)+_0x40b548[_0x42ce90(0x137)]+_0x42ce90(0x174)+_0x1481de[_0x134a52(0x1aa)]+_0x42ce90(0x16d));for(let _0x5756e5=0x0;_0x5756e5<_0x1481de[_0x155217(0x1b5)];_0x5756e5++){const _0x549d14=_0x1481de[_0x5756e5];if(!_0x549d14||_0x549d14[_0x134a52(0x22d)]()[_0x42ce90(0xe9)]===0x0){console[_0x134a52(0x212)](_0x42ce90(0x18c));continue;}_0x549d14[_0x134a52(0x1b8)](_0x42ce90(0x1da),_0x134a52(0x275)),console[_0x42ce90(0x192)](_0x42ce90(0x166)+(_0x5756e5+0x1)+_0x42ce90(0x146)),_0x549d14[_0x42ce90(0x1d4)](new MouseEvent(_0x42ce90(0xf8),{'bubbles':!![],'cancelable':!![],'view':window})),_0x549d14[_0x42ce90(0x1d4)](new MouseEvent(_0x42ce90(0x102),{'bubbles':!![],'cancelable':!![],'view':window})),_0x549d14[_0x42ce90(0x131)](),await delay(0x9c4);}}async function handleCooldown(_0xd8806c,_0x9bdbdf=![]){const _0x1aa8c8=a1_0x2f73,_0x3bd2fa=a1_0x29b0,_0x54b3f2=a1_0x789d4,_0x4047a6=a1_0xc8f98,_0x33921e=a1_0x3f0e71;if(!_0x9bdbdf)sessionStats[_0x33921e(0x1a7)]++;_0xd8806c+=0x1388,console[_0x33921e(0xfb)](_0x54b3f2(0x1c1)+(_0x9bdbdf?_0x33921e(0x1bd):_0x33921e(0x1ab))+_0x33921e(0x10b)+_0xd8806c+_0x33921e(0x122)),tagGhostCooldowns();const _0x5a4caf=Date[_0x4047a6(0x24b)]()+_0xd8806c;while(Date[_0x33921e(0x14b)]()<_0x5a4caf){if(!isRunning){if(_0x9bdbdf)return console[_0x54b3f2(0x1b1)](_0x4047a6(0x1b1)),![];throw new Error(_0x33921e(0x104));}const _0x53da63=Math[_0x3bd2fa(0xab)]((_0x5a4caf-Date[_0x1aa8c8(0x139)]())/0x3e8);chrome[_0x33921e(0x19e)][_0x33921e(0x191)]({'action':_0x33921e(0x14d),'status':(_0x9bdbdf?_0x33921e(0x127):_0x54b3f2(0x1de))+':\x20'+formatTime(_0x53da63)}),await delay(0x3e8);}return tagGhostCooldowns(),console[_0x33921e(0x192)](_0x33921e(0x1e6)+(_0x9bdbdf?_0x33921e(0x1ae):_0x33921e(0x159))),chrome[_0x33921e(0x19e)][_0x33921e(0x191)]({'action':_0x54b3f2(0x163),'status':_0x33921e(0x167)+(_0x9bdbdf?_0x4047a6(0x19d):_0x33921e(0x1b1))+_0x33921e(0x146)}),!![];}function a1_0x129f(){const _0x106dbb=a1_0x2f73,_0xaa12c2=a1_0x29b0,_0x29df44=[_0xaa12c2(0xd7),_0x106dbb(0x12e),_0xaa12c2(0x8d),_0xaa12c2(0xf6),_0x106dbb(0xd4),_0xaa12c2(0x151),_0xaa12c2(0x132),_0xaa12c2(0x10d),_0x106dbb(0xf4),_0xaa12c2(0x11a),_0xaa12c2(0x144),_0x106dbb(0xea),_0xaa12c2(0xb6),_0x106dbb(0x157),_0xaa12c2(0x110),_0xaa12c2(0xd0),_0xaa12c2(0xe2),_0xaa12c2(0x12b),_0xaa12c2(0x152),_0xaa12c2(0x143),_0xaa12c2(0x9b),_0xaa12c2(0x14b),_0xaa12c2(0xb0),_0xaa12c2(0x120),'substring',_0xaa12c2(0x9c),_0xaa12c2(0xd8),_0xaa12c2(0x162),_0xaa12c2(0xc5),_0xaa12c2(0xf3),_0xaa12c2(0x10a),_0xaa12c2(0x14c),_0xaa12c2(0xde),_0xaa12c2(0x6b),_0xaa12c2(0x122),_0xaa12c2(0x15b),_0x106dbb(0xee),_0xaa12c2(0x97),_0x106dbb(0x9f),_0xaa12c2(0x77),_0xaa12c2(0x11c),_0xaa12c2(0xfa),_0xaa12c2(0x131),_0xaa12c2(0x12f),_0x106dbb(0x126),_0xaa12c2(0xaa),_0x106dbb(0xd0),_0xaa12c2(0x119),_0x106dbb(0x112),_0xaa12c2(0x79),_0xaa12c2(0x9f),_0x106dbb(0xc3),_0xaa12c2(0x83),_0x106dbb(0x14f),_0xaa12c2(0x15c),_0xaa12c2(0x12a),_0x106dbb(0x19f),_0xaa12c2(0xdd),_0xaa12c2(0x14e),_0xaa12c2(0xf9),_0xaa12c2(0x124),_0xaa12c2(0xc9),_0xaa12c2(0x7a),_0xaa12c2(0x13b),_0xaa12c2(0x121),_0xaa12c2(0xf1),_0xaa12c2(0xe4),_0x106dbb(0xc4),_0xaa12c2(0x81),_0xaa12c2(0x169),_0xaa12c2(0xbc),_0xaa12c2(0x82),_0xaa12c2(0x107),_0xaa12c2(0x118),_0xaa12c2(0x12d),_0x106dbb(0x163),_0xaa12c2(0x13f),_0xaa12c2(0xf5),_0xaa12c2(0x75),_0xaa12c2(0x74),_0xaa12c2(0x70),_0xaa12c2(0x127),_0x106dbb(0x13c),_0xaa12c2(0xa3),_0xaa12c2(0x10b),_0x106dbb(0x10b),_0xaa12c2(0xcd),_0xaa12c2(0x153),_0x106dbb(0x118),_0xaa12c2(0x13d),_0xaa12c2(0xb4),_0xaa12c2(0x154),_0xaa12c2(0x92),_0xaa12c2(0xda),'[NRA\x20DreamLab]\x20Server\x20overload\x20detected.\x20Defaulting\x20to\x203\x20minutes\x20cooldown.',_0x106dbb(0x17e),_0xaa12c2(0xd9),_0xaa12c2(0x15e),_0xaa12c2(0xa2),_0xaa12c2(0x16b),_0xaa12c2(0xa8),_0xaa12c2(0x150),_0xaa12c2(0xc6),_0xaa12c2(0x14d),'ALERT_STATUS','aria-label',_0xaa12c2(0x71),_0xaa12c2(0x87),_0xaa12c2(0x8e),_0xaa12c2(0xd4),_0xaa12c2(0x91),_0xaa12c2(0xcf),_0xaa12c2(0x7e),_0xaa12c2(0x160),_0x106dbb(0xf3),_0xaa12c2(0x140),_0xaa12c2(0xa9),_0xaa12c2(0x6e),'aria-pressed',_0xaa12c2(0x7f),_0xaa12c2(0xaf),_0x106dbb(0xb0),_0x106dbb(0x190),_0x106dbb(0x14d),_0xaa12c2(0x168),_0xaa12c2(0x166),_0xaa12c2(0xe7),_0x106dbb(0x10e),_0x106dbb(0x10c),'[role=\x22menu\x22]',_0xaa12c2(0x145),_0xaa12c2(0xc7),_0xaa12c2(0x108),_0xaa12c2(0xe3),_0xaa12c2(0x16f),_0xaa12c2(0xae),_0x106dbb(0xae),_0xaa12c2(0xb3),_0xaa12c2(0xf8),_0xaa12c2(0x159),_0xaa12c2(0x13e),_0xaa12c2(0xa1),_0x106dbb(0x94),_0xaa12c2(0x99),_0xaa12c2(0x100),_0xaa12c2(0xf7),_0xaa12c2(0xa4),_0xaa12c2(0x16c),_0xaa12c2(0x102),_0xaa12c2(0x155),_0xaa12c2(0x134),_0xaa12c2(0x164),_0x106dbb(0x167),_0xaa12c2(0xc8),_0xaa12c2(0x96),_0xaa12c2(0x109),_0x106dbb(0x165),'length',_0xaa12c2(0xf0),_0xaa12c2(0xf4),_0xaa12c2(0x170),_0xaa12c2(0x115),_0xaa12c2(0x16d),_0xaa12c2(0x135),_0xaa12c2(0x88),_0xaa12c2(0xcc),_0xaa12c2(0x78),_0xaa12c2(0xbd),'filter',_0xaa12c2(0x8b),_0xaa12c2(0xdc),_0x106dbb(0x12a),_0xaa12c2(0xc1),_0xaa12c2(0x172),_0xaa12c2(0x111),_0x106dbb(0x196),_0xaa12c2(0x123),_0xaa12c2(0x141),_0x106dbb(0xba),_0xaa12c2(0x106),_0xaa12c2(0xa6),_0xaa12c2(0x173),_0xaa12c2(0x128),_0xaa12c2(0xc0),_0xaa12c2(0xfb),_0x106dbb(0x191),_0xaa12c2(0x6f),_0xaa12c2(0x14a),_0x106dbb(0x130),_0xaa12c2(0xbe),_0xaa12c2(0xca),_0xaa12c2(0xfc),_0xaa12c2(0xba),_0xaa12c2(0xe5),_0xaa12c2(0x12c),_0x106dbb(0x122),'9:16',_0xaa12c2(0x137),_0x106dbb(0xb5),_0x106dbb(0x8f),_0xaa12c2(0x11b),_0x106dbb(0x93),_0xaa12c2(0x8a),_0xaa12c2(0xb1),_0xaa12c2(0x10c),_0x106dbb(0x174),_0x106dbb(0xdb),_0xaa12c2(0x156),_0xaa12c2(0x114),_0xaa12c2(0x13a),_0xaa12c2(0x9d),_0x106dbb(0xdf),_0xaa12c2(0xef),'TRY','data-bot-seen',_0xaa12c2(0xe9),_0x106dbb(0x175),_0xaa12c2(0x6a),_0x106dbb(0x110),_0xaa12c2(0x98),_0xaa12c2(0x6c),_0xaa12c2(0xb2),_0xaa12c2(0xd2),_0xaa12c2(0x149),_0xaa12c2(0x89),_0x106dbb(0x18c),_0xaa12c2(0x7b),_0xaa12c2(0x126),_0xaa12c2(0x157),_0xaa12c2(0xc2),_0x106dbb(0x173),_0xaa12c2(0x15f),_0xaa12c2(0xff),_0xaa12c2(0x9e),_0x106dbb(0x13f),_0xaa12c2(0x147),_0x106dbb(0x1a1),_0xaa12c2(0xdb),_0xaa12c2(0x10f),_0xaa12c2(0x7d),_0xaa12c2(0xf2),_0xaa12c2(0x130),_0xaa12c2(0x146),_0x106dbb(0x12c),_0x106dbb(0x198),_0xaa12c2(0x12e),_0xaa12c2(0x16a),_0xaa12c2(0xc3),_0xaa12c2(0xed),_0xaa12c2(0x167),_0xaa12c2(0x125)];return a1_0x129f=function(){return _0x29df44;},a1_0x129f();}async function startMainLoop(){const _0x4d29cf=a1_0x29b0,_0x442a99=a1_0x789d4,_0xcace38=a1_0xc8f98,_0x5ae8d9=a1_0x3f0e71;console[_0x5ae8d9(0x192)](_0x5ae8d9(0x199)),sendStatusUpdate(_0x5ae8d9(0x1c5)),sessionStats={'successCount':0x0,'downloadCount':0x0,'totalCooldowns':0x0,'startTime':Date[_0x5ae8d9(0x14b)]()};const _0x5145dc=await chrome[_0x5ae8d9(0x1ca)][_0xcace38(0x1a2)][_0x5ae8d9(0xf3)]([_0x5ae8d9(0x1b5)]);_0x5145dc[_0x5ae8d9(0x1b5)]?sessionStats=_0x5145dc[_0x5ae8d9(0x1b5)]:await chrome[_0xcace38(0x28f)][_0xcace38(0x1a2)][_0x5ae8d9(0x1a6)]({'sessionStats':sessionStats});const _0x489da1=await chrome[_0x5ae8d9(0x1ca)][_0x5ae8d9(0xe5)][_0x5ae8d9(0xf3)]([_0x5ae8d9(0x186)]);let _0x4222b8=0x0;_0x489da1[_0xcace38(0x215)]!==undefined&&(_0x4222b8=_0x489da1[_0x5ae8d9(0x186)],console[_0x5ae8d9(0x192)](_0x5ae8d9(0x129)+_0x4222b8));try{const _0x411077=await chrome[_0xcace38(0x28f)][_0x5ae8d9(0xe5)][_0x5ae8d9(0xf3)]([_0x5ae8d9(0x176),_0x5ae8d9(0x133),_0xcace38(0x1e3),_0x5ae8d9(0x18e)]);if(!window[_0x5ae8d9(0x13d)][_0x5ae8d9(0x143)][_0x5ae8d9(0x10d)](_0xcace38(0x266)))throw new Error(_0x5ae8d9(0x149));let _0x5ea1d4=(_0x411077[_0x4d29cf(0x16e)]||[])[_0x5ae8d9(0x118)](_0x3209f0=>sanitizeInput(_0x3209f0));sessionStats[_0x5ae8d9(0x1e8)]=_0x5ea1d4[_0x5ae8d9(0x137)],sessionStats[_0x5ae8d9(0x183)]=Date[_0x5ae8d9(0x14b)]();const _0x2966e7=_0x411077[_0x5ae8d9(0x133)],_0x3b5d12=_0x411077[_0xcace38(0x1e3)],_0x281ccc=await chrome[_0x5ae8d9(0x1ca)][_0xcace38(0x1a2)][_0xcace38(0x1cf)]([_0x5ae8d9(0x141)]);batchLimitGlobal=parseInt(_0x281ccc[_0x5ae8d9(0x141)],0xa)||0x0;const _0x2c3b48=_0x411077[_0x5ae8d9(0x18e)]||'4';if(_0x5ea1d4[_0x5ae8d9(0x137)]===0x0)throw new Error(_0xcace38(0x225));await chrome[_0x5ae8d9(0x1ca)][_0x5ae8d9(0xe5)][_0x5ae8d9(0x1a6)]({'isAutomating':!![]}),await Promise[_0x5ae8d9(0x120)]([new Promise(_0x21d12a=>chrome[_0x5ae8d9(0x19e)][_0x5ae8d9(0x191)]({'action':_0x5ae8d9(0x142)},_0x21d12a)),new Promise((_0x2bb301,_0x49a46c)=>setTimeout(()=>_0x49a46c(new Error(_0xcace38(0x198))),0x2710))]);try{const _0x33a72e=await checkAndHandleStartupCooldown();if(!_0x33a72e)return;let _0x48f1b1=![];while(_0x5ea1d4[_0x5ae8d9(0x137)]>0x0&&isRunning){const _0x5efdda=await chrome[_0x5ae8d9(0x1ca)][_0xcace38(0x1a2)][_0xcace38(0x1cf)]([_0x5ae8d9(0x194),_0x5ae8d9(0x141),_0x5ae8d9(0x1dd)]);if(_0x5efdda[_0x5ae8d9(0x1dd)]===![])throw new Error(_0x5ae8d9(0x104));if(_0x5efdda[_0xcace38(0x19e)]===!![]){console[_0xcace38(0x1d0)](_0x5ae8d9(0x150)),await delay(0x3e8);continue;}const _0x2298fe=_0x5ea1d4[_0x5ae8d9(0x160)](),_0x176db2=_0x4222b8+(sessionStats[_0x442a99(0x1f3)]-_0x5ea1d4[_0x5ae8d9(0x137)]);chrome[_0xcace38(0x264)][_0x5ae8d9(0x191)]({'action':_0xcace38(0x299),'status':_0x5ae8d9(0x19b)+(_0x176db2+0x1)+'/'+sessionStats[_0x5ae8d9(0x1e8)]+':\x20'+_0x2298fe}),await prepareAndSubmitPrompt(_0x2298fe,_0x48f1b1,_0x3b5d12,_0x2966e7),_0x48f1b1=!![];let _0x690c9d=getScreenCooldownMs();_0x690c9d>0x0&&await handleCooldown(_0x690c9d,![]);let _0x48fab1=![],_0x2e6f1a=0x0;const _0x585834=0x3;while(!_0x48fab1&&_0x2e6f1a<_0x585834){try{await handleDownload(_0x2c3b48),_0x48fab1=!![];}catch(_0x3055f2){console[_0xcace38(0x1be)](_0xcace38(0x263)+(_0x2e6f1a+0x1)+_0x5ae8d9(0x1a5),_0x3055f2[_0x5ae8d9(0x190)]),_0x2e6f1a++,_0x2e6f1a<_0x585834&&(console[_0x5ae8d9(0x192)](_0x5ae8d9(0x130)+_0x2e6f1a+'/'+_0x585834+_0xcace38(0x1d2)),window[_0x5ae8d9(0x13d)][_0xcace38(0x227)](),await new Promise(_0x7a9ec4=>setTimeout(_0x7a9ec4,0x1388)),await configureStyleAndRatio(_0x3b5d12,_0x2966e7),await injectPrompt(_0x2298fe),await submitAndWaitForImages());}}!_0x48fab1?(console[_0xcace38(0x1be)](_0x5ae8d9(0x14a)),sessionStats[_0x5ae8d9(0x19a)]++):sessionStats[_0xcace38(0x1da)]++,await chrome[_0x5ae8d9(0x1ca)][_0xcace38(0x1a2)][_0x442a99(0x217)]({'sessionStats':sanitizeStats(sessionStats),'lastProcessedPromptIndex':_0x176db2});if(batchLimitGlobal>0x0&&sessionStats[_0x5ae8d9(0x18e)]>=batchLimitGlobal){console[_0x5ae8d9(0x192)](_0x5ae8d9(0x112)+batchLimitGlobal+_0x5ae8d9(0x1c8)),isRunning=![],chrome[_0x5ae8d9(0x1ca)][_0x5ae8d9(0xe5)][_0x5ae8d9(0x1a6)]({'isAutomating':![]},()=>{const _0x2f03b3=_0x5ae8d9;sendStatusUpdate(_0x2f03b3(0x1ac));});break;}await delay(0x7d0);}isRunning&&(console[_0x5ae8d9(0x192)](_0x5ae8d9(0x155)),chrome[_0x5ae8d9(0x1ca)][_0x5ae8d9(0xe5)][_0xcace38(0x1d5)]({'isAutomating':![]},()=>{const _0x46722d=_0x5ae8d9;sendStatusUpdate(_0x46722d(0x180));}));}catch(_0x55ba8b){handleAutomationError(_0x55ba8b);throw _0x55ba8b;}}catch(_0x57fa25){handleAutomationError(_0x57fa25);throw _0x57fa25;}}async function checkAndHandleStartupCooldown(){let _0x15b006=getScreenCooldownMs();if(_0x15b006>0x0){const _0x3c4107=await handleCooldown(_0x15b006,!![]);return _0x3c4107;}return!![];}async function prepareAndSubmitPrompt(_0x58fdab,_0x3b779d,_0x2bdc54,_0x7089a4){!_0x3b779d&&await configureStyleAndRatio(_0x2bdc54,_0x7089a4),await injectPrompt(_0x58fdab),await submitAndWaitForImages();}function a1_0x27e5(_0x2645f7,_0x4b4460){_0x2645f7=_0x2645f7-0xe3;const _0x5c14fd=a1_0x3250();let _0x1b02e5=_0x5c14fd[_0x2645f7];return _0x1b02e5;}async function executeDownloadBatchWithRetry(_0x199bc0,_0x272a1e,_0x14b998,_0x4856a6,_0x59c554){const _0x2b3b3d=a1_0x789d4,_0x742f30=a1_0xc8f98,_0x32a413=a1_0x3f0e71;let _0x28c046=![],_0x2a754d=0x0;while(!_0x28c046&&_0x2a754d<_0x272a1e){try{await handleDownload(_0x199bc0),_0x28c046=!![];}catch(_0x359f53){console[_0x742f30(0x1be)](_0x32a413(0x1d9)+(_0x2a754d+0x1)+_0x2b3b3d(0x14e),_0x359f53[_0x32a413(0x190)]),_0x2a754d++;if(_0x2a754d<_0x272a1e)return console[_0x32a413(0x192)](_0x32a413(0x161)),await chrome[_0x32a413(0x1ca)][_0x32a413(0xe5)][_0x32a413(0x1a6)]({'isRecovering':!![]}),window[_0x32a413(0x13d)][_0x32a413(0x14f)](),![];}}return _0x28c046;}chrome[a1_0x3f0e71(0x19e)][a1_0xc8f98(0x284)][a1_0x3f0e71(0x1a9)]((_0x47ffb5,_0x5cfaa8,_0x52ac4a)=>{const _0xd39829=a1_0x789d4,_0x3346c2=a1_0xc8f98,_0x4775d2=a1_0x3f0e71;if(_0x47ffb5[_0x4775d2(0x1b6)]===_0x4775d2(0x10c))return _0x52ac4a({'status':_0x4775d2(0x157)}),!![];if(_0x47ffb5[_0x4775d2(0x1b6)]===_0x4775d2(0x1b3))return!isLoopActive?(console[_0x4775d2(0x192)](_0x3346c2(0x1ea)),isRunning=!![],isLoopActive=!![],startMainLoop()[_0x4775d2(0x163)](_0x18b5ab=>{const _0x25079f=_0x4775d2;console[_0x25079f(0x1e1)](_0x25079f(0x184),_0x18b5ab);})[_0xd39829(0x200)](()=>{isLoopActive=![],isRunning=![];}),_0x52ac4a({'success':!![]})):(console[_0x3346c2(0x212)](_0x3346c2(0x1a7)),_0x52ac4a({'success':![],'error':_0x4775d2(0x1be)})),!![];if(_0x47ffb5[_0x4775d2(0x1b6)]===_0x4775d2(0x16c))return console[_0x4775d2(0x192)](_0x4775d2(0x168)),isRunning=![],isLoopActive=![],chrome[_0x3346c2(0x264)][_0x4775d2(0x191)]({'action':_0x4775d2(0x1af)})[_0x3346c2(0x1b5)](()=>{}),_0x52ac4a({'success':!![]}),!![];}),chrome[a1_0x3f0e71(0x1ca)][a1_0x3f0e71(0xe5)][a1_0x3f0e71(0xf3)]([a1_0x3f0e71(0x1dd),a1_0x3f0e71(0x13c)],_0x3a3885=>{const _0x3f4884=a1_0x3f0e71;_0x3a3885[_0x3f4884(0x1dd)]===!![]&&_0x3a3885[_0x3f4884(0x13c)]===!![]&&(console[_0x3f4884(0x192)](_0x3f4884(0x1cb)),chrome[_0x3f4884(0x1ca)][_0x3f4884(0xe5)][_0x3f4884(0x1a6)]({'isRecovering':![]},()=>{setTimeout(()=>{const _0x5dd7a0=a1_0x27e5;!isLoopActive&&(isRunning=!![],isLoopActive=!![],startMainLoop()[_0x5dd7a0(0x163)](_0x1dcdb6=>console[_0x5dd7a0(0x1e1)](_0x1dcdb6))[_0x5dd7a0(0x107)](()=>{isLoopActive=![],isRunning=![];}));},0xbb8);}));});
+// ==========================================
+// Console Interceptor for Side Panel UI
+// ==========================================
+const originalConsoleLog = console.log;
+const originalConsoleWarn = console.warn;
+const originalConsoleError = console.error;
+
+let isLogging = false;
+
+function broadcastLog(level, ...args) {
+  // Prevent recursive logging
+  if (isLogging) return;
+  isLogging = true;
+
+  try {
+    const msg = args
+      .map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a)))
+      .join(" ");
+    chrome.runtime
+      .sendMessage({ action: "CONSOLE_LOG", level: level, message: msg })
+      .catch((err) => {
+        // Silent fail - do NOT call console methods here
+      });
+  } catch (e) {
+    // Silent fail - do NOT call console methods here
+  } finally {
+    isLogging = false;
+  }
+}
+
+console.log = function (...args) {
+  originalConsoleLog.apply(console, args);
+  broadcastLog("INFO", ...args);
+};
+console.warn = function (...args) {
+  originalConsoleWarn.apply(console, args);
+  broadcastLog("WARN", ...args);
+};
+console.error = function (...args) {
+  originalConsoleError.apply(console, args);
+  broadcastLog("ERROR", ...args);
+};
+
+// Global unhandled rejection handler
+window.addEventListener("unhandledrejection", function (event) {
+  console.error(
+    "[NRA DreamLab] Unhandled Promise rejection:",
+    event.reason,
+  );
+  try {
+    chrome.runtime
+      .sendMessage({
+        action: "STATUS_UPDATE",
+        status: `Error: ${event.reason?.message || "Unknown promise error"}`,
+      })
+      .catch(() => { });
+  } catch (_) { }
+  event.preventDefault();
+});
+
+// Verbose Logs Helper Function
+async function logToTerminal(message, isVerboseOnly = false) {
+  // Check user settings
+  const res = await chrome.storage.local.get(["verboseLogs"]);
+  const isVerboseMode = res.verboseLogs !== false; // Default to true
+
+  // If this is a detailed log and the user turned off verbose mode, skip it.
+  if (isVerboseOnly && !isVerboseMode) return;
+
+  const timestamp = new Date().toLocaleTimeString();
+  const fullMessage = `[${timestamp}] ${message}`;
+
+  console.log(fullMessage);
+  chrome.runtime.sendMessage({ action: "LOG_MESSAGE", message: fullMessage });
+}
+
+// NRA DreamLab - Content Script targeting canva.com/dream-lab
+// Operates exclusively on https://www.canva.com/dream-lab
+
+function getStyleOptionsFromDOM() {
+  const styleOptions = [];
+  const popover =
+    document.querySelector('[role="dialog"]') ||
+    document.querySelector('[role="menu"]');
+  if (popover) {
+    const buttons = popover.querySelectorAll('[role="button"]');
+    buttons.forEach(function (btn) {
+      const label = btn.getAttribute("aria-label") || btn.textContent.trim();
+      if (label && label.length > 0 && label !== "Style") {
+        styleOptions.push(label);
+      }
+    });
+  }
+  if (styleOptions.length === 0) {
+    return [
+      "Smart",
+      "Cinematic Concept",
+      "Creative",
+      "Bokeh",
+      "Macro",
+      "Illustration",
+      "3D Render",
+      "Cinematic",
+      "Fashion",
+      "Minimalist",
+      "Moody",
+      "Portrait",
+      "Sketch - Color",
+      "Stock Photo",
+      "Ray Traced",
+      "Vibrant",
+      "Pop Art",
+      "Vector",
+    ];
+  }
+  return styleOptions;
+}
+
+function getRatioOptionsFromDOM() {
+  const ratioOptions = [];
+  const popover =
+    document.querySelector('[role="dialog"]') ||
+    document.querySelector('[role="menu"]');
+  if (popover) {
+    const buttons = popover.querySelectorAll('[role="button"]');
+    buttons.forEach(function (btn) {
+      const label = btn.getAttribute("aria-label") || btn.textContent.trim();
+      if (
+        label &&
+        (label.includes(":") ||
+          label === "1:1" ||
+          label === "16:9" ||
+          label === "9:16" ||
+          label === "4:3" ||
+          label === "3:4" ||
+          label === "3:2" ||
+          label === "2:3")
+      ) {
+        ratioOptions.push(label);
+      }
+    });
+  }
+  if (ratioOptions.length === 0) {
+    return ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"];
+  }
+  return ratioOptions;
+}
+
+let isPausedGlobal = false;
+let batchLimitGlobal = 0;
+
+// Set up a local cache listener to drastically reduce storage I/O
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local") {
+    if (changes.isPaused !== undefined) {
+      isPausedGlobal = changes.isPaused.newValue === true;
+    }
+    if (changes.batchLimit !== undefined) {
+      batchLimitGlobal = parseInt(changes.batchLimit.newValue, 10) || 0;
+    }
+  }
+});
+
+// Seed the variables immediately on script load
+chrome.storage.local.get(["isPaused", "batchLimit"], (res) => {
+  if (res.isPaused !== undefined) isPausedGlobal = res.isPaused === true;
+  if (res.batchLimit !== undefined)
+    batchLimitGlobal = parseInt(res.batchLimit, 10) || 0;
+});
+
+// Global execution flag for the automation loop
+let isRunning = false;
+// Mutex guard: prevents concurrent startMainLoop() invocations (KRITIS-2)
+let isLoopActive = false;
+// Interval for heartbeat (if used)
+let heartbeatInterval = null;
+// Session Statistics Telemetry
+let prompts = [];
+let sessionStats = {
+  startTime: null,
+  successCount: 0,
+  downloadCount: 0,
+  totalCooldowns: 0,
+  totalPrompts: 0,
+};
+
+async function smartWaitForElement(selector, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const existingElements = Array.from(document.querySelectorAll(selector)).filter(btn => btn.offsetParent !== null);
+    if (existingElements.length > 0) {
+      return resolve(existingElements);
+    }
+
+    let timer; // Deklarasi dinaikkan ke atas untuk mencegah ReferenceError
+
+    const observer = new MutationObserver((mutations, obs) => {
+      const elements = Array.from(document.querySelectorAll(selector)).filter(btn => btn.offsetParent !== null);
+      if (elements.length > 0) {
+        obs.disconnect();
+        if (timer) clearTimeout(timer);
+        resolve(elements);
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style']
+    });
+
+    timer = setTimeout(() => {
+      observer.disconnect();
+      reject(new Error("Timeout: Elemen " + selector + " tidak muncul setelah " + timeoutMs + "ms"));
+    }, timeoutMs);
+  });
+}
+/**
+ * Helper function to sanitize sessionStats and prevent NaN values.
+ * @param {Object} stats
+ * @returns {Object}
+ */
+function sanitizeStats(stats) {
+  if (!stats)
+    return {
+      startTime: Date.now(),
+      successCount: 0,
+      downloadCount: 0,
+      totalCooldowns: 0,
+      totalPrompts: 0,
+      failedCount: 0,
+    };
+
+  return {
+    startTime: stats.startTime || Date.now(),
+    successCount: isNaN(stats.successCount) ? 0 : Number(stats.successCount),
+    downloadCount: isNaN(stats.downloadCount) ? 0 : Number(stats.downloadCount),
+    totalCooldowns: isNaN(stats.totalCooldowns)
+      ? 0
+      : Number(stats.totalCooldowns),
+    totalPrompts: isNaN(stats.totalPrompts) ? 0 : Number(stats.totalPrompts),
+    failedCount: isNaN(stats.failedCount) ? 0 : Number(stats.failedCount),
+  };
+}
+
+/**
+ * Sends a status update message to the Side Panel/Popup.
+ * @param {string} statusText
+ */
+function sendStatusUpdate(statusText) {
+  console.log(`[NRA DreamLab] Status update: ${statusText}`);
+  chrome.runtime.sendMessage(
+    { action: "STATUS_UPDATE", status: statusText },
+    (response) => {
+      if (chrome.runtime.lastError) return; // Fail silently but correctly
+    },
+  );
+}
+
+// --- UNTHROTTLED WEB WORKER DELAY (IMMUNE TO BACKGROUND THROTTLING) ---
+let delayWorker = null;
+
+function initWorker() {
+  if (delayWorker) {
+    try {
+      delayWorker.terminate();
+    } catch (e) {
+      // Abaikan error saat terminate
+    }
+  }
+  const workerBlob = new Blob(
+    [
+      `self.onmessage = function(e) { setTimeout(() => postMessage(e.data.id), e.data.time); }`,
+    ],
+    { type: "application/javascript" },
+  );
+
+  const workerUrl = URL.createObjectURL(workerBlob);
+  delayWorker = new Worker(workerUrl);
+  URL.revokeObjectURL(workerUrl); // CRITICAL FIX: Frees the memory immediately
+  console.log("[NRA DreamLab] Web Worker initialized successfully.");
+}
+
+// Inisialisasi awal
+initWorker();
+
+/**
+ * delay(ms): Promise-based timeout hybrid using Web Worker thread & fallback.
+ * Web Workers are immune to Chrome's background tab throttling.
+ * Jika worker gagal/mati, akan otomatis restart dan menggunakan setTimeout sementara.
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
+function delay(ms) {
+  if (ms >= 1000) console.log(`[NRA DreamLab] Waiting for ${ms}ms...`);
+  return new Promise((resolve) => {
+    let resolved = false;
+
+    // Waktu tunggu maksimum sebelum fallback (hanya 1 detik ekstra dari target)
+    const fallbackMs = ms + 1000;
+
+    // Timer fallback murni (setTimeout)
+    const fallbackTimer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        console.warn(
+          `[NRA DreamLab] ⚠️ Delay fallback triggered after ${fallbackMs}ms (Worker mati atau lambat). Merestart worker...`,
+        );
+        initWorker(); // Restart worker agar panggilan selanjutnya tidak lambat
+        resolve();
+      }
+    }, fallbackMs);
+
+    try {
+      if (!delayWorker) throw new Error("Worker is null");
+
+      const id = Math.random().toString();
+      const handler = (e) => {
+        if (e.data === id) {
+          delayWorker.removeEventListener("message", handler);
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(fallbackTimer); // Berhasil, batalkan fallback timer
+            resolve();
+          }
+        }
+      };
+
+      delayWorker.addEventListener("message", handler);
+      delayWorker.postMessage({ id: id, time: ms });
+    } catch (e) {
+      // Terjadi error instan (misal worker mati, memory corrupt), langsung gunakan native
+      console.warn(
+        `[NRA DreamLab] ⚠️ Worker error instan: ${e.message}. Menggunakan setTimeout native dan merestart worker...`,
+      );
+      initWorker(); // Re-init sekarang juga
+
+      // Karena kita tahu postMessage gagal, jadwalkan resolve menggunakan setTimeout sesuai 'ms'
+      // tanpa harus menunggu 'fallbackMs' yang lebih lama
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(fallbackTimer);
+          resolve();
+        }
+      }, ms);
+    }
+  });
+}
+
+/**
+ * Formats raw seconds into an MM:SS string (e.g., 252 -> "4:12").
+ * @param {number} totalSeconds
+ * @returns {string}
+ */
+function formatTime(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = (totalSeconds % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+/**
+ * Helper to check if automation has been stopped by the user.
+ * @returns {Promise<boolean>}
+ */
+async function checkIfStopped() {
+  const res = await chrome.storage.local.get(["isAutomating"]);
+  return res && res.isAutomating === false;
+}
+
+/**
+ * Helper to tag processed warnings so they are ignored in the future.
+ * Applies data-bot-ignored attribute and visual feedback to ghost cooldown text.
+ */
+function tagGhostCooldowns() {
+  const warnings = document.evaluate(
+    "//*[not(@data-bot-ignored='true') and (contains(text(), 'Lots of people are using Dream Lab') or (not(ancestor-or-self::*" +
+    CANVA_SELECTORS.ALERT_STATUS +
+    ") and (contains(text(), 'generate again in') or contains(text(), 'Try again in'))))]",
+    document,
+    null,
+    XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE,
+    null,
+  );
+
+  for (let i = 0; i < warnings.snapshotLength; i++) {
+    const el = warnings.snapshotItem(i);
+    el.setAttribute("data-bot-ignored", "true");
+    el.style.opacity = "0.3";
+
+    // Auto-click the Dismiss 'X' button if it exists nearby
+    const dismissBtn = el
+      .closest("div")
+      ?.querySelector('button[aria-label="Dismiss"]');
+    if (dismissBtn) dismissBtn.click();
+  }
+}
+
+/**
+ * Promisified utility to wait for a DOM element to exist, checking every 300ms.
+ * Supports both CSS selectors and XPath.
+ * @param {string} selector
+ * @param {boolean} isXPath
+ * @param {number} timeout
+ * @returns {Promise<Element>}
+ */
+async function waitForElement(selector, isXPath = false, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    const checkInterval = 300;
+    let elapsed = 0;
+
+    const interval = setInterval(() => {
+      // Check if automation was stopped externally
+      if (!isRunning) {
+        clearInterval(interval);
+        reject(new Error("USER_STOPPED"));
+        return;
+      }
+
+      let element = null;
+      if (isXPath) {
+        element = document.evaluate(
+          selector,
+          document,
+          null,
+          XPathResult.FIRST_ORDERED_NODE_TYPE,
+          null,
+        ).singleNodeValue;
+      } else {
+        element = document.querySelector(selector);
+      }
+
+      if (element) {
+        clearInterval(interval);
+        resolve(element);
+      } else {
+        elapsed += checkInterval;
+        if (elapsed >= timeout) {
+          clearInterval(interval);
+          reject(
+            new Error(`Timeout waiting for element matching: ${selector}`),
+          );
+        }
+      }
+    }, checkInterval);
+  });
+}
+
+function auditSelectors() {
+  for (const [key, selector] of Object.entries(CANVA_SELECTORS)) {
+    let element;
+    if (selector.startsWith("//")) {
+      // XPath selector
+      const result = document.evaluate(
+        selector,
+        document,
+        null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE,
+        null,
+      );
+      element = result.singleNodeValue;
+    } else {
+      // CSS selector
+      element = document.querySelector(selector); // Shorter timeout for quick check
+    }
+    if (!element) {
+      console.error(`DIAGNOSTIC ERROR: Selector ${key} is NULL/NOT FOUND`);
+    } else {
+      console.log(`DIAGNOSTIC OK: Selector ${key} found`);
+    }
+  }
+}
+
+/**
+ * Extracts the cooldown time remaining from a rate-limit warning element on the screen.
+ * Updated radar to strictly ignore tagged ghosts.
+ * @returns {number} Cooldown in milliseconds, or 0 if not found.
+ */
+function getScreenCooldownMs() {
+  // Ensure we ignore elements tagged by tagGhostCooldowns
+  let ignoredNodes = [];
+  try {
+    const nodes = document.querySelectorAll('[data-bot-ignored="true"]');
+    if (nodes) ignoredNodes = Array.from(nodes);
+  } catch (e) { }
+  const originalStyles = [];
+  ignoredNodes.forEach((node) => {
+    originalStyles.push(node.style.display);
+    node.style.display = "none";
+  });
+
+  const COOLDOWN_PATTERNS = {
+    BUSY: /Lots of people are using/i,
+    GENERATE: /generate again in/i,
+    TRY: /Try again in/i,
+  };
+
+  let pageText = "";
+
+  const alertElements = document.querySelectorAll(
+    '[role="alert"], [role="status"]',
+  );
+  alertElements.forEach(function (el) {
+    pageText += el.innerText + " ";
+  });
+
+  if (!pageText.trim()) {
+    const statusContainers = document.querySelectorAll(
+      '[class*="status"], [class*="alert"], [class*="warning"]',
+    );
+    statusContainers.forEach(function (el) {
+      pageText += el.innerText + " ";
+    });
+  }
+
+  if (!pageText.trim()) {
+    pageText = document.body.innerText;
+  }
+
+  // Restore original display styles
+  ignoredNodes.forEach((node, i) => {
+    node.style.display = originalStyles[i];
+  });
+
+  for (const [key, pattern] of Object.entries(COOLDOWN_PATTERNS)) {
+    const match = pageText.match(pattern);
+    if (match) {
+      if (key === "BUSY") {
+        console.warn(
+          "[NRA DreamLab] Server overload detected. Defaulting to 3 minutes cooldown.",
+        );
+        return 3 * 60 * 1000;
+      } else if (key === "GENERATE" || key === "TRY") {
+        const timeMatch = pageText.match(/(\d+):(\d+)/);
+        if (timeMatch) {
+          return (
+            (parseInt(timeMatch[1], 10) * 60 + parseInt(timeMatch[2], 10)) *
+            1000
+          );
+        }
+      }
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Error Handling Router: updates state in storage and logs details to side panel.
+ * @param {Error} err
+ */
+function handleAutomationError(err) {
+  // KRITIS-3 FIX: Always reset both flags to prevent stuck state
+  isRunning = false;
+  isLoopActive = false;
+
+  if (err.message === "USER_STOPPED") {
+    console.log("[NRA DreamLab] Process stopped manually.");
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
+    chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
+      sendStatusUpdate("Automation stopped by user.");
+    });
+    return;
+  }
+
+  if (err.message === "MONTHLY_LIMIT_REACHED") {
+    console.error(
+      "[NRA DreamLab] Monthly AI limit reached. Stopping permanently.",
+    );
+    chrome.storage.local.set({ isAutomating: false, step: "ERROR" }, () => {
+      sendStatusUpdate("🛑 Monthly Limit Reached. Stopped.");
+      chrome.runtime.sendMessage({
+        action: "SHOW_NOTIFICATION",
+        title: "Canva Automation Halted",
+        message:
+          "You've hit your plan's monthly AI limit! Automation has been permanently stopped.",
+      });
+    });
+    return;
+  }
+
+  console.error("[NRA DreamLab] Loop broken due to:", err);
+  const errMsg = err.message || "Unknown error occurred.";
+
+  // KRITIS-4 FIX: Include action key so panel.js processes the status correctly
+  chrome.storage.local.set({ isAutomating: false, step: "ERROR" }, () => {
+    chrome.runtime.sendMessage({
+      action: "STATUS_UPDATE",
+      status: "Error: " + errMsg,
+    });
+  });
+  chrome.runtime.sendMessage({ action: "RELEASE_AWAKE" }).catch(() => ({}));
+}
+
+async function safeCdpClick(element, context = "element") {
+  try {
+    await cdpClick(element);
+  } catch (error) {
+    console.error(`[NRA DreamLab] 🛑 Failed to click ${context}:`, error);
+    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
+    throw new Error(`Click interaction failed for ${context}`); // Throw custom error instead of TypeError
+  }
+}
+
+async function safeCdpTypeHuman(text, context = "input") {
+  try {
+    await cdpTypeHuman(text);
+  } catch (error) {
+    console.error(`[NRA DreamLab] 🛑 Failed to type in ${context}:`, error);
+    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
+    throw new Error(`Type interaction failed for ${context}`); // Throw custom error instead of TypeError
+  }
+}
+async function cdpClick(element) {
+  element.scrollIntoView({ behavior: "smooth", block: "center" });
+  await delay(300);
+
+  // Suntikkan event klik murni ke DOM (mengakali perlindungan React/Next.js)
+  element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
+  element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
+  element.click();
+}
+
+async function cdpTypeHuman(text) {
+  console.log(`[NRA DreamLab] Typing prompt using Native DOM Injection...`);
+  const textarea = await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA);
+  if (!textarea) throw new Error("Textarea not found");
+
+  // Bypass perlindungan React/Next.js untuk memasukkan teks secara instan
+  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+  nativeInputValueSetter.call(textarea, text);
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+
+  await delay(300);
+}
+
+async function safeSelectCanvaConfiguration(typeLabel, optionText) {
+  try {
+    await selectCanvaConfiguration(typeLabel, optionText);
+  } catch (error) {
+    console.error(
+      `[NRA DreamLab] 🛑 Failed to configure ${typeLabel} with ${optionText}:`,
+      error,
+    );
+    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
+    throw new Error(`Configuration interaction failed for ${typeLabel}`);
+  }
+}
+
+async function selectCanvaConfiguration(typeLabel, optionText) {
+  if (!optionText || optionText === "None" || optionText === "" || optionText === "Random") return;
+
+  const targetButton = document.querySelector("button[aria-label='" + optionText + "'], div[role='button'][aria-label='" + optionText + "']");
+
+  if (targetButton) {
+    console.log("[NRA DreamLab] Memilih " + typeLabel + ": '" + optionText + "'...");
+
+    await safeCdpClick(targetButton, typeLabel);
+    await delay(1500);
+
+    let menu = document.querySelector('[role="dialog"], [role="menu"]');
+    if (menu && menu.offsetParent !== null) {
+      console.warn("[NRA DreamLab] Menu " + typeLabel + " masih terbuka (CDP missed), mencoba Native Click...");
+      targetButton.click(); // Serangan lapis dua
+      await delay(1000);
+
+      menu = document.querySelector('[role="dialog"], [role="menu"]');
+      if (menu && menu.offsetParent !== null) {
+        console.warn("[NRA DreamLab] Menu " + typeLabel + " membandel, memaksa tutup...");
+        document.body.click(); // Serangan lapis tiga
+        await delay(1000);
+      }
+    }
+  } else {
+    console.warn("[NRA DreamLab] Opsi '" + optionText + "' tidak ditemukan di DOM.");
+  }
+}
+
+/**
+ * Starts the main bulk automation loop, running sequentially without page reloads.
+ */
+async function configureStyleAndRatio(imageStyle, aspectRatio) {
+  await safeSelectCanvaConfiguration("Style", imageStyle);
+  await safeSelectCanvaConfiguration("Ratio", aspectRatio);
+}
+
+async function injectPrompt(currentPrompt) {
+  const textarea = await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA);
+  if (!textarea) throw new Error("Textarea not found");
+  textarea.value = "";
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  await safeCdpTypeHuman(currentPrompt, "prompt input");
+}
+
+async function submitAndWaitForImages() {
+  const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON);
+  if (!generateBtn) throw new Error("Generate button not found");
+
+  await safeCdpClick(generateBtn, "generate button");
+
+  console.log("[NRA DreamLab] Menunggu proses generasi selesai...");
+  chrome.runtime.sendMessage({
+    action: "STATUS_UPDATE",
+    status: "Generating...",
+  });
+
+  // Tunggu 3 detik penuh agar UI Canva punya waktu merespons klik dan memunculkan loading state
+  await delay(3000);
+
+  const checkLoadingIndicators = () => {
+    const progressBar = document.querySelector('[role="progressbar"]');
+    const generatingText = document.evaluate(
+      "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'generating') or contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'creating') or contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'refining')]",
+      document,
+      null,
+      XPathResult.FIRST_ORDERED_NODE_TYPE,
+      null
+    ).singleNodeValue;
+
+    const currentGenBtn = document.querySelector(CANVA_SELECTORS.SUBMIT_BUTTON);
+    const isBtnDisabled = currentGenBtn ? (currentGenBtn.disabled || currentGenBtn.getAttribute("aria-disabled") === "true") : false;
+
+    const cancelBtn = document.querySelector('button[aria-label="Cancel"], button[aria-label="Batalkan"]');
+
+    return !!(progressBar || generatingText || isBtnDisabled || cancelBtn);
+  };
+
+  let renderElapsed = 0;
+  const timeout = 60000;
+  let isGenerating = checkLoadingIndicators();
+
+  if (!isGenerating) {
+    console.warn("[NRA DreamLab] Indikator loading tidak terdeteksi (DOM berubah/meleset). Menggunakan Fallback Delay 15 detik...");
+    await delay(15000);
+  } else {
+    while (isGenerating && renderElapsed < timeout) {
+      if (!isRunning) throw new Error("USER_STOPPED");
+
+      if (!checkLoadingIndicators()) {
+        isGenerating = false;
+        break;
+      } else {
+        await delay(2000);
+        renderElapsed += 2000;
+      }
+    }
+  }
+
+  if (renderElapsed >= timeout) {
+    console.log("[NRA DreamLab] Timeout 60 detik tercapai. Mencoba melanjutkan...");
+  } else {
+    console.log("[NRA DreamLab] Siklus render selesai terdeteksi!");
+  }
+
+  // Waktu stabilisasi mutlak: pastikan file gambar (blob) benar-benar ter-load sebelum diunduh
+  console.log("[NRA DreamLab] Stabilisasi DOM gambar...");
+  await delay(4000);
+}
+
+async function handleDownload(countSetting = "4") {
+  console.log("[NRA DreamLab] Memantau kemunculan tombol unduh secara dinamis...");
+
+  let allDownloadButtons = [];
+  try {
+    allDownloadButtons = await smartWaitForElement(CANVA_SELECTORS.DOWNLOAD_BUTTON, 15000);
+  } catch (error) {
+    throw new Error("Download buttons not found: " + error.message);
+  }
+
+  let targetCount = parseInt(countSetting, 10) || 4;
+
+  // PERBAIKAN KRUSIAL: Ambil dari index 0 (paling atas/terbaru), BUKAN dari bawah (-4)
+  let buttonsToClick = allDownloadButtons.slice(0, targetCount);
+
+  console.log("[NRA DreamLab] Total tombol terlihat: " + allDownloadButtons.length + ". Mengambil " + buttonsToClick.length + " tombol teratas (terbaru).");
+
+  for (let i = 0; i < buttonsToClick.length; i++) {
+    const btn = buttonsToClick[i];
+    await safeCdpClick(btn, "download button " + (i + 1));
+    await delay(3000); // Delay aman untuk mencegah blokir server
+    sessionStats.downloadCount++;
+    chrome.runtime.sendMessage({
+      action: "UPDATE_STATS",
+      stats: sanitizeStats(sessionStats)
+    });
+    await chrome.storage.local.set({ sessionStats: sanitizeStats(sessionStats) });
+  }
+}
+async function handleCooldown(cooldownMs, isStartup = false) {
+  if (!isStartup) sessionStats.totalCooldowns++;
+  cooldownMs += 5000;
+  console.warn(
+    `[NRA DreamLab] 🛑 ${isStartup ? "Startup paused. Pre-existing cooldown" : "Cooldown"} detected: ${cooldownMs}ms. Waiting...`,
+  );
+  tagGhostCooldowns();
+  const targetEndTime = Date.now() + cooldownMs;
+  while (Date.now() < targetEndTime) {
+    if (!isRunning) {
+      if (isStartup) {
+        console.log(
+          "[NRA DreamLab] Automation aborted by user during startup cooldown.",
+        );
+        return false;
+      }
+      throw new Error("USER_STOPPED");
+    }
+    const remainingSecs = Math.ceil((targetEndTime - Date.now()) / 1000);
+    chrome.runtime.sendMessage({
+      action: "STATUS_UPDATE",
+      status: `${isStartup ? "Startup Paused (Limit Active)" : "Cooldown"}: ${formatTime(remainingSecs)}`,
+    });
+    await delay(1000);
+  }
+  tagGhostCooldowns();
+  console.log(
+    `[NRA DreamLab] ${isStartup ? "Startup cooldown cleared. Proceeding to main generation loop..." : "Cooldown cleared. Resuming..."}`,
+  );
+  chrome.runtime.sendMessage({
+    action: "STATUS_UPDATE",
+    status: `Resuming ${isStartup ? "automation" : "after cooldown"}...`,
+  });
+  return true;
+}
+
+/**
+ * Starts the main bulk automation loop, running sequentially without page reloads.
+ */
+async function startMainLoop() {
+  console.log("[NRA DreamLab] Starting main automation loop...");
+  sendStatusUpdate("Starting automation...");
+
+  // Initialize Session Statistics
+  sessionStats = {
+    successCount: 0,
+    downloadCount: 0,
+    totalCooldowns: 0,
+    startTime: Date.now(),
+  };
+  const storedStats = await chrome.storage.local.get(["sessionStats"]);
+  if (storedStats.sessionStats) {
+    sessionStats = storedStats.sessionStats;
+  } else {
+    await chrome.storage.local.set({ sessionStats });
+  }
+
+  // Check for last processed prompt index
+  const lastIndexResult = await chrome.storage.local.get([
+    "lastProcessedPromptIndex",
+  ]);
+  let startIndex = 0;
+  if (lastIndexResult.lastProcessedPromptIndex !== undefined) {
+    startIndex = lastIndexResult.lastProcessedPromptIndex;
+    console.log(`[NRA DreamLab] Resuming from prompt index: ${startIndex}`);
+  }
+
+  // Natively await storage here. Any pre-flight crash falls to the outer catch block.
+  try {
+    const result = await chrome.storage.local.get([
+      "prompts",
+      "aspectRatio",
+      "imageStyle",
+      "downloadCount",
+    ]);
+
+    if (!window.location.href.includes("dream-lab")) {
+      throw new Error("URL_MISMATCH");
+    }
+
+    let prompts = (result.prompts || []).map((p) => sanitizeInput(p));
+    sessionStats.totalPrompts = prompts.length;
+    sessionStats.startTime = Date.now();
+    const aspectRatio = result.aspectRatio;
+    const imageStyle = result.imageStyle;
+    const limitRes = await chrome.storage.local.get(["batchLimit"]);
+    batchLimitGlobal = parseInt(limitRes.batchLimit, 10) || 0;
+    const downloadCountSetting = result.downloadCount || "4";
+
+    if (prompts.length === 0) {
+      throw new Error("No prompts found in storage.");
+    }
+
+    // Mark status as active automation
+    await chrome.storage.local.set({ isAutomating: true });
+
+    // Request Keep Awake to prevent system sleep during automation
+    await chrome.runtime.sendMessage({ action: "KEEP_AWAKE" }).catch(() => ({}));
+
+    try {
+      // 🌟 INITIAL STARTUP GATEKEEPER 🌟
+      const canProceed = await checkAndHandleStartupCooldown();
+      if (!canProceed) return;
+
+      let isConfigured = false;
+
+      // 🌟 MAIN GENERATION LOOP 🌟
+      while (prompts.length > 0 && isRunning) {
+        const storageSnapshot = await chrome.storage.local.get([
+          "isPaused",
+          "batchLimit",
+          "isAutomating",
+        ]);
+
+        if (storageSnapshot.isAutomating === false) {
+          throw new Error("USER_STOPPED");
+        }
+
+        if (storageSnapshot.isPaused === true) {
+          console.log("[NRA DreamLab] Automation paused by user.");
+          await delay(1000);
+          continue;
+        }
+
+        const currentPrompt = prompts.shift();
+        const currentIndex =
+          startIndex + (sessionStats.totalPrompts - prompts.length);
+
+        chrome.runtime.sendMessage({
+          action: "STATUS_UPDATE",
+          status: `Processing prompt ${currentIndex + 1} of ${sessionStats.totalPrompts}...`,
+        });
+
+        // A. Logika konfigurasi opsi (Style/Ratio) dan injeksi prompt (CDP Typing)
+        await prepareAndSubmitPrompt(
+          currentPrompt,
+          isConfigured,
+          imageStyle,
+          aspectRatio,
+        );
+        isConfigured = true;
+
+        // B. Logika pengecekan dan eksekusi Cooldown/Rate Limit
+        let cooldownMs = getScreenCooldownMs();
+        if (cooldownMs > 0) {
+          await handleCooldown(cooldownMs, false);
+        }
+
+        // Handle download with retry logic
+        let downloadSuccess = false;
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        while (!downloadSuccess && retryCount < maxRetries) {
+          try {
+            await handleDownload(downloadCountSetting);
+            downloadSuccess = true;
+          } catch (error) {
+            console.error(
+              `[NRA DreamLab] Download attempt ${retryCount + 1} failed:`,
+              error.message,
+            );
+            retryCount++;
+
+            if (retryCount < maxRetries) {
+              console.log(
+                `[NRA DreamLab] Attempting recovery (${retryCount}/${maxRetries})...`,
+              );
+              // Refresh the page to reset state
+              window.location.reload();
+              // Wait for page to reload
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+              // Reconfigure style and ratio after refresh
+              await configureStyleAndRatio(imageStyle, aspectRatio);
+              // Re-inject the current prompt
+              await injectPrompt(currentPrompt);
+              // Re-submit the prompt
+              await submitAndWaitForImages();
+            }
+          }
+        }
+
+        if (!downloadSuccess) {
+          console.error(
+            "[NRA DreamLab] Failed to download images after maximum retries. Skipping to next prompt...",
+          );
+          // Lemparkan prompt yang gagal ke Quarantine
+          chrome.runtime.sendMessage({
+            action: "PROMPT_FAILED",
+            failedPrompt: currentPrompt
+          });
+        } else {
+          // Increment download counter only if download was successful
+          sessionStats.downloadCount++;
+        }
+
+        // Selalu hitung sebagai prompt yang diproses apa pun hasil unduhannya
+        sessionStats.successCount++;
+
+        // Update session stats & SINKRONISASI sisa prompt ke storage
+        await chrome.storage.local.set({
+          prompts: prompts,
+          sessionStats: sanitizeStats(sessionStats),
+          lastProcessedPromptIndex: currentIndex,
+        });
+
+        // Perbarui UI Textarea di Panel agar prompt tereliminasi dari layar
+        chrome.runtime.sendMessage({
+          action: "UPDATE_TEXTAREA",
+          remainingPrompts: prompts
+        });
+
+        // Check if we need to stop after this download
+        if (
+          batchLimitGlobal > 0 &&
+          sessionStats.downloadCount >= batchLimitGlobal
+        ) {
+          console.log(
+            `[NRA DreamLab] Batch limit reached (${batchLimitGlobal}). Stopping.`,
+          );
+          isRunning = false;
+          chrome.storage.local.set({ isAutomating: false }, () => {
+            sendStatusUpdate("Batch limit reached. Automation stopped.");
+          });
+          break;
+        }
+
+        // Small delay between iterations
+        await delay(2000);
+      }
+
+      // Final cleanup
+      if (isRunning) {
+        console.log("[NRA DreamLab] All prompts processed successfully.");
+        chrome.storage.local.set({ isAutomating: false }, () => {
+          sendStatusUpdate("All prompts processed successfully!");
+        });
+        chrome.runtime.sendMessage({ action: "RELEASE_AWAKE" }).catch(() => ({}));
+      }
+    } catch (err) {
+      handleAutomationError(err);
+      throw err; // Re-throw to ensure outer catch block handles it
+    }
+  } catch (err) {
+    handleAutomationError(err);
+    throw err;
+  }
+}
+
+// ==========================================
+// Helpher Functions Extracted from startMainLoop
+// ==========================================
+async function checkAndHandleStartupCooldown() {
+  let startupCooldown = getScreenCooldownMs();
+  if (startupCooldown > 0) {
+    const proceeded = await handleCooldown(startupCooldown, true);
+    return proceeded;
+  }
+  return true;
+}
+
+async function prepareAndSubmitPrompt(
+  currentPrompt,
+  isConfigured,
+  imageStyle,
+  aspectRatio,
+) {
+  if (!isConfigured) {
+    await configureStyleAndRatio(imageStyle, aspectRatio);
+  }
+  await injectPrompt(currentPrompt);
+  await submitAndWaitForImages();
+}
+
+async function executeDownloadBatchWithRetry(downloadCountSetting, maxRetries, currentPrompt, imageStyle, aspectRatio) {
+  let downloadSuccess = false;
+  let retryCount = 0;
+  while (!downloadSuccess && retryCount < maxRetries) {
+    try {
+      await handleDownload(downloadCountSetting);
+      downloadSuccess = true;
+    } catch (error) {
+      console.error("[Canva Automation] Download attempt " + (retryCount + 1) + " failed:", error.message);
+      retryCount++;
+      if (retryCount < maxRetries) {
+        console.log("[Canva Automation] Attempting recovery...");
+        await chrome.storage.local.set({ isRecovering: true });
+        window.location.reload();
+        return false;
+      }
+    }
+  }
+  return downloadSuccess;
+}
+
+// ==========================================
+// Message Listener: Menerima perintah dari Panel
+// ==========================================
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "PING") {
+    sendResponse({ status: "READY" });
+    return true;
+  }
+
+  if (request.action === "START_AUTOMATION") {
+    if (!isLoopActive) {
+      console.log("[NRA DreamLab] Menerima perintah START dari panel.");
+      isRunning = true;
+      isLoopActive = true;
+
+      startMainLoop()
+        .catch((err) => {
+          console.error("[NRA DreamLab] Main loop terhenti:", err);
+        })
+        .finally(() => {
+          isLoopActive = false;
+          isRunning = false;
+        });
+
+      sendResponse({ success: true });
+    } else {
+      console.warn(
+        "[NRA DreamLab] Perintah START diabaikan, loop sudah aktif.",
+      );
+      sendResponse({ success: false, error: "ALREADY_RUNNING" });
+    }
+    return true;
+  }
+
+  if (request.action === "STOP_AUTOMATION") {
+    console.log("[NRA DreamLab] Menerima perintah STOP dari panel.");
+    isRunning = false;
+    isLoopActive = false;
+    // Beri tahu background untuk release power
+    chrome.runtime.sendMessage({ action: "RELEASE_AWAKE" }).catch(() => ({}));
+    sendResponse({ success: true });
+    return true;
+  }
+});
+
+chrome.storage.local.get(['isAutomating', 'isRecovering'], (res) => {
+  if (res.isAutomating === true && res.isRecovering === true) {
+    console.log("[Canva Automation] Memulihkan sesi setelah reload...");
+    chrome.storage.local.set({ isRecovering: false }, () => {
+      setTimeout(() => {
+        if (!isLoopActive) {
+          isRunning = true;
+          isLoopActive = true;
+          startMainLoop().catch(err => console.error(err)).finally(() => {
+            isLoopActive = false;
+            isRunning = false;
+          });
+        }
+      }, 3000);
+    });
+  }
+});
