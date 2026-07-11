@@ -736,66 +736,72 @@ async function injectPrompt(currentPrompt) {
 
 async function submitAndWaitForImages() {
   console.info("[NRA DreamLab] Mencari tombol Generate...");
-  const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON);
-  if (!generateBtn) throw new Error("Generate button not found");
+  let isImageReady = false;
 
-  console.info("[NRA DreamLab] Tombol Generate ditemukan, melakukan klik...");
-  await safeCdpClick(generateBtn, "generate button");
+  // Loop ini memastikan jika kena limit, dia akan menunggu, lalu klik generate lagi (Ulangi dari langkah 6)
+  while (!isImageReady && isRunning) {
+    const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON);
+    if (!generateBtn) throw new Error("Generate button not found");
 
-  console.log("[NRA DreamLab] Menunggu proses generasi selesai...");
-  chrome.runtime.sendMessage({
-    action: "STATUS_UPDATE",
-    status: "Generating...",
-  });
+    console.info("[NRA DreamLab] Tombol Generate ditemukan, melakukan klik...");
+    await safeCdpClick(generateBtn, "generate button");
 
-  // Tunggu 3 detik penuh agar UI Canva punya waktu merespons klik dan memunculkan loading state
-  await delay(3000);
+    chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Generating..." });
 
-  const checkLoadingIndicators = () => {
-    const loadingTexts = ['generating', 'creating', 'refining', 'processing', 'rendering'];
+    // Jeda 3 detik agar Canva merespons (memunculkan loading bar ATAU teks limit cooldown)
+    await delay(3000);
 
-    // 1. Cek apakah teks loading masih ada di layar
-    const elements = Array.from(document.querySelectorAll('*'));
-    const isStillLoading = elements.some(el =>
-      el.textContent &&
-      loadingTexts.some(text => el.textContent.toLowerCase().includes(text))
-    );
+    // LANGKAH 8: CEK COOLDOWN DULU SEBELUM CARI INDIKATOR LOADING
+    let cooldownMs = getScreenCooldownMs();
+    if (cooldownMs > 0) {
+      console.warn(`[NRA DreamLab] Limit akun terdeteksi! Waktu tunggu: ${cooldownMs}ms`);
+      await handleCooldown(cooldownMs, false);
+      // LANGKAH 9: Setelah cooldown habis, loop akan berputar untuk klik tombol Generate lagi
+      console.info("[NRA DreamLab] Cooldown selesai. Mencoba klik Generate ulang...");
+      continue;
+    }
 
-    // 2. Cek apakah tombol download sudah tersedia (jika tombol ada, loading dianggap selesai)
-    const downloadButton = document.querySelector('button[data-testid="download-button"]');
+    // LANGKAH 7: JIKA AMAN, TUNGGU RENDER IMAGE (REFINING)
+    const checkLoadingIndicators = () => {
+      const loadingTexts = ['generating', 'creating', 'refining', 'processing', 'rendering'];
+      const elements = Array.from(document.querySelectorAll('*'));
+      const isStillLoading = elements.some(el =>
+        el.textContent && loadingTexts.some(text => el.textContent.toLowerCase().includes(text))
+      );
+      const downloadButton = document.querySelector('button[data-testid="download-button"]');
+      return isStillLoading && !downloadButton;
+    };
 
-    // Jika masih ada teks loading, return true. Jika teks hilang DAN tombol download ada, return false.
-    return isStillLoading && !downloadButton;
-  };
+    let renderElapsed = 0;
+    const timeout = 60000;
+    let isGenerating = checkLoadingIndicators();
 
-  let renderElapsed = 0;
-  const timeout = 60000;
-  let isGenerating = checkLoadingIndicators();
-
-  if (!isGenerating) {
-    console.warn("[NRA DreamLab] Indikator loading tidak terdeteksi (DOM berubah/meleset). Menggunakan Fallback Delay 15 detik...");
-    await delay(15000);
-  } else {
-    while (isGenerating && renderElapsed < timeout) {
-      if (!isRunning) throw new Error("USER_STOPPED");
-
-      if (!checkLoadingIndicators()) {
-        isGenerating = false;
+    if (!isGenerating) {
+      // Cek apakah mungkin render instan (tombol download langsung ada)
+      const downloadButton = document.querySelector('button[data-testid="download-button"]');
+      if (downloadButton) {
+        console.log("[NRA DreamLab] Render selesai instan.");
+        isImageReady = true;
         break;
-      } else {
-        await delay(500);
-        renderElapsed += 500;
       }
+      console.warn("[NRA DreamLab] Indikator tidak terdeteksi. Fallback Delay 15 detik...");
+      await delay(15000);
+      isImageReady = true;
+    } else {
+      while (isGenerating && renderElapsed < timeout) {
+        if (!isRunning) throw new Error("USER_STOPPED");
+        if (!checkLoadingIndicators()) {
+          isGenerating = false;
+          break;
+        } else {
+          await delay(500);
+          renderElapsed += 500;
+        }
+      }
+      isImageReady = true;
     }
   }
 
-  if (renderElapsed >= timeout) {
-    console.log("[NRA DreamLab] Timeout 60 detik tercapai. Mencoba melanjutkan...");
-  } else {
-    console.log("[NRA DreamLab] Siklus render selesai terdeteksi!");
-  }
-
-  // Waktu stabilisasi mutlak: pastikan file gambar (blob) benar-benar ter-load sebelum diunduh
   console.log("[NRA DreamLab] Stabilisasi DOM gambar...");
   await delay(4000);
 }
@@ -986,11 +992,6 @@ async function startMainLoop() {
         );
         isConfigured = true;
 
-        // B. Logika pengecekan dan eksekusi Cooldown/Rate Limit
-        let cooldownMs = getScreenCooldownMs();
-        if (cooldownMs > 0) {
-          await handleCooldown(cooldownMs, false);
-        }
 
         // Handle download with retry logic
         let downloadSuccess = false;
