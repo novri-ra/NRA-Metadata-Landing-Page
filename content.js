@@ -803,8 +803,13 @@ async function submitAndWaitForImages() {
     if (cooldownMs > 0) {
       console.warn(`[NRA DreamLab] Limit akun terdeteksi! Waktu tunggu: ${cooldownMs}ms`);
       await handleCooldown(cooldownMs, false);
-      console.info("[NRA DreamLab] Cooldown selesai. Mencoba klik Generate ulang...");
-      continue; // Kembali ke atas loop untuk klik generate lagi
+
+      // TAMBAHAN: Jeda stabilisasi UI 3 detik setelah cooldown
+      console.info("[NRA DreamLab] Cooldown selesai. Menunggu stabilisasi UI selama 3 detik...");
+      await delay(3000);
+
+      console.info("[NRA DreamLab] Melanjutkan proses...");
+      continue; // Kembali ke atas loop untuk coba klik generate lagi
     }
 
     // JIKA AMAN DAN RENDER DIMULAI
