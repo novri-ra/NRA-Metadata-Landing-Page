@@ -977,7 +977,7 @@ async function startMainLoop() {
           status: `Processing prompt ${currentIndex + 1} of ${sessionStats.totalPrompts}...`,
         });
 
-        // A. Logika konfigurasi opsi (Style/Ratio) dan injeksi prompt (CDP Typing)
+        // 1. Konfigurasi, Injeksi, dan Submit
         await prepareAndSubmitPrompt(
           currentPrompt,
           isConfigured,
@@ -986,22 +986,7 @@ async function startMainLoop() {
         );
         isConfigured = true;
 
-        // B. CEK COOLDOWN SETELAH SUBMIT
-        let cooldownMs = getScreenCooldownMs();
-        if (cooldownMs > 0) {
-          console.warn(`[NRA DreamLab] Limit akun terdeteksi! Waktu tunggu: ${cooldownMs}ms`);
-          await handleCooldown(cooldownMs, false);
-
-          // Masukkan kembali prompt ke awal antrean karena tadi gagal dieksekusi
-          prompts.unshift(currentPrompt);
-          console.info("[NRA DreamLab] Cooldown selesai. Mengulang prompt yang gagal...");
-
-          // Paksa re-konfigurasi ulang pada percobaan berikutnya
-          isConfigured = false;
-          continue;
-        }
-
-        // C. JIKA AMAN, LANJUTKAN PROSES UNDUHAN
+        // 2. Download / Retry (Jalankan DULU)
         let downloadSuccess = false;
         let retryCount = 0;
         const maxRetries = 3;
@@ -1011,30 +996,27 @@ async function startMainLoop() {
             await handleDownload(downloadCountSetting);
             downloadSuccess = true;
           } catch (error) {
-            console.error(
-              `[NRA DreamLab] Download attempt ${retryCount + 1} failed:`,
-              error.message,
-            );
+            console.error(`[NRA DreamLab] Download attempt ${retryCount + 1} failed:`, error.message);
             retryCount++;
-
             if (retryCount < maxRetries) {
-              console.log(
-                `[NRA DreamLab] Attempting recovery (${retryCount}/${maxRetries})...`,
-              );
               window.location.reload();
               await new Promise((resolve) => setTimeout(resolve, 5000));
               await configureStyleAndRatio(imageStyle, aspectRatio);
               await injectPrompt(currentPrompt);
               await submitAndWaitForImages();
-              // Jika recovery submit juga kena limit, itu akan ditangani di loop berikutnya
             }
           }
         }
 
+        // 3. Cek Cooldown (SETELAH proses download/retry selesai)
+        let cooldownMs = getScreenCooldownMs();
+        if (cooldownMs > 0) {
+          console.warn(`[NRA DreamLab] Limit akun terdeteksi! Waktu tunggu: ${cooldownMs}ms`);
+          await handleCooldown(cooldownMs, false);
+        }
+
+        // 4. Update status
         if (!downloadSuccess) {
-          console.error(
-            "[NRA DreamLab] Failed to download images after maximum retries. Skipping to next prompt...",
-          );
           chrome.runtime.sendMessage({
             action: "PROMPT_FAILED",
             failedPrompt: currentPrompt
