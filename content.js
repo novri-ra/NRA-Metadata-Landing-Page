@@ -738,7 +738,6 @@ async function submitAndWaitForImages() {
   console.info("[NRA DreamLab] Mencari tombol Generate...");
   let isImageReady = false;
 
-  // Loop ini memastikan jika kena limit, dia akan menunggu, lalu klik generate lagi (Ulangi dari langkah 6)
   while (!isImageReady && isRunning) {
     const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON);
     if (!generateBtn) throw new Error("Generate button not found");
@@ -748,55 +747,41 @@ async function submitAndWaitForImages() {
 
     chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Generating..." });
 
-    // Jeda 3 detik agar Canva merespons (memunculkan loading bar ATAU teks limit cooldown)
-    await delay(3000);
+    // TAHAP 1: TUNGGU GAMBAR LAMA HILANG (Tanda proses render benar-benar dimulai)
+    console.info("[NRA DreamLab] Menunggu transisi Canva (gambar lama dihapus dari layar)...");
+    let transitionElapsed = 0;
+    while (document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) !== null && transitionElapsed < 10000) {
+      await delay(500);
+      transitionElapsed += 500;
+    }
 
-    // LANGKAH 8: CEK COOLDOWN DULU SEBELUM CARI INDIKATOR LOADING
+    // CEK COOLDOWN
     let cooldownMs = getScreenCooldownMs();
     if (cooldownMs > 0) {
       console.warn(`[NRA DreamLab] Limit akun terdeteksi! Waktu tunggu: ${cooldownMs}ms`);
       await handleCooldown(cooldownMs, false);
-      // LANGKAH 9: Setelah cooldown habis, loop akan berputar untuk klik tombol Generate lagi
       console.info("[NRA DreamLab] Cooldown selesai. Mencoba klik Generate ulang...");
       continue;
     }
 
-    // LANGKAH 7: TUNGGU KEMUNCULAN HASIL RENDER
-    // Render dianggap selesai HANYA JIKA tombol download (aria-label="Download generated image") sudah muncul di DOM.
-    const checkLoadingIndicators = () => {
-      const downloadButton = document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON);
-      // Return true (artinya masih loading) jika tombol BELUM ADA.
-      // Return false (artinya sudah selesai) jika tombol SUDAH ADA.
-      return downloadButton === null;
-    };
-
+    // TAHAP 2: TUNGGU GAMBAR BARU MUNCUL
+    console.info("[NRA DreamLab] Menunggu hasil render baru muncul...");
     let renderElapsed = 0;
-    const timeout = 60000; // Maksimal tunggu 60 detik
-    let isGenerating = checkLoadingIndicators();
-
-    if (!isGenerating) {
-      console.log("[NRA DreamLab] Render selesai instan (tombol download langsung terdeteksi).");
-      isImageReady = true;
-      break; // Keluar dari loop utama, lanjut ke stabilisasi DOM
-    } else {
-      // Selama masih loading (tombol belum ada), lakukan polling setiap 500ms
-      while (isGenerating && renderElapsed < timeout) {
-        if (!isRunning) throw new Error("USER_STOPPED");
-
-        if (!checkLoadingIndicators()) { // Jika mengembalikan false (tombol muncul)
-          isGenerating = false;
-          break;
-        } else {
-          await delay(500);
-          renderElapsed += 500;
-        }
-      }
-      isImageReady = true;
+    const timeout = 60000;
+    while (document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) === null && renderElapsed < timeout) {
+      if (!isRunning) throw new Error("USER_STOPPED");
+      await delay(500);
+      renderElapsed += 500;
     }
+
+    // TAHAP 3: DELAY STABILITAS HTML (Sesuai instruksi: tunggu HTML gambar termuat sempurna)
+    console.log("[NRA DreamLab] Render selesai! Menunggu 2 detik agar HTML gambar stabil...");
+    await delay(2000);
+
+    isImageReady = true;
   }
 
-  console.log("[NRA DreamLab] Stabilisasi DOM gambar...");
-  await delay(4000);
+  console.log("[NRA DreamLab] Melanjutkan ke proses unduhan...");
 }
 
 async function handleDownload(countSetting = "4") {
