@@ -761,36 +761,29 @@ async function submitAndWaitForImages() {
       continue;
     }
 
-    // LANGKAH 7: JIKA AMAN, TUNGGU RENDER IMAGE (REFINING)
+    // LANGKAH 7: TUNGGU KEMUNCULAN HASIL RENDER
+    // Render dianggap selesai HANYA JIKA tombol download (aria-label="Download generated image") sudah muncul di DOM.
     const checkLoadingIndicators = () => {
-      const loadingTexts = ['generating', 'creating', 'refining', 'processing', 'rendering'];
-      const elements = Array.from(document.querySelectorAll('*'));
-      const isStillLoading = elements.some(el =>
-        el.textContent && loadingTexts.some(text => el.textContent.toLowerCase().includes(text))
-      );
-      const downloadButton = document.querySelector('button[data-testid="download-button"]');
-      return isStillLoading && !downloadButton;
+      const downloadButton = document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON);
+      // Return true (artinya masih loading) jika tombol BELUM ADA.
+      // Return false (artinya sudah selesai) jika tombol SUDAH ADA.
+      return downloadButton === null;
     };
 
     let renderElapsed = 0;
-    const timeout = 60000;
+    const timeout = 60000; // Maksimal tunggu 60 detik
     let isGenerating = checkLoadingIndicators();
 
     if (!isGenerating) {
-      // Cek apakah mungkin render instan (tombol download langsung ada)
-      const downloadButton = document.querySelector('button[data-testid="download-button"]');
-      if (downloadButton) {
-        console.log("[NRA DreamLab] Render selesai instan.");
-        isImageReady = true;
-        break;
-      }
-      console.warn("[NRA DreamLab] Indikator tidak terdeteksi. Fallback Delay 15 detik...");
-      await delay(15000);
+      console.log("[NRA DreamLab] Render selesai instan (tombol download langsung terdeteksi).");
       isImageReady = true;
+      break; // Keluar dari loop utama, lanjut ke stabilisasi DOM
     } else {
+      // Selama masih loading (tombol belum ada), lakukan polling setiap 500ms
       while (isGenerating && renderElapsed < timeout) {
         if (!isRunning) throw new Error("USER_STOPPED");
-        if (!checkLoadingIndicators()) {
+
+        if (!checkLoadingIndicators()) { // Jika mengembalikan false (tombol muncul)
           isGenerating = false;
           break;
         } else {
