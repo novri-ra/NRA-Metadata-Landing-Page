@@ -657,19 +657,20 @@ function initMessageListeners() {
       if (qInput) {
         let raw = request.failedPrompt;
 
-        // 1. Ekstrak teks dari objek jika perlu
+        // Ekstraksi teks aman
         let text = (typeof raw === 'object' && raw !== null)
           ? (raw.text || raw.prompt || JSON.stringify(raw))
           : String(raw);
 
-        // 2. Decode HTML Entities (misal: & -> &)
-        const doc = new DOMParser().parseFromString(text, "text/html");
-        text = doc.documentElement.textContent;
+        // Gunakan metode elemen DOM untuk membersihkan HTML secara total
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = text;
+        const cleanPrompt = tempDiv.textContent || tempDiv.innerText || "";
 
-        // 3. Strip sisa tag HTML dan spasi berlebih
-        const cleanPrompt = text.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+        // Simpan sebagai teks murni dengan trim
+        const finalPrompt = cleanPrompt.replace(/\s+/g, " ").trim();
 
-        qInput.value = (qInput.value ? qInput.value + "\n" : "") + cleanPrompt;
+        qInput.value = (qInput.value ? qInput.value + "\n" : "") + finalPrompt;
         chrome.storage.local.set({ savedFailedPrompts: qInput.value });
       }
       sendResponse({ success: true });
