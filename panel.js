@@ -653,10 +653,12 @@ function initMessageListeners() {
 
     // Handle failed/skipped prompt reporting
     if (request.action === "PROMPT_FAILED") {
+      const rawPrompt = typeof request.failedPrompt === 'string' ? request.failedPrompt : JSON.stringify(request.failedPrompt);
+      const cleanPrompt = rawPrompt.replace(/<[^>]*>/g, "").trim();
       if (failedPromptsTextarea.value) {
-        failedPromptsTextarea.value += "\n" + request.failedPrompt;
+        failedPromptsTextarea.value += "\n" + cleanPrompt;
       } else {
-        failedPromptsTextarea.value = request.failedPrompt;
+        failedPromptsTextarea.value = cleanPrompt;
       }
       chrome.storage.local.set({
         savedFailedPrompts: failedPromptsTextarea.value,
@@ -849,11 +851,10 @@ function initExtendedFeatures() {
     if (request.action === "PROMPT_FAILED") {
       const qInput = document.getElementById("quarantineInput");
       if (qInput) {
-        // Use request.failedPrompt which is what content.js emits
-        qInput.value =
-          qInput.value +
-          (qInput.value ? "\n" : "") +
-          (request.failedPrompt || request.prompt || "Unknown Failed Prompt");
+        const rawPrompt = typeof request.failedPrompt === 'string' ? request.failedPrompt : JSON.stringify(request.failedPrompt || request.prompt || "Unknown Failed Prompt");
+        const cleanPrompt = rawPrompt.replace(/<[^>]*>/g, "").trim();
+        qInput.value = (qInput.value ? qInput.value + "\n" : "") + cleanPrompt;
+        chrome.storage.local.set({ savedFailedPrompts: qInput.value });
       }
     }
   });
