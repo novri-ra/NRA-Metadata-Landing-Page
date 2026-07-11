@@ -636,10 +636,19 @@ async function cdpTypeHuman(text) {
 
   if (mode === "instant") {
     console.log(`[NRA DreamLab] Executing Instant Paste...`);
+
+    // Pancing state aktif pada elemen
+    textarea.focus();
+
     const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
     nativeInputValueSetter.call(textarea, text);
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-    textarea.dispatchEvent(new Event("change", { bubbles: true }));
+
+    // Tambahkan cancelable: true agar event disimulasikan lebih realistis
+    textarea.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
+    textarea.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+
+    // Lepas fokus agar Canva menyadari bahwa input telah selesai
+    textarea.blur();
   } else {
     console.log(`[NRA DreamLab] Executing Human Typing (120 WPM)...`);
     textarea.value = "";
