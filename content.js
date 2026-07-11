@@ -615,6 +615,11 @@ async function safeCdpTypeHuman(text, context = "input") {
   }
 }
 async function cdpClick(element) {
+  // Proteksi tambahan: Pastikan elemen masih terhubung ke DOM
+  if (!element.isConnected) {
+    throw new Error("Element detached from DOM before click");
+  }
+
   element.scrollIntoView({ behavior: "smooth", block: "center" });
   await delay(300);
 

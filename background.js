@@ -3,6 +3,7 @@ let isBackgroundCleanup = false;
 
 function sanitizeFilename(filename) {
   return filename
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Hapus diakritik
     .replace(/[<>:"/\\|?*]/g, "_")
     .replace(/[\x00-\x1f]/g, "")
     .replace(/^\.+/, "")
