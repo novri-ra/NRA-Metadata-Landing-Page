@@ -625,16 +625,21 @@ async function cdpClick(element) {
 }
 
 async function cdpTypeHuman(text) {
-  console.log(`[NRA DreamLab] Typing prompt using Native DOM Injection...`);
+  console.log(`[NRA DreamLab] Typing prompt using Human Simulation...`);
   const textarea = await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA);
   if (!textarea) throw new Error("Textarea not found");
 
-  // Bypass perlindungan React/Next.js untuk memasukkan teks secara instan
-  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
-  nativeInputValueSetter.call(textarea, text);
-  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  textarea.value = ""; // Bersihkan textarea
 
-  await delay(300);
+  for (const char of text) {
+    textarea.value += char; // Tambahkan karakter satu per satu
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    // Jeda acak antara 50ms - 150ms agar terlihat seperti manusia
+    await delay(Math.floor(Math.random() * 100) + 50);
+  }
+
+  // Final dispatch untuk memastikan React mendeteksi perubahan
+  textarea.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 async function safeSelectCanvaConfiguration(typeLabel, optionText) {
