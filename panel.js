@@ -655,18 +655,22 @@ function initMessageListeners() {
     if (request.action === "PROMPT_FAILED") {
       const qInput = document.getElementById("quarantineInput");
       if (qInput) {
-        // Mengonversi objek ke string murni jika perlu, lalu membersihkan baris baru
-        const failedPromptText = typeof request.failedPrompt === 'string'
-          ? request.failedPrompt
-          : JSON.stringify(request.failedPrompt);
+        let raw = request.failedPrompt;
 
-        // Memastikan tidak ada tag HTML dan hanya menyimpan teks mentah
-        const plainTextPrompt = failedPromptText.replace(/<[^>]*>/g, "").trim();
+        // 1. Ekstrak teks dari objek jika perlu
+        let text = (typeof raw === 'object' && raw !== null)
+          ? (raw.text || raw.prompt || JSON.stringify(raw))
+          : String(raw);
 
-        qInput.value = (qInput.value ? qInput.value + "\n" : "") + plainTextPrompt;
-        chrome.storage.local.set({
-          savedFailedPrompts: qInput.value,
-        });
+        // 2. Decode HTML Entities (misal: & -> &)
+        const doc = new DOMParser().parseFromString(text, "text/html");
+        text = doc.documentElement.textContent;
+
+        // 3. Strip sisa tag HTML dan spasi berlebih
+        const cleanPrompt = text.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+
+        qInput.value = (qInput.value ? qInput.value + "\n" : "") + cleanPrompt;
+        chrome.storage.local.set({ savedFailedPrompts: qInput.value });
       }
       sendResponse({ success: true });
       return true;
@@ -856,8 +860,17 @@ function initExtendedFeatures() {
     if (request.action === "PROMPT_FAILED") {
       const qInput = document.getElementById("quarantineInput");
       if (qInput) {
-        const rawPrompt = typeof request.failedPrompt === 'string' ? request.failedPrompt : JSON.stringify(request.failedPrompt || request.prompt || "Unknown Failed Prompt");
-        const cleanPrompt = rawPrompt.replace(/<[^>]*>/g, "").trim();
+        let raw = request.failedPrompt;
+
+        let text = (typeof raw === 'object' && raw !== null)
+          ? (raw.text || raw.prompt || JSON.stringify(raw))
+          : String(raw);
+
+        const doc = new DOMParser().parseFromString(text, "text/html");
+        text = doc.documentElement.textContent;
+
+        const cleanPrompt = text.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+
         qInput.value = (qInput.value ? qInput.value + "\n" : "") + cleanPrompt;
         chrome.storage.local.set({ savedFailedPrompts: qInput.value });
       }
