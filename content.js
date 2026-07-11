@@ -625,23 +625,32 @@ async function cdpClick(element) {
 }
 
 async function cdpTypeHuman(text) {
-  console.log(`[NRA DreamLab] Typing prompt at 120 WPM speed...`);
   const textarea = await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA);
   if (!textarea) throw new Error("Textarea not found");
 
-  textarea.value = "";
+  const storage = await chrome.storage.local.get(["typingMode"]);
+  const mode = storage.typingMode || "human";
 
-  // Kecepatan 120 WPM = 12 karakter/detik = ~83ms per karakter.
-  // Menggunakan 80ms untuk sedikit margin agar benar-benar ngebut.
-  const typingDelay = 80;
+  // Debugging untuk memastikan mode apa yang terbaca
+  console.log(`[NRA DreamLab] Debugging - Current Typing Mode: ${mode}`);
 
-  for (const char of text) {
-    textarea.value += char;
+  if (mode === "instant") {
+    console.log(`[NRA DreamLab] Executing Instant Paste...`);
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+    nativeInputValueSetter.call(textarea, text);
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
-    await delay(typingDelay);
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
+  } else {
+    console.log(`[NRA DreamLab] Executing Human Typing (120 WPM)...`);
+    textarea.value = "";
+    const typingDelay = 80;
+    for (const char of text) {
+      textarea.value += char;
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      await delay(typingDelay);
+    }
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
   }
-
-  textarea.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 async function safeSelectCanvaConfiguration(typeLabel, optionText) {
