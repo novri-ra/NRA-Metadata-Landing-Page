@@ -653,16 +653,21 @@ function initMessageListeners() {
 
     // Handle failed/skipped prompt reporting
     if (request.action === "PROMPT_FAILED") {
-      const rawPrompt = typeof request.failedPrompt === 'string' ? request.failedPrompt : JSON.stringify(request.failedPrompt);
-      const cleanPrompt = rawPrompt.replace(/<[^>]*>/g, "").trim();
-      if (failedPromptsTextarea.value) {
-        failedPromptsTextarea.value += "\n" + cleanPrompt;
-      } else {
-        failedPromptsTextarea.value = cleanPrompt;
+      const qInput = document.getElementById("quarantineInput");
+      if (qInput) {
+        // Mengonversi objek ke string murni jika perlu, lalu membersihkan baris baru
+        const failedPromptText = typeof request.failedPrompt === 'string'
+          ? request.failedPrompt
+          : JSON.stringify(request.failedPrompt);
+
+        // Memastikan tidak ada tag HTML dan hanya menyimpan teks mentah
+        const plainTextPrompt = failedPromptText.replace(/<[^>]*>/g, "").trim();
+
+        qInput.value = (qInput.value ? qInput.value + "\n" : "") + plainTextPrompt;
+        chrome.storage.local.set({
+          savedFailedPrompts: qInput.value,
+        });
       }
-      chrome.storage.local.set({
-        savedFailedPrompts: failedPromptsTextarea.value,
-      });
       sendResponse({ success: true });
       return true;
     }
