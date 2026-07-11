@@ -768,10 +768,23 @@ async function injectPrompt(currentPrompt) {
 async function submitAndWaitForImages() {
   console.info("[NRA DreamLab] Mencari tombol Generate...");
   let isImageReady = false;
+  let attempts = 0;
 
   while (!isImageReady && isRunning) {
-    const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON);
-    if (!generateBtn) throw new Error("Generate button not found");
+    let generateBtn;
+    try {
+      generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON, false, 15000); // Tunggu sampai 15 detik
+    } catch (e) {
+      attempts++;
+      if (attempts >= 2) {
+        console.warn("[NRA DreamLab] Tombol tidak muncul. Melakukan refresh halaman untuk memulihkan sesi...");
+        window.location.reload();
+        await delay(10000); // Tunggu reload selesai
+        continue;
+      }
+      await delay(2000);
+      continue;
+    }
 
     console.info("[NRA DreamLab] Tombol Generate ditemukan, melakukan klik...");
     await safeCdpClick(generateBtn, "generate button");
