@@ -625,20 +625,22 @@ async function cdpClick(element) {
 }
 
 async function cdpTypeHuman(text) {
-  console.log(`[NRA DreamLab] Typing prompt using Human Simulation...`);
+  console.log(`[NRA DreamLab] Typing prompt at 120 WPM speed...`);
   const textarea = await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA);
   if (!textarea) throw new Error("Textarea not found");
 
-  textarea.value = ""; // Bersihkan textarea
+  textarea.value = "";
+
+  // Kecepatan 120 WPM = 12 karakter/detik = ~83ms per karakter.
+  // Menggunakan 80ms untuk sedikit margin agar benar-benar ngebut.
+  const typingDelay = 80;
 
   for (const char of text) {
-    textarea.value += char; // Tambahkan karakter satu per satu
+    textarea.value += char;
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
-    // Jeda acak antara 50ms - 150ms agar terlihat seperti manusia
-    await delay(Math.floor(Math.random() * 100) + 50);
+    await delay(typingDelay);
   }
 
-  // Final dispatch untuk memastikan React mendeteksi perubahan
   textarea.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
