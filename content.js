@@ -653,31 +653,59 @@ async function safeSelectCanvaConfiguration(typeLabel, optionText) {
 async function selectCanvaConfiguration(label, value) {
   if (!value || value === "None" || value === "" || value === "Random") return true;
 
-  console.info(`[NRA DreamLab] Mencoba memilih '${value}' untuk ${label}...`);
+  console.info(`[NRA DreamLab] Memulai proses pemilihan: Menu '${label}' -> Opsi '${value}'`);
 
-  // Cari tombol berdasarkan aria-label yang mengandung value
-  const xpath = `//*[@role='button'][contains(@aria-label, '${value}')]`;
+  // LANGKAH 1: Buka Menu Dropdown (seperti tombol "Style") jika diperlukan
+  const buttons = Array.from(document.querySelectorAll('button'));
+  const dropdownBtn = buttons.find(btn =>
+    (btn.getAttribute('aria-label') && btn.getAttribute('aria-label').toLowerCase().includes(label.toLowerCase())) ||
+    (btn.textContent && btn.textContent.toLowerCase().trim() === label.toLowerCase())
+  );
 
+  if (dropdownBtn) {
+    const isExpanded = dropdownBtn.getAttribute('aria-expanded') === 'true';
+    if (!isExpanded) {
+      console.info(`[NRA DreamLab] Membuka dropdown menu '${label}'...`);
+      dropdownBtn.click();
+      await new Promise(r => setTimeout(r, 1200)); // Tunggu animasi menu terbuka
+    } else {
+      console.info(`[NRA DreamLab] Dropdown menu '${label}' sudah terbuka.`);
+    }
+  } else {
+    console.info(`[NRA DreamLab] Tombol menu '${label}' tidak ditemukan (mungkin opsi langsung tampil di layar).`);
+  }
+
+  // LANGKAH 2: Cari dan klik opsi (Style / Aspect Ratio)
   for (let i = 0; i < 10; i++) {
-    const element = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+    // Ambil elemen yang berperan sebagai opsi style (role="button") atau opsi ratio (role="option")
+    const optionElements = Array.from(document.querySelectorAll('[role="button"], [role="option"]'));
 
-    if (element) {
-      // Cek apakah sudah terpilih (aria-pressed="true")
-      const isPressed = element.getAttribute('aria-pressed') === 'true';
-      if (!isPressed) {
-        element.click();
-        console.info(`[NRA DreamLab] Berhasil klik '${value}'`);
+    const targetOption = optionElements.find(el => {
+      const ariaLabel = el.getAttribute('aria-label') || "";
+      const text = el.textContent || "";
+      // Cocokkan persis (case-insensitive) dengan aria-label ATAU teks
+      return ariaLabel.toLowerCase() === value.toLowerCase() ||
+        text.toLowerCase().trim() === value.toLowerCase();
+    });
+
+    if (targetOption) {
+      // Cek apakah sudah dalam keadaan terpilih
+      const isSelected = targetOption.getAttribute('aria-pressed') === 'true' || targetOption.getAttribute('aria-selected') === 'true';
+
+      if (!isSelected) {
+        targetOption.click();
+        console.info(`[NRA DreamLab] Berhasil MENGKLIK opsi '${value}'.`);
       } else {
-        console.info(`[NRA DreamLab] Opsi '${value}' sudah terpilih.`);
+        console.info(`[NRA DreamLab] Opsi '${value}' sudah dalam keadaan TERPILIH.`);
       }
-      await new Promise(r => setTimeout(r, 1000));
+
+      await new Promise(r => setTimeout(r, 800)); // Jeda stabilitas DOM
       return true;
     }
-    console.info(`[NRA DreamLab] Opsi '${value}' belum terlihat, menunggu (percobaan ${i + 1}/10)...`);
     await new Promise(r => setTimeout(r, 1000));
   }
 
-  console.error(`[NRA DreamLab] GAGAL: Opsi '${value}' (via aria-label) tetap tidak ditemukan.`);
+  console.error(`[NRA DreamLab] GAGAL: Opsi '${value}' tidak ditemukan di layar.`);
   return false;
 }
 
