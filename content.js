@@ -986,8 +986,22 @@ async function startMainLoop() {
         );
         isConfigured = true;
 
+        // B. CEK COOLDOWN SETELAH SUBMIT
+        let cooldownMs = getScreenCooldownMs();
+        if (cooldownMs > 0) {
+          console.warn(`[NRA DreamLab] Limit akun terdeteksi! Waktu tunggu: ${cooldownMs}ms`);
+          await handleCooldown(cooldownMs, false);
 
-        // Handle download with retry logic
+          // Masukkan kembali prompt ke awal antrean karena tadi gagal dieksekusi
+          prompts.unshift(currentPrompt);
+          console.info("[NRA DreamLab] Cooldown selesai. Mengulang prompt yang gagal...");
+
+          // Paksa re-konfigurasi ulang pada percobaan berikutnya
+          isConfigured = false;
+          continue;
+        }
+
+        // C. JIKA AMAN, LANJUTKAN PROSES UNDUHAN
         let downloadSuccess = false;
         let retryCount = 0;
         const maxRetries = 3;
@@ -1007,16 +1021,12 @@ async function startMainLoop() {
               console.log(
                 `[NRA DreamLab] Attempting recovery (${retryCount}/${maxRetries})...`,
               );
-              // Refresh the page to reset state
               window.location.reload();
-              // Wait for page to reload
               await new Promise((resolve) => setTimeout(resolve, 5000));
-              // Reconfigure style and ratio after refresh
               await configureStyleAndRatio(imageStyle, aspectRatio);
-              // Re-inject the current prompt
               await injectPrompt(currentPrompt);
-              // Re-submit the prompt
               await submitAndWaitForImages();
+              // Jika recovery submit juga kena limit, itu akan ditangani di loop berikutnya
             }
           }
         }
@@ -1025,17 +1035,14 @@ async function startMainLoop() {
           console.error(
             "[NRA DreamLab] Failed to download images after maximum retries. Skipping to next prompt...",
           );
-          // Lemparkan prompt yang gagal ke Quarantine
           chrome.runtime.sendMessage({
             action: "PROMPT_FAILED",
             failedPrompt: currentPrompt
           });
         } else {
-          // Increment download counter only if download was successful
           sessionStats.downloadCount++;
         }
 
-        // Selalu hitung sebagai prompt yang diproses apa pun hasil unduhannya
         sessionStats.successCount++;
 
         // Update session stats & SINKRONISASI sisa prompt ke storage
@@ -1045,13 +1052,11 @@ async function startMainLoop() {
           lastProcessedPromptIndex: currentIndex,
         });
 
-        // Perbarui UI Textarea di Panel agar prompt tereliminasi dari layar
         chrome.runtime.sendMessage({
           action: "UPDATE_TEXTAREA",
           remainingPrompts: prompts
         });
 
-        // Check if we need to stop after this download
         if (
           batchLimitGlobal > 0 &&
           sessionStats.downloadCount >= batchLimitGlobal
@@ -1066,7 +1071,6 @@ async function startMainLoop() {
           break;
         }
 
-        // Small delay between iterations
         await delay(2000);
       }
 
