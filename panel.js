@@ -796,6 +796,68 @@ function initExtendedFeatures() {
     });
   }
 
+  // 1. Toggle Debug Mode
+  const debugModeSelect = document.getElementById("debugMode");
+  if (debugModeSelect) {
+    debugModeSelect.addEventListener("change", () => {
+      chrome.storage.local.set({ debugMode: debugModeSelect.value === "true" });
+    });
+  }
+
+  // 2. Toggle Verbose Logs
+  const verboseLogsToggle = document.getElementById("verboseLogsToggle");
+  if (verboseLogsToggle) {
+    verboseLogsToggle.addEventListener("change", () => {
+      chrome.storage.local.set({ verboseLogs: verboseLogsToggle.checked });
+    });
+  }
+
+  // 3. Toggle Subfolder
+  const subfolderToggle = document.getElementById("subfolderToggle");
+  if (subfolderToggle) {
+    subfolderToggle.addEventListener("change", () => {
+      chrome.storage.local.set({ useSubfolder: subfolderToggle.checked });
+    });
+  }
+
+  // 4. Custom Download Folder
+  const downloadFolderInput = document.getElementById("downloadFolderInput");
+  if (downloadFolderInput) {
+    downloadFolderInput.addEventListener("change", () => {
+      chrome.storage.local.set({ customDownloadFolder: downloadFolderInput.value.trim() });
+    });
+  }
+
+  // 5. Safety Delay
+  const safetyDelaySlider = document.getElementById("safetyDelaySlider");
+  const safetyDelayVal = document.getElementById("safetyDelayVal");
+  if (safetyDelaySlider && safetyDelayVal) {
+    safetyDelaySlider.addEventListener("input", () => {
+      safetyDelayVal.textContent = safetyDelaySlider.value;
+      chrome.storage.local.set({
+        safetyDelay: parseInt(safetyDelaySlider.value, 10),
+      });
+    });
+  }
+
+  // 6. Save Delay
+  const saveDelaySlider = document.getElementById("saveDelaySlider");
+  const saveDelayVal = document.getElementById("saveDelayVal");
+  if (saveDelaySlider && saveDelayVal) {
+    // Muat nilai saat panel dibuka
+    chrome.storage.local.get(["saveDelay"], (res) => {
+      const val = res.saveDelay || 6;
+      saveDelaySlider.value = val;
+      saveDelayVal.textContent = val;
+    });
+    // Listener input
+    saveDelaySlider.addEventListener("input", () => {
+      const val = saveDelaySlider.value;
+      saveDelayVal.textContent = val;
+      chrome.storage.local.set({ saveDelay: parseInt(val, 10) });
+    });
+  }
+
   // --- GOD-TIER 6-FEATURE UPDATE LOGIC ---
 
   // 1. Bulk File Importer
