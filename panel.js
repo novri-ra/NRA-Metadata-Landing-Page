@@ -995,6 +995,27 @@ function initExtendedFeatures() {
     });
   }
 
+  // 4. Reset Session Analytics
+  const resetStatsBtn = document.getElementById("resetStatsBtn");
+  if (resetStatsBtn) {
+    resetStatsBtn.addEventListener("click", () => {
+      if (confirm("Reset seluruh data Session Analytics ke 0?")) {
+        const emptyStats = {
+          startTime: null,
+          successCount: 0,
+          downloadCount: 0,
+          totalCooldowns: 0,
+          totalPrompts: 0,
+          failedCount: 0
+        };
+        chrome.storage.local.set({ sessionStats: emptyStats }, () => {
+          updateStatsUI(emptyStats);
+          console.log("[NRA DreamLab] 🔄 Session analytics telah direset.");
+        });
+      }
+    });
+  }
+
   // --- UI SETTINGS MODAL LOGIC ---
   const settingsBtn = document.getElementById("settingsBtn");
   const closeSettingsBtn = document.getElementById("closeSettingsBtn");
