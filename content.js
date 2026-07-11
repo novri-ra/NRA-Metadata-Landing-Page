@@ -550,11 +550,15 @@ function getScreenCooldownMs() {
  * @param {Error} err
  */
 function handleAutomationError(err) {
-  // KRITIS-3 FIX: Always reset both flags to prevent stuck state
   isRunning = false;
   isLoopActive = false;
 
-  if (err.message === "USER_STOPPED") {
+  // Logging error yang lebih detail
+  const errMessage = (err && err.message) ? err.message : JSON.stringify(err);
+  console.error("[NRA DreamLab] Loop broken due to:", errMessage);
+  if (err && err.stack) console.error("[Stack Trace]:", err.stack);
+
+  if (err && err.message === "USER_STOPPED") {
     console.log("[NRA DreamLab] Process stopped manually.");
     if (heartbeatInterval) {
       clearInterval(heartbeatInterval);
@@ -582,10 +586,7 @@ function handleAutomationError(err) {
     return;
   }
 
-  console.error("[NRA DreamLab] Loop broken due to:", err);
-  const errMsg = err.message || "Unknown error occurred.";
-
-  // KRITIS-4 FIX: Include action key so panel.js processes the status correctly
+  const errMsg = errMessage || "Unknown error occurred.";
   chrome.storage.local.set({ isAutomating: false, step: "ERROR" }, () => {
     chrome.runtime.sendMessage({
       action: "STATUS_UPDATE",
@@ -875,6 +876,7 @@ async function handleDownload(countSetting = "4") {
   }
 }
 async function handleCooldown(cooldownMs, isStartup = false) {
+  console.log(`[DEBUG] Entering handleCooldown for ${cooldownMs}ms`);
   if (!isStartup) sessionStats.totalCooldowns++;
   cooldownMs += 5000;
   console.warn(
