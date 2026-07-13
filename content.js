@@ -656,9 +656,9 @@ async function cdpTypeHuman(text) {
     // Lepas fokus agar Canva menyadari bahwa input telah selesai
     textarea.blur();
   } else {
-    console.log(`[NRA DreamLab] Executing Human Typing (120 WPM)...`);
+    console.log(`[NRA DreamLab] Executing Human Typing (200-250 BPM)...`);
     textarea.value = "";
-    const typingDelay = 80;
+    const typingDelay = 45; // Kecepatan optimal 200-250 BPM
     for (const char of text) {
       textarea.value += char;
       textarea.dispatchEvent(new Event("input", { bubbles: true }));
@@ -720,15 +720,9 @@ async function selectCanvaConfiguration(label, value) {
     });
 
     if (targetOption) {
-      // Cek apakah sudah dalam keadaan terpilih
-      const isSelected = targetOption.getAttribute('aria-pressed') === 'true' || targetOption.getAttribute('aria-selected') === 'true';
-
-      if (!isSelected) {
-        targetOption.click();
-        console.info(`[NRA DreamLab] Berhasil MENGKLIK opsi '${value}'.`);
-      } else {
-        console.info(`[NRA DreamLab] Opsi '${value}' sudah dalam keadaan TERPILIH.`);
-      }
+      // Hapus kondisi pembatas !isSelected agar bot tidak melewatkan (skip) klik akibat state history lama
+      targetOption.click();
+      console.info(`[NRA DreamLab] ✅ Pemaksaan klik dieksekusi pada opsi '${value}' untuk menu '${label}'.`);
 
       await new Promise(r => setTimeout(r, 800)); // Jeda stabilitas DOM
       return true;
@@ -773,16 +767,21 @@ async function submitAndWaitForImages() {
   console.info("[NRA DreamLab] Menekan tombol Generate...");
   await safeCdpClick(generateBtn, "generate button");
 
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
+    // SMART RENDER DELAY: Berikan jeda dinamis 3-5 detik (3000ms - 5000ms) menyerupai manusia
+    // Ini memberikan waktu bagi Canva untuk mulai merender gambar dan memunculkan blok 'Just now'
+    const randomDelay = Math.floor(Math.random() * (5000 - 3000 + 1)) + 3000;
+    console.info(`[NRA DreamLab] ⏱️ Memberikan jeda loading gambar selama ${randomDelay}ms sebelum memindai tombol unduh...`);
+    await delay(randomDelay);
+
     console.info("[NRA DreamLab] MutationObserver aktif: Menunggu gambar selesai di-render...");
     
-    // Cek instan: jika tombol download baru sudah ada sebelum observer dipasang
+    // Cek instan setelah delay: jika tombol download dari batch baru sudah langsung ada
     if (document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON)) {
       return resolve();
     }
 
     const observer = new MutationObserver((mutations, obs) => {
-      // Logika Benar: Resolve ketika DOWNLOAD_BUTTON MUN-CUL di layar!
       if (document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON)) {
         obs.disconnect();
         clearTimeout(timeoutHatch);
@@ -792,7 +791,7 @@ async function submitAndWaitForImages() {
 
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Escape hatch: Beri batas maksimal 90 detik jika rendering macet
+    // Escape hatch 90 detik jika rendering Canva macet
     const timeoutHatch = setTimeout(() => {
       observer.disconnect();
       reject(new Error("Timeout: Proses render Canva melampaui 90 detik atau selektor berubah."));
@@ -1025,16 +1024,26 @@ async function startMainLoop() {
           continue;
         }
 
+        // 1. Ambil prompt aktif
         const currentPrompt = prompts.shift();
-        const currentIndex =
-          startIndex + (sessionStats.totalPrompts - prompts.length);
+        const currentIndex = startIndex + (sessionStats.totalPrompts - prompts.length);
+
+        // 2. PRE-FLIGHT GATEKEEPER: Cek dan tahan bot jika ada cooldown aktif SEBELUM mulai mengetik
+        let startupCooldown = getScreenCooldownMs();
+        if (startupCooldown > 0) {
+          console.warn(`[NRA DreamLab] Batasan limit aktif terdeteksi sebelum mulai mengetik! Menahan loop selama ${startupCooldown}ms`);
+          await handleCooldown(startupCooldown, false);
+        }
 
         chrome.runtime.sendMessage({
           action: "STATUS_UPDATE",
           status: `Processing prompt ${currentIndex + 1} of ${sessionStats.totalPrompts}...`,
         });
 
-        // 1. Konfigurasi, Injeksi, dan Submit
+        // 3. Update prompt aktif ke storage untuk penamaan file background.js
+        await chrome.storage.local.set({ downloadingPrompt: currentPrompt });
+
+        // 4. Konfigurasi, Injeksi (Mengetik dengan kecepatan baru), dan Submit
         await prepareAndSubmitPrompt(
           currentPrompt,
           isConfigured,
@@ -1043,7 +1052,7 @@ async function startMainLoop() {
         );
         isConfigured = true;
 
-        // 2. Download / Retry (Jalankan DULU)
+        // 5. Download / Retry Loop
         let downloadSuccess = false;
         let retryCount = 0;
         const maxRetries = 3;
@@ -1065,26 +1074,22 @@ async function startMainLoop() {
           }
         }
 
-        // 3. Cek Cooldown (SETELAH proses download/retry selesai)
-        let cooldownMs = getScreenCooldownMs();
-        if (cooldownMs > 0) {
-          console.warn(`[NRA DreamLab] Limit akun terdeteksi! Waktu tunggu: ${cooldownMs}ms`);
-          await handleCooldown(cooldownMs, false);
+        // 6. POST-FLIGHT CHECK: Cek kembali cooldown jika limit baru lahir pasca-submit
+        let postCooldownMs = getScreenCooldownMs();
+        if (postCooldownMs > 0) {
+          console.warn(`[NRA DreamLab] Limit akun terdeteksi pasca-submit! Waktu tunggu: ${postCooldownMs}ms`);
+          await handleCooldown(postCooldownMs, false);
         }
 
-        // 4. Update status
+        // 7. Update status ke storage & panel
         if (!downloadSuccess) {
           chrome.runtime.sendMessage({
             action: "PROMPT_FAILED",
             failedPrompt: currentPrompt
           });
-        } else {
-          sessionStats.downloadCount++;
         }
 
         sessionStats.successCount++;
-
-        // Update session stats & SINKRONISASI sisa prompt ke storage
         await chrome.storage.local.set({
           prompts: prompts,
           sessionStats: sanitizeStats(sessionStats),
@@ -1096,13 +1101,7 @@ async function startMainLoop() {
           remainingPrompts: prompts
         });
 
-        if (
-          batchLimitGlobal > 0 &&
-          sessionStats.downloadCount >= batchLimitGlobal
-        ) {
-          console.log(
-            `[NRA DreamLab] Batch limit reached (${batchLimitGlobal}). Stopping.`,
-          );
+        if (batchLimitGlobal > 0 && sessionStats.downloadCount >= batchLimitGlobal) {
           isRunning = false;
           chrome.storage.local.set({ isAutomating: false }, () => {
             sendStatusUpdate("Batch limit reached. Automation stopped.");
