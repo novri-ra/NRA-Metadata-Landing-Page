@@ -801,47 +801,77 @@ async function submitAndWaitForImages() {
 }
 
 async function handleDownload(countSetting = "4") {
-  console.info("[NRA DreamLab] Memantau kemunculan tombol unduh secara dinamis...");
+  console.info("[NRA DreamLab] Memulai validasi kontainer hasil render terbaru...");
+
+  // 1. Cari kontainer teratas yang valid (biasanya memiliki teks 'Just now' atau membungkus text prompt aktif)
+  // Kita cari elemen kartu hasil render utama di Canva Dream Lab
+  const renderCards = Array.from(document.querySelectorAll('div[class*="Card"], li[class*="Item"], div[role="group"]'));
+  
+  let targetContainer = null;
+  
+  // Cari kontainer yang mengandung teks penanda waktu terbaru atau mencakup area render aktif
+  for (const card of renderCards) {
+    const cardText = card.innerText || "";
+    if (cardText.includes("Just now") || cardText.includes("Baru saja")) {
+      targetContainer = card;
+      console.info("[NRA DreamLab] Kontainer render terbaru 'Just now' berhasil dikunci.");
+      break;
+    }
+  }
+
+  // Jika kontainer spesifik tidak ditemukan, fallback ke kontainer pertama yang terlihat di layar
+  if (!targetContainer) {
+    console.warn("[NRA DreamLab] Kontainer 'Just now' tidak terdeteksi secara eksplisit. Mencari elemen penampung visual teratas...");
+    const textareas = document.querySelectorAll(CANVA_SELECTORS.PROMPT_TEXTAREA);
+    if (textareas.length > 0) {
+      // Cari elemen terdekat di sekitar feed hasil di bawah textarea
+      targetContainer = document.querySelector('ul[role="list"], div[class*="grid"]');
+    }
+  }
+
+  if (!targetContainer) {
+    targetContainer = document.body; // Ultimate fallback jika DOM ter-obfuscate parah
+    console.warn("[NRA DreamLab] Fallback ultimate ke document body.");
+  }
 
   let allDownloadButtons = [];
   try {
-    // Retry loop untuk tombol download dengan smartWaitForElement
+    // Retry loop untuk mencari tombol download eksklusif HANYA di dalam targetContainer yang dikunci
     for (let attempt = 0; attempt < 5; attempt++) {
-      try {
-        allDownloadButtons = await smartWaitForElement(CANVA_SELECTORS.DOWNLOAD_BUTTON, 5000); // Wait 5s per attempt
-        if (allDownloadButtons && allDownloadButtons.length > 0) {
-          console.info(`[NRA DreamLab] Tombol unduh ditemukan pada percobaan ke-${attempt + 1}.`);
-          break; // Berhasil menemukan
-        }
-      } catch (e) {
-        console.info(`[NRA DreamLab] Tombol unduh belum terlihat, menunggu (percobaan ${attempt + 1}/5)...`);
+      const buttons = Array.from(targetContainer.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON))
+                           .filter(btn => btn.offsetParent !== null); // Pastikan terlihat
+      
+      if (buttons && buttons.length > 0) {
+        allDownloadButtons = buttons;
+        console.info(`[NRA DreamLab] Berhasil menemukan ${buttons.length} tombol unduh di dalam blok aktif.`);
+        break;
       }
+      await delay(2000);
     }
 
-    if (!allDownloadButtons || allDownloadButtons.length === 0) {
-      throw new Error("Download buttons not found after all retries.");
+    if (allDownloadButtons.length === 0) {
+      throw new Error("Tombol download tidak ditemukan di dalam blok hasil render terbaru.");
     }
   } catch (error) {
-    throw new Error("Download buttons not found: " + error.message);
+    throw new Error("Gagal mengisolasi tombol unduh: " + error.message);
   }
 
   let targetCount = parseInt(countSetting, 10) || 4;
-
-  // PERBAIKAN KRUSIAL: Ambil dari index 0 (paling atas/terbaru), BUKAN dari bawah (-4)
+  
+  // Ambil tombol yang berada di dalam blok terbaru ini
   let buttonsToClick = allDownloadButtons.slice(0, targetCount);
-
-  console.log("[NRA DreamLab] Total tombol terlihat: " + allDownloadButtons.length + ". Mengambil " + buttonsToClick.length + " tombol teratas (terbaru).");
+  console.log(`[NRA DreamLab] Mengunduh ${buttonsToClick.length} gambar secara eksklusif dari blok batch terbaru.`);
 
   for (let i = 0; i < buttonsToClick.length; i++) {
     const btn = buttonsToClick[i];
-    await safeCdpClick(btn, "download button " + (i + 1));
-    await delay(3000); // Delay aman untuk mencegah blokir server
+    await safeCdpClick(btn, `download button ${i + 1} dari batch terbaru`);
+    await delay(3000); // Jeda aman pencegahan blokir
     sessionStats.downloadCount++;
+    chrome.storage.local.set({ sessionStats: sanitizeStats(sessionStats) });
     chrome.runtime.sendMessage({
       action: "UPDATE_STATS",
       stats: sanitizeStats(sessionStats)
     });
-    await chrome.storage.local.set({ sessionStats: sanitizeStats(sessionStats) });
   }
 }
 async function handleCooldown(cooldownMs, isStartup = false) {
