@@ -800,72 +800,81 @@ async function submitAndWaitForImages() {
   });
 }
 
-async function handleDownload(countSetting = "4") {
-  console.info("[NRA DreamLab] Memulai validasi kontainer hasil render terbaru...");
+async function handleDownload(countSetting = "4", currentPrompt = "") {
+  console.info(`[NRA DreamLab] Memulai isolasi kontainer untuk prompt aktif: "${currentPrompt}"`);
 
-  // 1. Cari kontainer teratas yang valid (biasanya memiliki teks 'Just now' atau membungkus text prompt aktif)
-  // Kita cari elemen kartu hasil render utama di Canva Dream Lab
-  const renderCards = Array.from(document.querySelectorAll('div[class*="Card"], li[class*="Item"], div[role="group"]'));
-  
+  // 1. Ambil semua elemen section batch yang ada di halaman
+  const sections = Array.from(document.querySelectorAll('section'));
   let targetContainer = null;
-  
-  // Cari kontainer yang mengandung teks penanda waktu terbaru atau mencakup area render aktif
-  for (const card of renderCards) {
-    const cardText = card.innerText || "";
-    if (cardText.includes("Just now") || cardText.includes("Baru saja")) {
-      targetContainer = card;
-      console.info("[NRA DreamLab] Kontainer render terbaru 'Just now' berhasil dikunci.");
-      break;
+
+  if (currentPrompt) {
+    const cleanActivePrompt = currentPrompt.trim().toLowerCase();
+    
+    // 2. Lakukan perulangan untuk mencari section yang membungkus teks prompt aktif
+    for (const section of sections) {
+      // Cari elemen paragraf pembungkus teks prompt di Canva (kelas aWBg0w)
+      const promptElements = section.querySelectorAll('p.aWBg0w, p[class*="6klkDA"]');
+      let matchesPrompt = false;
+
+      for (const p of promptElements) {
+        const pText = (p.textContent || p.innerText || "").trim().toLowerCase();
+        // Cek apakah teks di DOM mengandung atau sama dengan prompt yang sedang diproses bot
+        if (pText === cleanActivePrompt || cleanActivePrompt.includes(pText) || pText.includes(cleanActivePrompt)) {
+          matchesPrompt = true;
+          break;
+        }
+      }
+
+      if (matchesPrompt) {
+        targetContainer = section;
+        console.info("[NRA DreamLab] ✅ Sukses mengunci kontainer section berdasarkan kecocokan teks prompt!");
+        break;
+      }
     }
   }
 
-  // Jika kontainer spesifik tidak ditemukan, fallback ke kontainer pertama yang terlihat di layar
-  if (!targetContainer) {
-    console.warn("[NRA DreamLab] Kontainer 'Just now' tidak terdeteksi secara eksplisit. Mencari elemen penampung visual teratas...");
-    const textareas = document.querySelectorAll(CANVA_SELECTORS.PROMPT_TEXTAREA);
-    if (textareas.length > 0) {
-      // Cari elemen terdekat di sekitar feed hasil di bawah textarea
-      targetContainer = document.querySelector('ul[role="list"], div[class*="grid"]');
-    }
+  // Fallback 1: Jika pencocokan teks gagal (karena obfuscation), ambil section paling atas di dalam DOM
+  if (!targetContainer && sections.length > 0) {
+    console.warn("[NRA DreamLab] Pencocokan teks prompt tidak mendeteksi kontainer. Fallback mengambil section teratas di halaman...");
+    targetContainer = sections[0]; 
   }
 
+  // Fallback 2: Jika tidak ada section sama sekali
   if (!targetContainer) {
-    targetContainer = document.body; // Ultimate fallback jika DOM ter-obfuscate parah
+    targetContainer = document.body;
     console.warn("[NRA DreamLab] Fallback ultimate ke document body.");
   }
 
   let allDownloadButtons = [];
   try {
-    // Retry loop untuk mencari tombol download eksklusif HANYA di dalam targetContainer yang dikunci
+    // 3. Cari tombol download secara eksklusif HANYA di dalam targetContainer yang telah dikunci
     for (let attempt = 0; attempt < 5; attempt++) {
       const buttons = Array.from(targetContainer.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON))
-                           .filter(btn => btn.offsetParent !== null); // Pastikan terlihat
+                           .filter(btn => btn.offsetParent !== null); // Pastikan elemennya terlihat di layar
       
       if (buttons && buttons.length > 0) {
         allDownloadButtons = buttons;
-        console.info(`[NRA DreamLab] Berhasil menemukan ${buttons.length} tombol unduh di dalam blok aktif.`);
+        console.info(`[NRA DreamLab] Ditemukan ${buttons.length} tombol unduh di dalam kontainer prompt ini.`);
         break;
       }
       await delay(2000);
     }
 
     if (allDownloadButtons.length === 0) {
-      throw new Error("Tombol download tidak ditemukan di dalam blok hasil render terbaru.");
+      throw new Error("Tombol download tidak ditemukan di dalam blok hasil render kontainer prompt aktif.");
     }
   } catch (error) {
     throw new Error("Gagal mengisolasi tombol unduh: " + error.message);
   }
 
   let targetCount = parseInt(countSetting, 10) || 4;
-  
-  // Ambil tombol yang berada di dalam blok terbaru ini
   let buttonsToClick = allDownloadButtons.slice(0, targetCount);
-  console.log(`[NRA DreamLab] Mengunduh ${buttonsToClick.length} gambar secara eksklusif dari blok batch terbaru.`);
+  console.log(`[NRA DreamLab] Mengunduh ${buttonsToClick.length} gambar eksklusif dari kontainer prompt aktif.`);
 
   for (let i = 0; i < buttonsToClick.length; i++) {
     const btn = buttonsToClick[i];
-    await safeCdpClick(btn, `download button ${i + 1} dari batch terbaru`);
-    await delay(3000); // Jeda aman pencegahan blokir
+    await safeCdpClick(btn, `download button ${i + 1} dari kontainer prompt aktif`);
+    await delay(3000); // Jeda anti-banned
     sessionStats.downloadCount++;
     chrome.storage.local.set({ sessionStats: sanitizeStats(sessionStats) });
     chrome.runtime.sendMessage({
@@ -1024,7 +1033,7 @@ async function startMainLoop() {
 
         while (!downloadSuccess && retryCount < maxRetries) {
           try {
-            await handleDownload(downloadCountSetting);
+            await handleDownload(downloadCountSetting, currentPrompt);
             downloadSuccess = true;
           } catch (error) {
             console.error(`[NRA DreamLab] Download attempt ${retryCount + 1} failed:`, error.message);
