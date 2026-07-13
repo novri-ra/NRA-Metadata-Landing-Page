@@ -925,35 +925,7 @@ function initExtendedFeatures() {
     });
   }
 
-  // 5. Safety Delay
-  const safetyDelaySlider = document.getElementById("safetyDelaySlider");
-  const safetyDelayVal = document.getElementById("safetyDelayVal");
-  if (safetyDelaySlider && safetyDelayVal) {
-    safetyDelaySlider.addEventListener("input", () => {
-      safetyDelayVal.textContent = safetyDelaySlider.value;
-      chrome.storage.local.set({
-        safetyDelay: parseInt(safetyDelaySlider.value, 10),
-      });
-    });
-  }
 
-  // 6. Save Delay
-  const saveDelaySlider = document.getElementById("saveDelaySlider");
-  const saveDelayVal = document.getElementById("saveDelayVal");
-  if (saveDelaySlider && saveDelayVal) {
-    // Muat nilai saat panel dibuka
-    chrome.storage.local.get(["saveDelay"], (res) => {
-      const val = res.saveDelay || 6;
-      saveDelaySlider.value = val;
-      saveDelayVal.textContent = val;
-    });
-    // Listener input
-    saveDelaySlider.addEventListener("input", () => {
-      const val = saveDelaySlider.value;
-      saveDelayVal.textContent = val;
-      chrome.storage.local.set({ saveDelay: parseInt(val, 10) });
-    });
-  }
 
   // --- GOD-TIER 6-FEATURE UPDATE LOGIC ---
 
