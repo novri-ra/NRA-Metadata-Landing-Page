@@ -1043,6 +1043,9 @@ async function startMainLoop() {
         );
         isConfigured = true;
 
+        // Update prompt aktif ke storage agar background.js bisa membaca nama file dengan benar
+        await chrome.storage.local.set({ downloadingPrompt: currentPrompt });
+
         // 2. Download / Retry (Jalankan DULU)
         let downloadSuccess = false;
         let retryCount = 0;
