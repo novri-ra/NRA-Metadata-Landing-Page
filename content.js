@@ -656,9 +656,9 @@ async function cdpTypeHuman(text) {
     // Lepas fokus agar Canva menyadari bahwa input telah selesai
     textarea.blur();
   } else {
-    console.log(`[NRA DreamLab] Executing Human Typing (200-250 BPM)...`);
+    console.log(`[NRA DreamLab] Executing Super Fast Human Typing (20ms delay)...`);
     textarea.value = "";
-    const typingDelay = 45; // Kecepatan optimal 200-250 BPM
+    const typingDelay = 20; // Diturunkan ke 20ms agar pengetikan jauh lebih cepat
     for (const char of text) {
       textarea.value += char;
       textarea.dispatchEvent(new Event("input", { bubbles: true }));
