@@ -775,7 +775,7 @@ async function submitAndWaitForImages() {
     await delay(randomDelay);
 
     console.info("[NRA DreamLab] MutationObserver aktif: Menunggu gambar selesai di-render...");
-    
+
     // Cek instan setelah delay: jika tombol download dari batch baru sudah langsung ada
     if (document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON)) {
       return resolve();
@@ -808,7 +808,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
 
   if (currentPrompt) {
     const cleanActivePrompt = currentPrompt.trim().toLowerCase();
-    
+
     // 2. Lakukan perulangan untuk mencari section yang membungkus teks prompt aktif
     for (const section of sections) {
       // Multi-fallback: Cari berdasarkan class Canva saat ini ATAU semua tag paragraf di dalam section jika class berubah
@@ -835,7 +835,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
   // Fallback 1: Jika pencocokan teks gagal (karena obfuscation), ambil section paling atas di dalam DOM
   if (!targetContainer && sections.length > 0) {
     console.warn("[NRA DreamLab] Pencocokan teks prompt tidak mendeteksi kontainer. Fallback mengambil section teratas di halaman...");
-    targetContainer = sections[0]; 
+    targetContainer = sections[0];
   }
 
   // Fallback 2: Jika tidak ada section sama sekali
@@ -849,8 +849,8 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
     // 3. Cari tombol download secara eksklusif HANYA di dalam targetContainer yang telah dikunci
     for (let attempt = 0; attempt < 5; attempt++) {
       const buttons = Array.from(targetContainer.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON))
-                           .filter(btn => btn.offsetParent !== null); // Pastikan elemennya terlihat di layar
-      
+        .filter(btn => btn.offsetParent !== null); // Pastikan elemennya terlihat di layar
+
       if (buttons && buttons.length > 0) {
         allDownloadButtons = buttons;
         console.info(`[NRA DreamLab] Ditemukan ${buttons.length} tombol unduh di dalam kontainer prompt ini.`);
@@ -872,17 +872,17 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
 
   for (let i = 0; i < buttonsToClick.length; i++) {
     const btn = buttonsToClick[i];
-    
+
     // Validasi ulang: Pastikan elemen masih terhubung ke DOM sebelum berinteraksi
     if (btn && btn.isConnected) {
       try {
         // Paksa scroll visual agar tombol berada di tengah layar (mencegah terhalang layout)
         btn.scrollIntoView({ behavior: "instant", block: "center" });
-        await delay(500); 
-        
+        await delay(500);
+
         await safeCdpClick(btn, `download button ${i + 1} dari kontainer prompt aktif`);
         await delay(3000); // Jeda anti-banned aman
-        
+
         sessionStats.downloadCount++;
         chrome.storage.local.set({ sessionStats: sanitizeStats(sessionStats) });
         chrome.runtime.sendMessage({
@@ -1024,9 +1024,11 @@ async function startMainLoop() {
           continue;
         }
 
-        // 1. Ambil prompt aktif
-        const currentPrompt = prompts.shift();
+        // 1. Hitung indeks aktif secara akurat sebelum array prompts dikurangi/di-shift
         const currentIndex = startIndex + (sessionStats.totalPrompts - prompts.length);
+
+        // 2. Baru ambil prompt aktif dari antrean
+        const currentPrompt = prompts.shift();
 
         // 2. PRE-FLIGHT GATEKEEPER: Cek dan tahan bot jika ada cooldown aktif SEBELUM mulai mengetik
         let startupCooldown = getScreenCooldownMs();
