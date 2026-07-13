@@ -631,8 +631,17 @@ async function cdpClick(element) {
 }
 
 async function cdpTypeHuman(text) {
+  // Kembalikan posisi halaman ke paling atas agar textarea terlihat jelas oleh pengguna
+  window.scrollTo({ top: 0, behavior: "instant" });
+  await delay(300);
+
   const textarea = await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA);
   if (!textarea) throw new Error("Textarea not found");
+
+  // Jika textarea ditemukan, pastikan dia masuk ke fokus visual layar kembali
+  textarea.scrollIntoView({ behavior: "instant", block: "center" });
+  textarea.focus();
+  await delay(200);
 
   const storage = await chrome.storage.local.get(["typingMode"]);
   const mode = storage.typingMode || "human";

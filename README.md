@@ -66,19 +66,21 @@
 
 ## 📋 Release Notes
 
-### v1.1.4 — Production Polish & Real-time Analytics
+### v1.1.5 — Viewport Scroll Reset & Production Polish
 
+- **Viewport Scroll Reset:** Added auto-scroll to top (window.scrollTo) when typing a new prompt.
+- **Textarea Focus:** Implemented instant visual focus and centering on the textarea container before input simulation starts.
 - **Native DOM Injection:** Fully replaced CDP with native events for a cleaner, professional-grade user experience (no "Debugging" warning).
 - **Real-time Analytics:** Added dynamic Avg Speed and ETA tracking.
 - **Refining Radar:** Updated XPath to detect "Refining" status, ensuring precise download timing.
 - **System Stability:** Added anti-sleep prevention to keep machines active during long batch sessions.
 
-### v1.1.3
+### v1.1.4 — Production Polish & Real-time Analytics
 
 - Rebranded to **NRA DreamLab**.
 - Implemented robust DOM polling and dynamic button slicing.
 
-### v1.1.2
+### v1.1.3
 
 - Initial release with CDP-based automation and core queueing.
 
