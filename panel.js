@@ -437,23 +437,76 @@ function initEventListeners() {
   const buttons = {
     startBtn: { id: "startBtn", event: "click", handler: handleStartClick },
     pauseButton: { id: "pauseButton", event: "click", handler: handlePauseClick },
-    // ... tambahkan tombol lain
+    importFileBtn: { id: "importFileBtn", event: "click", handler: () => document.getElementById("fileInput").click() },
+    exportLogsBtn: { id: "exportLogsBtn", event: "click", handler: () => {
+      const logs = document.getElementById("consoleLogs").innerText;
+      const blob = new Blob([logs], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Canva_Logs_${new Date().getTime()}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }},
+    clearLogsBtn: { id: "clearLogsBtn", event: "click", handler: () => {
+      const consoleLogs = document.getElementById("consoleLogs");
+      if (consoleLogs) consoleLogs.innerHTML = "";
+    }},
+    resetStatsBtn: { id: "resetStatsBtn", event: "click", handler: () => {
+      if (confirm("Reset seluruh data Session Analytics ke 0?")) {
+        const emptyStats = { startTime: null, successCount: 0, downloadCount: 0, totalCooldowns: 0, totalPrompts: 0, failedCount: 0 };
+        chrome.storage.local.set({ sessionStats: emptyStats }, () => { updateStatsUI(emptyStats); });
+      }
+    }},
+    retryQuarantineBtn: { id: "retryQuarantineBtn", event: "click", handler: () => {
+      const qInput = document.getElementById("quarantineInput");
+      if (!qInput || !qInput.value.trim()) return alert("Quarantine kosong!");
+      promptInput.value = (promptInput.value ? promptInput.value + "\n" : "") + qInput.value.trim();
+      qInput.value = "";
+      chrome.storage.local.set({ savedPromptText: promptInput.value, savedFailedPrompts: "" });
+    }},
+    clearQuarantineBtn: { id: "clearQuarantineBtn", event: "click", handler: () => {
+      const qInput = document.getElementById("quarantineInput");
+      if (qInput) { qInput.value = ""; chrome.storage.local.set({ savedFailedPrompts: "" }); }
+    }},
+    openDreamLabBtn: { id: "openDreamLabBtn", event: "click", handler: () => { chrome.tabs.create({ url: "https://www.canva.com/dream-lab" }); }},
+    clearPromptsBtn: { id: "clearPromptsBtn", event: "click", handler: () => {
+      if (confirm("Are you sure you want to clear all prompts?")) {
+        if (promptInput) {
+          promptInput.value = "";
+          chrome.storage.local.set({ savedPromptText: "", lastProcessedPromptIndex: 0 });
+          if (progressText) progressText.textContent = "Progress: 0 prompts remaining";
+          const rm = document.querySelector(".resume-message");
+          if (rm) rm.remove();
+        }
+      }
+    }}
   };
 
   Object.keys(buttons).forEach(key => {
-    const el = document.getElementById(buttons[key].id);
+    const b = buttons[key];
+    const el = document.getElementById(b.id);
     if (el) {
-      el.addEventListener(buttons[key].event, (e) => {
-        try {
-          buttons[key].handler(e);
-        } catch (err) {
-          console.error(`Error pada tombol ${buttons[key].id}:`, err);
-        }
+      el.addEventListener(b.event, (e) => {
+        try { b.handler(e); } catch (err) { console.error(`Error pada ${b.id}:`, err); }
       });
-    } else {
-      console.warn(`Elemen ${buttons[key].id} tidak ditemukan di DOM!`);
     }
   });
+
+  // Listener Input file (Pindahkan ke luar loop)
+  const fileInput = document.getElementById("fileInput");
+  if (fileInput) {
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        promptInput.value = (promptInput.value ? promptInput.value + "\n" : "") + ev.target.result.trim();
+        chrome.storage.local.set({ savedPromptText: promptInput.value });
+      };
+      reader.readAsText(file);
+    });
+  }
 
   // Real-time Save (Input/Change Listeners to prevent data loss)
   let saveTimeout;
