@@ -720,15 +720,9 @@ async function selectCanvaConfiguration(label, value) {
     });
 
     if (targetOption) {
-      // Cek apakah sudah dalam keadaan terpilih
-      const isSelected = targetOption.getAttribute('aria-pressed') === 'true' || targetOption.getAttribute('aria-selected') === 'true';
-
-      if (!isSelected) {
-        targetOption.click();
-        console.info(`[NRA DreamLab] Berhasil MENGKLIK opsi '${value}'.`);
-      } else {
-        console.info(`[NRA DreamLab] Opsi '${value}' sudah dalam keadaan TERPILIH.`);
-      }
+      // Hapus kondisi pembatas !isSelected agar bot tidak melewatkan (skip) klik akibat state history lama
+      targetOption.click();
+      console.info(`[NRA DreamLab] ✅ Pemaksaan klik dieksekusi pada opsi '${value}' untuk menu '${label}'.`);
 
       await new Promise(r => setTimeout(r, 800)); // Jeda stabilitas DOM
       return true;
