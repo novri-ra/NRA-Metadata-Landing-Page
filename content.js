@@ -800,48 +800,104 @@ async function submitAndWaitForImages() {
   });
 }
 
-async function handleDownload(countSetting = "4") {
-  console.info("[NRA DreamLab] Memantau kemunculan tombol unduh secara dinamis...");
+async function handleDownload(countSetting = "4", currentPrompt = "") {
+  console.info(`[NRA DreamLab] Memulai isolasi kontainer untuk prompt aktif: "${currentPrompt}"`);
+
+  // 1. Ambil semua elemen section batch yang ada di halaman
+  const sections = Array.from(document.querySelectorAll('section'));
+  let targetContainer = null;
+
+  if (currentPrompt) {
+    const cleanActivePrompt = currentPrompt.trim().toLowerCase();
+    
+    // 2. Lakukan perulangan untuk mencari section yang membungkus teks prompt aktif
+    for (const section of sections) {
+      // Multi-fallback: Cari berdasarkan class Canva saat ini ATAU semua tag paragraf di dalam section jika class berubah
+      const promptElements = section.querySelectorAll('p.aWBg0w, p[class*="6klkDA"], p[data-testid*="undefined"], p');
+      let matchesPrompt = false;
+
+      for (const p of promptElements) {
+        const pText = (p.textContent || p.innerText || "").trim().toLowerCase();
+        // Cek apakah teks di DOM mengandung atau sama dengan prompt yang sedang diproses bot
+        if (pText === cleanActivePrompt || cleanActivePrompt.includes(pText) || pText.includes(cleanActivePrompt)) {
+          matchesPrompt = true;
+          break;
+        }
+      }
+
+      if (matchesPrompt) {
+        targetContainer = section;
+        console.info("[NRA DreamLab] ✅ Sukses mengunci kontainer section berdasarkan kecocokan teks prompt!");
+        break;
+      }
+    }
+  }
+
+  // Fallback 1: Jika pencocokan teks gagal (karena obfuscation), ambil section paling atas di dalam DOM
+  if (!targetContainer && sections.length > 0) {
+    console.warn("[NRA DreamLab] Pencocokan teks prompt tidak mendeteksi kontainer. Fallback mengambil section teratas di halaman...");
+    targetContainer = sections[0]; 
+  }
+
+  // Fallback 2: Jika tidak ada section sama sekali
+  if (!targetContainer) {
+    targetContainer = document.body;
+    console.warn("[NRA DreamLab] Fallback ultimate ke document body.");
+  }
 
   let allDownloadButtons = [];
   try {
-    // Retry loop untuk tombol download dengan smartWaitForElement
+    // 3. Cari tombol download secara eksklusif HANYA di dalam targetContainer yang telah dikunci
     for (let attempt = 0; attempt < 5; attempt++) {
-      try {
-        allDownloadButtons = await smartWaitForElement(CANVA_SELECTORS.DOWNLOAD_BUTTON, 5000); // Wait 5s per attempt
-        if (allDownloadButtons && allDownloadButtons.length > 0) {
-          console.info(`[NRA DreamLab] Tombol unduh ditemukan pada percobaan ke-${attempt + 1}.`);
-          break; // Berhasil menemukan
-        }
-      } catch (e) {
-        console.info(`[NRA DreamLab] Tombol unduh belum terlihat, menunggu (percobaan ${attempt + 1}/5)...`);
+      const buttons = Array.from(targetContainer.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON))
+                           .filter(btn => btn.offsetParent !== null); // Pastikan elemennya terlihat di layar
+      
+      if (buttons && buttons.length > 0) {
+        allDownloadButtons = buttons;
+        console.info(`[NRA DreamLab] Ditemukan ${buttons.length} tombol unduh di dalam kontainer prompt ini.`);
+        break;
       }
+      await delay(2000);
     }
 
-    if (!allDownloadButtons || allDownloadButtons.length === 0) {
-      throw new Error("Download buttons not found after all retries.");
+    if (allDownloadButtons.length === 0) {
+      throw new Error("Tombol download tidak ditemukan di dalam blok hasil render kontainer prompt aktif.");
     }
   } catch (error) {
-    throw new Error("Download buttons not found: " + error.message);
+    throw new Error("Gagal mengisolasi tombol unduh: " + error.message);
   }
 
   let targetCount = parseInt(countSetting, 10) || 4;
-
-  // PERBAIKAN KRUSIAL: Ambil dari index 0 (paling atas/terbaru), BUKAN dari bawah (-4)
   let buttonsToClick = allDownloadButtons.slice(0, targetCount);
-
-  console.log("[NRA DreamLab] Total tombol terlihat: " + allDownloadButtons.length + ". Mengambil " + buttonsToClick.length + " tombol teratas (terbaru).");
+  console.log(`[NRA DreamLab] Mengunduh ${buttonsToClick.length} gambar eksklusif dari kontainer prompt aktif.`);
 
   for (let i = 0; i < buttonsToClick.length; i++) {
     const btn = buttonsToClick[i];
-    await safeCdpClick(btn, "download button " + (i + 1));
-    await delay(3000); // Delay aman untuk mencegah blokir server
-    sessionStats.downloadCount++;
-    chrome.runtime.sendMessage({
-      action: "UPDATE_STATS",
-      stats: sanitizeStats(sessionStats)
-    });
-    await chrome.storage.local.set({ sessionStats: sanitizeStats(sessionStats) });
+    
+    // Validasi ulang: Pastikan elemen masih terhubung ke DOM sebelum berinteraksi
+    if (btn && btn.isConnected) {
+      try {
+        // Paksa scroll visual agar tombol berada di tengah layar (mencegah terhalang layout)
+        btn.scrollIntoView({ behavior: "instant", block: "center" });
+        await delay(500); 
+        
+        await safeCdpClick(btn, `download button ${i + 1} dari kontainer prompt aktif`);
+        await delay(3000); // Jeda anti-banned aman
+        
+        sessionStats.downloadCount++;
+        chrome.storage.local.set({ sessionStats: sanitizeStats(sessionStats) });
+        chrome.runtime.sendMessage({
+          action: "UPDATE_STATS",
+          stats: sanitizeStats(sessionStats)
+        });
+      } catch (clickError) {
+        console.warn(`[NRA DreamLab] Percobaan klik tombol ${i + 1} meleset, mencoba fallback klik native...`);
+        btn.click();
+        await delay(3000);
+      }
+    } else {
+      console.warn(`[NRA DreamLab] Tombol download ${i + 1} terlepas dari DOM sebelum diklik. Melewati...`);
+    }
   }
 }
 async function handleCooldown(cooldownMs, isStartup = false) {
@@ -994,7 +1050,7 @@ async function startMainLoop() {
 
         while (!downloadSuccess && retryCount < maxRetries) {
           try {
-            await handleDownload(downloadCountSetting);
+            await handleDownload(downloadCountSetting, currentPrompt);
             downloadSuccess = true;
           } catch (error) {
             console.error(`[NRA DreamLab] Download attempt ${retryCount + 1} failed:`, error.message);
