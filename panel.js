@@ -444,6 +444,13 @@ function initEventListeners() {
         document.body.classList.add("modal-open");
       }
     }},
+    closeSettingsBtn: { id: "closeSettingsBtn", event: "click", handler: () => {
+      const modal = document.getElementById("settingsModal");
+      if (modal) {
+        modal.classList.add("hidden");
+        document.body.classList.remove("modal-open");
+      }
+    }},
     importFileBtn: { id: "importFileBtn", event: "click", handler: () => document.getElementById("fileInput").click() },
     exportLogsBtn: { id: "exportLogsBtn", event: "click", handler: () => {
       const logs = document.getElementById("consoleLogs").innerText;
