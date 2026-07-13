@@ -656,9 +656,9 @@ async function cdpTypeHuman(text) {
     // Lepas fokus agar Canva menyadari bahwa input telah selesai
     textarea.blur();
   } else {
-    console.log(`[NRA DreamLab] Executing Human Typing (120 WPM)...`);
+    console.log(`[NRA DreamLab] Executing Human Typing (200-250 BPM)...`);
     textarea.value = "";
-    const typingDelay = 80;
+    const typingDelay = 45; // Kecepatan optimal 200-250 BPM
     for (const char of text) {
       textarea.value += char;
       textarea.dispatchEvent(new Event("input", { bubbles: true }));
@@ -1019,16 +1019,26 @@ async function startMainLoop() {
           continue;
         }
 
+        // 1. Ambil prompt aktif
         const currentPrompt = prompts.shift();
-        const currentIndex =
-          startIndex + (sessionStats.totalPrompts - prompts.length);
+        const currentIndex = startIndex + (sessionStats.totalPrompts - prompts.length);
+
+        // 2. PRE-FLIGHT GATEKEEPER: Cek dan tahan bot jika ada cooldown aktif SEBELUM mulai mengetik
+        let startupCooldown = getScreenCooldownMs();
+        if (startupCooldown > 0) {
+          console.warn(`[NRA DreamLab] Batasan limit aktif terdeteksi sebelum mulai mengetik! Menahan loop selama ${startupCooldown}ms`);
+          await handleCooldown(startupCooldown, false);
+        }
 
         chrome.runtime.sendMessage({
           action: "STATUS_UPDATE",
           status: `Processing prompt ${currentIndex + 1} of ${sessionStats.totalPrompts}...`,
         });
 
-        // 1. Konfigurasi, Injeksi, dan Submit
+        // 3. Update prompt aktif ke storage untuk penamaan file background.js
+        await chrome.storage.local.set({ downloadingPrompt: currentPrompt });
+
+        // 4. Konfigurasi, Injeksi (Mengetik dengan kecepatan baru), dan Submit
         await prepareAndSubmitPrompt(
           currentPrompt,
           isConfigured,
@@ -1037,10 +1047,7 @@ async function startMainLoop() {
         );
         isConfigured = true;
 
-        // Update prompt aktif ke storage agar background.js bisa membaca nama file dengan benar
-        await chrome.storage.local.set({ downloadingPrompt: currentPrompt });
-
-        // 2. Download / Retry (Jalankan DULU)
+        // 5. Download / Retry Loop
         let downloadSuccess = false;
         let retryCount = 0;
         const maxRetries = 3;
@@ -1062,26 +1069,22 @@ async function startMainLoop() {
           }
         }
 
-        // 3. Cek Cooldown (SETELAH proses download/retry selesai)
-        let cooldownMs = getScreenCooldownMs();
-        if (cooldownMs > 0) {
-          console.warn(`[NRA DreamLab] Limit akun terdeteksi! Waktu tunggu: ${cooldownMs}ms`);
-          await handleCooldown(cooldownMs, false);
+        // 6. POST-FLIGHT CHECK: Cek kembali cooldown jika limit baru lahir pasca-submit
+        let postCooldownMs = getScreenCooldownMs();
+        if (postCooldownMs > 0) {
+          console.warn(`[NRA DreamLab] Limit akun terdeteksi pasca-submit! Waktu tunggu: ${postCooldownMs}ms`);
+          await handleCooldown(postCooldownMs, false);
         }
 
-        // 4. Update status
+        // 7. Update status ke storage & panel
         if (!downloadSuccess) {
           chrome.runtime.sendMessage({
             action: "PROMPT_FAILED",
             failedPrompt: currentPrompt
           });
-        } else {
-          sessionStats.downloadCount++;
         }
 
         sessionStats.successCount++;
-
-        // Update session stats & SINKRONISASI sisa prompt ke storage
         await chrome.storage.local.set({
           prompts: prompts,
           sessionStats: sanitizeStats(sessionStats),
@@ -1093,13 +1096,7 @@ async function startMainLoop() {
           remainingPrompts: prompts
         });
 
-        if (
-          batchLimitGlobal > 0 &&
-          sessionStats.downloadCount >= batchLimitGlobal
-        ) {
-          console.log(
-            `[NRA DreamLab] Batch limit reached (${batchLimitGlobal}). Stopping.`,
-          );
+        if (batchLimitGlobal > 0 && sessionStats.downloadCount >= batchLimitGlobal) {
           isRunning = false;
           chrome.storage.local.set({ isAutomating: false }, () => {
             sendStatusUpdate("Batch limit reached. Automation stopped.");
