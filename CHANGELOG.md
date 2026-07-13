@@ -9,4 +9,28 @@ All notable changes to the NRA DreamLab extension will be documented in this fil
 ## [1.1.4] - 2026-07-13
 ### Fixed
 - Fixed 'Cannot redeclare block-scoped variable' syntax error in panel.js.
-- Restricted image downloads to only target containers matching the active prompt text
+- Restricted image downloads to only target containers matching the active prompt text.
+- Synchronized downloadingPrompt state to local storage right before download triggers.
+- Accelerated human typing speed simulation to 20ms delay per character.
+- Implemented double-shielded Pre-Flight and Post-Flight cooldown gates.
+- Integrated 3-5 seconds randomized smart render delay to wait for Canva generation.
+- Corrected currentIndex tracking calculations to prevent skips in the panel status.
+- Re-activated UI settings gear icon and close cross icon buttons via Centralized Defensive Event Listener.
+
+## [1.1.0] - 2026-04-15
+### Added
+- Integrated Advanced Image Metadata Extractor and Sanitizer.
+- Added capability to scrub AI-generated signatures and inject professional camera presets into image files.
+- Added support for KernelSU environment performance modules optimization compatibility.
+
+## [1.0.5] - 2026-03-22
+### Added
+- Automated school budget (LPJ) initial integration structure using Python (FastAPI), Gemini, and Groq APIs.
+- Modular state management update using GetX concepts for handling response tokens.
+
+## [1.0.0] - 2026-01-10
+### Added
+- Initial official release of NRA DreamLab Canva Automation Extension.
+- Core automation loop featuring custom prompt injection, aspect ratio config, and automatic element selection.
+- Basic human-like typing simulation delay.
+- Session metrics logging including progress tracking and success rates.
