@@ -873,14 +873,31 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
 
   for (let i = 0; i < buttonsToClick.length; i++) {
     const btn = buttonsToClick[i];
-    await safeCdpClick(btn, `download button ${i + 1} dari kontainer prompt aktif`);
-    await delay(3000); // Jeda anti-banned
-    sessionStats.downloadCount++;
-    chrome.storage.local.set({ sessionStats: sanitizeStats(sessionStats) });
-    chrome.runtime.sendMessage({
-      action: "UPDATE_STATS",
-      stats: sanitizeStats(sessionStats)
-    });
+    
+    // Validasi ulang: Pastikan elemen masih terhubung ke DOM sebelum berinteraksi
+    if (btn && btn.isConnected) {
+      try {
+        // Paksa scroll visual agar tombol berada di tengah layar (mencegah terhalang layout)
+        btn.scrollIntoView({ behavior: "instant", block: "center" });
+        await delay(500); 
+        
+        await safeCdpClick(btn, `download button ${i + 1} dari kontainer prompt aktif`);
+        await delay(3000); // Jeda anti-banned aman
+        
+        sessionStats.downloadCount++;
+        chrome.storage.local.set({ sessionStats: sanitizeStats(sessionStats) });
+        chrome.runtime.sendMessage({
+          action: "UPDATE_STATS",
+          stats: sanitizeStats(sessionStats)
+        });
+      } catch (clickError) {
+        console.warn(`[NRA DreamLab] Percobaan klik tombol ${i + 1} meleset, mencoba fallback klik native...`);
+        btn.click();
+        await delay(3000);
+      }
+    } else {
+      console.warn(`[NRA DreamLab] Tombol download ${i + 1} terlepas dari DOM sebelum diklik. Melewati...`);
+    }
   }
 }
 async function handleCooldown(cooldownMs, isStartup = false) {
