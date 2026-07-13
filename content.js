@@ -812,8 +812,8 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
     
     // 2. Lakukan perulangan untuk mencari section yang membungkus teks prompt aktif
     for (const section of sections) {
-      // Cari elemen paragraf pembungkus teks prompt di Canva (kelas aWBg0w)
-      const promptElements = section.querySelectorAll('p.aWBg0w, p[class*="6klkDA"]');
+      // Multi-fallback: Cari berdasarkan class Canva saat ini ATAU semua tag paragraf di dalam section jika class berubah
+      const promptElements = section.querySelectorAll('p.aWBg0w, p[class*="6klkDA"], p[data-testid*="undefined"], p');
       let matchesPrompt = false;
 
       for (const p of promptElements) {
