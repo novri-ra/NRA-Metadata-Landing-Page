@@ -925,10 +925,33 @@ function initExtendedFeatures() {
     });
   }
 
+  // 5. Safety Delay
+  if (safetyDelaySlider && safetyDelayVal) {
+    safetyDelaySlider.addEventListener("input", () => {
+      safetyDelayVal.textContent = safetyDelaySlider.value;
+      chrome.storage.local.set({
+        safetyDelay: parseInt(safetyDelaySlider.value, 10),
+      });
+    });
+  }
 
+  // 6. Save Delay
+  if (saveDelaySlider && saveDelayVal) {
+    // Muat nilai saat panel dibuka
+    chrome.storage.local.get(["saveDelay"], (res) => {
+      const val = res.saveDelay || 6;
+      saveDelaySlider.value = val;
+      saveDelayVal.textContent = val;
+    });
+    // Listener input
+    saveDelaySlider.addEventListener("input", () => {
+      const val = saveDelaySlider.value;
+      saveDelayVal.textContent = val;
+      chrome.storage.local.set({ saveDelay: parseInt(val, 10) });
+    });
+  }
 
   // --- GOD-TIER 6-FEATURE UPDATE LOGIC ---
-
   // 1. Bulk File Importer
   const importFileBtn = document.getElementById("importFileBtn");
   const fileInput = document.getElementById("fileInput");
