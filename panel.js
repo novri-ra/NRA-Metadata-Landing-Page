@@ -1,4 +1,4 @@
-﻿let isRunning = false;
+let isRunning = false;
 let isDebugMode = false;
 
 function applyCustomUI(theme, font) {
@@ -259,32 +259,290 @@ function initStorageListeners() {
   });
 }
 
+function handleStartClick() {
+  chrome.storage.local.get(
+    ["isAutomating", "lastProcessedPromptIndex"],
+    (result) => {
+      const isCurrentlyRunning = result.isAutomating === true;
+
+      if (isCurrentlyRunning) {
+        // WE ARE STOPPING
+        chrome.storage.local.set({ isAutomating: false, step: "IDLE" });
+        statusText.textContent = "Stopping automation...";
+        statusDot.style.backgroundColor = "#ef4444";
+        statusDot.classList.remove("active");
+
+        chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
+          if (tabs.length === 0) {
+            console.warn("No active Dream Lab tab found.");
+            return;
+          }
+          if (tabs && tabs.length > 0) {
+            chrome.tabs.sendMessage(
+              tabs[0].id,
+              { action: "STOP_AUTOMATION" },
+              (response) => {
+                if (chrome.runtime.lastError) {
+                  console.warn(
+                    "[Panel] sendMessage failed:",
+                    chrome.runtime.lastError.message,
+                  );
+                  statusText.textContent =
+                    "Error: Cannot communicate with Canva tab. Please refresh.";
+                  statusDot.style.backgroundColor = "#ef4444";
+                  statusDot.classList.remove("active");
+                  chrome.storage.local.set({ isAutomating: false });
+                  return;
+                }
+              },
+            );
+          }
+        });
+      } else {
+        // WE ARE STARTING
+        chrome.storage.local.set({ isPaused: false });
+        const rawPromptText = promptInput.value;
+        const promptsArray = rawPromptText
+          .split("\n")
+          .map((p) => sanitizeInput(p.trim()))
+          .filter((p) => p.length > 0);
+
+        // Expand prompts with {i} placeholder
+        let expandedPrompts = [];
+        for (let p of promptsArray) {
+          if (p.includes("{i}")) {
+            // Tanya user berapa iterasi
+            const iterationsInput = prompt(
+              `Prompt "${p}" mengandung {i}. Berapa jumlah iterasi yang diinginkan?`,
+              "5",
+            );
+            if (iterationsInput === null) {
+              // User cancel, skip ekspansi, gunakan prompt asli
+              expandedPrompts.push(p);
+              continue;
+            }
+            const iterations = parseInt(iterationsInput, 10);
+            if (isNaN(iterations) || iterations < 1) {
+              alert(
+                "Jumlah iterasi harus berupa angka positif. Prompt akan digunakan apa adanya.",
+              );
+              expandedPrompts.push(p);
+              continue;
+            }
+            // Ekspansi prompt
+            const expanded = expandPromptWithVariable(p, iterations);
+            expandedPrompts.push(...expanded);
+          } else {
+            expandedPrompts.push(p);
+          }
+        }
+
+        // Ganti promptsArray dengan hasil ekspansi
+        promptsArray.length = 0;
+        promptsArray.push(...expandedPrompts);
+
+        // UPDATE UI DAN STORAGE SEKALI SAJA DI AKHIR UNTUK MENCEGAH LAG
+        const finalPromptText = promptsArray.join("\n");
+        promptInput.value = finalPromptText;
+        chrome.storage.local.set({ savedPromptText: finalPromptText });
+
+        if (promptsArray.length === 0) {
+          alert("Please enter at least one prompt!");
+          return;
+        }
+
+        failedPromptsTextarea.value = "";
+        chrome.storage.local.set({ savedFailedPrompts: "" });
+
+        // Check if we're resuming from a previous session
+        let startIndex = 0;
+        if (result.lastProcessedPromptIndex > 0) {
+          startIndex = result.lastProcessedPromptIndex;
+          // Remove already processed prompts from the array
+          const remainingPrompts = promptsArray.slice(startIndex);
+          progressText.textContent = `Progress: ${remainingPrompts.length} prompts remaining (resuming from #${startIndex + 1})`;
+        } else {
+          progressText.textContent = `Progress: ${promptsArray.length} prompts remaining`;
+        }
+
+        statusText.textContent = "Starting...";
+
+        const state = {
+          isAutomating: true,
+          step: "INJECT_PROMPT",
+          prompts: promptsArray,
+          aspectRatio: aspectRatioSelect.value,
+          imageStyle: imageStyleSelect.value,
+          downloadCount: downloadCountSelect.value,
+        };
+
+        // Setting isAutomating: true will trigger the onChanged listener -> syncRunButtonUI(true)
+        chrome.storage.local.set(state, () => {
+          console.log(
+            "[NRA DreamLab] Bulk automation state saved:",
+            state,
+          );
+          chrome.tabs.query(
+            { url: "*://*.canva.com/dream-lab*" },
+            (tabs) => {
+              if (tabs.length === 0) {
+                console.warn("No active Dream Lab tab found.");
+                return;
+              }
+              if (tabs && tabs.length > 0) {
+                chrome.tabs.sendMessage(
+                  tabs[0].id,
+                  { action: "START_AUTOMATION" },
+                  (response) => {
+                    if (chrome.runtime.lastError) {
+                      console.warn(
+                        "[Panel] sendMessage failed:",
+                        chrome.runtime.lastError.message,
+                      );
+                      statusText.textContent =
+                        "Error: Cannot communicate with Canva tab. Please refresh.";
+                      statusDot.style.backgroundColor = "#ef4444";
+                      statusDot.classList.remove("active");
+                      chrome.storage.local.set({ isAutomating: false }); // Revert state safely
+                      return;
+                    }
+                  },
+                );
+              }
+            },
+          );
+        });
+      }
+    },
+  );
+}
+
+function handlePauseClick() {
+  chrome.storage.local.get(["isPaused"], (res) => {
+    const newState = !res.isPaused;
+    chrome.storage.local.set({ isPaused: newState });
+    const pauseButton = document.getElementById("pauseButton");
+    if (pauseButton) {
+      pauseButton.textContent = newState ? "▶ RESUME" : "⏸ PAUSE";
+      pauseButton.style.background = newState ? "#2ecc71" : "#f39c12";
+      pauseButton.style.borderColor = newState ? "#2ecc71" : "#f39c12";
+      pauseButton.style.boxShadow = newState
+        ? "4px 4px 0px #27ae60"
+        : "4px 4px 0px #b9770e";
+    }
+  });
+}
+
 function initEventListeners() {
+  const buttons = {
+    startBtn: { id: "startBtn", event: "click", handler: handleStartClick },
+    pauseButton: { id: "pauseButton", event: "click", handler: handlePauseClick },
+    importFileBtn: { id: "importFileBtn", event: "click", handler: () => document.getElementById("fileInput").click() },
+    exportLogsBtn: { id: "exportLogsBtn", event: "click", handler: () => {
+      const logs = document.getElementById("consoleLogs").innerText;
+      const blob = new Blob([logs], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Canva_Logs_${new Date().getTime()}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }},
+    clearLogsBtn: { id: "clearLogsBtn", event: "click", handler: () => {
+      const consoleLogs = document.getElementById("consoleLogs");
+      if (consoleLogs) consoleLogs.innerHTML = "";
+    }},
+    resetStatsBtn: { id: "resetStatsBtn", event: "click", handler: () => {
+      if (confirm("Reset seluruh data Session Analytics ke 0?")) {
+        const emptyStats = { startTime: null, successCount: 0, downloadCount: 0, totalCooldowns: 0, totalPrompts: 0, failedCount: 0 };
+        chrome.storage.local.set({ sessionStats: emptyStats }, () => { updateStatsUI(emptyStats); });
+      }
+    }},
+    retryQuarantineBtn: { id: "retryQuarantineBtn", event: "click", handler: () => {
+      const qInput = document.getElementById("quarantineInput");
+      if (!qInput || !qInput.value.trim()) return alert("Quarantine kosong!");
+      promptInput.value = (promptInput.value ? promptInput.value + "\n" : "") + qInput.value.trim();
+      qInput.value = "";
+      chrome.storage.local.set({ savedPromptText: promptInput.value, savedFailedPrompts: "" });
+    }},
+    clearQuarantineBtn: { id: "clearQuarantineBtn", event: "click", handler: () => {
+      const qInput = document.getElementById("quarantineInput");
+      if (qInput) { qInput.value = ""; chrome.storage.local.set({ savedFailedPrompts: "" }); }
+    }},
+    openDreamLabBtn: { id: "openDreamLabBtn", event: "click", handler: () => { chrome.tabs.create({ url: "https://www.canva.com/dream-lab" }); }},
+    clearPromptsBtn: { id: "clearPromptsBtn", event: "click", handler: () => {
+      if (confirm("Are you sure you want to clear all prompts?")) {
+        if (promptInput) {
+          promptInput.value = "";
+          chrome.storage.local.set({ savedPromptText: "", lastProcessedPromptIndex: 0 });
+          if (progressText) progressText.textContent = "Progress: 0 prompts remaining";
+          const rm = document.querySelector(".resume-message");
+          if (rm) rm.remove();
+        }
+      }
+    }}
+  };
+
+  Object.keys(buttons).forEach(key => {
+    const b = buttons[key];
+    const el = document.getElementById(b.id);
+    if (el) {
+      el.addEventListener(b.event, (e) => {
+        try { b.handler(e); } catch (err) { console.error(`Error pada ${b.id}:`, err); }
+      });
+    }
+  });
+
+  // Listener Input file (Pindahkan ke luar loop)
+  const fileInput = document.getElementById("fileInput");
+  if (fileInput) {
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        promptInput.value = (promptInput.value ? promptInput.value + "\n" : "") + ev.target.result.trim();
+        chrome.storage.local.set({ savedPromptText: promptInput.value });
+      };
+      reader.readAsText(file);
+    });
+  }
+
   // Real-time Save (Input/Change Listeners to prevent data loss)
   let saveTimeout;
-  promptInput.addEventListener("input", () => {
-    clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(() => {
-      chrome.storage.local.set({ savedPromptText: promptInput.value });
-    }, 500); // 500ms debounce
-  });
+  if (promptInput) {
+    promptInput.addEventListener("input", () => {
+      clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(() => {
+        chrome.storage.local.set({ savedPromptText: promptInput.value });
+      }, 500); // 500ms debounce
+    });
+  }
 
-  aspectRatioSelect.addEventListener("change", () => {
-    chrome.storage.local.set({ savedAspectRatio: aspectRatioSelect.value });
-  });
+  if (aspectRatioSelect) {
+    aspectRatioSelect.addEventListener("change", () => {
+      chrome.storage.local.set({ savedAspectRatio: aspectRatioSelect.value });
+    });
+  }
 
-  imageStyleSelect.addEventListener("change", () => {
-    chrome.storage.local.set({ savedImageStyle: imageStyleSelect.value });
-  });
+  if (imageStyleSelect) {
+    imageStyleSelect.addEventListener("change", () => {
+      chrome.storage.local.set({ savedImageStyle: imageStyleSelect.value });
+    });
+  }
 
-  downloadCountSelect.addEventListener("change", () => {
-    chrome.storage.local.set({ savedDownloadCount: downloadCountSelect.value });
-  });
+  if (downloadCountSelect) {
+    downloadCountSelect.addEventListener("change", () => {
+      chrome.storage.local.set({ savedDownloadCount: downloadCountSelect.value });
+    });
+  }
 
-  debugModeSelect.addEventListener("change", () => {
-    isDebugMode = debugModeSelect.value === "true";
-    chrome.storage.local.set({ savedDebugMode: isDebugMode });
-  });
+  if (debugModeSelect) {
+    debugModeSelect.addEventListener("change", () => {
+      isDebugMode = debugModeSelect.value === "true";
+      chrome.storage.local.set({ savedDebugMode: isDebugMode });
+    });
+  }
 
   const subfolderToggle = document.getElementById("subfolderToggle");
   if (subfolderToggle) {
@@ -309,167 +567,6 @@ function initEventListeners() {
   if (verboseLogsToggle) {
     verboseLogsToggle.addEventListener("change", () => {
       chrome.storage.local.set({ verboseLogs: verboseLogsToggle.checked });
-    });
-  }
-
-  // Handle start/stop button
-  if (startBtn) {
-    startBtn.addEventListener("click", () => {
-      chrome.storage.local.get(
-        ["isAutomating", "lastProcessedPromptIndex"],
-        (result) => {
-          const isCurrentlyRunning = result.isAutomating === true;
-
-          if (isCurrentlyRunning) {
-            // WE ARE STOPPING
-            chrome.storage.local.set({ isAutomating: false, step: "IDLE" });
-            statusText.textContent = "Stopping automation...";
-            statusDot.style.backgroundColor = "#ef4444";
-            statusDot.classList.remove("active");
-
-            chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
-              if (tabs.length === 0) {
-                console.warn("No active Dream Lab tab found.");
-                return;
-              }
-              if (tabs && tabs.length > 0) {
-                chrome.tabs.sendMessage(
-                  tabs[0].id,
-                  { action: "STOP_AUTOMATION" },
-                  (response) => {
-                    if (chrome.runtime.lastError) {
-                      console.warn(
-                        "[Panel] sendMessage failed:",
-                        chrome.runtime.lastError.message,
-                      );
-                      statusText.textContent =
-                        "Error: Cannot communicate with Canva tab. Please refresh.";
-                      statusDot.style.backgroundColor = "#ef4444";
-                      statusDot.classList.remove("active");
-                      chrome.storage.local.set({ isAutomating: false });
-                      return;
-                    }
-                  },
-                );
-              }
-            });
-          } else {
-            // WE ARE STARTING
-            chrome.storage.local.set({ isPaused: false });
-            const rawPromptText = promptInput.value;
-            const promptsArray = rawPromptText
-              .split("\n")
-              .map((p) => sanitizeInput(p.trim()))
-              .filter((p) => p.length > 0);
-
-            // Expand prompts with {i} placeholder
-            let expandedPrompts = [];
-            for (let p of promptsArray) {
-              if (p.includes("{i}")) {
-                // Tanya user berapa iterasi
-                const iterationsInput = prompt(
-                  `Prompt "${p}" mengandung {i}. Berapa jumlah iterasi yang diinginkan?`,
-                  "5",
-                );
-                if (iterationsInput === null) {
-                  // User cancel, skip ekspansi, gunakan prompt asli
-                  expandedPrompts.push(p);
-                  continue;
-                }
-                const iterations = parseInt(iterationsInput, 10);
-                if (isNaN(iterations) || iterations < 1) {
-                  alert(
-                    "Jumlah iterasi harus berupa angka positif. Prompt akan digunakan apa adanya.",
-                  );
-                  expandedPrompts.push(p);
-                  continue;
-                }
-                // Ekspansi prompt
-                const expanded = expandPromptWithVariable(p, iterations);
-                expandedPrompts.push(...expanded);
-              } else {
-                expandedPrompts.push(p);
-              }
-            }
-
-            // Ganti promptsArray dengan hasil ekspansi
-            promptsArray.length = 0;
-            promptsArray.push(...expandedPrompts);
-
-            // UPDATE UI DAN STORAGE SEKALI SAJA DI AKHIR UNTUK MENCEGAH LAG
-            const finalPromptText = promptsArray.join("\n");
-            promptInput.value = finalPromptText;
-            chrome.storage.local.set({ savedPromptText: finalPromptText });
-
-            if (promptsArray.length === 0) {
-              alert("Please enter at least one prompt!");
-              return;
-            }
-
-            failedPromptsTextarea.value = "";
-            chrome.storage.local.set({ savedFailedPrompts: "" });
-
-            // Check if we're resuming from a previous session
-            let startIndex = 0;
-            if (result.lastProcessedPromptIndex > 0) {
-              startIndex = result.lastProcessedPromptIndex;
-              // Remove already processed prompts from the array
-              const remainingPrompts = promptsArray.slice(startIndex);
-              progressText.textContent = `Progress: ${remainingPrompts.length} prompts remaining (resuming from #${startIndex + 1})`;
-            } else {
-              progressText.textContent = `Progress: ${promptsArray.length} prompts remaining`;
-            }
-
-            statusText.textContent = "Starting...";
-
-            const state = {
-              isAutomating: true,
-              step: "INJECT_PROMPT",
-              prompts: promptsArray,
-              aspectRatio: aspectRatioSelect.value,
-              imageStyle: imageStyleSelect.value,
-              downloadCount: downloadCountSelect.value,
-            };
-
-            // Setting isAutomating: true will trigger the onChanged listener -> syncRunButtonUI(true)
-            chrome.storage.local.set(state, () => {
-              console.log(
-                "[NRA DreamLab] Bulk automation state saved:",
-                state,
-              );
-              chrome.tabs.query(
-                { url: "*://*.canva.com/dream-lab*" },
-                (tabs) => {
-                  if (tabs.length === 0) {
-                    console.warn("No active Dream Lab tab found.");
-                    return;
-                  }
-                  if (tabs && tabs.length > 0) {
-                    chrome.tabs.sendMessage(
-                      tabs[0].id,
-                      { action: "START_AUTOMATION" },
-                      (response) => {
-                        if (chrome.runtime.lastError) {
-                          console.warn(
-                            "[Panel] sendMessage failed:",
-                            chrome.runtime.lastError.message,
-                          );
-                          statusText.textContent =
-                            "Error: Cannot communicate with Canva tab. Please refresh.";
-                          statusDot.style.backgroundColor = "#ef4444";
-                          statusDot.classList.remove("active");
-                          chrome.storage.local.set({ isAutomating: false }); // Revert state safely
-                          return;
-                        }
-                      },
-                    );
-                  }
-                },
-              );
-            });
-          }
-        },
-      );
     });
   }
 }
@@ -653,14 +750,26 @@ function initMessageListeners() {
 
     // Handle failed/skipped prompt reporting
     if (request.action === "PROMPT_FAILED") {
-      if (failedPromptsTextarea.value) {
-        failedPromptsTextarea.value += "\n" + request.failedPrompt;
-      } else {
-        failedPromptsTextarea.value = request.failedPrompt;
+      const qInput = document.getElementById("quarantineInput");
+      if (qInput) {
+        let raw = request.failedPrompt;
+
+        // Ekstraksi teks aman
+        let text = (typeof raw === 'object' && raw !== null)
+          ? (raw.text || raw.prompt || JSON.stringify(raw))
+          : String(raw);
+
+        // Gunakan metode elemen DOM untuk membersihkan HTML secara total
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = text;
+        const cleanPrompt = tempDiv.textContent || tempDiv.innerText || "";
+
+        // Simpan sebagai teks murni dengan trim
+        const finalPrompt = cleanPrompt.replace(/\s+/g, " ").trim();
+
+        qInput.value = (qInput.value ? qInput.value + "\n" : "") + finalPrompt;
+        chrome.storage.local.set({ savedFailedPrompts: qInput.value });
       }
-      chrome.storage.local.set({
-        savedFailedPrompts: failedPromptsTextarea.value,
-      });
       sendResponse({ success: true });
       return true;
     }
@@ -784,6 +893,68 @@ function initExtendedFeatures() {
     });
   }
 
+  // 1. Toggle Debug Mode
+  const debugModeSelect = document.getElementById("debugMode");
+  if (debugModeSelect) {
+    debugModeSelect.addEventListener("change", () => {
+      chrome.storage.local.set({ debugMode: debugModeSelect.value === "true" });
+    });
+  }
+
+  // 2. Toggle Verbose Logs
+  const verboseLogsToggle = document.getElementById("verboseLogsToggle");
+  if (verboseLogsToggle) {
+    verboseLogsToggle.addEventListener("change", () => {
+      chrome.storage.local.set({ verboseLogs: verboseLogsToggle.checked });
+    });
+  }
+
+  // 3. Toggle Subfolder
+  const subfolderToggle = document.getElementById("subfolderToggle");
+  if (subfolderToggle) {
+    subfolderToggle.addEventListener("change", () => {
+      chrome.storage.local.set({ useSubfolder: subfolderToggle.checked });
+    });
+  }
+
+  // 4. Custom Download Folder
+  const downloadFolderInput = document.getElementById("downloadFolderInput");
+  if (downloadFolderInput) {
+    downloadFolderInput.addEventListener("change", () => {
+      chrome.storage.local.set({ customDownloadFolder: downloadFolderInput.value.trim() });
+    });
+  }
+
+  // 5. Safety Delay
+  const safetyDelaySlider = document.getElementById("safetyDelaySlider");
+  const safetyDelayVal = document.getElementById("safetyDelayVal");
+  if (safetyDelaySlider && safetyDelayVal) {
+    safetyDelaySlider.addEventListener("input", () => {
+      safetyDelayVal.textContent = safetyDelaySlider.value;
+      chrome.storage.local.set({
+        safetyDelay: parseInt(safetyDelaySlider.value, 10),
+      });
+    });
+  }
+
+  // 6. Save Delay
+  const saveDelaySlider = document.getElementById("saveDelaySlider");
+  const saveDelayVal = document.getElementById("saveDelayVal");
+  if (saveDelaySlider && saveDelayVal) {
+    // Muat nilai saat panel dibuka
+    chrome.storage.local.get(["saveDelay"], (res) => {
+      const val = res.saveDelay || 6;
+      saveDelaySlider.value = val;
+      saveDelayVal.textContent = val;
+    });
+    // Listener input
+    saveDelaySlider.addEventListener("input", () => {
+      const val = saveDelaySlider.value;
+      saveDelayVal.textContent = val;
+      chrome.storage.local.set({ saveDelay: parseInt(val, 10) });
+    });
+  }
+
   // --- GOD-TIER 6-FEATURE UPDATE LOGIC ---
 
   // 1. Bulk File Importer
@@ -849,11 +1020,19 @@ function initExtendedFeatures() {
     if (request.action === "PROMPT_FAILED") {
       const qInput = document.getElementById("quarantineInput");
       if (qInput) {
-        // Use request.failedPrompt which is what content.js emits
-        qInput.value =
-          qInput.value +
-          (qInput.value ? "\n" : "") +
-          (request.failedPrompt || request.prompt || "Unknown Failed Prompt");
+        let raw = request.failedPrompt;
+
+        let text = (typeof raw === 'object' && raw !== null)
+          ? (raw.text || raw.prompt || JSON.stringify(raw))
+          : String(raw);
+
+        const doc = new DOMParser().parseFromString(text, "text/html");
+        text = doc.documentElement.textContent;
+
+        const cleanPrompt = text.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+
+        qInput.value = (qInput.value ? qInput.value + "\n" : "") + cleanPrompt;
+        chrome.storage.local.set({ savedFailedPrompts: qInput.value });
       }
     }
   });
@@ -1121,4 +1300,94 @@ function initExtendedFeatures() {
     }
   }
   updateShortcutDisplay();
+
+  // ==========================================
+  // 7. PROMPT PRESETS (Save, Load, Delete)
+  // ==========================================
+  const presetNameInput = document.getElementById('presetNameInput');
+  const savePresetBtn = document.getElementById('savePresetBtn');
+  const presetSelect = document.getElementById('presetSelect');
+  const loadPresetBtn = document.getElementById('loadPresetBtn');
+  const deletePresetBtn = document.getElementById('deletePresetBtn');
+
+  function loadPresetsList() {
+    chrome.storage.local.get(['promptPresets'], (result) => {
+      const presets = result.promptPresets || {};
+      const presetKeys = Object.keys(presets);
+      presetSelect.innerHTML = '<option value="">-- Load Preset --</option>';
+      presetKeys.sort().forEach((key) => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = key;
+        presetSelect.appendChild(option);
+      });
+    });
+  }
+
+  function savePreset() {
+    const name = presetNameInput.value.trim();
+    if (!name) return alert('Masukkan nama preset terlebih dahulu!');
+    const promptText = promptInput.value.trim();
+    if (!promptText) return alert('Prompt text kosong! Tidak ada yang bisa disimpan.');
+    chrome.storage.local.get(['promptPresets'], (result) => {
+      const presets = result.promptPresets || {};
+      if (presets[name] !== undefined) {
+        if (!confirm('Preset "' + name + '" sudah ada. Timpa dengan yang baru?')) return;
+      }
+      presets[name] = promptText;
+      chrome.storage.local.set({ promptPresets: presets }, () => {
+        console.log('[Canva Auto Prompter] ✅ Preset "' + name + '" berhasil disimpan.');
+        presetNameInput.value = '';
+        loadPresetsList();
+        savePresetBtn.textContent = '✅ Saved!';
+        setTimeout(() => savePresetBtn.textContent = '💾 Save', 1500);
+      });
+    });
+  }
+
+  function loadPreset() {
+    const selectedKey = presetSelect.value;
+    if (!selectedKey) return alert('Pilih preset terlebih dahulu dari dropdown!');
+    chrome.storage.local.get(['promptPresets'], (result) => {
+      const presets = result.promptPresets || {};
+      const promptText = presets[selectedKey];
+      if (promptText) {
+        promptInput.value = promptText;
+        chrome.storage.local.set({ savedPromptText: promptText });
+        const lines = promptText.split('\n').filter(p => p.trim().length > 0);
+        if (progressText) progressText.textContent = 'Progress: ' + lines.length + ' prompts loaded from preset';
+        console.log('[Canva Auto Prompter] 📂 Preset "' + selectedKey + '" berhasil dimuat.');
+        loadPresetBtn.textContent = '✅ Loaded!';
+        setTimeout(() => loadPresetBtn.textContent = '📂 Load', 1500);
+      } else {
+        alert('Preset "' + selectedKey + '" tidak ditemukan.');
+      }
+    });
+  }
+
+  function deletePreset() {
+    const selectedKey = presetSelect.value;
+    if (!selectedKey) return alert('Pilih preset yang ingin dihapus dari dropdown!');
+    if (!confirm('Hapus preset "' + selectedKey + '" secara permanen?')) return;
+    chrome.storage.local.get(['promptPresets'], (result) => {
+      const presets = result.promptPresets || {};
+      delete presets[selectedKey];
+      chrome.storage.local.set({ promptPresets: presets }, () => {
+        console.log('[Canva Auto Prompter] 🗑️ Preset "' + selectedKey + '" berhasil dihapus.');
+        loadPresetsList();
+        deletePresetBtn.textContent = '✅ Deleted!';
+        setTimeout(() => deletePresetBtn.textContent = '🗑️ Del', 1500);
+      });
+    });
+  }
+
+  if (savePresetBtn) savePresetBtn.addEventListener('click', savePreset);
+  if (loadPresetBtn) loadPresetBtn.addEventListener('click', loadPreset);
+  if (deletePresetBtn) deletePresetBtn.addEventListener('click', deletePreset);
+  if (presetNameInput) {
+    presetNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); savePreset(); }
+    });
+  }
+  loadPresetsList();
 }

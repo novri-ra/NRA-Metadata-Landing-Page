@@ -2,7 +2,7 @@
 const CANVA_SELECTORS = {
   // Textarea selectors
   PROMPT_TEXTAREA:
-    'textarea[placeholder*="Describe"], textarea[class*="canva"]',
+    'textarea[placeholder*="Describe"], textarea[placeholder*="Ceritakan"], textarea[aria-label*="prompt" i], textarea[class*="canva-ai-input"]',
 
   // Button selectors
   SUBMIT_BUTTON: 'button[type="submit"]',

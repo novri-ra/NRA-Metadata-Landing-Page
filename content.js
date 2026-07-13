@@ -550,11 +550,15 @@ function getScreenCooldownMs() {
  * @param {Error} err
  */
 function handleAutomationError(err) {
-  // KRITIS-3 FIX: Always reset both flags to prevent stuck state
   isRunning = false;
   isLoopActive = false;
 
-  if (err.message === "USER_STOPPED") {
+  // Logging error yang lebih detail
+  const errMessage = (err && err.message) ? err.message : JSON.stringify(err);
+  console.error("[NRA DreamLab] Loop broken due to:", errMessage);
+  if (err && err.stack) console.error("[Stack Trace]:", err.stack);
+
+  if (err && err.message === "USER_STOPPED") {
     console.log("[NRA DreamLab] Process stopped manually.");
     if (heartbeatInterval) {
       clearInterval(heartbeatInterval);
@@ -582,10 +586,7 @@ function handleAutomationError(err) {
     return;
   }
 
-  console.error("[NRA DreamLab] Loop broken due to:", err);
-  const errMsg = err.message || "Unknown error occurred.";
-
-  // KRITIS-4 FIX: Include action key so panel.js processes the status correctly
+  const errMsg = errMessage || "Unknown error occurred.";
   chrome.storage.local.set({ isAutomating: false, step: "ERROR" }, () => {
     chrome.runtime.sendMessage({
       action: "STATUS_UPDATE",
@@ -615,6 +616,11 @@ async function safeCdpTypeHuman(text, context = "input") {
   }
 }
 async function cdpClick(element) {
+  // Proteksi tambahan: Pastikan elemen masih terhubung ke DOM
+  if (!element.isConnected) {
+    throw new Error("Element detached from DOM before click");
+  }
+
   element.scrollIntoView({ behavior: "smooth", block: "center" });
   await delay(300);
 
@@ -625,16 +631,41 @@ async function cdpClick(element) {
 }
 
 async function cdpTypeHuman(text) {
-  console.log(`[NRA DreamLab] Typing prompt using Native DOM Injection...`);
   const textarea = await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA);
   if (!textarea) throw new Error("Textarea not found");
 
-  // Bypass perlindungan React/Next.js untuk memasukkan teks secara instan
-  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
-  nativeInputValueSetter.call(textarea, text);
-  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  const storage = await chrome.storage.local.get(["typingMode"]);
+  const mode = storage.typingMode || "human";
 
-  await delay(300);
+  // Debugging untuk memastikan mode apa yang terbaca
+  console.log(`[NRA DreamLab] Debugging - Current Typing Mode: ${mode}`);
+
+  if (mode === "instant") {
+    console.log(`[NRA DreamLab] Executing Instant Paste...`);
+
+    // Pancing state aktif pada elemen
+    textarea.focus();
+
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+    nativeInputValueSetter.call(textarea, text);
+
+    // Tambahkan cancelable: true agar event disimulasikan lebih realistis
+    textarea.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
+    textarea.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+
+    // Lepas fokus agar Canva menyadari bahwa input telah selesai
+    textarea.blur();
+  } else {
+    console.log(`[NRA DreamLab] Executing Human Typing (120 WPM)...`);
+    textarea.value = "";
+    const typingDelay = 80;
+    for (const char of text) {
+      textarea.value += char;
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      await delay(typingDelay);
+    }
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
+  }
 }
 
 async function safeSelectCanvaConfiguration(typeLabel, optionText) {
@@ -736,68 +767,37 @@ async function injectPrompt(currentPrompt) {
 
 async function submitAndWaitForImages() {
   console.info("[NRA DreamLab] Mencari tombol Generate...");
-  let isImageReady = false;
+  const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON, false, 15000);
+  if (!generateBtn) throw new Error("Generate button not found");
 
-  while (!isImageReady && isRunning) {
-    const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON);
-    if (!generateBtn) throw new Error("Generate button not found");
+  console.info("[NRA DreamLab] Menekan tombol Generate...");
+  await safeCdpClick(generateBtn, "generate button");
 
-    console.info("[NRA DreamLab] Tombol Generate ditemukan, melakukan klik...");
-    await safeCdpClick(generateBtn, "generate button");
+  return new Promise((resolve, reject) => {
+    console.info("[NRA DreamLab] MutationObserver aktif: Menunggu gambar selesai di-render...");
+    
+    // Cek instan: jika tombol download baru sudah ada sebelum observer dipasang
+    if (document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON)) {
+      return resolve();
+    }
 
-    chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Generating..." });
-
-    console.info("[NRA DreamLab] Memantau proses generasi ATAU deteksi limit...");
-
-    let transitionElapsed = 0;
-    let cooldownMs = 0;
-    let oldImageCleared = false;
-
-    // Pengecekan Paralel (Maksimal 10 detik)
-    while (transitionElapsed < 10000) {
-      // 1. Cek apakah limit muncul seketika
-      cooldownMs = getScreenCooldownMs();
-      if (cooldownMs > 0) break;
-
-      // 2. Cek apakah tombol download lama sudah hilang (tanda render dimulai)
-      if (document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) === null) {
-        oldImageCleared = true;
-        break;
+    const observer = new MutationObserver((mutations, obs) => {
+      // Logika Benar: Resolve ketika DOWNLOAD_BUTTON MUN-CUL di layar!
+      if (document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON)) {
+        obs.disconnect();
+        clearTimeout(timeoutHatch);
+        resolve();
       }
-      await delay(500);
-      transitionElapsed += 500;
-    }
+    });
 
-    // JIKA KENA LIMIT (Prioritas Utama)
-    if (cooldownMs > 0) {
-      console.warn(`[NRA DreamLab] Limit akun terdeteksi! Waktu tunggu: ${cooldownMs}ms`);
-      await handleCooldown(cooldownMs, false);
-      console.info("[NRA DreamLab] Cooldown selesai. Mencoba klik Generate ulang...");
-      continue; // Kembali ke atas loop untuk klik generate lagi
-    }
+    observer.observe(document.body, { childList: true, subtree: true });
 
-    // JIKA AMAN DAN RENDER DIMULAI
-    if (oldImageCleared) {
-      console.info("[NRA DreamLab] Menunggu hasil render baru muncul...");
-      let renderElapsed = 0;
-      const timeout = 60000;
-      while (document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) === null && renderElapsed < timeout) {
-        if (!isRunning) throw new Error("USER_STOPPED");
-        await delay(500);
-        renderElapsed += 500;
-      }
-
-      console.log("[NRA DreamLab] Render selesai! Menunggu 2 detik agar HTML gambar stabil...");
-      await delay(2000);
-      isImageReady = true;
-    } else {
-      // Fallback: Jika setelah 10 detik tidak ada limit dan gambar lama tidak hilang (lag koneksi)
-      console.warn("[NRA DreamLab] Transisi tidak terdeteksi dengan jelas, mencoba memaksa lanjut...");
-      isImageReady = true;
-    }
-  }
-
-  console.log("[NRA DreamLab] Melanjutkan ke proses unduhan...");
+    // Escape hatch: Beri batas maksimal 90 detik jika rendering macet
+    const timeoutHatch = setTimeout(() => {
+      observer.disconnect();
+      reject(new Error("Timeout: Proses render Canva melampaui 90 detik atau selektor berubah."));
+    }, 90000);
+  });
 }
 
 async function handleDownload(countSetting = "4") {
@@ -845,6 +845,7 @@ async function handleDownload(countSetting = "4") {
   }
 }
 async function handleCooldown(cooldownMs, isStartup = false) {
+  console.log(`[DEBUG] Entering handleCooldown for ${cooldownMs}ms`);
   if (!isStartup) sessionStats.totalCooldowns++;
   cooldownMs += 5000;
   console.warn(
