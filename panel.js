@@ -1,4 +1,4 @@
-﻿let isRunning = false;
+let isRunning = false;
 let isDebugMode = false;
 
 function applyCustomUI(theme, font) {
@@ -434,23 +434,24 @@ function handlePauseClick() {
 }
 
 function initEventListeners() {
-  const listeners = {
+  const buttons = {
     startBtn: { id: "startBtn", event: "click", handler: handleStartClick },
     pauseButton: { id: "pauseButton", event: "click", handler: handlePauseClick },
+    // ... tambahkan tombol lain
   };
 
-  Object.keys(listeners).forEach((key) => {
-    const el = document.getElementById(listeners[key].id);
+  Object.keys(buttons).forEach(key => {
+    const el = document.getElementById(buttons[key].id);
     if (el) {
-      el.addEventListener(listeners[key].event, (e) => {
+      el.addEventListener(buttons[key].event, (e) => {
         try {
-          listeners[key].handler(e);
+          buttons[key].handler(e);
         } catch (err) {
-          console.error(`Error pada tombol ${listeners[key].id}:`, err);
+          console.error(`Error pada tombol ${buttons[key].id}:`, err);
         }
       });
     } else {
-      console.warn(`Elemen ${listeners[key].id} tidak ditemukan di DOM!`);
+      console.warn(`Elemen ${buttons[key].id} tidak ditemukan di DOM!`);
     }
   });
 
