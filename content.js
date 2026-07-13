@@ -767,16 +767,21 @@ async function submitAndWaitForImages() {
   console.info("[NRA DreamLab] Menekan tombol Generate...");
   await safeCdpClick(generateBtn, "generate button");
 
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
+    // SMART RENDER DELAY: Berikan jeda dinamis 3-5 detik (3000ms - 5000ms) menyerupai manusia
+    // Ini memberikan waktu bagi Canva untuk mulai merender gambar dan memunculkan blok 'Just now'
+    const randomDelay = Math.floor(Math.random() * (5000 - 3000 + 1)) + 3000;
+    console.info(`[NRA DreamLab] ⏱️ Memberikan jeda loading gambar selama ${randomDelay}ms sebelum memindai tombol unduh...`);
+    await delay(randomDelay);
+
     console.info("[NRA DreamLab] MutationObserver aktif: Menunggu gambar selesai di-render...");
     
-    // Cek instan: jika tombol download baru sudah ada sebelum observer dipasang
+    // Cek instan setelah delay: jika tombol download dari batch baru sudah langsung ada
     if (document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON)) {
       return resolve();
     }
 
     const observer = new MutationObserver((mutations, obs) => {
-      // Logika Benar: Resolve ketika DOWNLOAD_BUTTON MUN-CUL di layar!
       if (document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON)) {
         obs.disconnect();
         clearTimeout(timeoutHatch);
@@ -786,7 +791,7 @@ async function submitAndWaitForImages() {
 
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Escape hatch: Beri batas maksimal 90 detik jika rendering macet
+    // Escape hatch 90 detik jika rendering Canva macet
     const timeoutHatch = setTimeout(() => {
       observer.disconnect();
       reject(new Error("Timeout: Proses render Canva melampaui 90 detik atau selektor berubah."));
