@@ -1143,11 +1143,9 @@ async function startMainLoop() {
       }
     } catch (err) {
       handleAutomationError(err);
-      throw err; // Re-throw to ensure outer catch block handles it
     }
   } catch (err) {
     handleAutomationError(err);
-    throw err;
   }
 }
 
