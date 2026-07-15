@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to the NRA DreamLab extension will be documented in this file.
 
+## [1.1.7] - 2026-07-15
+### Added
+- Implemented Adaptive Render Detection Loop in submitAndWaitForImages by actively polling for Canva's 'Refining', 'Generating', and progressbar states, eliminating the reliance on static timers.
+
 ## [1.1.6] - 2026-07-15
 ### Fixed
 - Fixed dynamic URL match string verification to prevent infinite reload loops caused by complex Canva tracking parameters (adj query strings).
