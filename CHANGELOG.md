@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to the NRA DreamLab extension will be documented in this file.
 
+## [1.1.11] - 2026-07-15
+### Fixed
+- Applied secondary audit recommendations by substituting manual query selectors with CANVA_SELECTORS.ALERT_STATUS in content.js.
+- Cleaned up source code by removing deprecated logToTerminal functions.
+- Implemented global defensive .catch gates on emergency exception messaging streams.
+
 ## [1.1.9] - 2026-07-15
 ### Fixed
 - Fixed image blur rendering bug by checking visual container opacity state in content.js.

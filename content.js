@@ -58,22 +58,6 @@ window.addEventListener("unhandledrejection", function (event) {
   event.preventDefault();
 });
 
-// Verbose Logs Helper Function
-async function logToTerminal(message, isVerboseOnly = false) {
-  // Check user settings
-  const res = await chrome.storage.local.get(["verboseLogs"]);
-  const isVerboseMode = res.verboseLogs !== false; // Default to true
-
-  // If this is a detailed log and the user turned off verbose mode, skip it.
-  if (isVerboseOnly && !isVerboseMode) return;
-
-  const timestamp = new Date().toLocaleTimeString();
-  const fullMessage = `[${timestamp}] ${message}`;
-
-  console.log(fullMessage);
-  chrome.runtime.sendMessage({ action: "LOG_MESSAGE", message: fullMessage });
-}
-
 // NRA DreamLab - Content Script targeting canva.com/dream-lab
 // Operates exclusively on https://www.canva.com/dream-lab
 
@@ -497,9 +481,8 @@ function getScreenCooldownMs() {
 
   let pageText = "";
 
-  const alertElements = document.querySelectorAll(
-    '[role="alert"], [role="status"]',
-  );
+  // Gunakan selektor terpusat hasil audit untuk memindai status alert halaman
+  const alertElements = document.querySelectorAll(CANVA_SELECTORS.ALERT_STATUS);
   alertElements.forEach(function (el) {
     pageText += el.innerText + " ";
   });
@@ -581,7 +564,7 @@ function handleAutomationError(err) {
         title: "Canva Automation Halted",
         message:
           "You've hit your plan's monthly AI limit! Automation has been permanently stopped.",
-      });
+      }).catch(() => { });
     });
     return;
   }
@@ -591,7 +574,7 @@ function handleAutomationError(err) {
     chrome.runtime.sendMessage({
       action: "STATUS_UPDATE",
       status: "Error: " + errMsg,
-    });
+    }).catch(() => { });
   });
   chrome.runtime.sendMessage({ action: "RELEASE_AWAKE" }).catch(() => ({}));
 }
