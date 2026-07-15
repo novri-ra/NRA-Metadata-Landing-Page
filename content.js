@@ -985,7 +985,7 @@ async function startMainLoop() {
       "downloadCount",
     ]);
 
-    if (!window.location.href.includes("dream-lab")) {
+    if (!window.location.href.includes("canva.com/dream-lab")) {
       throw new Error("URL_MISMATCH");
     }
 

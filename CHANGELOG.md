@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to the NRA DreamLab extension will be documented in this file.
 
+## [1.1.6] - 2026-07-15
+### Fixed
+- Fixed dynamic URL match string verification to prevent infinite reload loops caused by complex Canva tracking parameters (adj query strings).
+
 ## [1.1.5] - 2026-07-13
 ### Added
 - Auto-scroll reset to top (window.scrollTo) when typing a new prompt.
