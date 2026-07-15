@@ -792,10 +792,10 @@ async function submitAndWaitForImages() {
       const downloadExists = document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) !== null;
       if (downloadExists) {
 
-        // JIKA SEBELUMNYA TERDETEKSI FINALIZING, BERIKAN JEDA AMAN SINKRONISASI ANIMASI 3 DETIK
+        // JIKA SEBELUMNYA TERDETEKSI FINALIZING, BERIKAN JEDA AMAN SINKRONISASI ANIMASI 5 DETIK
         if (detectedFinalizing) {
-          console.info("[NRA DreamLab] ✨ Teks Finalizing hilang. Menahan download selama 3 detik agar animasi render selesai sempurna...");
-          await delay(3000);
+          console.info("[NRA DreamLab] ✨ Teks Finalizing hilang. Menahan download selama 5 detik agar animasi render selesai sempurna...");
+          await delay(5000);
         }
 
         // Ambil ekstra safety delay dari storage jika dikonfigurasi oleh pengguna
@@ -1143,11 +1143,9 @@ async function startMainLoop() {
       }
     } catch (err) {
       handleAutomationError(err);
-      throw err; // Re-throw to ensure outer catch block handles it
     }
   } catch (err) {
     handleAutomationError(err);
-    throw err;
   }
 }
 
