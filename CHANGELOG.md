@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to the NRA DreamLab extension will be documented in this file.
 
+## [1.1.14] - 2026-07-15
+### Fixed
+- Resolved storage key asynchrony for createSubfolder and downloadFolder targets across panel.js components.
+- Eliminated redundant message listener registration for PROMPT_FAILED to ensure accurate visual updating of both Failed and Quarantined prompt containers.
+
 ## [1.1.13] - 2026-07-15
 ### Added
 - Implemented sequential prompt state tracking (Sketching to Finalizing) in submitAndWaitForImages with an automated 3-second post-finalizing delay filter to avoid asset blur issues.
