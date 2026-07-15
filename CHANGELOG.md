@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to the NRA DreamLab extension will be documented in this file.
 
+## [1.1.12] - 2026-07-15
+### Fixed
+- Fixed SyntaxError in getScreenCooldownMs by reverting document.querySelectorAll to use pure CSS selectors instead of the XPath expression from CANVA_SELECTORS.ALERT_STATUS.
+
 ## [1.1.11] - 2026-07-15
 ### Fixed
 - Applied secondary audit recommendations by substituting manual query selectors with CANVA_SELECTORS.ALERT_STATUS in content.js.

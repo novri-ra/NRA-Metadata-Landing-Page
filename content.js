@@ -482,7 +482,8 @@ function getScreenCooldownMs() {
   let pageText = "";
 
   // Gunakan selektor terpusat hasil audit untuk memindai status alert halaman
-  const alertElements = document.querySelectorAll(CANVA_SELECTORS.ALERT_STATUS);
+  // Menggunakan selector CSS murni karena querySelectorAll tidak mendukung format XPath
+  const alertElements = document.querySelectorAll('[role="alert"], [role="status"]');
   alertElements.forEach(function (el) {
     pageText += el.innerText + " ";
   });
