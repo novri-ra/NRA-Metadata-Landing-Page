@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to the NRA DreamLab extension will be documented in this file.
 
+## [1.1.13] - 2026-07-15
+### Added
+- Implemented sequential prompt state tracking (Sketching to Finalizing) in submitAndWaitForImages with an automated 3-second post-finalizing delay filter to avoid asset blur issues.
+
 ## [1.1.12] - 2026-07-15
 ### Fixed
 - Fixed SyntaxError in getScreenCooldownMs by reverting document.querySelectorAll to use pure CSS selectors instead of the XPath expression from CANVA_SELECTORS.ALERT_STATUS.

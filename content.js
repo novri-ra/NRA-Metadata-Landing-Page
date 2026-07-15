@@ -760,52 +760,62 @@ async function submitAndWaitForImages() {
   console.info("[NRA DreamLab] Menekan tombol Generate...");
   await safeCdpClick(generateBtn, "generate button");
 
-  await delay(3000);
+  await delay(3000); // Tunggu inisiasi pemrosesan DOM awal
 
-  console.info("[NRA DreamLab] Memulai pemantauan adaptif tajam visual gambar (Anti-Blur)...");
+  console.info("[NRA DreamLab] Memulai pemantauan adaptif fase rendering (Anti-Blur)...");
   const maxWaitTimeMs = 150000;
-  const checkIntervalMs = 2000;
+  const checkIntervalMs = 1000;
   const startTime = Date.now();
+  let detectedFinalizing = false;
 
   while (Date.now() - startTime < maxWaitTimeMs) {
     if (!isRunning) throw new Error("USER_STOPPED");
 
     const pageText = document.body.innerText || "";
-    const isProcessingText = /refining|generating|memproses|membuat/i.test(pageText) ||
+
+    // Periksa status teks pemrosesan aktif di layar
+    const isSketching = /sketching/i.test(pageText);
+    const isFinalizing = /finalizing/i.test(pageText);
+    const isProcessingText = isSketching || isFinalizing || /refining|generating|memproses|membuat/i.test(pageText) ||
       document.querySelector('[role="progressbar"]') !== null;
 
-    const sections = Array.from(document.querySelectorAll('section'));
-    let isStillBlur = false;
-    if (sections.length > 0) {
-      const topSection = sections[0];
-      const lowOpacityEl = topSection.querySelector('[style*="opacity"], [class*="loading"], [class*="skeleton"]');
-      if (lowOpacityEl) {
-        const computedOpacity = window.getComputedStyle(lowOpacityEl).opacity;
-        if (computedOpacity && parseFloat(computedOpacity) < 0.9) {
-          isStillBlur = true;
-        }
+    // Tandai jika bot berhasil mendeteksi fase Finalizing dari Canva
+    if (isFinalizing) {
+      if (!detectedFinalizing) {
+        console.info("[NRA DreamLab] 🎯 Fase 'Finalizing your image...' terdeteksi di layar.");
+        detectedFinalizing = true;
       }
     }
 
-    if (!isProcessingText && !isStillBlur) {
+    // Kontainer dianggap siap jika seluruh teks pemprosesan telah hilang dari DOM
+    if (!isProcessingText) {
       const downloadExists = document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) !== null;
       if (downloadExists) {
+
+        // JIKA SEBELUMNYA TERDETEKSI FINALIZING, BERIKAN JEDA AMAN SINKRONISASI ANIMASI 3 DETIK
+        if (detectedFinalizing) {
+          console.info("[NRA DreamLab] ✨ Teks Finalizing hilang. Menahan download selama 3 detik agar animasi render selesai sempurna...");
+          await delay(3000);
+        }
+
+        // Ambil ekstra safety delay dari storage jika dikonfigurasi oleh pengguna
         const res = await chrome.storage.local.get(["safetyDelay"]);
         const extraDelay = (parseInt(res.safetyDelay, 10) || 0) * 1000;
         if (extraDelay > 0) {
           console.info(`[NRA DreamLab] Menerapkan Extra Safety Delay sebesar ${extraDelay}ms...`);
           await delay(extraDelay);
         }
-        console.info("[NRA DreamLab] ✅ Gambar terdeteksi tajam sempurna dan tidak blur! Lanjut mengunduh...");
+
+        console.info("[NRA DreamLab] ✅ Gambar terdeteksi siap dan tajam! Menuju proses download...");
         return true;
       }
     }
 
-    console.log("[NRA DreamLab] Gambar masih dalam proses render kasar/blur. Menahan loop...");
+    console.log("[NRA DreamLab] Menunggu proses rendering gambar Canva tuntas...");
     await delay(checkIntervalMs);
   }
 
-  throw new Error("Timeout: Proses render tajam gambar melampaui batas waktu aman.");
+  throw new Error("Timeout: Proses pembuatan tajam gambar Canva melampaui batas waktu aman.");
 }
 
 async function handleDownload(countSetting = "4", currentPrompt = "") {
