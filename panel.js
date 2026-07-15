@@ -780,25 +780,29 @@ function initMessageListeners() {
 
     // Handle failed/skipped prompt reporting
     if (request.action === "PROMPT_FAILED") {
-      const qInput = document.getElementById("quarantineInput");
-      if (qInput) {
-        let raw = request.failedPrompt;
+      const failedEl = document.getElementById("failedPrompts");
+      const quarantineEl = document.getElementById("quarantineInput");
 
-        // Ekstraksi teks aman
-        let text = (typeof raw === 'object' && raw !== null)
-          ? (raw.text || raw.prompt || JSON.stringify(raw))
-          : String(raw);
+      let raw = request.failedPrompt;
+      let text = (typeof raw === 'object' && raw !== null)
+        ? (raw.text || raw.prompt || JSON.stringify(raw))
+        : String(raw);
 
-        // Gunakan metode elemen DOM untuk membersihkan HTML secara total
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = text;
-        const cleanPrompt = tempDiv.textContent || tempDiv.innerText || "";
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = text;
+      const cleanPrompt = tempDiv.textContent || tempDiv.innerText || "";
+      const finalPrompt = cleanPrompt.replace(/\s+/g, " ").trim();
 
-        // Simpan sebagai teks murni dengan trim
-        const finalPrompt = cleanPrompt.replace(/\s+/g, " ").trim();
-
-        qInput.value = (qInput.value ? qInput.value + "\n" : "") + finalPrompt;
-        chrome.storage.local.set({ savedFailedPrompts: qInput.value });
+      if (finalPrompt) {
+        // Tampilkan di box Failed Prompts
+        if (failedEl) {
+          failedEl.value = (failedEl.value ? failedEl.value + "\n" : "") + finalPrompt;
+        }
+        // Tampilkan di box Quarantined Prompts untuk diselamatkan user
+        if (quarantineEl) {
+          quarantineEl.value = (quarantineEl.value ? quarantineEl.value + "\n" : "") + finalPrompt;
+          chrome.storage.local.set({ savedFailedPrompts: quarantineEl.value });
+        }
       }
       sendResponse({ success: true });
       return true;
@@ -957,19 +961,19 @@ function initExtendedFeatures() {
     });
   }
 
-  // 3. Toggle Subfolder
+  // 3. Toggle Subfolder (Diselaraskan ke createSubfolder)
   const subfolderToggle = document.getElementById("subfolderToggle");
   if (subfolderToggle) {
     subfolderToggle.addEventListener("change", () => {
-      chrome.storage.local.set({ useSubfolder: subfolderToggle.checked });
+      chrome.storage.local.set({ createSubfolder: subfolderToggle.checked });
     });
   }
 
-  // 4. Custom Download Folder
+  // 4. Custom Download Folder (Diselaraskan ke downloadFolder)
   const downloadFolderInput = document.getElementById("downloadFolderInput");
   if (downloadFolderInput) {
     downloadFolderInput.addEventListener("change", () => {
-      chrome.storage.local.set({ customDownloadFolder: downloadFolderInput.value.trim() });
+      chrome.storage.local.set({ downloadFolder: downloadFolderInput.value.trim() });
     });
   }
 
@@ -1033,28 +1037,6 @@ function initExtendedFeatures() {
     });
   }
 
-  // 4. Quarantine Catch Listener
-  chrome.runtime.onMessage.addListener((request) => {
-    if (request.action === "PROMPT_FAILED") {
-      const qInput = document.getElementById("quarantineInput");
-      if (qInput) {
-        let raw = request.failedPrompt;
-
-        let text = (typeof raw === 'object' && raw !== null)
-          ? (raw.text || raw.prompt || JSON.stringify(raw))
-          : String(raw);
-
-        const doc = new DOMParser().parseFromString(text, "text/html");
-        text = doc.documentElement.textContent;
-
-        const cleanPrompt = text.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
-
-        qInput.value = (qInput.value ? qInput.value + "\n" : "") + cleanPrompt;
-        chrome.storage.local.set({ savedFailedPrompts: qInput.value });
-      }
-    }
-  });
-
   // 5. Retry Quarantine Logic - Pindahkan semua prompt dari Quarantine ke Prompt Input utama
   const retryQuarantineBtn = document.getElementById("retryQuarantineBtn");
   if (retryQuarantineBtn) {
@@ -1101,14 +1083,6 @@ function initExtendedFeatures() {
   }
 
   // --- UTILITY ICONS LOGIC ---
-
-  // 1. Open Dream Lab Shortcut
-  const openDreamLabBtn = document.getElementById("openDreamLabBtn");
-  if (openDreamLabBtn) {
-    openDreamLabBtn.addEventListener("click", () => {
-      chrome.tabs.create({ url: "https://www.canva.com/dream-lab" });
-    });
-  }
 
   // 2. Clear Prompts Trash Can
   const clearPromptsBtn = document.getElementById("clearPromptsBtn");
