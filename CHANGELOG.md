@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to the NRA DreamLab extension will be documented in this file.
 
+## [1.1.16] - 2026-07-15
+### Changed
+- Increased the post-finalizing rendering stabilization delay from 3 seconds to 5 seconds in submitAndWaitForImages to ensure perfect image sharpness before download triggers.
+
 ## [1.1.15] - 2026-07-15
 ### Fixed
 - Fixed duplicate terminal logging statements for USER_STOPPED sequences by optimizing catch-block re-throwing paths in startMainLoop.
