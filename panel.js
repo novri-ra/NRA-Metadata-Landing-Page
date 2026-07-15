@@ -437,64 +437,80 @@ function initEventListeners() {
   const buttons = {
     startBtn: { id: "startBtn", event: "click", handler: handleStartClick },
     pauseButton: { id: "pauseButton", event: "click", handler: handlePauseClick },
-    settingsBtn: { id: "settingsBtn", event: "click", handler: () => {
-      const modal = document.getElementById("settingsModal");
-      if (modal) {
-        modal.classList.remove("hidden");
-        document.body.classList.add("modal-open");
-      }
-    }},
-    closeSettingsBtn: { id: "closeSettingsBtn", event: "click", handler: () => {
-      const modal = document.getElementById("settingsModal");
-      if (modal) {
-        modal.classList.add("hidden");
-        document.body.classList.remove("modal-open");
-      }
-    }},
-    importFileBtn: { id: "importFileBtn", event: "click", handler: () => document.getElementById("fileInput").click() },
-    exportLogsBtn: { id: "exportLogsBtn", event: "click", handler: () => {
-      const logs = document.getElementById("consoleLogs").innerText;
-      const blob = new Blob([logs], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Canva_Logs_${new Date().getTime()}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }},
-    clearLogsBtn: { id: "clearLogsBtn", event: "click", handler: () => {
-      const consoleLogs = document.getElementById("consoleLogs");
-      if (consoleLogs) consoleLogs.innerHTML = "";
-    }},
-    resetStatsBtn: { id: "resetStatsBtn", event: "click", handler: () => {
-      if (confirm("Reset seluruh data Session Analytics ke 0?")) {
-        const emptyStats = { startTime: null, successCount: 0, downloadCount: 0, totalCooldowns: 0, totalPrompts: 0, failedCount: 0 };
-        chrome.storage.local.set({ sessionStats: emptyStats }, () => { updateStatsUI(emptyStats); });
-      }
-    }},
-    retryQuarantineBtn: { id: "retryQuarantineBtn", event: "click", handler: () => {
-      const qInput = document.getElementById("quarantineInput");
-      if (!qInput || !qInput.value.trim()) return alert("Quarantine kosong!");
-      promptInput.value = (promptInput.value ? promptInput.value + "\n" : "") + qInput.value.trim();
-      qInput.value = "";
-      chrome.storage.local.set({ savedPromptText: promptInput.value, savedFailedPrompts: "" });
-    }},
-    clearQuarantineBtn: { id: "clearQuarantineBtn", event: "click", handler: () => {
-      const qInput = document.getElementById("quarantineInput");
-      if (qInput) { qInput.value = ""; chrome.storage.local.set({ savedFailedPrompts: "" }); }
-    }},
-    openDreamLabBtn: { id: "openDreamLabBtn", event: "click", handler: () => { chrome.tabs.create({ url: "https://www.canva.com/dream-lab" }); }},
-    clearPromptsBtn: { id: "clearPromptsBtn", event: "click", handler: () => {
-      if (confirm("Are you sure you want to clear all prompts?")) {
-        if (promptInput) {
-          promptInput.value = "";
-          chrome.storage.local.set({ savedPromptText: "", lastProcessedPromptIndex: 0 });
-          if (progressText) progressText.textContent = "Progress: 0 prompts remaining";
-          const rm = document.querySelector(".resume-message");
-          if (rm) rm.remove();
+    settingsBtn: {
+      id: "settingsBtn", event: "click", handler: () => {
+        const modal = document.getElementById("settingsModal");
+        if (modal) {
+          modal.classList.remove("hidden");
+          document.body.classList.add("modal-open");
         }
       }
-    }}
+    },
+    closeSettingsBtn: {
+      id: "closeSettingsBtn", event: "click", handler: () => {
+        const modal = document.getElementById("settingsModal");
+        if (modal) {
+          modal.classList.add("hidden");
+          document.body.classList.remove("modal-open");
+        }
+      }
+    },
+    importFileBtn: { id: "importFileBtn", event: "click", handler: () => document.getElementById("fileInput").click() },
+    exportLogsBtn: {
+      id: "exportLogsBtn", event: "click", handler: () => {
+        const logs = document.getElementById("consoleLogs").innerText;
+        const blob = new Blob([logs], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Canva_Logs_${new Date().getTime()}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    },
+    clearLogsBtn: {
+      id: "clearLogsBtn", event: "click", handler: () => {
+        const consoleLogs = document.getElementById("consoleLogs");
+        if (consoleLogs) consoleLogs.innerHTML = "";
+      }
+    },
+    resetStatsBtn: {
+      id: "resetStatsBtn", event: "click", handler: () => {
+        if (confirm("Reset seluruh data Session Analytics ke 0?")) {
+          const emptyStats = { startTime: null, successCount: 0, downloadCount: 0, totalCooldowns: 0, totalPrompts: 0, failedCount: 0 };
+          chrome.storage.local.set({ sessionStats: emptyStats }, () => { updateStatsUI(emptyStats); });
+        }
+      }
+    },
+    retryQuarantineBtn: {
+      id: "retryQuarantineBtn", event: "click", handler: () => {
+        const qInput = document.getElementById("quarantineInput");
+        if (!qInput || !qInput.value.trim()) return alert("Quarantine kosong!");
+        promptInput.value = (promptInput.value ? promptInput.value + "\n" : "") + qInput.value.trim();
+        qInput.value = "";
+        chrome.storage.local.set({ savedPromptText: promptInput.value, savedFailedPrompts: "" });
+      }
+    },
+    clearQuarantineBtn: {
+      id: "clearQuarantineBtn", event: "click", handler: () => {
+        const qInput = document.getElementById("quarantineInput");
+        if (qInput) { qInput.value = ""; chrome.storage.local.set({ savedFailedPrompts: "" }); }
+      }
+    },
+    openDreamLabBtn: { id: "openDreamLabBtn", event: "click", handler: () => { chrome.tabs.create({ url: "https://www.canva.com/dream-lab" }); } },
+    clearPromptsBtn: {
+      id: "clearPromptsBtn", event: "click", handler: () => {
+        if (confirm("Are you sure you want to clear all prompts?")) {
+          if (promptInput) {
+            promptInput.value = "";
+            chrome.storage.local.set({ savedPromptText: "", lastProcessedPromptIndex: 0 });
+            if (progressText) progressText.textContent = "Progress: 0 prompts remaining";
+            const rm = document.querySelector(".resume-message");
+            if (rm) rm.remove();
+          }
+        }
+      }
+    }
   };
 
   Object.keys(buttons).forEach(key => {
@@ -891,18 +907,36 @@ function expandPromptWithVariable(prompt, iterations) {
 }
 
 function initExtendedFeatures() {
-  // Save Delay Slider
+  const safetyDelaySlider = document.getElementById("safetyDelaySlider");
+  const safetyDelayVal = document.getElementById("safetyDelayVal");
   const saveDelaySlider = document.getElementById("saveDelaySlider");
   const saveDelayVal = document.getElementById("saveDelayVal");
-  if (saveDelaySlider && saveDelayVal) {
-    chrome.storage.local.get(["saveDelay"], function (res) {
-      const savedDelay = parseInt(res.saveDelay, 10) || 6;
-      saveDelaySlider.value = savedDelay;
-      saveDelayVal.textContent = savedDelay;
+
+  chrome.storage.local.get(["safetyDelay", "saveDelay"], function (res) {
+    if (safetyDelaySlider && safetyDelayVal) {
+      const savedSafety = parseInt(res.safetyDelay, 10) || 0;
+      safetyDelaySlider.value = savedSafety;
+      safetyDelayVal.textContent = savedSafety;
+    }
+    if (saveDelaySlider && saveDelayVal) {
+      const savedSave = parseInt(res.saveDelay, 10) || 6;
+      saveDelaySlider.value = savedSave;
+      saveDelayVal.textContent = savedSave;
+    }
+  });
+
+  if (safetyDelaySlider) {
+    safetyDelaySlider.addEventListener("input", function () {
+      const val = parseInt(this.value, 10) || 0;
+      if (safetyDelayVal) safetyDelayVal.textContent = val;
+      chrome.storage.local.set({ safetyDelay: val });
     });
+  }
+
+  if (saveDelaySlider) {
     saveDelaySlider.addEventListener("input", function () {
-      const val = parseInt(this.value, 10);
-      saveDelayVal.textContent = val;
+      const val = parseInt(this.value, 10) || 6;
+      if (saveDelayVal) saveDelayVal.textContent = val;
       chrome.storage.local.set({ saveDelay: val });
     });
   }
@@ -939,31 +973,6 @@ function initExtendedFeatures() {
     });
   }
 
-  // 5. Safety Delay
-  if (safetyDelaySlider && safetyDelayVal) {
-    safetyDelaySlider.addEventListener("input", () => {
-      safetyDelayVal.textContent = safetyDelaySlider.value;
-      chrome.storage.local.set({
-        safetyDelay: parseInt(safetyDelaySlider.value, 10),
-      });
-    });
-  }
-
-  // 6. Save Delay
-  if (saveDelaySlider && saveDelayVal) {
-    // Muat nilai saat panel dibuka
-    chrome.storage.local.get(["saveDelay"], (res) => {
-      const val = res.saveDelay || 6;
-      saveDelaySlider.value = val;
-      saveDelayVal.textContent = val;
-    });
-    // Listener input
-    saveDelaySlider.addEventListener("input", () => {
-      const val = saveDelaySlider.value;
-      saveDelayVal.textContent = val;
-      chrome.storage.local.set({ saveDelay: parseInt(val, 10) });
-    });
-  }
 
   // --- GOD-TIER 6-FEATURE UPDATE LOGIC ---
   // 1. Bulk File Importer
@@ -1211,8 +1220,6 @@ function initExtendedFeatures() {
   const themeSelect = document.getElementById("themeSelect");
   const fontSelect = document.getElementById("fontSelect");
   const batchLimitInput = document.getElementById("batchLimitInput");
-  const safetyDelaySlider = document.getElementById("safetyDelaySlider");
-  const safetyDelayVal = document.getElementById("safetyDelayVal");
   const soundToggle = document.getElementById("soundToggle");
 
   // Open settings modal
@@ -1257,15 +1264,6 @@ function initExtendedFeatures() {
   }
 
   // Advanced Settings Listeners
-  if (safetyDelaySlider && safetyDelayVal) {
-    safetyDelaySlider.addEventListener("input", () => {
-      safetyDelayVal.textContent = safetyDelaySlider.value;
-      chrome.storage.local.set({
-        safetyDelay: parseInt(safetyDelaySlider.value, 10),
-      });
-    });
-  }
-
   if (batchLimitInput) {
     batchLimitInput.addEventListener("change", () => {
       chrome.storage.local.set({

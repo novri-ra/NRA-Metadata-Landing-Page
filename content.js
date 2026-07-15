@@ -58,22 +58,6 @@ window.addEventListener("unhandledrejection", function (event) {
   event.preventDefault();
 });
 
-// Verbose Logs Helper Function
-async function logToTerminal(message, isVerboseOnly = false) {
-  // Check user settings
-  const res = await chrome.storage.local.get(["verboseLogs"]);
-  const isVerboseMode = res.verboseLogs !== false; // Default to true
-
-  // If this is a detailed log and the user turned off verbose mode, skip it.
-  if (isVerboseOnly && !isVerboseMode) return;
-
-  const timestamp = new Date().toLocaleTimeString();
-  const fullMessage = `[${timestamp}] ${message}`;
-
-  console.log(fullMessage);
-  chrome.runtime.sendMessage({ action: "LOG_MESSAGE", message: fullMessage });
-}
-
 // NRA DreamLab - Content Script targeting canva.com/dream-lab
 // Operates exclusively on https://www.canva.com/dream-lab
 
@@ -497,9 +481,9 @@ function getScreenCooldownMs() {
 
   let pageText = "";
 
-  const alertElements = document.querySelectorAll(
-    '[role="alert"], [role="status"]',
-  );
+  // Gunakan selektor terpusat hasil audit untuk memindai status alert halaman
+  // Menggunakan selector CSS murni karena querySelectorAll tidak mendukung format XPath
+  const alertElements = document.querySelectorAll('[role="alert"], [role="status"]');
   alertElements.forEach(function (el) {
     pageText += el.innerText + " ";
   });
@@ -581,7 +565,7 @@ function handleAutomationError(err) {
         title: "Canva Automation Halted",
         message:
           "You've hit your plan's monthly AI limit! Automation has been permanently stopped.",
-      });
+      }).catch(() => { });
     });
     return;
   }
@@ -591,7 +575,7 @@ function handleAutomationError(err) {
     chrome.runtime.sendMessage({
       action: "STATUS_UPDATE",
       status: "Error: " + errMsg,
-    });
+    }).catch(() => { });
   });
   chrome.runtime.sendMessage({ action: "RELEASE_AWAKE" }).catch(() => ({}));
 }
@@ -776,38 +760,52 @@ async function submitAndWaitForImages() {
   console.info("[NRA DreamLab] Menekan tombol Generate...");
   await safeCdpClick(generateBtn, "generate button");
 
-  // Jeda awal 3 detik memberi waktu bagi Canva untuk memunculkan indikator loading/refining
   await delay(3000);
 
-  console.info("[NRA DreamLab] Memulai pemantauan adaptif state rendering Canva...");
-
-  const maxWaitTimeMs = 120000; // Batas aman maksimal 2 menit
-  const checkIntervalMs = 2000;  // Periksa DOM setiap 2 detik
+  console.info("[NRA DreamLab] Memulai pemantauan adaptif tajam visual gambar (Anti-Blur)...");
+  const maxWaitTimeMs = 150000;
+  const checkIntervalMs = 2000;
   const startTime = Date.now();
 
   while (Date.now() - startTime < maxWaitTimeMs) {
     if (!isRunning) throw new Error("USER_STOPPED");
 
-    // Pindai keberadaan teks atau elemen indikator pemrosesan gambar aktif di layar
     const pageText = document.body.innerText || "";
-    const isProcessing = /refining|generating|memproses|membuat/i.test(pageText) ||
-      document.querySelector('[role="progressbar"]') !== null ||
-      document.querySelector('[class*="loading"], [class*="progress"]') !== null;
+    const isProcessingText = /refining|generating|memproses|membuat/i.test(pageText) ||
+      document.querySelector('[role="progressbar"]') !== null;
 
-    if (!isProcessing) {
-      // Pastikan tombol unduh sudah benar-benar lahir di DOM sebelum keluar dari pengondisian
+    const sections = Array.from(document.querySelectorAll('section'));
+    let isStillBlur = false;
+    if (sections.length > 0) {
+      const topSection = sections[0];
+      const lowOpacityEl = topSection.querySelector('[style*="opacity"], [class*="loading"], [class*="skeleton"]');
+      if (lowOpacityEl) {
+        const computedOpacity = window.getComputedStyle(lowOpacityEl).opacity;
+        if (computedOpacity && parseFloat(computedOpacity) < 0.9) {
+          isStillBlur = true;
+        }
+      }
+    }
+
+    if (!isProcessingText && !isStillBlur) {
       const downloadExists = document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) !== null;
       if (downloadExists) {
-        console.info("[NRA DreamLab] ✅ Proses render selesai dideteksi secara adaptif! Menuju proses download...");
+        const res = await chrome.storage.local.get(["safetyDelay"]);
+        const extraDelay = (parseInt(res.safetyDelay, 10) || 0) * 1000;
+        if (extraDelay > 0) {
+          console.info(`[NRA DreamLab] Menerapkan Extra Safety Delay sebesar ${extraDelay}ms...`);
+          await delay(extraDelay);
+        }
+        console.info("[NRA DreamLab] ✅ Gambar terdeteksi tajam sempurna dan tidak blur! Lanjut mengunduh...");
         return true;
       }
     }
 
-    console.log("[NRA DreamLab] Canva sedang memproses gambar, menahan perulangan unduh...");
+    console.log("[NRA DreamLab] Gambar masih dalam proses render kasar/blur. Menahan loop...");
     await delay(checkIntervalMs);
   }
 
-  throw new Error("Timeout: Proses pembuatan gambar Canva melampaui batas waktu adaptif 2 menit.");
+  throw new Error("Timeout: Proses render tajam gambar melampaui batas waktu aman.");
 }
 
 async function handleDownload(countSetting = "4", currentPrompt = "") {
