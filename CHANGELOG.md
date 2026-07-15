@@ -4,6 +4,8 @@ All notable changes to the NRA DreamLab extension will be documented in this fil
 ## [1.1.13] - 2026-07-15
 ### Added
 - Implemented sequential prompt state tracking (Sketching to Finalizing) in submitAndWaitForImages with an automated 3-second post-finalizing delay filter to avoid asset blur issues.
+### Fixed
+- Fixed double tab trigger bug on rocket icon button (openDreamLabBtn) by removing duplicate click event listener declarations inside panel.js.
 
 ## [1.1.12] - 2026-07-15
 ### Fixed

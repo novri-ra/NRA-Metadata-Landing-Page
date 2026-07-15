@@ -1102,14 +1102,6 @@ function initExtendedFeatures() {
 
   // --- UTILITY ICONS LOGIC ---
 
-  // 1. Open Dream Lab Shortcut
-  const openDreamLabBtn = document.getElementById("openDreamLabBtn");
-  if (openDreamLabBtn) {
-    openDreamLabBtn.addEventListener("click", () => {
-      chrome.tabs.create({ url: "https://www.canva.com/dream-lab" });
-    });
-  }
-
   // 2. Clear Prompts Trash Can
   const clearPromptsBtn = document.getElementById("clearPromptsBtn");
   if (clearPromptsBtn) {
