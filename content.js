@@ -776,36 +776,38 @@ async function submitAndWaitForImages() {
   console.info("[NRA DreamLab] Menekan tombol Generate...");
   await safeCdpClick(generateBtn, "generate button");
 
-  return new Promise(async (resolve, reject) => {
-    // SMART RENDER DELAY: Berikan jeda dinamis 3-5 detik (3000ms - 5000ms) menyerupai manusia
-    // Ini memberikan waktu bagi Canva untuk mulai merender gambar dan memunculkan blok 'Just now'
-    const randomDelay = Math.floor(Math.random() * (5000 - 3000 + 1)) + 3000;
-    console.info(`[NRA DreamLab] ⏱️ Memberikan jeda loading gambar selama ${randomDelay}ms sebelum memindai tombol unduh...`);
-    await delay(randomDelay);
+  // Jeda awal 3 detik memberi waktu bagi Canva untuk memunculkan indikator loading/refining
+  await delay(3000);
 
-    console.info("[NRA DreamLab] MutationObserver aktif: Menunggu gambar selesai di-render...");
+  console.info("[NRA DreamLab] Memulai pemantauan adaptif state rendering Canva...");
 
-    // Cek instan setelah delay: jika tombol download dari batch baru sudah langsung ada
-    if (document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON)) {
-      return resolve();
+  const maxWaitTimeMs = 120000; // Batas aman maksimal 2 menit
+  const checkIntervalMs = 2000;  // Periksa DOM setiap 2 detik
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < maxWaitTimeMs) {
+    if (!isRunning) throw new Error("USER_STOPPED");
+
+    // Pindai keberadaan teks atau elemen indikator pemrosesan gambar aktif di layar
+    const pageText = document.body.innerText || "";
+    const isProcessing = /refining|generating|memproses|membuat/i.test(pageText) ||
+      document.querySelector('[role="progressbar"]') !== null ||
+      document.querySelector('[class*="loading"], [class*="progress"]') !== null;
+
+    if (!isProcessing) {
+      // Pastikan tombol unduh sudah benar-benar lahir di DOM sebelum keluar dari pengondisian
+      const downloadExists = document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) !== null;
+      if (downloadExists) {
+        console.info("[NRA DreamLab] ✅ Proses render selesai dideteksi secara adaptif! Menuju proses download...");
+        return true;
+      }
     }
 
-    const observer = new MutationObserver((mutations, obs) => {
-      if (document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON)) {
-        obs.disconnect();
-        clearTimeout(timeoutHatch);
-        resolve();
-      }
-    });
+    console.log("[NRA DreamLab] Canva sedang memproses gambar, menahan perulangan unduh...");
+    await delay(checkIntervalMs);
+  }
 
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    // Escape hatch 90 detik jika rendering Canva macet
-    const timeoutHatch = setTimeout(() => {
-      observer.disconnect();
-      reject(new Error("Timeout: Proses render Canva melampaui 90 detik atau selektor berubah."));
-    }, 90000);
-  });
+  throw new Error("Timeout: Proses pembuatan gambar Canva melampaui batas waktu adaptif 2 menit.");
 }
 
 async function handleDownload(countSetting = "4", currentPrompt = "") {
