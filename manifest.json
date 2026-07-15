@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "NRA DreamLab",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "Automate text input on canva.com/ai and download images on canva.com/dream-lab using NRA DreamLab.",
   "icons": {
     "16": "icon.png",
