@@ -66,6 +66,26 @@
 
 ## 📋 Release Notes
 
+NEW ARCHITECTURAL CORE FEATURES (v1.1.17 - Update 2026-07-17)
+
+1. ANTI-BLUR SMART RENDERING STABILIZATION FILTER
+Sistem otomasi kini dilengkapi dengan filter pelacakan state visual Canva secara berurutan. Bot mendeteksi transisi dari fase 'Sketching' hingga masuk ke fase kritis 'Finalizing your image...'. Tepat setelah teks pemrosesan hilang dari layar, sistem menyuntikkan Jeda Kestabilan Grafis (Post-Finalizing Render Delay) selama 5 detik penuh. Hal ini memastikan aset gambar ter-render tajam 100% dan terhindar dari unduhan visual kasar atau blur. Batas toleransi tunggu total (maxWaitTimeMs) juga telah dilebarkan menjadi 240.000ms (4 menit) untuk mengamankan loop dari crash kemacetan antrean server.
+
+2. 5-SECOND POST-COOLDOWN SESSION RECOVERY GATES
+Untuk meredam paparan Rate Limit berantai akibat pembatasan ketat akun dari perlindungan server Canva, bot kini dilengkapi dengan gerbang pemulihan pasca-cooldown. Jeda istirahat statis selama 5 detik (await delay(5000)) secara otomatis disuntikkan langsung pada blok PRE-FLIGHT GATEKEEPER (sebelum pengetikan prompt baru dimulai) dan blok POST-FLIGHT CHECK (sesudah penanganan batasan akun pasca-submit). Penundaan taktis ini memberikan nafas bagi kestabilan pertukaran data HTTP sebelum mesin otomasi menembak antrean berikutnya.
+
+3. DUAL-BOX PROMPT ISOLATION & RESCUE FLOW
+Pemisahan penanganan antrean prompt gagal telah disempurnakan. Ketika Canva melemparkan penolakan (PROMPT_FAILED), teks prompt murni yang telah disanitasi secara otomatis didistribusikan ke dua kontainer terpisah:
+- Failed Prompts Box: Sebagai rekam jejak visual riwayat kegagalan prompt pada sesi berjalan.
+- Quarantined Prompts Box: Sebagai area penyelamatan terisolasi di mana user dapat mengembalikan seluruh antrean yang gagal masuk kembali ke antrean utama hanya dengan satu klik tombol Retry Quarantine tanpa kehilangan data.
+
+4. UNIFIED CUSTOM DOWNLOAD FOLDER STORAGE SYNC
+Seluruh penamaan kunci penyimpanan lokal (chrome.storage.local) untuk pengaturan tingkat lanjut telah diselaraskan secara total dengan background service worker. Penggunaan parameter data dipastikan seragam menggunakan key 'createSubfolder' untuk toggle pengelompokan folder Canva_Auto, dan key 'downloadFolder' untuk direktori folder kustom Downloads. Hal ini menjamin fitur auto-rename file gambar bekerja 100% sinkron dan bebas dari bug ketidakaktifan UI settings.
+
+5. TERMINAL LOG DUPLICATION REDUCTION
+Struktur penangkap kesalahan pada loop utama startMainLoop telah dioptimalkan dengan mengeliminasi jalur re-throwing error yang tidak perlu. Pemanggilan aksi interupsi manual (USER_STOPPED) kini ditangani secara tuntas dan lokal oleh handleAutomationError, menghasilkan baris log konsol terminal yang bersih, rapi, dan bebas dari tulisan kembar/ganda.
+
+
 ### v1.1.5 — Viewport Scroll Reset & Production Polish
 
 - **Viewport Scroll Reset:** Added auto-scroll to top (window.scrollTo) when typing a new prompt.
