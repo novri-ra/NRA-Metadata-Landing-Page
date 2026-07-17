@@ -763,7 +763,7 @@ async function submitAndWaitForImages() {
   await delay(3000); // Tunggu inisiasi pemrosesan DOM awal
 
   console.info("[NRA DreamLab] Memulai pemantauan adaptif fase rendering (Anti-Blur)...");
-  const maxWaitTimeMs = 150000;
+  const maxWaitTimeMs = 240000;
   const checkIntervalMs = 1000;
   const startTime = Date.now();
   let detectedFinalizing = false;
@@ -1054,6 +1054,9 @@ async function startMainLoop() {
         if (startupCooldown > 0) {
           console.warn(`[NRA DreamLab] Batasan limit aktif terdeteksi sebelum mulai mengetik! Menahan loop selama ${startupCooldown}ms`);
           await handleCooldown(startupCooldown, false);
+
+          console.info("[NRA DreamLab] 🛡️ Cooldown selesai. Mengaktifkan Post-Cooldown Recovery Delay selama 5 detik untuk stabilitas sesi...");
+          await delay(5000);
         }
 
         chrome.runtime.sendMessage({
@@ -1100,6 +1103,9 @@ async function startMainLoop() {
         if (postCooldownMs > 0) {
           console.warn(`[NRA DreamLab] Limit akun terdeteksi pasca-submit! Waktu tunggu: ${postCooldownMs}ms`);
           await handleCooldown(postCooldownMs, false);
+
+          console.info("[NRA DreamLab] 🛡️ Cooldown selesai. Mengaktifkan Post-Cooldown Recovery Delay selama 5 detik untuk stabilitas sesi...");
+          await delay(5000);
         }
 
         // 7. Update status ke storage & panel

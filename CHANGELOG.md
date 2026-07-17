@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to the NRA DreamLab extension will be documented in this file.
 
+## [1.1.17] - 2026-07-17
+### Changed
+- Expanded maxWaitTimeMs tolerance in submitAndWaitForImages to 240,000ms to handle canvas render freezes during active rate-limiting.
+### Added
+- Integrated automated 5-second Post-Cooldown Recovery Delays inside main generation loops to stabilize HTTP session handling after rate limit clearances.
+
 ## [1.1.16] - 2026-07-15
 ### Changed
 - Increased the post-finalizing rendering stabilization delay from 3 seconds to 5 seconds in submitAndWaitForImages to ensure perfect image sharpness before download triggers.
