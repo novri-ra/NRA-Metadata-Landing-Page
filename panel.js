@@ -216,16 +216,7 @@ function initStorageListeners() {
           failedPromptsTextarea.value = result.savedFailedPrompts;
         }
 
-        // Check for lastProcessedPromptIndex and display resume message if needed
-        if (result.lastProcessedPromptIndex > 0) {
-          const statusContainer = document.getElementById("status-container");
-          if (statusContainer) {
-            const resumeMessage = document.createElement("div");
-            resumeMessage.className = "resume-message";
-            resumeMessage.textContent = `Resume from prompt #${result.lastProcessedPromptIndex + 1}?`;
-            statusContainer.appendChild(resumeMessage);
-          }
-        }
+        // Resume message removed (cluttered status bar)
 
         // 🌟 FORCE CHECK ON PANEL LOAD
         // As soon as the panel opens, check reality and force the button to match.
@@ -497,20 +488,7 @@ function initEventListeners() {
         if (qInput) { qInput.value = ""; chrome.storage.local.set({ savedFailedPrompts: "" }); }
       }
     },
-    openDreamLabBtn: { id: "openDreamLabBtn", event: "click", handler: () => { chrome.tabs.create({ url: "https://www.canva.com/dream-lab" }); } },
-    clearPromptsBtn: {
-      id: "clearPromptsBtn", event: "click", handler: () => {
-        if (confirm("Are you sure you want to clear all prompts?")) {
-          if (promptInput) {
-            promptInput.value = "";
-            chrome.storage.local.set({ savedPromptText: "", lastProcessedPromptIndex: 0 });
-            if (progressText) progressText.textContent = "Progress: 0 prompts remaining";
-            const rm = document.querySelector(".resume-message");
-            if (rm) rm.remove();
-          }
-        }
-      }
-    }
+    openDreamLabBtn: { id: "openDreamLabBtn", event: "click", handler: () => { chrome.tabs.create({ url: "https://www.canva.com/dream-lab" }); } }
   };
 
   Object.keys(buttons).forEach(key => {
@@ -551,13 +529,13 @@ function initEventListeners() {
 
   if (aspectRatioSelect) {
     aspectRatioSelect.addEventListener("change", () => {
-      chrome.storage.local.set({ savedAspectRatio: aspectRatioSelect.value });
+      chrome.storage.local.set({ aspectRatio: aspectRatioSelect.value });
     });
   }
 
   if (imageStyleSelect) {
     imageStyleSelect.addEventListener("change", () => {
-      chrome.storage.local.set({ savedImageStyle: imageStyleSelect.value });
+      chrome.storage.local.set({ imageStyle: imageStyleSelect.value });
     });
   }
 
@@ -911,178 +889,50 @@ function expandPromptWithVariable(prompt, iterations) {
 }
 
 function initExtendedFeatures() {
-  const safetyDelaySlider = document.getElementById("safetyDelaySlider");
-  const safetyDelayVal = document.getElementById("safetyDelayVal");
+  // Save Delay Slider - declared here, listeners registered below
   const saveDelaySlider = document.getElementById("saveDelaySlider");
   const saveDelayVal = document.getElementById("saveDelayVal");
 
-  chrome.storage.local.get(["safetyDelay", "saveDelay"], function (res) {
-    if (safetyDelaySlider && safetyDelayVal) {
-      const savedSafety = parseInt(res.safetyDelay, 10) || 0;
-      safetyDelaySlider.value = savedSafety;
-      safetyDelayVal.textContent = savedSafety;
-    }
-    if (saveDelaySlider && saveDelayVal) {
-      const savedSave = parseInt(res.saveDelay, 10) || 6;
-      saveDelaySlider.value = savedSave;
-      saveDelayVal.textContent = savedSave;
-    }
-  });
+  // 1. Toggle Debug Mode - handled in initEventListeners
 
-  if (safetyDelaySlider) {
-    safetyDelaySlider.addEventListener("input", function () {
-      const val = parseInt(this.value, 10) || 0;
-      if (safetyDelayVal) safetyDelayVal.textContent = val;
-      chrome.storage.local.set({ safetyDelay: val });
+  // 2. Toggle Verbose Logs - handled in initEventListeners
+
+  // 3. Toggle Subfolder - handled in initEventListeners
+
+  // 4. Custom Download Folder - handled in initEventListeners
+
+  // 5. Safety Delay - handled below after variable declaration
+
+  // 6. Save Delay
+  if (saveDelaySlider && saveDelayVal) {
+    // Muat nilai saat panel dibuka
+    chrome.storage.local.get(["saveDelay"], (res) => {
+      const val = res.saveDelay || 6;
+      saveDelaySlider.value = val;
+      saveDelayVal.textContent = val;
+    });
+    // Listener input
+    saveDelaySlider.addEventListener("input", () => {
+      const val = saveDelaySlider.value;
+      saveDelayVal.textContent = val;
+      chrome.storage.local.set({ saveDelay: parseInt(val, 10) });
     });
   }
-
-  if (saveDelaySlider) {
-    saveDelaySlider.addEventListener("input", function () {
-      const val = parseInt(this.value, 10) || 6;
-      if (saveDelayVal) saveDelayVal.textContent = val;
-      chrome.storage.local.set({ saveDelay: val });
-    });
-  }
-
-  // 1. Toggle Debug Mode
-  const debugModeSelect = document.getElementById("debugMode");
-  if (debugModeSelect) {
-    debugModeSelect.addEventListener("change", () => {
-      chrome.storage.local.set({ debugMode: debugModeSelect.value === "true" });
-    });
-  }
-
-  // 2. Toggle Verbose Logs
-  const verboseLogsToggle = document.getElementById("verboseLogsToggle");
-  if (verboseLogsToggle) {
-    verboseLogsToggle.addEventListener("change", () => {
-      chrome.storage.local.set({ verboseLogs: verboseLogsToggle.checked });
-    });
-  }
-
-  // 3. Toggle Subfolder (Diselaraskan ke createSubfolder)
-  const subfolderToggle = document.getElementById("subfolderToggle");
-  if (subfolderToggle) {
-    subfolderToggle.addEventListener("change", () => {
-      chrome.storage.local.set({ createSubfolder: subfolderToggle.checked });
-    });
-  }
-
-  // 4. Custom Download Folder (Diselaraskan ke downloadFolder)
-  const downloadFolderInput = document.getElementById("downloadFolderInput");
-  if (downloadFolderInput) {
-    downloadFolderInput.addEventListener("change", () => {
-      chrome.storage.local.set({ downloadFolder: downloadFolderInput.value.trim() });
-    });
-  }
-
 
   // --- GOD-TIER 6-FEATURE UPDATE LOGIC ---
-  // 1. Bulk File Importer
-  const importFileBtn = document.getElementById("importFileBtn");
-  const fileInput = document.getElementById("fileInput");
-  if (importFileBtn && fileInput) {
-    importFileBtn.addEventListener("click", () => fileInput.click());
-    fileInput.addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const promptInput = document.getElementById("promptInput");
-        const content = event.target.result;
-        const sanitizedContent = content
-          .split("\n")
-          .map((line) => sanitizeInput(line))
-          .join("\n");
-        promptInput.value =
-          promptInput.value +
-          (promptInput.value ? "\n" : "") +
-          sanitizedContent;
-        chrome.storage.local.set({ savedPromptText: promptInput.value });
-      };
-      reader.readAsText(file);
-    });
-  }
+  // 1. Bulk File Importer - handled in initEventListeners
 
-  // 2. Export Logs
-  const exportLogsBtn = document.getElementById("exportLogsBtn");
-  if (exportLogsBtn) {
-    exportLogsBtn.addEventListener("click", () => {
-      const logs = document.getElementById("consoleLogs").innerText;
-      const blob = new Blob([logs], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Canva_Logs_${new Date().getTime()}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-  }
+  // 2. Export Logs - handled in initEventListeners
 
-  // 3. Pause / Resume Toggle
-  const pauseButton = document.getElementById("pauseButton");
-  if (pauseButton) {
-    pauseButton.addEventListener("click", () => {
-      chrome.storage.local.get(["isPaused"], (res) => {
-        const newState = !res.isPaused;
-        chrome.storage.local.set({ isPaused: newState });
-        pauseButton.textContent = newState ? "▶ RESUME" : "⏸ PAUSE";
-        pauseButton.style.background = newState ? "#2ecc71" : "#f39c12";
-        pauseButton.style.borderColor = newState ? "#2ecc71" : "#f39c12";
-        pauseButton.style.boxShadow = newState
-          ? "4px 4px 0px #27ae60"
-          : "4px 4px 0px #b9770e";
-      });
-    });
-  }
+  // 3. Pause / Resume Toggle - handled in initEventListeners
 
-  // 5. Retry Quarantine Logic - Pindahkan semua prompt dari Quarantine ke Prompt Input utama
-  const retryQuarantineBtn = document.getElementById("retryQuarantineBtn");
-  if (retryQuarantineBtn) {
-    retryQuarantineBtn.addEventListener("click", () => {
-      const quarantineInput = document.getElementById("quarantineInput");
-      const promptInput = document.getElementById("promptInput");
-      const quarantineText = quarantineInput.value.trim();
+  // 4. Quarantine Catch Listener - handled in initMessageListeners
 
-      // Jika quarantine kosong, beri tahu user
-      if (!quarantineText) {
-        alert("Tidak ada prompt di Quarantine untuk diulang.");
-        return;
-      }
-
-      // Append teks quarantine ke prompt input utama
-      if (promptInput.value.trim()) {
-        promptInput.value += "\n" + quarantineText;
-      } else {
-        promptInput.value = quarantineText;
-      }
-
-      // Kosongkan quarantine
-      quarantineInput.value = "";
-
-      // Simpan ke Chrome Storage
-      chrome.storage.local.set({
-        savedPromptText: promptInput.value,
-        savedFailedPrompts: "",
-      });
-
-      // Update progress text (opsional)
-      const progressText = document.getElementById("progressText");
-      const currentPrompts = promptInput.value
-        .split("\n")
-        .filter((p) => p.trim().length > 0);
-      if (progressText) {
-        progressText.textContent = `Progress: ${currentPrompts.length} prompts remaining (with retry)`;
-      }
-
-      console.log(
-        "[NRA DreamLab] ✅ Quarantined prompts moved back to main queue.",
-      );
-    });
-  }
+  // 5. Retry Quarantine Logic - handled in initEventListeners
 
   // --- UTILITY ICONS LOGIC ---
+
+  // 1. Open Dream Lab Shortcut - handled in initEventListeners
 
   // 2. Clear Prompts Trash Can
   const clearPromptsBtn = document.getElementById("clearPromptsBtn");
@@ -1155,37 +1005,9 @@ function initExtendedFeatures() {
       }
     });
   }
-  // 3. Clear Terminal Logs Trash Can
-  const clearLogsBtn = document.getElementById("clearLogsBtn");
-  if (clearLogsBtn) {
-    clearLogsBtn.addEventListener("click", () => {
-      const consoleLogs = document.getElementById("consoleLogs");
-      if (consoleLogs) {
-        consoleLogs.innerHTML = ""; // Wipe all log divs
-      }
-    });
-  }
+  // 3. Clear Terminal Logs Trash Can - handled in initEventListeners
 
-  // 4. Reset Session Analytics
-  const resetStatsBtn = document.getElementById("resetStatsBtn");
-  if (resetStatsBtn) {
-    resetStatsBtn.addEventListener("click", () => {
-      if (confirm("Reset seluruh data Session Analytics ke 0?")) {
-        const emptyStats = {
-          startTime: null,
-          successCount: 0,
-          downloadCount: 0,
-          totalCooldowns: 0,
-          totalPrompts: 0,
-          failedCount: 0
-        };
-        chrome.storage.local.set({ sessionStats: emptyStats }, () => {
-          updateStatsUI(emptyStats);
-          console.log("[NRA DreamLab] 🔄 Session analytics telah direset.");
-        });
-      }
-    });
-  }
+  // 4. Reset Session Analytics - handled in initEventListeners
 
   // --- UI SETTINGS MODAL LOGIC ---
   const settingsBtn = document.getElementById("settingsBtn");
@@ -1196,21 +1018,9 @@ function initExtendedFeatures() {
   const batchLimitInput = document.getElementById("batchLimitInput");
   const soundToggle = document.getElementById("soundToggle");
 
-  // Open settings modal
-  if (settingsBtn) {
-    settingsBtn.addEventListener("click", () => {
-      settingsModal.classList.remove("hidden");
-      document.body.classList.add("modal-open");
-    });
-  }
+  // Open settings modal - handled in initEventListeners
 
-  // Close settings modal
-  if (closeSettingsBtn) {
-    closeSettingsBtn.addEventListener("click", () => {
-      settingsModal.classList.add("hidden");
-      document.body.classList.remove("modal-open");
-    });
-  }
+  // Close settings modal - handled in initEventListeners
 
   // Close modal when clicking outside
   if (settingsModal) {
