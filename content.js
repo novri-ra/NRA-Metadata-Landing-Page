@@ -252,17 +252,22 @@ function initWorker() {
       // Abaikan error saat terminate
     }
   }
-  const workerBlob = new Blob(
-    [
-      `self.onmessage = function(e) { setTimeout(() => postMessage(e.data.id), e.data.time); }`,
-    ],
-    { type: "application/javascript" },
-  );
+  try {
+    const workerBlob = new Blob(
+      [
+        `self.onmessage = function(e) { setTimeout(() => postMessage(e.data.id), e.data.time); }`,
+      ],
+      { type: "application/javascript" },
+    );
 
-  const workerUrl = URL.createObjectURL(workerBlob);
-  delayWorker = new Worker(workerUrl);
-  URL.revokeObjectURL(workerUrl); // CRITICAL FIX: Frees the memory immediately
-  console.log("[NRA DreamLab] Web Worker initialized successfully.");
+    const workerUrl = URL.createObjectURL(workerBlob);
+    delayWorker = new Worker(workerUrl);
+    URL.revokeObjectURL(workerUrl);
+    console.log("[NRA DreamLab] Web Worker initialized successfully.");
+  } catch (err) {
+    console.warn("[NRA DreamLab] Failed to init Web Worker (CSP block?). Using setTimeout fallback.", err.message);
+    delayWorker = null;
+  }
 }
 
 // Inisialisasi awal
@@ -288,7 +293,7 @@ function delay(ms) {
       if (!resolved) {
         resolved = true;
         console.warn(
-          `[NRA DreamLab] ⚠️ Delay fallback triggered after ${fallbackMs}ms (Worker mati atau lambat). Merestart worker...`,
+          `[NRA DreamLab] âš ï¸ Delay fallback triggered after ${fallbackMs}ms (Worker mati atau lambat). Merestart worker...`,
         );
         initWorker(); // Restart worker agar panggilan selanjutnya tidak lambat
         resolve();
@@ -315,7 +320,7 @@ function delay(ms) {
     } catch (e) {
       // Terjadi error instan (misal worker mati, memory corrupt), langsung gunakan native
       console.warn(
-        `[NRA DreamLab] ⚠️ Worker error instan: ${e.message}. Menggunakan setTimeout native dan merestart worker...`,
+        `[NRA DreamLab] âš ï¸ Worker error instan: ${e.message}. Menggunakan setTimeout native dan merestart worker...`,
       );
       initWorker(); // Re-init sekarang juga
 
@@ -559,7 +564,7 @@ function handleAutomationError(err) {
       "[NRA DreamLab] Monthly AI limit reached. Stopping permanently.",
     );
     chrome.storage.local.set({ isAutomating: false, step: "ERROR" }, () => {
-      sendStatusUpdate("🛑 Monthly Limit Reached. Stopped.");
+      sendStatusUpdate("ðŸ›‘ Monthly Limit Reached. Stopped.");
       chrome.runtime.sendMessage({
         action: "SHOW_NOTIFICATION",
         title: "Canva Automation Halted",
@@ -584,7 +589,7 @@ async function safeCdpClick(element, context = "element") {
   try {
     await cdpClick(element);
   } catch (error) {
-    console.error(`[NRA DreamLab] 🛑 Failed to click ${context}:`, error);
+    console.error(`[NRA DreamLab] ðŸ›‘ Failed to click ${context}:`, error);
     chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
     throw new Error(`Click interaction failed for ${context}`); // Throw custom error instead of TypeError
   }
@@ -594,7 +599,7 @@ async function safeCdpTypeHuman(text, context = "input") {
   try {
     await cdpTypeHuman(text);
   } catch (error) {
-    console.error(`[NRA DreamLab] 🛑 Failed to type in ${context}:`, error);
+    console.error(`[NRA DreamLab] ðŸ›‘ Failed to type in ${context}:`, error);
     chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
     throw new Error(`Type interaction failed for ${context}`); // Throw custom error instead of TypeError
   }
@@ -666,7 +671,7 @@ async function safeSelectCanvaConfiguration(typeLabel, optionText) {
     return await selectCanvaConfiguration(typeLabel, optionText);
   } catch (error) {
     console.error(
-      `[NRA DreamLab] 🛑 Failed to configure ${typeLabel} with ${optionText}:`,
+      `[NRA DreamLab] ðŸ›‘ Failed to configure ${typeLabel} with ${optionText}:`,
       error,
     );
     chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
@@ -715,7 +720,7 @@ async function selectCanvaConfiguration(label, value) {
     if (targetOption) {
       // Hapus kondisi pembatas !isSelected agar bot tidak melewatkan (skip) klik akibat state history lama
       targetOption.click();
-      console.info(`[NRA DreamLab] ✅ Pemaksaan klik dieksekusi pada opsi '${value}' untuk menu '${label}'.`);
+      console.info(`[NRA DreamLab] âœ… Pemaksaan klik dieksekusi pada opsi '${value}' untuk menu '${label}'.`);
 
       await new Promise(r => setTimeout(r, 800)); // Jeda stabilitas DOM
       return true;
@@ -845,7 +850,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
 
       if (matchesPrompt) {
         targetContainer = section;
-        console.info("[NRA DreamLab] ✅ Sukses mengunci kontainer section berdasarkan kecocokan teks prompt!");
+        console.info("[NRA DreamLab] âœ… Sukses mengunci kontainer section berdasarkan kecocokan teks prompt!");
         break;
       }
     }
@@ -923,7 +928,7 @@ async function handleCooldown(cooldownMs, isStartup = false) {
   if (!isStartup) sessionStats.totalCooldowns++;
   cooldownMs += 5000;
   console.warn(
-    `[NRA DreamLab] 🛑 ${isStartup ? "Startup paused. Pre-existing cooldown" : "Cooldown"} detected: ${cooldownMs}ms. Waiting...`,
+    `[NRA DreamLab] ðŸ›‘ ${isStartup ? "Startup paused. Pre-existing cooldown" : "Cooldown"} detected: ${cooldownMs}ms. Waiting...`,
   );
   tagGhostCooldowns();
   const targetEndTime = Date.now() + cooldownMs;
@@ -1019,13 +1024,13 @@ async function startMainLoop() {
     await chrome.runtime.sendMessage({ action: "KEEP_AWAKE" }).catch(() => ({}));
 
     try {
-      // 🌟 INITIAL STARTUP GATEKEEPER 🌟
+      // ðŸŒŸ INITIAL STARTUP GATEKEEPER ðŸŒŸ
       const canProceed = await checkAndHandleStartupCooldown();
       if (!canProceed) return;
 
       let isConfigured = false;
 
-      // 🌟 MAIN GENERATION LOOP 🌟
+      // ðŸŒŸ MAIN GENERATION LOOP ðŸŒŸ
       while (prompts.length > 0 && isRunning) {
         const storageSnapshot = await chrome.storage.local.get([
           "isPaused",
@@ -1089,11 +1094,18 @@ async function startMainLoop() {
             console.error(`[NRA DreamLab] Download attempt ${retryCount + 1} failed:`, error.message);
             retryCount++;
             if (retryCount < maxRetries) {
+              console.warn("[NRA DreamLab] Memulai prosedur recovery, mereload halaman...");
+              
+              // Simpan state recovery SEBELUM me-reload halaman
+              await chrome.storage.local.set({ 
+                isRecovering: true,
+                lastProcessedPromptIndex: currentIndex - 1
+              });
+              
               window.location.reload();
-              await new Promise((resolve) => setTimeout(resolve, 5000));
-              await configureStyleAndRatio(imageStyle, aspectRatio);
-              await injectPrompt(currentPrompt);
-              await submitAndWaitForImages();
+              
+              // Hentikan eksekusi: instance script ini akan musnah saat page reload
+              return; 
             }
           }
         }
@@ -1178,27 +1190,6 @@ async function prepareAndSubmitPrompt(
   }
   await injectPrompt(currentPrompt);
   await submitAndWaitForImages();
-}
-
-async function executeDownloadBatchWithRetry(downloadCountSetting, maxRetries, currentPrompt, imageStyle, aspectRatio) {
-  let downloadSuccess = false;
-  let retryCount = 0;
-  while (!downloadSuccess && retryCount < maxRetries) {
-    try {
-      await handleDownload(downloadCountSetting);
-      downloadSuccess = true;
-    } catch (error) {
-      console.error("[Canva Automation] Download attempt " + (retryCount + 1) + " failed:", error.message);
-      retryCount++;
-      if (retryCount < maxRetries) {
-        console.log("[Canva Automation] Attempting recovery...");
-        await chrome.storage.local.set({ isRecovering: true });
-        window.location.reload();
-        return false;
-      }
-    }
-  }
-  return downloadSuccess;
 }
 
 // ==========================================

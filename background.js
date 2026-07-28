@@ -92,6 +92,22 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   });
 });
 
+// Release mutex if active tab navigates away from Canva Dream Lab
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url) {
+    chrome.storage.local.get(["activeAutomationTab"], (res) => {
+      if (res.activeAutomationTab === tabId && !changeInfo.url.includes("canva.com")) {
+        console.log(
+          `[Background] Active tab ${tabId} navigated away from Canva. Releasing mutex.`,
+        );
+        chrome.storage.local.remove(["activeAutomationTab"]);
+        chrome.power.releaseKeepAwake();
+        chrome.storage.local.set({ isAutomating: false });
+      }
+    });
+  }
+});
+
 /**
  * Emergency cleanup routine to reset automation state and release resources.
  * Idempotent: safe to call multiple times.

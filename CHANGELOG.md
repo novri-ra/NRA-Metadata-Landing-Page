@@ -7,20 +7,20 @@ All notable changes to the NRA DreamLab extension will be documented in this fil
 ### Added
 - Integrated automated 5-second Post-Cooldown Recovery Delays inside main generation loops to stabilize HTTP session handling after rate limit clearances.
 
-## [1.1.16] - 2026-07-15
+## [1.1.16] - 2026-07-17
 ### Changed
 - Increased the post-finalizing rendering stabilization delay from 3 seconds to 5 seconds in submitAndWaitForImages to ensure perfect image sharpness before download triggers.
 
-## [1.1.15] - 2026-07-15
+## [1.1.15] - 2026-07-17
 ### Fixed
 - Fixed duplicate terminal logging statements for USER_STOPPED sequences by optimizing catch-block re-throwing paths in startMainLoop.
 
-## [1.1.14] - 2026-07-15
+## [1.1.14] - 2026-07-17
 ### Fixed
 - Resolved storage key asynchrony for createSubfolder and downloadFolder targets across panel.js components.
 - Eliminated redundant message listener registration for PROMPT_FAILED to ensure accurate visual updating of both Failed and Quarantined prompt containers.
 
-## [1.1.13] - 2026-07-15
+## [1.1.13] - 2026-07-17
 ### Added
 - Implemented sequential prompt state tracking (Sketching to Finalizing) in submitAndWaitForImages with an automated 3-second post-finalizing delay filter to avoid asset blur issues.
 ### Fixed
