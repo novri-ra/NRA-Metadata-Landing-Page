@@ -381,10 +381,18 @@ function handleStartClick() {
                 return;
               }
               if (tabs && tabs.length > 0) {
-                chrome.tabs.sendMessage(
-                  tabs[0].id,
-                  { action: "START_AUTOMATION" },
-                  (response) => {
+                chrome.tabs.sendMessage(tabs[0].id, { action: "PING" }, (pingRes) => {
+                  if (chrome.runtime.lastError || !pingRes || pingRes.status !== "READY") {
+                    statusText.textContent = "Error: Canva tab is not ready or refreshing.";
+                    statusDot.style.backgroundColor = "#ef4444";
+                    statusDot.classList.remove("active");
+                    chrome.storage.local.set({ isAutomating: false });
+                    return;
+                  }
+                  chrome.tabs.sendMessage(
+                    tabs[0].id,
+                    { action: "START_AUTOMATION" },
+                    (response) => {
                     if (chrome.runtime.lastError) {
                       console.warn(
                         "[Panel] sendMessage failed:",
@@ -397,10 +405,11 @@ function handleStartClick() {
                       chrome.storage.local.set({ isAutomating: false }); // Revert state safely
                       return;
                     }
-                  },
+                  }
                 );
+                });
               }
-            },
+            }
           );
         });
       }

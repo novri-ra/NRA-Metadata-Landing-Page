@@ -764,7 +764,23 @@ async function submitAndWaitForImages() {
   console.info("[NRA DreamLab] Menekan tombol Generate...");
   await safeCdpClick(generateBtn, "generate button");
 
-  await delay(3000); // Tunggu inisiasi pemrosesan DOM awal
+  // Hitung jumlah kontainer sebelum generate untuk deteksi node baru
+  const sectionsBefore = document.querySelectorAll("section").length;
+
+  console.info("[NRA DreamLab] Menekan tombol Generate...");
+  await safeCdpClick(generateBtn, "generate button");
+
+  console.info("[NRA DreamLab] Menunggu inisiasi node kontainer baru...");
+  // Paksa bot menunggu hingga jumlah elemen <section> di DOM bertambah 1
+  let sectionsAfter = sectionsBefore;
+  let waitInitTimeout = 0;
+  while (sectionsAfter <= sectionsBefore && waitInitTimeout < 30000) {
+    if (!isRunning && !isWaitingForCooldown) throw new Error("USER_STOPPED");
+    await delay(1000);
+    waitInitTimeout += 1000;
+    sectionsAfter = document.querySelectorAll("section").length;
+  }
+  if (waitInitTimeout >= 30000) console.warn("[NRA DreamLab] Timeout menunggu kontainer baru. Melanjutkan dengan deteksi adaptif standar.");
 
   console.info("[NRA DreamLab] Memulai pemantauan adaptif fase rendering (Anti-Blur)...");
   const maxWaitTimeMs = 240000;
