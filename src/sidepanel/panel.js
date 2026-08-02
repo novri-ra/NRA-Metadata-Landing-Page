@@ -1021,8 +1021,9 @@ function initExtendedFeatures() {
       const startBtn = document.getElementById("startBtn");
       
       if (isConnected) {
-        statusText.textContent = "Connected";
+        statusText.textContent = "Canva Connected";
         statusDot.classList.add("active");
+        statusDot.style.backgroundColor = "#10b981";
         if (startBtn) {
             startBtn.disabled = false;
             startBtn.style.opacity = "1";
@@ -1031,6 +1032,7 @@ function initExtendedFeatures() {
       } else {
         statusText.textContent = "Error: Please refresh the Canva tab";
         statusDot.classList.remove("active");
+        statusDot.style.backgroundColor = "#ef4444";
         if (startBtn) {
             startBtn.disabled = true;
             startBtn.style.opacity = "0.5";

@@ -1300,3 +1300,10 @@ chrome.storage.local.get(['isAutomating', 'isRecovering'], async (res) => {
     }
   }
 });
+
+// Broadcast READY immediately upon script injection/load
+setTimeout(() => {
+  try {
+    chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Canva Connected" });
+  } catch(e) {}
+}, 500);
