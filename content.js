@@ -863,25 +863,31 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
   }
 
   let allDownloadButtons = [];
-  try {
+
+  let allDownloadButtons = [];
     // 3. Cari tombol download secara eksklusif HANYA di dalam targetContainer yang telah dikunci
-    for (let attempt = 0; attempt < 5; attempt++) {
+    const MAX_DOWNLOAD_RETRIES = 15;
+    for (let attempt = 0; attempt < MAX_DOWNLOAD_RETRIES; attempt++) {
+      if (!isRunning) throw new Error("USER_STOPPED");
+
+      const buttons = Array.from(targetContainer.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON))
       const buttons = Array.from(targetContainer.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON))
         .filter(btn => btn.offsetParent !== null); // Pastikan elemennya terlihat di layar
 
       if (buttons && buttons.length > 0) {
         allDownloadButtons = buttons;
-        console.info(`[NRA DreamLab] Ditemukan ${buttons.length} tombol unduh di dalam kontainer prompt ini.`);
         break;
       }
+      console.info(`[NRA DreamLab] Tombol download belum siap, mencoba lagi dalam 2 detik... (Attempt ${attempt + 1}/${MAX_DOWNLOAD_RETRIES})`);
       await delay(2000);
     }
-
+    
     if (allDownloadButtons.length === 0) {
-      throw new Error("Tombol download tidak ditemukan di dalam blok hasil render kontainer prompt aktif.");
+    if (allDownloadButtons.length === 0) {
     }
   } catch (error) {
     throw new Error("Gagal mengisolasi tombol unduh: " + error.message);
+  }
   }
 
   let targetCount = parseInt(countSetting, 10) || 4;
