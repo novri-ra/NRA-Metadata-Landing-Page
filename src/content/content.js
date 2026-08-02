@@ -804,10 +804,19 @@ async function submitAndWaitForImages() {
       }
     }
 
+    const allSections = document.querySelectorAll("section");
+    const latestSection = allSections[allSections.length - 1];
+    let isFallbackImageReady = false;
+    if (latestSection) {
+      const validImg = latestSection.querySelector(`img[src^="https://"], img[src^="blob:"], canvas`);
+      if (validImg) {
+        isFallbackImageReady = validImg.tagName === "CANVAS" || (validImg.complete && validImg.naturalWidth > 0);
+      }
+    }
+
     // Kontainer dianggap siap jika seluruh teks pemprosesan telah hilang dari DOM
-    if (!isProcessingText) {
-      const downloadExists = document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) !== null;
-      if (downloadExists) {
+    const downloadExists = document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) !== null;
+    if ((!isProcessingText && downloadExists) || isFallbackImageReady) {
 
         // JIKA SEBELUMNYA TERDETEKSI FINALIZING, BERIKAN JEDA AMAN SINKRONISASI ANIMASI 5 DETIK
         if (detectedFinalizing) {
@@ -825,7 +834,6 @@ async function submitAndWaitForImages() {
 
         console.info("[NRA DreamLab] ✅ Gambar terdeteksi siap dan tajam! Menuju proses download...");
         return true;
-      }
     }
 
     console.log("[NRA DreamLab] Menunggu proses rendering gambar Canva tuntas...");
