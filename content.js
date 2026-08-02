@@ -155,10 +155,10 @@ chrome.storage.local.get(["isPaused", "batchLimit"], (res) => {
 // Global execution flag for the automation loop
 let isRunning = false;
 // Mutex guard: prevents concurrent startMainLoop() invocations (KRITIS-2)
-// Mutex guard: prevents concurrent startMainLoop() invocations (KRITIS-2)
 let isLoopActive = false;
 // Session Statistics Telemetry
 let prompts = [];
+let sessionStats = {
   startTime: null,
   successCount: 0,
   downloadCount: 0,
@@ -764,11 +764,10 @@ async function submitAndWaitForImages() {
   console.info("[NRA DreamLab] Memulai pemantauan adaptif fase rendering (Anti-Blur)...");
   const maxWaitTimeMs = 240000;
   const checkIntervalMs = 1000;
-  const startTime = Date.now();
-  let detectedFinalizing = false;
 
   while (Date.now() - startTime < maxWaitTimeMs) {
-  while (Date.now() - startTime < maxWaitTimeMs) {
+    if (!isRunning) throw new Error("USER_STOPPED");
+
     if (!isRunning) throw new Error("USER_STOPPED");
 
     const pageText = document.body.textContent || "";
