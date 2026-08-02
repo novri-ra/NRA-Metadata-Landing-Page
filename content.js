@@ -764,11 +764,11 @@ async function submitAndWaitForImages() {
   console.info("[NRA DreamLab] Memulai pemantauan adaptif fase rendering (Anti-Blur)...");
   const maxWaitTimeMs = 240000;
   const checkIntervalMs = 1000;
-
-  while (Date.now() - startTime < maxWaitTimeMs) {
-    if (!isRunning) throw new Error("USER_STOPPED");
+  const startTime = Date.now();
 
     if (!isRunning) throw new Error("USER_STOPPED");
+
+    const pageText = document.body.textContent || "";
 
     const pageText = document.body.textContent || "";
 
