@@ -904,7 +904,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
         await delay(500);
 
         await safeCdpClick(btn, `download button ${i + 1} dari kontainer prompt aktif`);
-        await delay(3000); // Jeda anti-banned aman
+        await delay(800); // Jeda agresif namun aman
 
         sessionStats.downloadCount++;
         chrome.storage.local.set({ sessionStats: sanitizeStats(sessionStats) });
