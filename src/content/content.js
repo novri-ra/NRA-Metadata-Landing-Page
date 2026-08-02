@@ -398,7 +398,7 @@ async function waitForElement(selector, isXPath = false, timeout = 10000) {
 
     const interval = setInterval(() => {
       // Check if automation was stopped externally
-      if (!isRunning) {
+      if (!isRunning && !isWaitingForCooldown) {
         clearInterval(interval);
         reject(new Error("USER_STOPPED"));
         return;
