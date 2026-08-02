@@ -745,7 +745,12 @@ async function configureStyleAndRatio(imageStyle, aspectRatio) {
 
 async function injectPrompt(currentPrompt) {
   const textarea = await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA);
-  if (!textarea) throw new Error("Textarea not found");
+  if (!textarea || !textarea.isConnected) throw new Error("Textarea not found or stale");
+
+  // Pastikan input bisa diklik/difokuskan sebelum diketik
+  await safeCdpClick(textarea, "focus textarea");
+  await delay(300);
+
   textarea.value = "";
   textarea.dispatchEvent(new Event("input", { bubbles: true }));
   await safeCdpTypeHuman(currentPrompt, "prompt input");
@@ -769,7 +774,7 @@ async function submitAndWaitForImages() {
 
   while (Date.now() - startTime < maxWaitTimeMs) {
 
-    if (!isRunning) throw new Error("USER_STOPPED");
+    if (!isRunning && !isWaitingForCooldown) throw new Error("USER_STOPPED");
 
     const pageText = document.body.textContent || "";
 
@@ -904,7 +909,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
         await delay(500);
 
         await safeCdpClick(btn, `download button ${i + 1} dari kontainer prompt aktif`);
-        await delay(800); // Jeda agresif namun aman
+        await delay(1000); // Jeda agresif namun aman
 
         sessionStats.downloadCount++;
         chrome.storage.local.set({ sessionStats: sanitizeStats(sessionStats) });
@@ -922,7 +927,10 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
     }
   }
 }
+let isWaitingForCooldown = false;
+
 async function handleCooldown(cooldownMs, isStartup = false) {
+  isWaitingForCooldown = true;
   console.log(`[DEBUG] Entering handleCooldown for ${cooldownMs}ms`);
   if (!isStartup) sessionStats.totalCooldowns++;
   cooldownMs += 5000;
@@ -956,6 +964,7 @@ async function handleCooldown(cooldownMs, isStartup = false) {
     action: "STATUS_UPDATE",
     status: `Resuming ${isStartup ? "automation" : "after cooldown"}...`,
   });
+  isWaitingForCooldown = false;
   return true;
 }
 
