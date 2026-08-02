@@ -871,8 +871,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
       const buttons = Array.from(targetContainer.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON))
         .filter(btn => btn.offsetParent !== null); // Pastikan elemennya terlihat di layar
 
-      if (buttons && buttons.length > 0) {
-      if (buttons && buttons.length > 0) {
+
       if (buttons && buttons.length > 0) {
         allDownloadButtons = buttons;
         break;
