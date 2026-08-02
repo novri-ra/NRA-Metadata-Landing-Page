@@ -28,6 +28,7 @@
 ## ✨ Features
 
 - **Bulk Prompt Queue** — Paste hundreds of prompts (one per line) or import from `.txt` files
+- **Stable Batch Processing:** Auto-memory management untuk mencegah memory leak saat memproses ratusan prompt.
 - **Auto Style & Aspect Ratio** — Set per-session or randomize per prompt
 - **Smart Download** — Polls DOM for newly rendered download buttons
 - **Native DOM Injection** — Stable, fast, and resolution-independent interaction (No CDP Debugger banner)
