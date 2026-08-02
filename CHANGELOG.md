@@ -1,6 +1,15 @@
 # Changelog
 All notable changes to the NRA DreamLab extension will be documented in this file.
 
+## [1.1.18] - 2026-08-02
+### Security
+- Patched XSS vulnerability in panel.js PROMPT_FAILED message handler by replacing innerHTML with secure textContent assignment.
+### Fixed
+- Fixed Service Worker ReferenceError in background.js by substituting window listeners with self.addEventListener.
+- Resolved DOM layout reflow CPU spikes during long polling in submitAndWaitForImages & getScreenCooldownMs by switching innerText to textContent.
+- Enhanced post-reload session recovery logic in content.js to wait for interactive DOM elements instead of using blind setTimeout delays.
+- Cleaned up orphaned heartbeatInterval references.
+
 ## [1.1.17] - 2026-07-17
 ### Changed
 - Expanded maxWaitTimeMs tolerance in submitAndWaitForImages to 240,000ms to handle canvas render freezes during active rate-limiting.

@@ -155,12 +155,10 @@ chrome.storage.local.get(["isPaused", "batchLimit"], (res) => {
 // Global execution flag for the automation loop
 let isRunning = false;
 // Mutex guard: prevents concurrent startMainLoop() invocations (KRITIS-2)
+// Mutex guard: prevents concurrent startMainLoop() invocations (KRITIS-2)
 let isLoopActive = false;
-// Interval for heartbeat (if used)
-let heartbeatInterval = null;
 // Session Statistics Telemetry
 let prompts = [];
-let sessionStats = {
   startTime: null,
   successCount: 0,
   downloadCount: 0,
@@ -503,7 +501,7 @@ function getScreenCooldownMs() {
   }
 
   if (!pageText.trim()) {
-    pageText = document.body.innerText;
+    pageText = document.body.textContent || "";
   }
 
   // Restore original display styles
@@ -549,10 +547,6 @@ function handleAutomationError(err) {
 
   if (err && err.message === "USER_STOPPED") {
     console.log("[NRA DreamLab] Process stopped manually.");
-    if (heartbeatInterval) {
-      clearInterval(heartbeatInterval);
-      heartbeatInterval = null;
-    }
     chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
       sendStatusUpdate("Automation stopped by user.");
     });
@@ -774,11 +768,11 @@ async function submitAndWaitForImages() {
   let detectedFinalizing = false;
 
   while (Date.now() - startTime < maxWaitTimeMs) {
+  while (Date.now() - startTime < maxWaitTimeMs) {
     if (!isRunning) throw new Error("USER_STOPPED");
 
-    const pageText = document.body.innerText || "";
+    const pageText = document.body.textContent || "";
 
-    // Periksa status teks pemrosesan aktif di layar
     const isSketching = /sketching/i.test(pageText);
     const isFinalizing = /finalizing/i.test(pageText);
     const isProcessingText = isSketching || isFinalizing || /refining|generating|memproses|membuat/i.test(pageText) ||
@@ -1237,20 +1231,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-chrome.storage.local.get(['isAutomating', 'isRecovering'], (res) => {
+chrome.storage.local.get(['isAutomating', 'isRecovering'], async (res) => {
   if (res.isAutomating === true && res.isRecovering === true) {
-    console.log("[Canva Automation] Memulihkan sesi setelah reload...");
-    chrome.storage.local.set({ isRecovering: false }, () => {
-      setTimeout(() => {
-        if (!isLoopActive) {
-          isRunning = true;
-          isLoopActive = true;
-          startMainLoop().catch(err => console.error(err)).finally(() => {
-            isLoopActive = false;
-            isRunning = false;
-          });
-        }
-      }, 3000);
-    });
+    console.log("[NRA DreamLab] Memulihkan sesi setelah reload. Menunggu elemen Canva siap...");
+    await chrome.storage.local.set({ isRecovering: false });
+    
+    try {
+      // Tunggu hingga textarea prompt tersedia di DOM sebelum melanjutkan loop
+      await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA, false, 20000);
+      if (!isLoopActive) {
+        isRunning = true;
+        isLoopActive = true;
+        startMainLoop().catch(err => console.error(err)).finally(() => {
+          isLoopActive = false;
+          isRunning = false;
+        });
+      }
+    } catch (e) {
+      console.error("[NRA DreamLab] Gagal memulihkan sesi setelah reload. Elemen tidak ditemukan:", e.message);
+      chrome.storage.local.set({ isAutomating: false });
+    }
   }
 });

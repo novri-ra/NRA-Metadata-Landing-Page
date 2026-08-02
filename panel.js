@@ -764,11 +764,11 @@ function initMessageListeners() {
       let raw = request.failedPrompt;
       let text = (typeof raw === 'object' && raw !== null)
         ? (raw.text || raw.prompt || JSON.stringify(raw))
-        : String(raw);
 
       const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = text;
+      tempDiv.textContent = text;
       const cleanPrompt = tempDiv.textContent || tempDiv.innerText || "";
+      const finalPrompt = cleanPrompt.replace(/\s+/g, " ").trim();
       const finalPrompt = cleanPrompt.replace(/\s+/g, " ").trim();
 
       if (finalPrompt) {
