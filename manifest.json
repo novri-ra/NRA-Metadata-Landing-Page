@@ -4,12 +4,12 @@
   "version": "1.1.19",
   "description": "Automate text input on canva.com/ai and download images on canva.com/dream-lab using NRA DreamLab.",
   "icons": {
-    "16": "icon.png",
-    "48": "icon.png",
-    "128": "icon.png"
+    "16": "assets/icon.png",
+    "48": "assets/icon.png",
+    "128": "assets/icon.png"
   },
   "action": {
-    "default_icon": "icon.png",
+    "default_icon": "assets/icon.png",
     "default_title": "NRA DreamLab"
   },
   "permissions": [
@@ -18,22 +18,22 @@
     "storage",
     "sidePanel",
     "notifications",
-    "power",
-    "downloads"
-  ],
-  "host_permissions": [
-    "*://*.canva.com/*",
-    "https://media.canva.com/*"
-  ],
   "side_panel": {
-    "default_path": "panel.html"
+    "default_path": "src/sidepanel/panel.html"
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "src/background/background.js"
   },
   "content_scripts": [
     {
       "matches": [
+        "https://www.canva.com/dream-lab*"
+      ],
+      "js": [
+        "src/utils/utils.js",
+        "src/content/selectors.js",
+        "src/content/content.js"
+      ],
         "https://www.canva.com/dream-lab*"
       ],
       "js": [
