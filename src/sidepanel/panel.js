@@ -725,6 +725,28 @@ function initMessageListeners() {
     }
   });
 
+  // Setup auto-reconnect interval to recover state if content.js resets/refreshes
+  setInterval(() => {
+    chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
+      if (tabs && tabs.length > 0) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: "PING" }, (pingRes) => {
+          if (!chrome.runtime.lastError && pingRes && pingRes.status === "READY") {
+            if (statusText && (statusText.textContent.includes("Error") || statusText.textContent.includes("Please open") || statusDot.style.backgroundColor === "rgb(239, 68, 68)" || statusDot.style.backgroundColor === "#ef4444")) {
+              statusText.textContent = "Canva Connected";
+              statusDot.classList.add("active");
+              statusDot.style.backgroundColor = "#10b981";
+              if (startBtn && !isRunning) {
+                startBtn.disabled = false;
+                startBtn.style.opacity = "1";
+                startBtn.style.cursor = "pointer";
+              }
+            }
+          }
+        });
+      }
+    });
+  }, 3000);
+
   // Listen for STATUS_UPDATE or direct status/progress/UI synchronization messages from content.js
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (!request) return false;
