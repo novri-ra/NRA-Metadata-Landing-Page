@@ -765,10 +765,11 @@ async function submitAndWaitForImages() {
   const maxWaitTimeMs = 240000;
   const checkIntervalMs = 1000;
   const startTime = Date.now();
+  let detectedFinalizing = false;
+
+  while (Date.now() - startTime < maxWaitTimeMs) {
 
     if (!isRunning) throw new Error("USER_STOPPED");
-
-    const pageText = document.body.textContent || "";
 
     const pageText = document.body.textContent || "";
 
