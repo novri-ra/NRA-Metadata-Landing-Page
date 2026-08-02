@@ -398,7 +398,7 @@ async function waitForElement(selector, isXPath = false, timeout = 10000) {
 
     const interval = setInterval(() => {
       // Check if automation was stopped externally
-      if (!isRunning) {
+      if (!isRunning && !isWaitingForCooldown) {
         clearInterval(interval);
         reject(new Error("USER_STOPPED"));
         return;
@@ -745,7 +745,12 @@ async function configureStyleAndRatio(imageStyle, aspectRatio) {
 
 async function injectPrompt(currentPrompt) {
   const textarea = await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA);
-  if (!textarea) throw new Error("Textarea not found");
+  if (!textarea || !textarea.isConnected) throw new Error("Textarea not found or stale");
+
+  // Pastikan input bisa diklik/difokuskan sebelum diketik
+  await safeCdpClick(textarea, "focus textarea");
+  await delay(300);
+
   textarea.value = "";
   textarea.dispatchEvent(new Event("input", { bubbles: true }));
   await safeCdpTypeHuman(currentPrompt, "prompt input");
@@ -769,7 +774,7 @@ async function submitAndWaitForImages() {
 
   while (Date.now() - startTime < maxWaitTimeMs) {
 
-    if (!isRunning) throw new Error("USER_STOPPED");
+    if (!isRunning && !isWaitingForCooldown) throw new Error("USER_STOPPED");
 
     const pageText = document.body.textContent || "";
 
@@ -904,7 +909,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
         await delay(500);
 
         await safeCdpClick(btn, `download button ${i + 1} dari kontainer prompt aktif`);
-        await delay(3000); // Jeda anti-banned aman
+        await delay(1000); // Jeda agresif namun aman
 
         sessionStats.downloadCount++;
         chrome.storage.local.set({ sessionStats: sanitizeStats(sessionStats) });
@@ -922,7 +927,10 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
     }
   }
 }
+let isWaitingForCooldown = false;
+
 async function handleCooldown(cooldownMs, isStartup = false) {
+  isWaitingForCooldown = true;
   console.log(`[DEBUG] Entering handleCooldown for ${cooldownMs}ms`);
   if (!isStartup) sessionStats.totalCooldowns++;
   cooldownMs += 5000;
@@ -956,6 +964,7 @@ async function handleCooldown(cooldownMs, isStartup = false) {
     action: "STATUS_UPDATE",
     status: `Resuming ${isStartup ? "automation" : "after cooldown"}...`,
   });
+  isWaitingForCooldown = false;
   return true;
 }
 
@@ -1049,6 +1058,18 @@ async function startMainLoop() {
 
         // 1. Hitung indeks aktif secara akurat sebelum array prompts dikurangi/di-shift
         const currentIndex = startIndex + (sessionStats.totalPrompts - prompts.length);
+
+        
+        // MEMORY LEAK PREVENTION: Reload page natively every 50 processed prompts
+        if (sessionStats.successCount > 0 && sessionStats.successCount % 50 === 0) {
+          console.info("[NRA DreamLab] 🧹 Preventative memory dump: Reloading tab after 50 prompts to clear Canva DOM bloat.");
+          await chrome.storage.local.set({ 
+            isRecovering: true,
+            lastProcessedPromptIndex: currentIndex
+          });
+          window.location.reload();
+          return;
+        }
 
         // 2. Baru ambil prompt aktif dari antrean
         const currentPrompt = prompts.shift();

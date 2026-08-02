@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to the NRA DreamLab extension will be documented in this file.
 
+## [1.1.20] - 2026-08-02
+### Added
+- Implementasi auto-reload tab setiap 50 prompt untuk mencegah DOM bloat/memory leak Canva.
+- State recovery aman menggunakan chrome.storage.local untuk melanjutkan antrean (Commit 7978ff2).
+
 ## [1.1.18] - 2026-08-02
 ### Security
 - Patched XSS vulnerability in panel.js PROMPT_FAILED message handler by replacing innerHTML with secure textContent assignment.
@@ -95,3 +100,4 @@ All notable changes to the NRA DreamLab extension will be documented in this fil
 - Core automation loop featuring custom prompt injection, aspect ratio config, and automatic element selection.
 - Basic human-like typing simulation delay.
 - Session metrics logging including progress tracking and success rates.
+
