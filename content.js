@@ -863,17 +863,16 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
   }
 
   let allDownloadButtons = [];
-
-  let allDownloadButtons = [];
+  try {
     // 3. Cari tombol download secara eksklusif HANYA di dalam targetContainer yang telah dikunci
     const MAX_DOWNLOAD_RETRIES = 15;
-    for (let attempt = 0; attempt < MAX_DOWNLOAD_RETRIES; attempt++) {
-      if (!isRunning) throw new Error("USER_STOPPED");
 
-      const buttons = Array.from(targetContainer.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON))
+    for (let attempt = 0; attempt < MAX_DOWNLOAD_RETRIES; attempt++) {
       const buttons = Array.from(targetContainer.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON))
         .filter(btn => btn.offsetParent !== null); // Pastikan elemennya terlihat di layar
 
+      if (buttons && buttons.length > 0) {
+      if (buttons && buttons.length > 0) {
       if (buttons && buttons.length > 0) {
         allDownloadButtons = buttons;
         break;
@@ -883,11 +882,10 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
     }
     
     if (allDownloadButtons.length === 0) {
-    if (allDownloadButtons.length === 0) {
+      throw new Error("Tombol download tidak ditemukan setelah batas waktu penungguan.");
     }
   } catch (error) {
     throw new Error("Gagal mengisolasi tombol unduh: " + error.message);
-  }
   }
 
   let targetCount = parseInt(countSetting, 10) || 4;
