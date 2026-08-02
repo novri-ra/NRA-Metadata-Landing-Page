@@ -1050,6 +1050,18 @@ async function startMainLoop() {
         // 1. Hitung indeks aktif secara akurat sebelum array prompts dikurangi/di-shift
         const currentIndex = startIndex + (sessionStats.totalPrompts - prompts.length);
 
+        
+        // MEMORY LEAK PREVENTION: Reload page natively every 50 processed prompts
+        if (sessionStats.successCount > 0 && sessionStats.successCount % 50 === 0) {
+          console.info("[NRA DreamLab] 🧹 Preventative memory dump: Reloading tab after 50 prompts to clear Canva DOM bloat.");
+          await chrome.storage.local.set({ 
+            isRecovering: true,
+            lastProcessedPromptIndex: currentIndex
+          });
+          window.location.reload();
+          return;
+        }
+
         // 2. Baru ambil prompt aktif dari antrean
         const currentPrompt = prompts.shift();
 
