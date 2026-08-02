@@ -862,6 +862,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
     console.warn("[NRA DreamLab] Fallback ultimate ke document body.");
   }
 
+  let targetCount = parseInt(countSetting, 10) || 4;
   let allDownloadButtons = [];
   try {
     // 3. Cari tombol download secara eksklusif HANYA di dalam targetContainer yang telah dikunci
@@ -871,10 +872,11 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
       const buttons = Array.from(targetContainer.querySelectorAll(CANVA_SELECTORS.DOWNLOAD_BUTTON))
         .filter(btn => btn.offsetParent !== null); // Pastikan elemennya terlihat di layar
 
-
-      if (buttons && buttons.length > 0) {
-        allDownloadButtons = buttons;
-        break;
+      allDownloadButtons = buttons;
+      if (buttons.length >= targetCount) {
+         break;
+      } else {
+         console.info(`[NRA DreamLab] Baru ditemukan ${buttons.length}/${targetCount} tombol download, menunggu...`);
       }
       console.info(`[NRA DreamLab] Tombol download belum siap, mencoba lagi dalam 2 detik... (Attempt ${attempt + 1}/${MAX_DOWNLOAD_RETRIES})`);
       await delay(2000);
@@ -887,7 +889,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
     throw new Error("Gagal mengisolasi tombol unduh: " + error.message);
   }
 
-  let targetCount = parseInt(countSetting, 10) || 4;
+  
   let buttonsToClick = allDownloadButtons.slice(0, targetCount);
   console.log(`[NRA DreamLab] Mengunduh ${buttonsToClick.length} gambar eksklusif dari kontainer prompt aktif.`);
 
