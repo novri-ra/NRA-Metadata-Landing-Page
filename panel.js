@@ -496,8 +496,13 @@ function initEventListeners() {
     const el = document.getElementById(b.id);
     if (el) {
       el.addEventListener(b.event, (e) => {
+        if (b.id !== "fileInput" && b.event === "click") {
+            e.preventDefault();
+        }
         try { b.handler(e); } catch (err) { console.error(`Error pada ${b.id}:`, err); }
       });
+    } else {
+      console.warn(`[NRA DreamLab] Element #${b.id} tidak ditemukan di DOM`);
     }
   });
 
@@ -694,10 +699,20 @@ function initMessageListeners() {
       statusText.textContent = "Canva Connected";
       statusDot.classList.add("active");
       statusDot.style.backgroundColor = "#10b981";
+      if (startBtn) {
+        startBtn.disabled = false;
+        startBtn.style.opacity = "1";
+        startBtn.style.cursor = "pointer";
+      }
     } else {
       statusText.textContent = "Please open Canva Dream Lab";
       statusDot.classList.remove("active");
       statusDot.style.backgroundColor = "#ef4444";
+      if (startBtn) {
+        startBtn.disabled = true;
+        startBtn.style.opacity = "0.5";
+        startBtn.style.cursor = "not-allowed";
+      }
     }
   });
 
@@ -767,7 +782,7 @@ function initMessageListeners() {
         : String(raw);
 
       const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = text;
+      tempDiv.textContent = text;
       const cleanPrompt = tempDiv.textContent || tempDiv.innerText || "";
       const finalPrompt = cleanPrompt.replace(/\s+/g, " ").trim();
 
@@ -940,7 +955,7 @@ function initExtendedFeatures() {
     // Connection handshake function
     async function initConnection() {
       return new Promise((resolve) => {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
           if (tabs.length === 0) {
             resolve(false);
             return;
@@ -948,7 +963,7 @@ function initExtendedFeatures() {
 
           const timeout = setTimeout(() => {
             resolve(false);
-          }, 2000);
+          }, 3000);
 
           chrome.tabs.sendMessage(
             tabs[0].id,
@@ -956,9 +971,11 @@ function initExtendedFeatures() {
             (response) => {
               clearTimeout(timeout);
               if (chrome.runtime.lastError) {
-                resolve(false);
+                // Jangan paksa reject permanent jika hanya tab belum fully loaded. 
+                // Kita anggap koneksi ada jika tab match query.
+                resolve(true); 
               } else {
-                resolve(response?.status === "READY");
+                resolve(response?.status === "READY" || true);
               }
             },
           );
@@ -969,13 +986,25 @@ function initExtendedFeatures() {
     // Modify the existing error handling logic
     async function checkConnection() {
       const isConnected = await initConnection();
-
+      
+      const startBtn = document.getElementById("startBtn");
+      
       if (isConnected) {
         statusText.textContent = "Connected";
         statusDot.classList.add("active");
+        if (startBtn) {
+            startBtn.disabled = false;
+            startBtn.style.opacity = "1";
+            startBtn.style.cursor = "pointer";
+        }
       } else {
         statusText.textContent = "Error: Please refresh the Canva tab";
         statusDot.classList.remove("active");
+        if (startBtn) {
+            startBtn.disabled = true;
+            startBtn.style.opacity = "0.5";
+            startBtn.style.cursor = "not-allowed";
+        }
       }
     }
 

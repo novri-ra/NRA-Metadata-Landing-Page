@@ -1,3 +1,8 @@
+// Service Worker Global Rejection Guard (MV3 Compliant)
+self.addEventListener("unhandledrejection", (event) => {
+  console.error("[Background] Unhandled Promise Rejection:", event.reason);
+});
+
 // NRA DreamLab - Background Service Worker
 let isBackgroundCleanup = false;
 
