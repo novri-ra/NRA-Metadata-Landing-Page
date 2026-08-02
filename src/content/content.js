@@ -761,13 +761,22 @@ async function submitAndWaitForImages() {
   const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON, false, 15000);
 
   // Hitung jumlah kontainer sebelum generate untuk deteksi node baru
-  // Hitung jumlah kontainer sebelum generate untuk deteksi node baru
   const sectionsBefore = document.querySelectorAll("section").length;
 
   console.info("[NRA DreamLab] Menekan tombol Generate...");
+  
+  // Implement DOM Tagging (Marking)
+  const oldSections = document.querySelectorAll("section");
+  oldSections.forEach(section => {
+    section.setAttribute("data-nra-processed", "true");
+  });
+
   await safeCdpClick(generateBtn, "generate button");
 
   console.info("[NRA DreamLab] Menunggu inisiasi node kontainer baru...");
+  
+  // State Transition Wait: Jeda 1 detik agar Canva sempat memproses klik & menambah/menghapus DOM
+  await delay(1000);
   // Paksa bot menunggu hingga jumlah elemen <section> di DOM bertambah 1
   let sectionsAfter = sectionsBefore;
   let waitInitTimeout = 0;
@@ -804,7 +813,7 @@ async function submitAndWaitForImages() {
       }
     }
 
-    const allSections = document.querySelectorAll("section");
+    const allSections = document.querySelectorAll("section:not([data-nra-processed='true'])");
     const latestSection = allSections[allSections.length - 1];
     let isFallbackImageReady = false;
     if (latestSection) {
