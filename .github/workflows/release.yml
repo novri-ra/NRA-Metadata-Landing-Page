@@ -25,23 +25,24 @@ jobs:
         with:
           node-version: "20"
 
-          echo "ðŸ”’ Obfuscating main JavaScript files..."
-          mkdir -p obfuscated
+      - name: Install Obfuscator
+        run: npm install -g javascript-obfuscator
+
+      - name: Obfuscate and Prepare Files
+        run: |
+          echo "🔒 Obfuscating main JavaScript files..."
+
+          # 1. Buat struktur folder output (obfuscated)
           mkdir -p obfuscated/src/background
           mkdir -p obfuscated/src/content
           mkdir -p obfuscated/src/sidepanel
           mkdir -p obfuscated/src/utils
           mkdir -p obfuscated/assets
 
-          # Only obfuscate files with business logic
+          # 2. Daftar file utama yang akan diobfuscate
           FILES_TO_OBFUSCATE="src/background/background.js src/content/content.js src/sidepanel/panel.js"
 
-          echo "🔒 Obfuscating main JavaScript files..."
-          mkdir -p obfuscated
-
-          # Only obfuscate files with business logic
-          FILES_TO_OBFUSCATE="background.js content.js panel.js"
-
+          # 3. Proses obfuscation
           for file in $FILES_TO_OBFUSCATE; do
             if [ -f "$file" ]; then
               echo "   🔒 Obfuscating $file..."
@@ -59,43 +60,40 @@ jobs:
                 --string-array true \
                 --string-array-encoding rc4 \
                 --string-array-threshold 0.75 \
-                --transform-object-keys false \
-          # Copy selectors.js as-is (only constants, no business logic)
+                --transform-object-keys false
+            fi
+          done
+
+          # 4. Salin file JS spesifik (tanpa obfuscate berat)
           if [ -f src/content/selectors.js ]; then
-            echo "ðŸ“„ Copying selectors.js (no obfuscation needed)..."
+            echo "📄 Copying selectors.js (no obfuscation needed)..."
             cp src/content/selectors.js obfuscated/src/content/
           fi
 
-          # Copy utils.js if exists (with light obfuscation)
           if [ -f src/utils/utils.js ]; then
-            echo "ðŸ”’ Obfuscating utils.js..."
-            javascript-obfuscator src/utils/utils.js --output "obfuscated/src/utils/utils.js" \
+            echo "🔒 Obfuscating utils.js..."
+            javascript-obfuscator src/utils/utils.js --output "obfuscated/src/utils/utils.js"
           fi
 
-          # Copy utils.js if exists (with light obfuscation)
-          if [ -f utils.js ]; then
-            echo "🔒 Obfuscating utils.js..."
-            javascript-obfuscator utils.js --output "obfuscated/utils.js" \
-          fi
-          
           if [ -f src/utils/rename.js ]; then
             cp src/utils/rename.js obfuscated/src/utils/
           fi
 
-          echo "ðŸ“‹ Copying non-JS files..."
-          cp manifest.json obfuscated/
-          cp src/sidepanel/panel.html obfuscated/src/sidepanel/
-          cp assets/icon.png obfuscated/assets/
-          cp README.md obfuscated/
-          cp panel.html obfuscated/
-          cp icon.png obfuscated/
-          cp README.md obfuscated/
-
-          if [ -f icon.html ]; then
-            cp icon.html obfuscated/
+          if [ -f src/utils/preset.js ]; then
+            cp src/utils/preset.js obfuscated/src/utils/
           fi
 
-          echo "✅ Build complete!"
+          # 5. Salin file non-JS & Assets
+          echo "📋 Copying non-JS files..."
+          cp manifest.json obfuscated/
+          cp src/sidepanel/panel.html obfuscated/src/sidepanel/
+          cp README.md obfuscated/
+
+          if [ -d assets ]; then
+            cp -r assets/* obfuscated/assets/
+          fi
+
+          echo "✅ Obfuscation and file prep complete!"
 
       - name: Create extension package
         run: |
