@@ -759,11 +759,8 @@ async function injectPrompt(currentPrompt) {
 async function submitAndWaitForImages() {
   console.info("[NRA DreamLab] Mencari tombol Generate...");
   const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON, false, 15000);
-  if (!generateBtn) throw new Error("Generate button not found");
 
-  console.info("[NRA DreamLab] Menekan tombol Generate...");
-  await safeCdpClick(generateBtn, "generate button");
-
+  // Hitung jumlah kontainer sebelum generate untuk deteksi node baru
   // Hitung jumlah kontainer sebelum generate untuk deteksi node baru
   const sectionsBefore = document.querySelectorAll("section").length;
 
