@@ -25,12 +25,17 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install Obfuscator
-        run: |
-          npm install -g javascript-obfuscator
+          echo "ðŸ”’ Obfuscating main JavaScript files..."
+          mkdir -p obfuscated
+          mkdir -p obfuscated/src/background
+          mkdir -p obfuscated/src/content
+          mkdir -p obfuscated/src/sidepanel
+          mkdir -p obfuscated/src/utils
+          mkdir -p obfuscated/assets
 
-      - name: Obfuscate main JavaScript files
-        run: |
+          # Only obfuscate files with business logic
+          FILES_TO_OBFUSCATE="src/background/background.js src/content/content.js src/sidepanel/panel.js"
+
           echo "🔒 Obfuscating main JavaScript files..."
           mkdir -p obfuscated
 
@@ -55,33 +60,33 @@ jobs:
                 --string-array-encoding rc4 \
                 --string-array-threshold 0.75 \
                 --transform-object-keys false \
-                --unicode-escape-sequence false
-            else
-              echo "⚠️ $file not found, skipping..."
-            fi
-          done
-
           # Copy selectors.js as-is (only constants, no business logic)
-          if [ -f selectors.js ]; then
-            echo "📄 Copying selectors.js (no obfuscation needed)..."
-            cp selectors.js obfuscated/
+          if [ -f src/content/selectors.js ]; then
+            echo "ðŸ“„ Copying selectors.js (no obfuscation needed)..."
+            cp src/content/selectors.js obfuscated/src/content/
+          fi
+
+          # Copy utils.js if exists (with light obfuscation)
+          if [ -f src/utils/utils.js ]; then
+            echo "ðŸ”’ Obfuscating utils.js..."
+            javascript-obfuscator src/utils/utils.js --output "obfuscated/src/utils/utils.js" \
           fi
 
           # Copy utils.js if exists (with light obfuscation)
           if [ -f utils.js ]; then
             echo "🔒 Obfuscating utils.js..."
             javascript-obfuscator utils.js --output "obfuscated/utils.js" \
-              --compact true \
-              --control-flow-flattening true \
-              --control-flow-flattening-threshold 0.5 \
-              --dead-code-injection true \
-              --dead-code-injection-threshold 0.3 \
-              --self-defending true \
-              --string-array true
+          fi
+          
+          if [ -f src/utils/rename.js ]; then
+            cp src/utils/rename.js obfuscated/src/utils/
           fi
 
-          echo "📋 Copying non-JS files..."
+          echo "ðŸ“‹ Copying non-JS files..."
           cp manifest.json obfuscated/
+          cp src/sidepanel/panel.html obfuscated/src/sidepanel/
+          cp assets/icon.png obfuscated/assets/
+          cp README.md obfuscated/
           cp panel.html obfuscated/
           cp icon.png obfuscated/
           cp README.md obfuscated/
