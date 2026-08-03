@@ -367,9 +367,12 @@ function tagGhostCooldowns() {
 async function waitForElement(selector, isXPath = false, timeout = 10000) {
   return new Promise((resolve, reject) => {
     let timer;
+    let settled = false;
 
     function check() {
+      if (settled) return null;
       if (!isRunning && !isWaitingForCooldown) {
+        settled = true;
         if (timer) clearTimeout(timer);
         reject(new Error("USER_STOPPED"));
         return null;
@@ -392,10 +395,12 @@ async function waitForElement(selector, isXPath = false, timeout = 10000) {
 
     const initial = check();
     if (initial) return resolve(initial);
+    if (settled) return; // Already rejected by check()
 
     const observer = new MutationObserver(() => {
       const el = check();
       if (el) {
+        settled = true;
         observer.disconnect();
         if (timer) clearTimeout(timer);
         resolve(el);
@@ -405,6 +410,8 @@ async function waitForElement(selector, isXPath = false, timeout = 10000) {
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
 
     timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
       observer.disconnect();
       reject(new Error(`Timeout waiting for element matching: ${selector}`));
     }, timeout);

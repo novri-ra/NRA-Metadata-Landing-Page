@@ -126,7 +126,7 @@ The background service worker prevents multiple tabs from running automation sim
 **Lifecycle:**
 - `chrome.runtime.onStartup` / `onInstalled`: Clears stale mutex on browser restart or crash recovery.
 - `chrome.tabs.onRemoved`: Releases mutex when the automation tab is closed.
-- `chrome.tabs.onUpdated`: Releases mutex on tab reload or navigation away. Respects `isRecovering` flag for intentional memory-dump reloads.
+- `chrome.tabs.onUpdated`: Releases mutex on navigation away from Canva.
 - `chrome.runtime.onSuspend`: Emergency cleanup before service worker terminates.
 
 #### 2. Unthrottled Web Worker Delay
