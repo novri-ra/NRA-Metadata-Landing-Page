@@ -6,6 +6,14 @@ self.addEventListener("unhandledrejection", (event) => {
 // NRA DreamLab - Background Service Worker
 let isBackgroundCleanup = false;
 
+// CRITICAL FIX: Reset stale mutex/state on browser startup or extension install/update
+chrome.runtime.onStartup.addListener(() => {
+  emergencyCleanup();
+});
+chrome.runtime.onInstalled.addListener(() => {
+  emergencyCleanup();
+});
+
 function sanitizeFilename(filename) {
   return filename
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Hapus diakritik
@@ -97,17 +105,29 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   });
 });
 
-// Release mutex if active tab navigates away from Canva Dream Lab
+// Release mutex if active tab navigates away from Canva Dream Lab or reloads
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.url) {
-    chrome.storage.local.get(["activeAutomationTab"], (res) => {
-      if (res.activeAutomationTab === tabId && !changeInfo.url.includes("canva.com")) {
+  if (changeInfo.url || changeInfo.status === "loading") {
+    chrome.storage.local.get(["activeAutomationTab", "isRecovering"], (res) => {
+      if (res.activeAutomationTab !== tabId) return;
+
+      if (changeInfo.url && !changeInfo.url.includes("canva.com")) {
         console.log(
           `[Background] Active tab ${tabId} navigated away from Canva. Releasing mutex.`,
         );
         chrome.storage.local.remove(["activeAutomationTab"]);
         chrome.power.releaseKeepAwake();
         chrome.storage.local.set({ isAutomating: false });
+      } else if (changeInfo.status === "loading") {
+        console.log(
+          `[Background] Active tab ${tabId} reloading. Releasing mutex.`,
+        );
+        chrome.storage.local.remove(["activeAutomationTab"]);
+        chrome.power.releaseKeepAwake();
+        // ponytail: preserve isAutomating if content.js triggered intentional reload (isRecovering)
+        if (!res.isRecovering) {
+          chrome.storage.local.set({ isAutomating: false });
+        }
       }
     });
   }

@@ -166,37 +166,6 @@ let sessionStats = {
   totalPrompts: 0,
 };
 
-async function smartWaitForElement(selector, timeoutMs = 15000) {
-  return new Promise((resolve, reject) => {
-    const existingElements = Array.from(document.querySelectorAll(selector)).filter(btn => btn.offsetParent !== null);
-    if (existingElements.length > 0) {
-      return resolve(existingElements);
-    }
-
-    let timer; // Deklarasi dinaikkan ke atas untuk mencegah ReferenceError
-
-    const observer = new MutationObserver((mutations, obs) => {
-      const elements = Array.from(document.querySelectorAll(selector)).filter(btn => btn.offsetParent !== null);
-      if (elements.length > 0) {
-        obs.disconnect();
-        if (timer) clearTimeout(timer);
-        resolve(elements);
-      }
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['class', 'style']
-    });
-
-    timer = setTimeout(() => {
-      observer.disconnect();
-      reject(new Error("Timeout: Elemen " + selector + " tidak muncul setelah " + timeoutMs + "ms"));
-    }, timeoutMs);
-  });
-}
 /**
  * Helper function to sanitize sessionStats and prevent NaN values.
  * @param {Object} stats
@@ -320,6 +289,10 @@ function delay(ms) {
       console.warn(
         `[NRA DreamLab] âš ï¸ Worker error instan: ${e.message}. Menggunakan setTimeout native dan merestart worker...`,
       );
+      if (delayWorker) {
+        try { delayWorker.terminate(); } catch (_) {}
+        delayWorker = null;
+      }
       initWorker(); // Re-init sekarang juga
 
       // Karena kita tahu postMessage gagal, jadwalkan resolve menggunakan setTimeout sesuai 'ms'
@@ -393,43 +366,48 @@ function tagGhostCooldowns() {
  */
 async function waitForElement(selector, isXPath = false, timeout = 10000) {
   return new Promise((resolve, reject) => {
-    const checkInterval = 300;
-    let elapsed = 0;
+    let timer;
 
-    const interval = setInterval(() => {
-      // Check if automation was stopped externally
+    function check() {
       if (!isRunning && !isWaitingForCooldown) {
-        clearInterval(interval);
+        if (timer) clearTimeout(timer);
         reject(new Error("USER_STOPPED"));
-        return;
+        return null;
       }
 
-      let element = null;
+      let el = null;
       if (isXPath) {
-        element = document.evaluate(
-          selector,
-          document,
-          null,
-          XPathResult.FIRST_ORDERED_NODE_TYPE,
-          null,
-        ).singleNodeValue;
+        el = document.evaluate(selector, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
       } else {
-        element = document.querySelector(selector);
+        el = document.querySelector(selector);
       }
 
-      if (element) {
-        clearInterval(interval);
-        resolve(element);
-      } else {
-        elapsed += checkInterval;
-        if (elapsed >= timeout) {
-          clearInterval(interval);
-          reject(
-            new Error(`Timeout waiting for element matching: ${selector}`),
-          );
-        }
+      if (el) {
+        // Safe visibility check, better than offsetParent
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) return el;
       }
-    }, checkInterval);
+      return null;
+    }
+
+    const initial = check();
+    if (initial) return resolve(initial);
+
+    const observer = new MutationObserver(() => {
+      const el = check();
+      if (el) {
+        observer.disconnect();
+        if (timer) clearTimeout(timer);
+        resolve(el);
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+
+    timer = setTimeout(() => {
+      observer.disconnect();
+      reject(new Error(`Timeout waiting for element matching: ${selector}`));
+    }, timeout);
   });
 }
 
@@ -864,8 +842,8 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
 
     // 2. Lakukan perulangan untuk mencari section yang membungkus teks prompt aktif
     for (const section of sections) {
-      // Multi-fallback: Cari berdasarkan class Canva saat ini ATAU semua tag paragraf di dalam section jika class berubah
-      const promptElements = section.querySelectorAll('p.aWBg0w, p[class*="6klkDA"], p[data-testid*="undefined"], p');
+      // Multi-fallback: Cari berdasarkan tag paragraf di dalam section untuk stabilitas, menghindari obfuscated classes.
+      const promptElements = section.querySelectorAll('p[data-testid*="undefined"], p');
       let matchesPrompt = false;
 
       for (const p of promptElements) {

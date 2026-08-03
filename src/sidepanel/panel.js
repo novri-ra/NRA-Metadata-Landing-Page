@@ -748,6 +748,25 @@ function initMessageListeners() {
   }, 3000);
 
   // Listen for STATUS_UPDATE or direct status/progress/UI synchronization messages from content.js
+  // Throttled log rendering: batch DOM writes via requestAnimationFrame
+  const logQueue = [];
+  let logFlushScheduled = false;
+  const MAX_LOG_ENTRIES = 500;
+
+  function flushLogs() {
+    logFlushScheduled = false;
+    if (!consoleLogs || logQueue.length === 0) return;
+    const frag = document.createDocumentFragment();
+    while (logQueue.length > 0) {
+      frag.appendChild(logQueue.shift());
+    }
+    consoleLogs.appendChild(frag);
+    while (consoleLogs.childElementCount > MAX_LOG_ENTRIES) {
+      consoleLogs.removeChild(consoleLogs.firstElementChild);
+    }
+    consoleLogs.scrollTop = consoleLogs.scrollHeight;
+  }
+
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (!request) return false;
 
@@ -788,15 +807,11 @@ function initMessageListeners() {
         logDiv.className = `log-entry log-${request.level.toLowerCase()}`;
         logDiv.textContent = `${time} ${prefix} ${request.message}`;
 
-        consoleLogs.appendChild(logDiv);
-
-        // OPT-7 FIX: Cap terminal log DOM nodes to prevent memory bloat on long sessions
-        const MAX_LOG_ENTRIES = 500;
-        while (consoleLogs.childElementCount > MAX_LOG_ENTRIES) {
-          consoleLogs.removeChild(consoleLogs.firstElementChild);
+        logQueue.push(logDiv);
+        if (!logFlushScheduled) {
+          logFlushScheduled = true;
+          requestAnimationFrame(flushLogs);
         }
-
-        consoleLogs.scrollTop = consoleLogs.scrollHeight; // Auto-scroll
       }
       sendResponse({ success: true });
       return true;

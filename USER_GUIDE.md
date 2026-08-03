@@ -1,59 +1,115 @@
-# 🌟 Panduan Pengguna NRA DreamLab (v1.1.20)
+# 📖 NRA DreamLab - User Guide
 
-Selamat datang di **NRA DreamLab**! Asisten pintar Anda untuk membuat ratusan gambar di Canva secara otomatis, tanpa ribet, dan tanpa perlu ditunggu terus-menerus. 🎨✨
-
----
-
-## 🚀 Mengapa Anda Akan Menyukai Ini? (Fitur Unggulan)
-
-NRA DreamLab dirancang agar Anda bisa bersantai sambil komputer yang bekerja keras. Berikut adalah keajaiban di dalamnya:
-
-- 🔄 **Lanjut Otomatis (Auto-Resume):** Tab tertutup tak sengaja? Komputer restart? Tenang saja! Saat Anda membuka Canva kembali, asisten akan mengingat tugas terakhir dan langsung melanjutkannya. Tidak ada tugas yang terlewat!
-- 🔍 **Kualitas Super Tajam (Anti-Blur):** Asisten kami sangat teliti. Ia memastikan gambar sudah diproses 100% jernih dan tajam oleh Canva sebelum menyimpannya ke komputer Anda.
-- 🤝 **Koneksi Anti-Putus (Smart Connection):** Sistem stabil yang memastikan asisten ini selalu terhubung dengan layar Canva Anda agar proses berjalan mulus dari awal hingga akhir.
-- 🧠 **Anti-Lemot (Smart Memory):** Cerdas mengelola memori komputer Anda. Walau membuat ratusan gambar, komputer tidak akan tiba-tiba berat atau macet.
+Welcome to the **NRA DreamLab** extension! This guide will walk you through how to use the extension to automate generating and downloading images on Canva's Dream Lab. 
 
 ---
 
-## 🛠️ Cara Pasang (Instalasi)
+## 🚀 Getting Started
 
-Tidak perlu keahlian khusus! Cukup ikuti langkah mudah ini:
+### 1. Open Canva Dream Lab
+First, navigate to the Canva Dream Lab page in Google Chrome:
+👉 [https://www.canva.com/dream-lab](https://www.canva.com/dream-lab)
 
-1. Buka browser **Google Chrome** di komputer Anda.
-2. Ketik `chrome://extensions/` di kolom alamat situs (tempat Anda biasa mengetik www.google.com), lalu tekan **Enter**.
-3. Di pojok kanan atas, nyalakan tombol **Developer mode** (Mode Pengembang).
-4. Klik tombol **Load unpacked** (Muat yang belum dikemas) di pojok kiri atas.
-5. Pilih folder ekstensi `NRA DreamLab` yang sudah Anda simpan di komputer. Selesai! 🎉 
-6. (Opsional) Klik ikon *Puzzle* di kanan atas Chrome, lalu tekan ikon *Pin* (Paku) di sebelah NRA DreamLab agar logonya selalu terlihat.
-
----
-
-## 🎯 Cara Menggunakan (Mulai Membuat Karya!)
-
-1. Buka situs **Canva Dream Lab** di browser Anda dan pastikan Anda sudah masuk (login) ke akun Canva.
-2. Klik ikon logo **NRA DreamLab** di pojok kanan atas Chrome. Sebuah panel akan terbuka di sisi layar Anda.
-3. Masukkan daftar ide gambar (prompt) Anda di kolom yang tersedia. Pisahkan setiap ide gambar dengan baris baru (tekan Enter).
-4. Atur gaya gambar (Style) dan ukuran (Ratio) sesuai selera.
-5. Klik tombol **MULAI GENERATE**.
-6. Silakan bersantai, biarkan asisten bekerja untuk Anda! ☕
+### 2. Open the Side Panel
+Click the **NRA DreamLab icon** in your Chrome toolbar (the puzzle piece menu). This will open the control panel on the side of your screen. You will see a status light:
+- 🟢 **Green (Canva Connected):** You are on the correct page and ready to go!
+- 🔴 **Red (Error):** You need to open the Canva Dream Lab page, or refresh the tab.
 
 ---
 
-## 💡 Tips & Trik Berjalan Lancar
+## 🛠️ How to Run Automation
 
-- **Biarkan Tab Terbuka:** Meski bot bisa melanjutkan tugas secara otomatis, proses akan paling cepat jika Anda membiarkan tab Canva terbuka di layar.
-- **Hindari Mode Tidur:** Pastikan komputer Anda tidak masuk ke mode *Sleep* / Tidur layar saat sedang membuat gambar massal.
-- **Deskripsi Jelas:** Semakin detail deskripsi yang Anda ketikkan, semakin bagus hasil gambarnya!
+### Step 1: Enter Your Prompts
+In the main text box, paste your image prompts. 
+**Rule:** Put exactly **one prompt per line**. Blank lines are automatically skipped.
+
+> 💡 **Pro Tip: Using the `{i}` Variable**
+> If you want to generate the same prompt multiple times, add `{i}` anywhere in the text. For example: `A futuristic city in the rain {i}`. When you click Run, the extension will ask you how many iterations you want, and automatically create numbered variations for you!
+
+### Step 2: Choose Your Settings
+Use the dropdown menus below the text box to configure the output:
+- **Aspect Ratio:** E.g., `16:9`, `1:1`, `9:16`. (Select "Random" to randomize).
+- **Style:** E.g., `Cinematic`, `Minimalist`, `Anime`.
+- **Download Count:** How many images to download per prompt (1 to 4).
+
+### Step 3: Start Automation
+Click the big **RUN** button. 
+Sit back and watch! The extension will:
+1. Type your prompt into the Canva input box.
+2. Click the Generate button.
+3. Wait until the images are fully rendered (sharp and clear).
+4. Download the images directly to your computer.
+5. Move on to the next prompt automatically.
 
 ---
 
-## 🆘 Solusi Masalah Cepat (FAQ)
+## 📊 Understanding the Panel
 
-| Kendala yang Sering Terjadi | Cara Mengatasinya |
-| :--- | :--- |
-| **"Asisten diam saja, tidak menekan tombol."** | Refresh (muat ulang) halaman Canva Anda. Kadang halaman internet belum termuat sempurna. |
-| **"Tombol ekstensi tidak merespon."** | Tutup panel asisten di kanan layar, lalu buka lagi. Sistem cerdas kami akan otomatis menyambung ulang dengan Canva. |
-| **"Gambar yang terunduh tampak buram."** | Fitur Anti-Blur sudah aktif. Namun jika internet Anda sedang lambat, bot mungkin butuh waktu lebih lama. Cukup naikkan angka **"Jeda Aman"** (Safety Delay) di pengaturan ekstensi. |
-| **"Proses terhenti di tengah jalan."** | Jangan panik! Klik tombol **Mulai** lagi. Berkat fitur *Lanjut Otomatis*, asisten akan pintar melewati gambar yang sudah jadi dan lanjut ke sisa tugas Anda. |
+### Status & Progress
+- **Status Indicator:** Shows exactly what the bot is doing right now (e.g., "Typing prompt...", "Waiting for images...", "Cooldown: 02:45").
+- **Progress:** Shows how many prompts are left in the queue.
+- **Statistics Board:** Real-time metrics showing total processed prompts, total downloaded images, success rate, elapsed time, average speed, and Estimated Time of Arrival (ETA) for the remaining queue.
 
-> 💌 **Punya pertanyaan lain?** Jangan ragu untuk mencoba-coba fiturnya. Selamat berkreasi dengan mudah!
+### Console Logs
+The black terminal window at the bottom shows technical logs. Useful for monitoring the background process. You can export these logs or clear them using the tiny icons in the header.
+
+---
+
+## ⏸️ Pause & Resume
+
+Need to stop the bot temporarily? 
+Click the **⏸ PAUSE** button. The bot will finish its current task and then halt. 
+Click **▶ RESUME** when you're ready to continue. 
+
+If you click the **STOP** button (the big red button while running), the automation ends completely. However, your remaining prompts are saved. You can resume later and the bot will pick up right where it left off!
+
+---
+
+## 🛡️ Smart Error Handling (How the Bot Protects You)
+
+NRA DreamLab is built with an advanced protection system so you can walk away from your computer safely:
+
+### Server Overload & Cooldowns
+Canva limits how fast you can generate images. If Canva shows a **"Try again in X minutes"** or **"Lots of people are using Dream Lab"** warning, the bot will instantly pause and display a countdown timer. Once the cooldown clears, it resumes automatically.
+
+### Monthly Limit Reached
+If you hit your account's monthly AI generation limit, the bot detects the warning, stops immediately, and sends you a browser notification.
+
+### "Preventative Memory Dump" (Auto-Reload)
+Canva pages get slow and use a lot of RAM if left open for hundreds of generations. To prevent your browser from freezing, the bot performs a **Preventative Memory Dump**:
+1. Every 50 prompts, the bot will automatically refresh the Canva tab.
+2. It pauses itself briefly.
+3. It reconnects, remembers exactly where it was, and resumes automatically!
+
+### Quarantine System (Failed Prompts)
+Sometimes Canva refuses a prompt (e.g., for safety violations, or random network errors). If a prompt fails completely, the bot skips it to keep the queue moving. 
+- You will see the failed prompt appear in the **Quarantined Prompts** text box. 
+- You can review them, edit out prohibited words, and click the ♻️ icon to send them back to the main queue!
+
+---
+
+## ⚙️ Advanced Settings (Settings Modal)
+
+Click the **Gear Icon ⚙️** at the top of the panel to access Advanced Settings:
+
+- **Download Folder Name:** Save all generated images into a specific subfolder (e.g., `MyProject/`).
+- **Typing Mode:** Switch between "Human" (types fast character by character) and "Instant" (pastes instantly).
+- **Safety Delay:** Add extra wait time (in seconds) after the image finishes rendering before downloading. Helpful for slow internet connections.
+- **Save Delay:** Add extra delay between clicking the download buttons.
+- **Play Sound Alert:** Rings a chime when the entire queue is finished.
+
+---
+
+## ❓ Troubleshooting
+
+**The Start button is greyed out!**
+Make sure you are on the `https://www.canva.com/dream-lab` page. If you are, just refresh the Canva tab.
+
+**The bot stopped midway and the button says Error!**
+Check the Console Logs for the exact error message. Usually, refreshing the Canva tab and clicking Run again solves most network or DOM issues.
+
+**My computer went to sleep and the bot stopped!**
+The extension has an active "KeepAwake" feature that asks your computer not to sleep while automating. Make sure your operating system isn't overriding Chrome's requests.
+
+---
+_Happy generating! 🎨_

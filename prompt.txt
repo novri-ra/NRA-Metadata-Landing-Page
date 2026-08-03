@@ -1,0 +1,9 @@
+/Git Commit Helper
+
+TUGAS UTAMA:
+Buat ringkasan perubahan (git diff), buat pesan commit yang profesional dan deskriptif, lalu lakukan commit serta push ke branch aktif saat ini.
+
+INSTRUKSI:
+1. Jalankan `git status` dan `git diff` untuk merangkum seluruh perubahan kode terbaru (perbaikan background.js, pembersihan selektor content.js, optimasi panel.js, serta pembaruan README.md dan USER_GUIDE.md).
+2. Buat pesan commit yang mencakup ringkasan perubahan secara rapi.
+3. Lakukan `git add .`, `git commit -m "..."`, dan `git push`.

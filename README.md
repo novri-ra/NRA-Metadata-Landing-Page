@@ -1,121 +1,210 @@
-# 🤖 NRA DreamLab
+# 🎮 NRA DreamLab
 
-<div align="center">
+![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)
+![Manifest V3](https://img.shields.io/badge/Manifest-V3-34A853)
+![Version](https://img.shields.io/badge/version-1.1.20-6366f1)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-![NRA DreamLab](https://img.shields.io/badge/NRA-DreamLab-00C4CC?style=for-the-badge&logo=canva&logoColor=white)
+> **Automate prompt input and batch-download AI-generated images on [Canva Dream Lab](https://www.canva.com/dream-lab).**
 
-**Automate bulk AI image generation & downloading on [Canva Dream Lab](https://www.canva.com/dream-lab)**
-
-[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=google-chrome&logoColor=white)](https://www.google.com/chrome/)
-[![Manifest V3](https://img.shields.io/badge/Manifest-V3-success)](https://developer.chrome.com/docs/extensions/mv3/)
-[![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
-[![License](https://img.shields.io/badge/License-Educational-orange)](LICENSE)
-
-[Features](#-features) · [Installation](#-installation) · [Usage](#-usage) · [Release Notes](#-release-notes) · [Author](#-author)
-
-</div>
+NRA DreamLab is a Chrome extension that automates the repetitive workflow of typing prompts, waiting for image generation, and downloading results on Canva's Dream Lab. It runs entirely client-side with zero external dependencies.
 
 ---
 
-## 💡 What Is This?
+## 📋 Table of Contents
 
-**NRA DreamLab** is a Chrome extension that automates prompt input and image downloading on [Canva Dream Lab](https://www.canva.com/dream-lab). Queue multiple prompts, configure style & aspect ratio, and let the bot handle generation, rate-limit cooldowns, and batch downloading — all hands-free.
-
-> **Who is this for?** Content creators, designers, and marketers who need to generate large batches of AI images efficiently.
+- [Features](#-features)
+- [Prerequisites](#-prerequisites)
+- [Installation](#-installation)
+- [Project Structure](#-project-structure)
+- [Architecture Overview](#-architecture-overview)
+- [Permissions](#-permissions)
+- [Configuration](#-configuration)
+- [Changelog](#-changelog)
+- [License](#-license)
 
 ---
 
 ## ✨ Features
 
-- **Bulk Prompt Queue** — Paste hundreds of prompts (one per line) or import from `.txt` files
-- **Stable Batch Processing:** Auto-memory management untuk mencegah memory leak saat memproses ratusan prompt.
-- **Auto Style & Aspect Ratio** — Set per-session or randomize per prompt
-- **Smart Download** — Polls DOM for newly rendered download buttons
-- **Native DOM Injection** — Stable, fast, and resolution-independent interaction (No CDP Debugger banner)
-- **Rate Limit Handling** — Auto-detects cooldown modals and waits before retrying
-- **Configurable Delays** — Safety delay, save delay, and batch auto-stop limit
-- **Real-time Session Analytics** — Live stats: prompts processed, images downloaded, **Avg Speed, and ETA**
-- **Prompt Presets** — Save/load/delete named prompt sets
-- **Failed & Quarantine Queues** — Automatically rescues blocked prompts for retry
-- **Retro Pixel UI** — CRT scanline side-panel with multiple themes (Retro, Hacker, Light)
-- **Keyboard Shortcut** — `Ctrl+Shift+P` to pause/resume without opening the panel
+| Feature | Description |
+|---------|-------------|
+| **Bulk Prompt Processing** | Paste multiple prompts (one per line) and process them sequentially. |
+| **Style & Ratio Selection** | Auto-select image style and aspect ratio before each generation. |
+| **Smart Download** | Automatically download generated images with clean, prompt-based filenames. |
+| **Cooldown Detection** | Detects Canva rate limits and waits automatically before resuming. |
+| **Pause / Resume** | Pause automation mid-session and resume without losing progress. |
+| **Session Recovery** | Survives page reloads and browser restarts via persistent state. |
+| **Prompt Iteration** | Use `{i}` placeholder to generate numbered prompt variants. |
+| **Quarantine System** | Failed prompts are captured for retry without re-entering them. |
+| **Retro Pixel UI** | Side panel with customizable themes, fonts, and real-time statistics. |
 
 ---
 
-## 📦 Installation
+## 🔧 Prerequisites
 
-1. Download or clone this repository:
+- **Google Chrome** version 114 or newer (Manifest V3 + Side Panel API support).
+- A [Canva](https://www.canva.com) account with access to Dream Lab.
+
+---
+
+## 🚀 Installation
+
+1. **Clone or download** this repository:
    ```bash
-   git clone https://github.com/novri-ra/Canva-Auto-Prompter.git
+   git clone https://github.com/your-username/Canva-Auto-Prompter.git
    ```
-2. Open Chrome and navigate to `chrome://extensions/`
-3. Enable **Developer mode** (toggle in top-right)
-4. Click **Load unpacked** and select the project folder
-5. Open [Canva Dream Lab](https://www.canva.com/dream-lab)
+
+2. Open Chrome and navigate to:
+   ```
+   chrome://extensions
+   ```
+
+3. Enable **Developer mode** (toggle in the top-right corner).
+
+4. Click **"Load unpacked"** and select the root folder of this project (the folder containing `manifest.json`).
+
+5. The NRA DreamLab icon will appear in your toolbar. Click it to open the side panel.
+
+6. Navigate to [https://www.canva.com/dream-lab](https://www.canva.com/dream-lab) and start automating!
 
 ---
 
-## 🚀 Usage
+## 📁 Project Structure
 
-1. Click the extension icon or open the **side panel** on `canva.com/dream-lab`
-2. Paste your prompts (one per line) in the **Prompt Text** area
-3. Configure **Aspect Ratio**, **Image Style**, and **Download Count** in Settings
-4. Click **Run** — the bot will type each prompt, generate images, and download them automatically
-5. Monitor real-time progress, speed, and ETA in **Session Analytics**
-
----
-
-## 📋 Release Notes
-
-NEW ARCHITECTURAL CORE FEATURES (v1.1.17 - Update 2026-07-17)
-
-1. ANTI-BLUR SMART RENDERING STABILIZATION FILTER
-Sistem otomasi kini dilengkapi dengan filter pelacakan state visual Canva secara berurutan. Bot mendeteksi transisi dari fase 'Sketching' hingga masuk ke fase kritis 'Finalizing your image...'. Tepat setelah teks pemrosesan hilang dari layar, sistem menyuntikkan Jeda Kestabilan Grafis (Post-Finalizing Render Delay) selama 5 detik penuh. Hal ini memastikan aset gambar ter-render tajam 100% dan terhindar dari unduhan visual kasar atau blur. Batas toleransi tunggu total (maxWaitTimeMs) juga telah dilebarkan menjadi 240.000ms (4 menit) untuk mengamankan loop dari crash kemacetan antrean server.
-
-2. 5-SECOND POST-COOLDOWN SESSION RECOVERY GATES
-Untuk meredam paparan Rate Limit berantai akibat pembatasan ketat akun dari perlindungan server Canva, bot kini dilengkapi dengan gerbang pemulihan pasca-cooldown. Jeda istirahat statis selama 5 detik (await delay(5000)) secara otomatis disuntikkan langsung pada blok PRE-FLIGHT GATEKEEPER (sebelum pengetikan prompt baru dimulai) dan blok POST-FLIGHT CHECK (sesudah penanganan batasan akun pasca-submit). Penundaan taktis ini memberikan nafas bagi kestabilan pertukaran data HTTP sebelum mesin otomasi menembak antrean berikutnya.
-
-3. DUAL-BOX PROMPT ISOLATION & RESCUE FLOW
-Pemisahan penanganan antrean prompt gagal telah disempurnakan. Ketika Canva melemparkan penolakan (PROMPT_FAILED), teks prompt murni yang telah disanitasi secara otomatis didistribusikan ke dua kontainer terpisah:
-- Failed Prompts Box: Sebagai rekam jejak visual riwayat kegagalan prompt pada sesi berjalan.
-- Quarantined Prompts Box: Sebagai area penyelamatan terisolasi di mana user dapat mengembalikan seluruh antrean yang gagal masuk kembali ke antrean utama hanya dengan satu klik tombol Retry Quarantine tanpa kehilangan data.
-
-4. UNIFIED CUSTOM DOWNLOAD FOLDER STORAGE SYNC
-Seluruh penamaan kunci penyimpanan lokal (chrome.storage.local) untuk pengaturan tingkat lanjut telah diselaraskan secara total dengan background service worker. Penggunaan parameter data dipastikan seragam menggunakan key 'createSubfolder' untuk toggle pengelompokan folder Canva_Auto, dan key 'downloadFolder' untuk direktori folder kustom Downloads. Hal ini menjamin fitur auto-rename file gambar bekerja 100% sinkron dan bebas dari bug ketidakaktifan UI settings.
-
-5. TERMINAL LOG DUPLICATION REDUCTION
-Struktur penangkap kesalahan pada loop utama startMainLoop telah dioptimalkan dengan mengeliminasi jalur re-throwing error yang tidak perlu. Pemanggilan aksi interupsi manual (USER_STOPPED) kini ditangani secara tuntas dan lokal oleh handleAutomationError, menghasilkan baris log konsol terminal yang bersih, rapi, dan bebas dari tulisan kembar/ganda.
-
-
-### v1.1.5 — Viewport Scroll Reset & Production Polish
-
-- **Viewport Scroll Reset:** Added auto-scroll to top (window.scrollTo) when typing a new prompt.
-- **Textarea Focus:** Implemented instant visual focus and centering on the textarea container before input simulation starts.
-- **Native DOM Injection:** Fully replaced CDP with native events for a cleaner, professional-grade user experience (no "Debugging" warning).
-- **Real-time Analytics:** Added dynamic Avg Speed and ETA tracking.
-- **Refining Radar:** Updated XPath to detect "Refining" status, ensuring precise download timing.
-- **System Stability:** Added anti-sleep prevention to keep machines active during long batch sessions.
-
-### v1.1.4 — Production Polish & Real-time Analytics
-
-- Rebranded to **NRA DreamLab**.
-- Implemented robust DOM polling and dynamic button slicing.
-
-### v1.1.3
-
-- Initial release with CDP-based automation and core queueing.
+```
+Canva-Auto-Prompter/
+├── manifest.json                  # Extension manifest (MV3)
+├── assets/
+│   └── icon.png                   # Extension icon (16/48/128)
+├── src/
+│   ├── background/
+│   │   └── background.js          # Service Worker (mutex, power, downloads)
+│   ├── content/
+│   │   ├── selectors.js           # Centralized DOM selectors (ARIA/XPath)
+│   │   └── content.js             # Main automation logic (injection, generation, download)
+│   ├── sidepanel/
+│   │   ├── panel.html             # Side panel UI (retro pixel theme)
+│   │   └── panel.js               # Panel logic (stats, settings, message handling)
+│   └── utils/
+│       ├── utils.js               # Input sanitization utility
+│       └── rename.js              # Dev-only branding rename script (not loaded at runtime)
+├── README.md
+├── USER_GUIDE.md
+├── CHANGELOG.md
+└── LICENSE
+```
 
 ---
 
-## 👤 Author
+## 🏗 Architecture Overview
 
-**Novri Rizki Akbar**
+NRA DreamLab follows Chrome's Manifest V3 architecture with three isolated execution contexts communicating via `chrome.runtime` message passing.
 
-- GitHub: [@novri-ra](https://github.com/novri-ra)
-- Support & Premium Products: [lynk.id/novri-ra](https://lynk.id/novri-ra)
+### Component Diagram
+
+```
+┌─────────────────────┐     chrome.runtime      ┌──────────────────────┐
+│   Side Panel (UI)   │◄────── messages ────────►│   Background Worker  │
+│   panel.js          │                          │   background.js      │
+└────────┬────────────┘                          └──────────┬───────────┘
+         │ chrome.tabs.sendMessage                          │
+         ▼                                                  │
+┌─────────────────────┐     chrome.runtime      ┌──────────┘
+│   Content Script    │◄────── messages ────────┘
+│   content.js        │
+│   (canva.com only)  │
+└─────────────────────┘
+```
+
+### Core Systems
+
+#### 1. Multi-Tab Mutex & Power Management
+
+The background service worker prevents multiple tabs from running automation simultaneously using a storage-based mutex (`activeAutomationTab`). It also manages system wake locks via `chrome.power` to prevent sleep during long sessions.
+
+**Lifecycle:**
+- `chrome.runtime.onStartup` / `onInstalled`: Clears stale mutex on browser restart or crash recovery.
+- `chrome.tabs.onRemoved`: Releases mutex when the automation tab is closed.
+- `chrome.tabs.onUpdated`: Releases mutex on tab reload or navigation away. Respects `isRecovering` flag for intentional memory-dump reloads.
+- `chrome.runtime.onSuspend`: Emergency cleanup before service worker terminates.
+
+#### 2. Unthrottled Web Worker Delay
+
+Content scripts use a dedicated Web Worker for `delay()` timing, immune to Chrome's background tab throttling. A dual-layer fallback ensures reliability:
+
+```
+Primary:  Web Worker postMessage (accurate timing)
+    ↓ failure
+Fallback: Native setTimeout + Worker.terminate() + reinit
+```
+
+The worker is explicitly terminated on error to prevent zombie threads.
+
+#### 3. DOM Observation with MutationObserver
+
+Element detection uses a unified `waitForElement()` utility powered by `MutationObserver`:
+
+- Supports both **CSS selectors** and **XPath** expressions.
+- Validates visibility using `getBoundingClientRect()` instead of the less reliable `offsetParent`.
+- Includes `USER_STOPPED` interrupt checks for clean shutdown.
+- Single function replaces the previous dual-function approach for consistency.
+
+#### 4. Batched UI Log Rendering
+
+The side panel's console log uses a **queue + DocumentFragment + requestAnimationFrame** pipeline to prevent DOM thrashing during high-frequency log bursts:
+
+```
+Message received → logQueue.push(div) → schedule rAF → flushLogs()
+                                                          ├── DocumentFragment batch insert
+                                                          ├── Cap at 500 entries
+                                                          └── Auto-scroll
+```
+
+#### 5. Centralized Selectors
+
+All DOM selectors are defined in `selectors.js` using stable attributes (ARIA labels, roles, element types) rather than obfuscated class names, improving resilience against Canva UI updates.
+
+---
+
+## 🔐 Permissions
+
+| Permission | Purpose |
+|------------|---------|
+| `activeTab` | Access the currently active Canva tab. |
+| `scripting` | Inject content scripts into Dream Lab pages. |
+| `storage` | Persist prompts, settings, session state, and statistics. |
+| `sidePanel` | Render the control panel UI alongside the browser. |
+| `notifications` | Alert the user when all prompts are processed. |
+| `power` | Prevent system sleep during long automation sessions. |
+| `downloads` | Trigger and rename image downloads. |
+
+**Host permissions** are scoped exclusively to `*.canva.com`.
+
+---
+
+## ⚙ Configuration
+
+All settings are accessible from the side panel's **Settings** modal:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Typing Mode | `human` | `human` (20ms per char) or `instant` (native setter). |
+| Batch Limit | `0` (unlimited) | Stop after N prompts per session. |
+| Safety Delay | `0s` | Extra wait after image generation before downloading. |
+| Save Delay | `6s` | Delay between download button clicks. |
+| Sound Alert | On | Play a chime when all prompts are completed. |
+| Create Subfolder | Off | Save downloads into a named subfolder. |
+| Debug Mode | Off | Show verbose INFO logs in the console panel. |
+
+---
+
+## 📝 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
 ---
 
 ## 📄 License
 
-This project is for educational purposes only. See [LICENSE](LICENSE) for details.
+This project is licensed under the [MIT License](LICENSE).
