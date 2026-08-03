@@ -1,0 +1,23 @@
+/documentation-expert /Git Commit Helper /todo-planning-skill
+
+TUGAS UTAMA:
+Lakukan pembaruan versi (version bump), perbarui dokumentasi proyek, lalu jalankan alur Git (commit, push, dan merge) secara terstruktur.
+
+LANGKAH EKSEKUSI:
+
+1. UPDATE VERSI & DOKUMENTASI:
+   - Naikkan versi proyek di `manifest.json` (atau `package.json` jika ada) sesuai standar SemVer (patch/minor).
+   - Perbarui `README.md` dan `USER_GUIDE.md` untuk mencatat fitur & perbaikan terbaru:
+     * Isolasi kontainer render Canva Dream Lab (`div[role="group"][data-testid]`).
+     * Parser Cooldown multi-format real-time (`MM:SS`, `Xm Ys`, `Xs`).
+     * Penanganan error dan stabilitas sesi.
+
+2. GIT EXECUTION:
+   - Jalankan `git status` untuk meninjau seluruh perubahan.
+   - Stage seluruh perubahan dengan `git add .`.
+   - Gunakan logika /Git Commit Helper untuk membuat pesan commit yang rapi dan deskriptif (mencakup rincian versi baru, perbaikan fitur, dan pembaruan docs).
+   - Push commit ke branch aktif (`git push origin <current-branch>`).
+   - Jika berada di feature/dev branch, lakukan checkout ke branch utama (`main`/`master`), lakukan merge dengan aman, lalu push branch utama ke remote.
+
+3. RINGKASAN HASIL:
+   - Tampilkan versi baru yang ditetapkan, daftar file dokumentasi yang diubah, serta log commit/push/merge terakhir.

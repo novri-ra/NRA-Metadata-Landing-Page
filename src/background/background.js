@@ -6,6 +6,14 @@ self.addEventListener("unhandledrejection", (event) => {
 // NRA DreamLab - Background Service Worker
 let isBackgroundCleanup = false;
 
+// CRITICAL FIX: Reset stale mutex/state on browser startup or extension install/update
+chrome.runtime.onStartup.addListener(() => {
+  emergencyCleanup();
+});
+chrome.runtime.onInstalled.addListener(() => {
+  emergencyCleanup();
+});
+
 function sanitizeFilename(filename) {
   return filename
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Hapus diakritik
@@ -97,20 +105,21 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   });
 });
 
-// Release mutex if active tab navigates away from Canva Dream Lab
+// Release mutex if active tab navigates away from Canva
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.url) {
-    chrome.storage.local.get(["activeAutomationTab"], (res) => {
-      if (res.activeAutomationTab === tabId && !changeInfo.url.includes("canva.com")) {
-        console.log(
-          `[Background] Active tab ${tabId} navigated away from Canva. Releasing mutex.`,
-        );
-        chrome.storage.local.remove(["activeAutomationTab"]);
-        chrome.power.releaseKeepAwake();
-        chrome.storage.local.set({ isAutomating: false });
-      }
-    });
-  }
+  if (!changeInfo.url) return; // Only react to actual navigation events
+  chrome.storage.local.get(["activeAutomationTab"], (res) => {
+    if (res.activeAutomationTab !== tabId) return;
+
+    if (!changeInfo.url.includes("canva.com")) {
+      console.log(
+        `[Background] Active tab ${tabId} navigated away from Canva. Releasing mutex.`,
+      );
+      chrome.storage.local.remove(["activeAutomationTab"]);
+      chrome.power.releaseKeepAwake();
+      chrome.storage.local.set({ isAutomating: false });
+    }
+  });
 });
 
 /**

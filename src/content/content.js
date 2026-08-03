@@ -166,37 +166,6 @@ let sessionStats = {
   totalPrompts: 0,
 };
 
-async function smartWaitForElement(selector, timeoutMs = 15000) {
-  return new Promise((resolve, reject) => {
-    const existingElements = Array.from(document.querySelectorAll(selector)).filter(btn => btn.offsetParent !== null);
-    if (existingElements.length > 0) {
-      return resolve(existingElements);
-    }
-
-    let timer; // Deklarasi dinaikkan ke atas untuk mencegah ReferenceError
-
-    const observer = new MutationObserver((mutations, obs) => {
-      const elements = Array.from(document.querySelectorAll(selector)).filter(btn => btn.offsetParent !== null);
-      if (elements.length > 0) {
-        obs.disconnect();
-        if (timer) clearTimeout(timer);
-        resolve(elements);
-      }
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['class', 'style']
-    });
-
-    timer = setTimeout(() => {
-      observer.disconnect();
-      reject(new Error("Timeout: Elemen " + selector + " tidak muncul setelah " + timeoutMs + "ms"));
-    }, timeoutMs);
-  });
-}
 /**
  * Helper function to sanitize sessionStats and prevent NaN values.
  * @param {Object} stats
@@ -320,6 +289,10 @@ function delay(ms) {
       console.warn(
         `[NRA DreamLab] âš ï¸ Worker error instan: ${e.message}. Menggunakan setTimeout native dan merestart worker...`,
       );
+      if (delayWorker) {
+        try { delayWorker.terminate(); } catch (_) {}
+        delayWorker = null;
+      }
       initWorker(); // Re-init sekarang juga
 
       // Karena kita tahu postMessage gagal, jadwalkan resolve menggunakan setTimeout sesuai 'ms'
@@ -393,43 +366,55 @@ function tagGhostCooldowns() {
  */
 async function waitForElement(selector, isXPath = false, timeout = 10000) {
   return new Promise((resolve, reject) => {
-    const checkInterval = 300;
-    let elapsed = 0;
+    let timer;
+    let settled = false;
 
-    const interval = setInterval(() => {
-      // Check if automation was stopped externally
+    function check() {
+      if (settled) return null;
       if (!isRunning && !isWaitingForCooldown) {
-        clearInterval(interval);
+        settled = true;
+        if (timer) clearTimeout(timer);
         reject(new Error("USER_STOPPED"));
-        return;
+        return null;
       }
 
-      let element = null;
+      let el = null;
       if (isXPath) {
-        element = document.evaluate(
-          selector,
-          document,
-          null,
-          XPathResult.FIRST_ORDERED_NODE_TYPE,
-          null,
-        ).singleNodeValue;
+        el = document.evaluate(selector, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
       } else {
-        element = document.querySelector(selector);
+        el = document.querySelector(selector);
       }
 
-      if (element) {
-        clearInterval(interval);
-        resolve(element);
-      } else {
-        elapsed += checkInterval;
-        if (elapsed >= timeout) {
-          clearInterval(interval);
-          reject(
-            new Error(`Timeout waiting for element matching: ${selector}`),
-          );
-        }
+      if (el) {
+        // Safe visibility check, better than offsetParent
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) return el;
       }
-    }, checkInterval);
+      return null;
+    }
+
+    const initial = check();
+    if (initial) return resolve(initial);
+    if (settled) return; // Already rejected by check()
+
+    const observer = new MutationObserver(() => {
+      const el = check();
+      if (el) {
+        settled = true;
+        observer.disconnect();
+        if (timer) clearTimeout(timer);
+        resolve(el);
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+
+    timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      reject(new Error(`Timeout waiting for element matching: ${selector}`));
+    }, timeout);
   });
 }
 
@@ -518,13 +503,31 @@ function getScreenCooldownMs() {
         );
         return 3 * 60 * 1000;
       } else if (key === "GENERATE" || key === "TRY") {
-        const timeMatch = pageText.match(/(\d+):(\d+)/);
-        if (timeMatch) {
-          return (
-            (parseInt(timeMatch[1], 10) * 60 + parseInt(timeMatch[2], 10)) *
-            1000
-          );
+        // Ekstrak angka dari teks yang mengikuti pattern match
+        // Canva bisa menggunakan format "14:12" atau "14m 12s"
+        const timeStr = pageText.substring(match.index);
+        
+        // Cari format MM:SS
+        const colonMatch = timeStr.match(/(\d+):(\d+)/);
+        if (colonMatch) {
+          return ((parseInt(colonMatch[1], 10) * 60) + parseInt(colonMatch[2], 10)) * 1000;
         }
+        
+        // Cari format Xm Ys
+        const textMatch = timeStr.match(/(\d+)\s*m\s*(\d+)\s*s/i);
+        if (textMatch) {
+          return ((parseInt(textMatch[1], 10) * 60) + parseInt(textMatch[2], 10)) * 1000;
+        }
+
+        // Cari format Xs saja (misal "Try again in 45s")
+        const secMatch = timeStr.match(/(\d+)\s*s/i);
+        if (secMatch) {
+          return parseInt(secMatch[1], 10) * 1000;
+        }
+        
+        // Fallback aman jika teks 'Try again' ada tapi angka gagal diekstrak
+        console.warn("[NRA DreamLab] Waktu cooldown tidak dapat diekstrak dari teks. Fallback ke 3 menit.");
+        return 3 * 60 * 1000;
       }
     }
   }
@@ -540,18 +543,18 @@ function handleAutomationError(err) {
   isRunning = false;
   isLoopActive = false;
 
-  // Logging error yang lebih detail
   const errMessage = (err && err.message) ? err.message : JSON.stringify(err);
-  console.error("[NRA DreamLab] Loop broken due to:", errMessage);
-  if (err && err.stack) console.error("[Stack Trace]:", err.stack);
-
-  if (err && err.message === "USER_STOPPED") {
-    console.log("[NRA DreamLab] Process stopped manually.");
+  
+  if (errMessage === "USER_STOPPED") {
+    console.info("[NRA DreamLab] Process stopped manually.");
     chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
       sendStatusUpdate("Automation stopped by user.");
     });
     return;
   }
+
+  console.error("[NRA DreamLab] Loop broken due to:", errMessage);
+  if (err && err.stack) console.error("[Stack Trace]:", err.stack);
 
   if (err.message === "MONTHLY_LIMIT_REACHED") {
     console.error(
@@ -579,25 +582,27 @@ function handleAutomationError(err) {
   chrome.runtime.sendMessage({ action: "RELEASE_AWAKE" }).catch(() => ({}));
 }
 
-async function safeCdpClick(element, context = "element") {
-  try {
-    await cdpClick(element);
-  } catch (error) {
-    console.error(`[NRA DreamLab] ðŸ›‘ Failed to click ${context}:`, error);
-    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
-    throw new Error(`Click interaction failed for ${context}`); // Throw custom error instead of TypeError
+  async function safeCdpClick(element, context = "element") {
+    try {
+      await cdpClick(element);
+    } catch (error) {
+      if (error && error.message === "USER_STOPPED") throw error;
+      console.error(`[NRA DreamLab] ðŸ›‘ Failed to click ${context}:`, error);
+      chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
+      throw new Error(`Click interaction failed for ${context}`);
+    }
   }
-}
-
-async function safeCdpTypeHuman(text, context = "input") {
-  try {
-    await cdpTypeHuman(text);
-  } catch (error) {
-    console.error(`[NRA DreamLab] ðŸ›‘ Failed to type in ${context}:`, error);
-    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
-    throw new Error(`Type interaction failed for ${context}`); // Throw custom error instead of TypeError
+  
+  async function safeCdpTypeHuman(text, context = "input") {
+    try {
+      await cdpTypeHuman(text);
+    } catch (error) {
+      if (error && error.message === "USER_STOPPED") throw error;
+      console.error(`[NRA DreamLab] ðŸ›‘ Failed to type in ${context}:`, error);
+      chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
+      throw new Error(`Type interaction failed for ${context}`);
+    }
   }
-}
 async function cdpClick(element) {
   // Proteksi tambahan: Pastikan elemen masih terhubung ke DOM
   if (!element.isConnected) {
@@ -761,32 +766,38 @@ async function submitAndWaitForImages() {
   const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON, false, 15000);
 
   // Hitung jumlah kontainer sebelum generate untuk deteksi node baru
-  const sectionsBefore = document.querySelectorAll("section").length;
+  const containersBefore = getRenderContainers().length;
 
   console.info("[NRA DreamLab] Menekan tombol Generate...");
   
   // Implement DOM Tagging (Marking): Prevent bot from reading previous generated images
-  const oldSections = document.querySelectorAll("section");
-  oldSections.forEach(section => {
-    section.setAttribute("data-nra-processed", "true");
+  const oldContainers = getRenderContainers();
+  oldContainers.forEach(c => {
+    c.setAttribute("data-nra-processed", "true");
   });
 
   await safeCdpClick(generateBtn, "generate button");
 
   console.info("[NRA DreamLab] Menunggu inisiasi node kontainer baru...");
   
-  // State Transition Wait: Jeda 1 detik agar Canva sempat memproses klik & menambah/menghapus DOM
-  await delay(1000);
-  // Paksa bot menunggu hingga jumlah elemen <section> di DOM bertambah 1
-  let sectionsAfter = sectionsBefore;
-  let waitInitTimeout = 0;
-  while (sectionsAfter <= sectionsBefore && waitInitTimeout < 30000) {
+  // State Transition Wait: Jeda singkat agar Canva sempat memproses klik & menambah/menghapus DOM
+  await delay(1500);
+
+  // Tunggu kontainer render baru muncul (max 60 detik) sebelum mulai pemantauan rendering
+  console.info("[NRA DreamLab] Menunggu kontainer render baru muncul di DOM...");
+  const sectionWaitStart = Date.now();
+  const sectionWaitMax = 60000;
+  let newSection = null;
+  while (Date.now() - sectionWaitStart < sectionWaitMax) {
     if (!isRunning && !isWaitingForCooldown) throw new Error("USER_STOPPED");
+    const candidates = getRenderContainers(true);
+    if (candidates.length > 0) {
+      newSection = candidates[0]; // Terbaru di paling atas
+      console.info("[NRA DreamLab] Kontainer render baru terdeteksi di DOM.");
+      break;
+    }
     await delay(1000);
-    waitInitTimeout += 1000;
-    sectionsAfter = document.querySelectorAll("section").length;
   }
-  if (waitInitTimeout >= 30000) console.warn("[NRA DreamLab] Timeout menunggu kontainer baru. Melanjutkan dengan deteksi adaptif standar.");
 
   console.info("[NRA DreamLab] Memulai pemantauan adaptif fase rendering (Anti-Blur)...");
   const maxWaitTimeMs = 240000;
@@ -813,19 +824,26 @@ async function submitAndWaitForImages() {
       }
     }
 
-    const allSections = document.querySelectorAll("section:not([data-nra-processed='true'])");
-    const latestSection = allSections[allSections.length - 1];
-    let isFallbackImageReady = false;
+    // Refresh referensi section terbaru (DOM bisa berubah selama rendering)
+    const allNewSections = getRenderContainers(true);
+    const latestSection = allNewSections.length > 0 ? allNewSections[0] : newSection;
+
+    // Cek apakah gambar valid sudah ada di section terbaru
+    let isImageReady = false;
     if (latestSection) {
       const validImg = latestSection.querySelector(`img[src^="https://"], img[src^="blob:"], canvas`);
       if (validImg) {
-        isFallbackImageReady = validImg.tagName === "CANVAS" || (validImg.complete && validImg.naturalWidth > 0);
+        isImageReady = validImg.tagName === "CANVAS" || (validImg.complete && validImg.naturalWidth > 0);
       }
     }
 
-    // Kontainer dianggap siap jika seluruh teks pemprosesan telah hilang dari DOM
-    const downloadExists = document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) !== null;
-    if ((!isProcessingText && downloadExists) || isFallbackImageReady) {
+    // Kontainer dianggap siap jika teks pemrosesan hilang DAN (download button ada ATAU gambar siap)
+    // Scope ke section baru saja, bukan global (download buttons lama masih ada di DOM)
+    const downloadExists = latestSection
+      ? latestSection.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) !== null
+      : false;
+
+    if ((!isProcessingText && downloadExists) || (!isProcessingText && isImageReady)) {
 
         // JIKA SEBELUMNYA TERDETEKSI FINALIZING, BERIKAN JEDA AMAN SINKRONISASI ANIMASI 5 DETIK
         if (detectedFinalizing) {
@@ -855,39 +873,51 @@ async function submitAndWaitForImages() {
 async function handleDownload(countSetting = "4", currentPrompt = "") {
   console.info(`[NRA DreamLab] Memulai isolasi kontainer untuk prompt aktif: "${currentPrompt}"`);
 
-  // 1. Ambil semua elemen section batch yang ada di halaman
-  const sections = Array.from(document.querySelectorAll('section'));
+  // 1. Ambil kontainer render (div[role="group"][data-testid] atau section fallback)
+  const allContainers = getRenderContainers();
+  const newContainers = allContainers.filter(c => !c.hasAttribute('data-nra-processed'));
+  // ponytail: prefer unprocessed containers; fall back to all if none found
+  const sections = newContainers.length > 0 ? newContainers : allContainers;
   let targetContainer = null;
 
   if (currentPrompt) {
     const cleanActivePrompt = currentPrompt.trim().toLowerCase();
+    // Gunakan 25 karakter pertama untuk mengatasi pemotongan string '...' oleh Canva
+    const promptSnippet = cleanActivePrompt.substring(0, 25).trim();
 
-    // 2. Lakukan perulangan untuk mencari section yang membungkus teks prompt aktif
-    for (const section of sections) {
-      // Multi-fallback: Cari berdasarkan class Canva saat ini ATAU semua tag paragraf di dalam section jika class berubah
-      const promptElements = section.querySelectorAll('p.aWBg0w, p[class*="6klkDA"], p[data-testid*="undefined"], p');
+    // 2. Lakukan perulangan untuk mencari kontainer yang membungkus teks prompt aktif
+    for (const container of sections) {
+      // Multi-fallback: cek span[data-testid], button span, p, lalu textContent keseluruhan
+      const titleElements = container.querySelectorAll('span[data-testid], button span, p');
       let matchesPrompt = false;
 
-      for (const p of promptElements) {
-        const pText = (p.textContent || p.innerText || "").trim().toLowerCase();
-        // Cek apakah teks di DOM mengandung atau sama dengan prompt yang sedang diproses bot
-        if (pText === cleanActivePrompt || cleanActivePrompt.includes(pText) || pText.includes(cleanActivePrompt)) {
+      for (const el of titleElements) {
+        const elText = (el.textContent || el.innerText || "").trim().toLowerCase();
+        if (elText.includes(promptSnippet)) {
           matchesPrompt = true;
           break;
         }
       }
 
+      // Fallback: bandingkan langsung textContent kontainer
+      if (!matchesPrompt) {
+        const fullText = (container.textContent || "").toLowerCase();
+        if (fullText.includes(promptSnippet)) {
+          matchesPrompt = true;
+        }
+      }
+
       if (matchesPrompt) {
-        targetContainer = section;
-        console.info("[NRA DreamLab] âœ… Sukses mengunci kontainer section berdasarkan kecocokan teks prompt!");
+        targetContainer = container;
+        console.info("[NRA DreamLab] ✅ Sukses mengunci kontainer berdasarkan kecocokan teks prompt!");
         break;
       }
     }
   }
 
-  // Fallback 1: Jika pencocokan teks gagal (karena obfuscation), ambil section paling atas di dalam DOM
+  // Fallback 1: Jika pencocokan teks gagal, ambil kontainer terbaru (indeks 0 = paling atas di DOM)
   if (!targetContainer && sections.length > 0) {
-    console.warn("[NRA DreamLab] Pencocokan teks prompt tidak mendeteksi kontainer. Fallback mengambil section teratas di halaman...");
+    console.warn("[NRA DreamLab] Pencocokan teks prompt tidak mendeteksi kontainer. Fallback mengambil kontainer teratas/terbaru...");
     targetContainer = sections[0];
   }
 
@@ -958,6 +988,18 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
   }
 }
 let isWaitingForCooldown = false;
+function getRenderContainers(unprocessedOnly = false) {
+  let selector = 'div[role="group"][data-testid]';
+  let containers = Array.from(document.querySelectorAll(selector));
+  if (containers.length === 0) {
+    selector = 'section';
+    containers = Array.from(document.querySelectorAll(selector));
+  }
+  if (unprocessedOnly) {
+    return containers.filter(c => !c.hasAttribute('data-nra-processed'));
+  }
+  return containers;
+}
 
 async function handleCooldown(cooldownMs, isStartup = false) {
   isWaitingForCooldown = true;
@@ -1259,7 +1301,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
       startMainLoop()
         .catch((err) => {
-          console.error("[NRA DreamLab] Main loop terhenti:", err);
+          if (!err || err.message !== "USER_STOPPED") console.error("[NRA DreamLab] Main loop terhenti:", err);
         })
         .finally(() => {
           isLoopActive = false;
@@ -1293,18 +1335,22 @@ chrome.storage.local.get(['isAutomating', 'isRecovering'], async (res) => {
     await chrome.storage.local.set({ isRecovering: false });
     
     try {
+      // Set flags SEBELUM waitForElement agar tidak langsung di-reject oleh USER_STOPPED check
+      isRunning = true;
+      isLoopActive = true;
+
       // Tunggu hingga textarea prompt tersedia di DOM sebelum melanjutkan loop
-      await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA, false, 20000);
-      if (!isLoopActive) {
-        isRunning = true;
-        isLoopActive = true;
-        startMainLoop().catch(err => console.error(err)).finally(() => {
+      await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA, false, 45000);
+      if (isLoopActive) {
+        startMainLoop().catch(err => { if (!err || err.message !== "USER_STOPPED") console.error(err); }).finally(() => {
           isLoopActive = false;
           isRunning = false;
         });
       }
     } catch (e) {
       console.error("[NRA DreamLab] Gagal memulihkan sesi setelah reload. Elemen tidak ditemukan:", e.message);
+      isRunning = false;
+      isLoopActive = false;
       chrome.storage.local.set({ isAutomating: false });
     }
   }
