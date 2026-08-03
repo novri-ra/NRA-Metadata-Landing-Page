@@ -2,7 +2,7 @@
 
 ![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-34A853)
-![Version](https://img.shields.io/badge/version-1.1.20-6366f1)
+![Version](https://img.shields.io/badge/version-1.1.21-6366f1)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **Automate prompt input and batch-download AI-generated images on [Canva Dream Lab](https://www.canva.com/dream-lab).**
@@ -32,7 +32,8 @@ NRA DreamLab is a Chrome extension that automates the repetitive workflow of typ
 | **Bulk Prompt Processing** | Paste multiple prompts (one per line) and process them sequentially. |
 | **Style & Ratio Selection** | Auto-select image style and aspect ratio before each generation. |
 | **Smart Download** | Automatically download generated images with clean, prompt-based filenames. |
-| **Cooldown Detection** | Detects Canva rate limits and waits automatically before resuming. |
+| **Cooldown Detection** | Detects Canva rate limits (MM:SS, Xm Ys, Xs) and updates panel timer in real-time. |
+| **Container Isolation** | Accurately tracks new Canva renders to avoid downloading outdated images. |
 | **Pause / Resume** | Pause automation mid-session and resume without losing progress. |
 | **Session Recovery** | Survives page reloads and browser restarts via persistent state. |
 | **Prompt Iteration** | Use `{i}` placeholder to generate numbered prompt variants. |

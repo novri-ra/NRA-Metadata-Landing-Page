@@ -70,7 +70,7 @@ If you click the **STOP** button (the big red button while running), the automat
 NRA DreamLab is built with an advanced protection system so you can walk away from your computer safely:
 
 ### Server Overload & Cooldowns
-Canva limits how fast you can generate images. If Canva shows a **"Try again in X minutes"** or **"Lots of people are using Dream Lab"** warning, the bot will instantly pause and display a countdown timer. Once the cooldown clears, it resumes automatically.
+Canva limits how fast you can generate images. If Canva shows a **"Try again in X minutes"** or **"Lots of people are using Dream Lab"** warning, the bot will instantly pause, read the exact remaining time on screen (whether it's format MM:SS, Xm Ys, or just Xs), and display a countdown timer. Once the cooldown clears, it resumes automatically.
 
 ### Monthly Limit Reached
 If you hit your account's monthly AI generation limit, the bot detects the warning, stops immediately, and sends you a browser notification.
