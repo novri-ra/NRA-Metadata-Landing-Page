@@ -761,13 +761,22 @@ async function submitAndWaitForImages() {
   const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON, false, 15000);
 
   // Hitung jumlah kontainer sebelum generate untuk deteksi node baru
-  // Hitung jumlah kontainer sebelum generate untuk deteksi node baru
   const sectionsBefore = document.querySelectorAll("section").length;
 
   console.info("[NRA DreamLab] Menekan tombol Generate...");
+  
+  // Implement DOM Tagging (Marking): Prevent bot from reading previous generated images
+  const oldSections = document.querySelectorAll("section");
+  oldSections.forEach(section => {
+    section.setAttribute("data-nra-processed", "true");
+  });
+
   await safeCdpClick(generateBtn, "generate button");
 
   console.info("[NRA DreamLab] Menunggu inisiasi node kontainer baru...");
+  
+  // State Transition Wait: Jeda 1 detik agar Canva sempat memproses klik & menambah/menghapus DOM
+  await delay(1000);
   // Paksa bot menunggu hingga jumlah elemen <section> di DOM bertambah 1
   let sectionsAfter = sectionsBefore;
   let waitInitTimeout = 0;
@@ -804,10 +813,19 @@ async function submitAndWaitForImages() {
       }
     }
 
+    const allSections = document.querySelectorAll("section:not([data-nra-processed='true'])");
+    const latestSection = allSections[allSections.length - 1];
+    let isFallbackImageReady = false;
+    if (latestSection) {
+      const validImg = latestSection.querySelector(`img[src^="https://"], img[src^="blob:"], canvas`);
+      if (validImg) {
+        isFallbackImageReady = validImg.tagName === "CANVAS" || (validImg.complete && validImg.naturalWidth > 0);
+      }
+    }
+
     // Kontainer dianggap siap jika seluruh teks pemprosesan telah hilang dari DOM
-    if (!isProcessingText) {
-      const downloadExists = document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) !== null;
-      if (downloadExists) {
+    const downloadExists = document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) !== null;
+    if ((!isProcessingText && downloadExists) || isFallbackImageReady) {
 
         // JIKA SEBELUMNYA TERDETEKSI FINALIZING, BERIKAN JEDA AMAN SINKRONISASI ANIMASI 5 DETIK
         if (detectedFinalizing) {
@@ -825,7 +843,6 @@ async function submitAndWaitForImages() {
 
         console.info("[NRA DreamLab] ✅ Gambar terdeteksi siap dan tajam! Menuju proses download...");
         return true;
-      }
     }
 
     console.log("[NRA DreamLab] Menunggu proses rendering gambar Canva tuntas...");
@@ -1292,3 +1309,10 @@ chrome.storage.local.get(['isAutomating', 'isRecovering'], async (res) => {
     }
   }
 });
+
+// Broadcast READY immediately upon script injection/load
+setTimeout(() => {
+  try {
+    chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Canva Connected" });
+  } catch(e) {}
+}, 500);
