@@ -809,7 +809,10 @@ async function submitAndWaitForImages() {
     }
 
     // Kontainer dianggap siap jika seluruh teks pemprosesan telah hilang dari DOM
-    const downloadExists = document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) !== null;
+    // Scope ke section baru saja, bukan global (download buttons lama masih ada di DOM)
+    const downloadExists = latestSection
+      ? latestSection.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) !== null
+      : document.querySelector(CANVA_SELECTORS.DOWNLOAD_BUTTON) !== null;
     if ((!isProcessingText && downloadExists) || isFallbackImageReady) {
 
         // JIKA SEBELUMNYA TERDETEKSI FINALIZING, BERIKAN JEDA AMAN SINKRONISASI ANIMASI 5 DETIK
@@ -840,8 +843,11 @@ async function submitAndWaitForImages() {
 async function handleDownload(countSetting = "4", currentPrompt = "") {
   console.info(`[NRA DreamLab] Memulai isolasi kontainer untuk prompt aktif: "${currentPrompt}"`);
 
-  // 1. Ambil semua elemen section batch yang ada di halaman
-  const sections = Array.from(document.querySelectorAll('section'));
+  // 1. Ambil section yang belum diproses (ditandai oleh submitAndWaitForImages)
+  const allSections = Array.from(document.querySelectorAll('section'));
+  const newSections = allSections.filter(s => !s.hasAttribute('data-nra-processed'));
+  // ponytail: prefer unprocessed sections; fall back to all if none found
+  const sections = newSections.length > 0 ? newSections : allSections;
   let targetContainer = null;
 
   if (currentPrompt) {
@@ -850,7 +856,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
     // 2. Lakukan perulangan untuk mencari section yang membungkus teks prompt aktif
     for (const section of sections) {
       // Multi-fallback: Cari berdasarkan tag paragraf di dalam section untuk stabilitas, menghindari obfuscated classes.
-      const promptElements = section.querySelectorAll('p[data-testid*="undefined"], p');
+      const promptElements = section.querySelectorAll('p');
       let matchesPrompt = false;
 
       for (const p of promptElements) {
@@ -870,9 +876,9 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
     }
   }
 
-  // Fallback 1: Jika pencocokan teks gagal (karena obfuscation), ambil section paling atas di dalam DOM
+  // Fallback 1: Jika pencocokan teks gagal, ambil section terbaru yang belum diproses
   if (!targetContainer && sections.length > 0) {
-    console.warn("[NRA DreamLab] Pencocokan teks prompt tidak mendeteksi kontainer. Fallback mengambil section teratas di halaman...");
+    console.warn("[NRA DreamLab] Pencocokan teks prompt tidak mendeteksi kontainer. Fallback mengambil section terbaru...");
     targetContainer = sections[0];
   }
 
