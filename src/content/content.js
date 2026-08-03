@@ -765,7 +765,7 @@ async function submitAndWaitForImages() {
 
   console.info("[NRA DreamLab] Menekan tombol Generate...");
   
-  // Implement DOM Tagging (Marking)
+  // Implement DOM Tagging (Marking): Prevent bot from reading previous generated images
   const oldSections = document.querySelectorAll("section");
   oldSections.forEach(section => {
     section.setAttribute("data-nra-processed", "true");
