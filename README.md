@@ -209,3 +209,9 @@ See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
+  
+---  
+### ☕ Support & Portfolio  
+  
+- **Support & Donasi:** https://lynk.id/novri-ra/s/qmvpeeg4kl5j/checkout  
+- **Aplikasi & Portofolio Lainnya:** https://lynk.id/novri-ra 

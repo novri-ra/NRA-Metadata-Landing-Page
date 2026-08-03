@@ -112,4 +112,9 @@ Check the Console Logs for the exact error message. Usually, refreshing the Canv
 The extension has an active "KeepAwake" feature that asks your computer not to sleep while automating. Make sure your operating system isn't overriding Chrome's requests.
 
 ---
-_Happy generating! 🎨_
+_Happy generating! 🎨_  
+---  
+### ☕ Support & Portfolio  
+  
+- **Support & Donasi:** https://lynk.id/novri-ra/s/qmvpeeg4kl5j/checkout  
+- **Aplikasi & Portofolio Lainnya:** https://lynk.id/novri-ra 
