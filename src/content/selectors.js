@@ -10,7 +10,7 @@ const CANVA_SELECTORS = {
     'button[aria-label*="Download" i], button[aria-label*="Unduh" i], button:has(svg path[d*="m11.25 15.85"])',
 
   // Alert/status selectors
-  ALERT_STATUS: '[@role="alert" or @role="status"]',
+  ALERT_STATUS: '//*[@role="alert" or @role="status"]',
 
   // Cooldown warning selectors
   BUSY_WARNING:

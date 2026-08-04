@@ -26,7 +26,11 @@ function sanitizeFilename(filename) {
 }
 
 // Enable opening the side panel when the extension action icon is clicked
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+try {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+} catch (e) {
+  console.warn("[Background] Failed to set panel behavior:", e.message);
+}
 
 console.log("[NRA DreamLab] Background Service Worker loaded.");
 
@@ -77,7 +81,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "SHOW_NOTIFICATION") {
     chrome.notifications.create({
       type: "basic",
-      iconUrl: "icon.png",
+      iconUrl: "assets/icon.png",
       title: request.title,
       message: request.message,
     });
@@ -95,6 +99,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // CRITICAL 2 & HIGH 6 FIX: Release mutex and power if tab is forcibly closed
 chrome.tabs.onRemoved.addListener((tabId) => {
   chrome.storage.local.get(["activeAutomationTab"], (res) => {
+    if (chrome.runtime.lastError) return;
     if (res.activeAutomationTab === tabId) {
       console.log(
         `[Background] Active tab ${tabId} closed. Clearing mutex and power lock.`,
@@ -109,6 +114,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (!changeInfo.url) return; // Only react to actual navigation events
   chrome.storage.local.get(["activeAutomationTab"], (res) => {
+    if (chrome.runtime.lastError) return;
     if (res.activeAutomationTab !== tabId) return;
 
     if (!changeInfo.url.includes("canva.com")) {

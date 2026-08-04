@@ -685,14 +685,14 @@ function showBrowserNotification() {
     chrome.notifications.create(
       {
         type: "basic",
-        iconUrl: "icon.png",
-        title: "Canva Auto Prompter",
+        iconUrl: "assets/icon.png",
+        title: "NRA DreamLab",
         message: "Success! All prompts have been processed.",
       },
       (id) => {
         if (chrome.runtime.lastError) {
           console.warn(
-            "[Canva Auto Prompter] Notification alert failed:",
+            "[NRA DreamLab] Notification alert failed:",
             chrome.runtime.lastError.message,
           );
         }
@@ -1204,7 +1204,7 @@ function initExtendedFeatures() {
       }
       presets[name] = promptText;
       chrome.storage.local.set({ promptPresets: presets }, () => {
-        console.log('[Canva Auto Prompter] ✅ Preset "' + name + '" berhasil disimpan.');
+        console.log('[NRA DreamLab] ✅ Preset "' + name + '" berhasil disimpan.');
         presetNameInput.value = '';
         loadPresetsList();
         savePresetBtn.textContent = '✅ Saved!';
@@ -1224,7 +1224,7 @@ function initExtendedFeatures() {
         chrome.storage.local.set({ savedPromptText: promptText });
         const lines = promptText.split('\n').filter(p => p.trim().length > 0);
         if (progressText) progressText.textContent = 'Progress: ' + lines.length + ' prompts loaded from preset';
-        console.log('[Canva Auto Prompter] 📂 Preset "' + selectedKey + '" berhasil dimuat.');
+        console.log('[NRA DreamLab] 📂 Preset "' + selectedKey + '" berhasil dimuat.');
         loadPresetBtn.textContent = '✅ Loaded!';
         setTimeout(() => loadPresetBtn.textContent = '📂 Load', 1500);
       } else {
@@ -1241,7 +1241,7 @@ function initExtendedFeatures() {
       const presets = result.promptPresets || {};
       delete presets[selectedKey];
       chrome.storage.local.set({ promptPresets: presets }, () => {
-        console.log('[Canva Auto Prompter] 🗑️ Preset "' + selectedKey + '" berhasil dihapus.');
+        console.log('[NRA DreamLab] 🗑️ Preset "' + selectedKey + '" berhasil dihapus.');
         loadPresetsList();
         deletePresetBtn.textContent = '✅ Deleted!';
         setTimeout(() => deletePresetBtn.textContent = '🗑️ Del', 1500);

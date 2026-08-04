@@ -588,7 +588,7 @@ function handleAutomationError(err) {
     } catch (error) {
       if (error && error.message === "USER_STOPPED") throw error;
       console.error(`[NRA DreamLab] ðŸ›‘ Failed to click ${context}:`, error);
-      chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
+      chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => {});
       throw new Error(`Click interaction failed for ${context}`);
     }
   }
@@ -599,7 +599,7 @@ function handleAutomationError(err) {
     } catch (error) {
       if (error && error.message === "USER_STOPPED") throw error;
       console.error(`[NRA DreamLab] ðŸ›‘ Failed to type in ${context}:`, error);
-      chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
+      chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => {});
       throw new Error(`Type interaction failed for ${context}`);
     }
   }
@@ -673,7 +673,7 @@ async function safeSelectCanvaConfiguration(typeLabel, optionText) {
       `[NRA DreamLab] ðŸ›‘ Failed to configure ${typeLabel} with ${optionText}:`,
       error,
     );
-    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" });
+    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => {});
     throw new Error(`Configuration interaction failed for ${typeLabel}`);
   }
 }
@@ -976,7 +976,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
         chrome.runtime.sendMessage({
           action: "UPDATE_STATS",
           stats: sanitizeStats(sessionStats)
-        });
+        }).catch(() => {});
       } catch (clickError) {
         console.warn(`[NRA DreamLab] Percobaan klik tombol ${i + 1} meleset, mencoba fallback klik native...`);
         btn.click();
@@ -1017,15 +1017,17 @@ async function handleCooldown(cooldownMs, isStartup = false) {
         console.log(
           "[NRA DreamLab] Automation aborted by user during startup cooldown.",
         );
+        isWaitingForCooldown = false;
         return false;
       }
+      isWaitingForCooldown = false;
       throw new Error("USER_STOPPED");
     }
     const remainingSecs = Math.ceil((targetEndTime - Date.now()) / 1000);
     chrome.runtime.sendMessage({
       action: "STATUS_UPDATE",
       status: `${isStartup ? "Startup Paused (Limit Active)" : "Cooldown"}: ${formatTime(remainingSecs)}`,
-    });
+    }).catch(() => {});
     await delay(1000);
   }
   tagGhostCooldowns();
@@ -1035,7 +1037,7 @@ async function handleCooldown(cooldownMs, isStartup = false) {
   chrome.runtime.sendMessage({
     action: "STATUS_UPDATE",
     status: `Resuming ${isStartup ? "automation" : "after cooldown"}...`,
-  });
+  }).catch(() => {});
   isWaitingForCooldown = false;
   return true;
 }
@@ -1159,7 +1161,7 @@ async function startMainLoop() {
         chrome.runtime.sendMessage({
           action: "STATUS_UPDATE",
           status: `Processing prompt ${currentIndex + 1} of ${sessionStats.totalPrompts}...`,
-        });
+        }).catch(() => {});
 
         // 3. Update prompt aktif ke storage untuk penamaan file background.js
         await chrome.storage.local.set({ downloadingPrompt: currentPrompt });
@@ -1217,7 +1219,7 @@ async function startMainLoop() {
           chrome.runtime.sendMessage({
             action: "PROMPT_FAILED",
             failedPrompt: currentPrompt
-          });
+          }).catch(() => {});
         }
 
         sessionStats.successCount++;
@@ -1230,7 +1232,7 @@ async function startMainLoop() {
         chrome.runtime.sendMessage({
           action: "UPDATE_TEXTAREA",
           remainingPrompts: prompts
-        });
+        }).catch(() => {});
 
         if (batchLimitGlobal > 0 && sessionStats.downloadCount >= batchLimitGlobal) {
           isRunning = false;
@@ -1359,6 +1361,6 @@ chrome.storage.local.get(['isAutomating', 'isRecovering'], async (res) => {
 // Broadcast READY immediately upon script injection/load
 setTimeout(() => {
   try {
-    chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Canva Connected" });
+    chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Canva Connected" }).catch(() => {});
   } catch(e) {}
 }, 500);
