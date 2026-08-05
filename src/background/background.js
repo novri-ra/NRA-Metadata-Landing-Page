@@ -4,19 +4,14 @@ self.addEventListener("unhandledrejection", (event) => {
 });
 
 // NRA DreamLab - Background Service Worker
-let isBackgroundCleanup = false;
 
-// CRITICAL FIX: Reset stale mutex/state on browser startup or extension install/update
-chrome.runtime.onStartup.addListener(() => {
-  emergencyCleanup();
-});
-chrome.runtime.onInstalled.addListener(() => {
-  emergencyCleanup();
-});
+// Reset stale mutex/state on browser startup or extension install/update
+chrome.runtime.onStartup.addListener(() => emergencyCleanup());
+chrome.runtime.onInstalled.addListener(() => emergencyCleanup());
 
 function sanitizeFilename(filename) {
   return filename
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Hapus diakritik
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[<>:"/\\|?*]/g, "_")
     .replace(/[\x00-\x1f]/g, "")
     .replace(/^\.+/, "")
@@ -28,28 +23,17 @@ function sanitizeFilename(filename) {
 // Enable opening the side panel when the extension action icon is clicked
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
-console.log("[NRA DreamLab] Background Service Worker loaded.");
-
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "KEEP_AWAKE") {
     (async () => {
       try {
         const tabId = sender.tab.id;
-
-        // Multi-Tab Mutex Guard
         const storage = await chrome.storage.local.get(["activeAutomationTab"]);
-        if (
-          storage.activeAutomationTab &&
-          storage.activeAutomationTab !== tabId
-        ) {
-          sendResponse({
-            success: false,
-            error: "Another Canva tab is already running automation!",
-          });
+        if (storage.activeAutomationTab && storage.activeAutomationTab !== tabId) {
+          sendResponse({ success: false, error: "Another Canva tab is already running automation!" });
           return;
         }
         await chrome.storage.local.set({ activeAutomationTab: tabId });
-
         chrome.power.requestKeepAwake("system");
         sendResponse({ success: true });
       } catch (e) {
@@ -92,13 +76,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-// CRITICAL 2 & HIGH 6 FIX: Release mutex and power if tab is forcibly closed
+// Release mutex and power if tab is forcibly closed
 chrome.tabs.onRemoved.addListener((tabId) => {
   chrome.storage.local.get(["activeAutomationTab"], (res) => {
     if (res.activeAutomationTab === tabId) {
-      console.log(
-        `[Background] Active tab ${tabId} closed. Clearing mutex and power lock.`,
-      );
       chrome.storage.local.remove(["activeAutomationTab"]);
       chrome.power.releaseKeepAwake();
     }
@@ -106,56 +87,29 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 // Release mutex if active tab navigates away from Canva
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (!changeInfo.url) return; // Only react to actual navigation events
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (!changeInfo.url) return;
   chrome.storage.local.get(["activeAutomationTab"], (res) => {
     if (res.activeAutomationTab !== tabId) return;
-
     if (!changeInfo.url.includes("canva.com")) {
-      console.log(
-        `[Background] Active tab ${tabId} navigated away from Canva. Releasing mutex.`,
-      );
+      chrome.storage.local.set({ isAutomating: false });
       chrome.storage.local.remove(["activeAutomationTab"]);
       chrome.power.releaseKeepAwake();
-      chrome.storage.local.set({ isAutomating: false });
     }
   });
 });
 
-/**
- * Emergency cleanup routine to reset automation state and release resources.
- * Idempotent: safe to call multiple times.
- */
 function emergencyCleanup() {
-  chrome.storage.local.set({ isAutomating: false }, () => {
-    if (chrome.runtime.lastError) {
-      console.warn(
-        "[Background] Failed to reset isAutomating:",
-        chrome.runtime.lastError.message,
-      );
-    }
-  });
-
   chrome.power.releaseKeepAwake();
-  chrome.storage.local.remove(["activeAutomationTab"], () => {
-    if (chrome.runtime.lastError) {
-      console.warn(
-        "[Background] Failed to clear activeAutomationTab:",
-        chrome.runtime.lastError.message,
-      );
-    }
-  });
+  chrome.storage.local.set({ isAutomating: false });
+  chrome.storage.local.remove(["activeAutomationTab"]);
 }
 
-// Add listener for extension unloading
-chrome.runtime.onSuspend.addListener(() => {
-  console.log("[Background] Extension unloading. Running emergency cleanup...");
-  isBackgroundCleanup = true;
-  emergencyCleanup();
-});
+// Cleanup on service worker suspend
+chrome.runtime.onSuspend.addListener(() => emergencyCleanup());
 
 // ==========================================
-// SMART AUTO-RENAME API – dengan Custom Folder
+// SMART AUTO-RENAME API
 // ==========================================
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
   if (!item || !item.filename) {
@@ -164,18 +118,9 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
   }
 
   chrome.storage.local.get(
-    [
-      "activeAutomationTab",
-      "downloadingPrompt",
-      "createSubfolder",
-      "downloadFolder",
-    ],
+    ["activeAutomationTab", "downloadingPrompt", "createSubfolder", "downloadFolder"],
     (res) => {
-      if (
-        chrome.runtime.lastError ||
-        !res.activeAutomationTab ||
-        !res.downloadingPrompt
-      ) {
+      if (chrome.runtime.lastError || !res.activeAutomationTab || !res.downloadingPrompt) {
         suggest();
         return;
       }
@@ -189,14 +134,11 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
       if (!cleanName) cleanName = "canva_asset";
 
       const fileExt = item.filename.split(".").pop() || "jpg";
-      const safeExt =
-        fileExt.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "jpg";
+      const safeExt = fileExt.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "jpg";
 
       let folderPrefix = "";
       if (res.createSubfolder === true) {
-        const customFolder = res.downloadFolder
-          ? res.downloadFolder.trim()
-          : "";
+        const customFolder = res.downloadFolder ? res.downloadFolder.trim() : "";
         if (customFolder) {
           const safeFolder = customFolder
             .replace(/[^a-zA-Z0-9_\-\/]/g, "_")
@@ -212,9 +154,9 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
       const safeBaseName = sanitizeFilename(`${cleanName}_${timestamp}`);
       const finalName = `${folderPrefix}${safeBaseName}.${safeExt}`;
 
-      console.log(`[Background] Downloading: ${finalName}`);
       suggest({ filename: finalName, conflictAction: "uniquify" });
     },
   );
   return true;
 });
+

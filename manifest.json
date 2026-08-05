@@ -13,8 +13,6 @@
     "default_title": "NRA DreamLab"
   },
   "permissions": [
-    "activeTab",
-    "scripting",
     "storage",
     "sidePanel",
     "notifications",
@@ -22,8 +20,7 @@
     "downloads"
   ],
   "host_permissions": [
-    "*://*.canva.com/*",
-    "https://media.canva.com/*"
+    "https://www.canva.com/*"
   ],
   "side_panel": {
     "default_path": "src/sidepanel/panel.html"

@@ -61,77 +61,11 @@ window.addEventListener("unhandledrejection", function (event) {
 // NRA DreamLab - Content Script targeting canva.com/dream-lab
 // Operates exclusively on https://www.canva.com/dream-lab
 
-function getStyleOptionsFromDOM() {
-  const styleOptions = [];
-  const popover =
-    document.querySelector('[role="dialog"]') ||
-    document.querySelector('[role="menu"]');
-  if (popover) {
-    const buttons = popover.querySelectorAll('[role="button"]');
-    buttons.forEach(function (btn) {
-      const label = btn.getAttribute("aria-label") || btn.textContent.trim();
-      if (label && label.length > 0 && label !== "Style") {
-        styleOptions.push(label);
-      }
-    });
-  }
-  if (styleOptions.length === 0) {
-    return [
-      "Smart",
-      "Cinematic Concept",
-      "Creative",
-      "Bokeh",
-      "Macro",
-      "Illustration",
-      "3D Render",
-      "Cinematic",
-      "Fashion",
-      "Minimalist",
-      "Moody",
-      "Portrait",
-      "Sketch - Color",
-      "Stock Photo",
-      "Ray Traced",
-      "Vibrant",
-      "Pop Art",
-      "Vector",
-    ];
-  }
-  return styleOptions;
-}
-
-function getRatioOptionsFromDOM() {
-  const ratioOptions = [];
-  const popover =
-    document.querySelector('[role="dialog"]') ||
-    document.querySelector('[role="menu"]');
-  if (popover) {
-    const buttons = popover.querySelectorAll('[role="button"]');
-    buttons.forEach(function (btn) {
-      const label = btn.getAttribute("aria-label") || btn.textContent.trim();
-      if (
-        label &&
-        (label.includes(":") ||
-          label === "1:1" ||
-          label === "16:9" ||
-          label === "9:16" ||
-          label === "4:3" ||
-          label === "3:4" ||
-          label === "3:2" ||
-          label === "2:3")
-      ) {
-        ratioOptions.push(label);
-      }
-    });
-  }
-  if (ratioOptions.length === 0) {
-    return ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"];
-  }
-  return ratioOptions;
-}
+// ponytail: removed unused getStyleOptionsFromDOM and getRatioOptionsFromDOM
 
 let isPausedGlobal = false;
 let batchLimitGlobal = 0;
+let isAutomatingGlobal = false;
 
 // Set up a local cache listener to drastically reduce storage I/O
 chrome.storage.onChanged.addListener((changes, area) => {
@@ -142,14 +76,18 @@ chrome.storage.onChanged.addListener((changes, area) => {
     if (changes.batchLimit !== undefined) {
       batchLimitGlobal = parseInt(changes.batchLimit.newValue, 10) || 0;
     }
+    if (changes.isAutomating !== undefined) {
+      isAutomatingGlobal = changes.isAutomating.newValue === true;
+    }
   }
 });
 
 // Seed the variables immediately on script load
-chrome.storage.local.get(["isPaused", "batchLimit"], (res) => {
+chrome.storage.local.get(["isPaused", "batchLimit", "isAutomating"], (res) => {
   if (res.isPaused !== undefined) isPausedGlobal = res.isPaused === true;
   if (res.batchLimit !== undefined)
     batchLimitGlobal = parseInt(res.batchLimit, 10) || 0;
+  if (res.isAutomating !== undefined) isAutomatingGlobal = res.isAutomating === true;
 });
 
 // Global execution flag for the automation loop
@@ -208,104 +146,9 @@ function sendStatusUpdate(statusText) {
   );
 }
 
-// --- UNTHROTTLED WEB WORKER DELAY (IMMUNE TO BACKGROUND THROTTLING) ---
-let delayWorker = null;
-
-function initWorker() {
-  if (delayWorker) {
-    try {
-      delayWorker.terminate();
-    } catch (e) {
-      // Abaikan error saat terminate
-    }
-  }
-  try {
-    const workerBlob = new Blob(
-      [
-        `self.onmessage = function(e) { setTimeout(() => postMessage(e.data.id), e.data.time); }`,
-      ],
-      { type: "application/javascript" },
-    );
-
-    const workerUrl = URL.createObjectURL(workerBlob);
-    delayWorker = new Worker(workerUrl);
-    URL.revokeObjectURL(workerUrl);
-    console.log("[NRA DreamLab] Web Worker initialized successfully.");
-  } catch (err) {
-    console.warn("[NRA DreamLab] Failed to init Web Worker (CSP block?). Using setTimeout fallback.", err.message);
-    delayWorker = null;
-  }
-}
-
-// Inisialisasi awal
-initWorker();
-
-/**
- * delay(ms): Promise-based timeout hybrid using Web Worker thread & fallback.
- * Web Workers are immune to Chrome's background tab throttling.
- * Jika worker gagal/mati, akan otomatis restart dan menggunakan setTimeout sementara.
- * @param {number} ms
- * @returns {Promise<void>}
- */
+// ponytail: replaced over-engineered Web Worker delay with native setTimeout
 function delay(ms) {
-  if (ms >= 1000) console.log(`[NRA DreamLab] Waiting for ${ms}ms...`);
-  return new Promise((resolve) => {
-    let resolved = false;
-
-    // Waktu tunggu maksimum sebelum fallback (hanya 1 detik ekstra dari target)
-    const fallbackMs = ms + 1000;
-
-    // Timer fallback murni (setTimeout)
-    const fallbackTimer = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        console.warn(
-          `[NRA DreamLab] âš ï¸ Delay fallback triggered after ${fallbackMs}ms (Worker mati atau lambat). Merestart worker...`,
-        );
-        initWorker(); // Restart worker agar panggilan selanjutnya tidak lambat
-        resolve();
-      }
-    }, fallbackMs);
-
-    try {
-      if (!delayWorker) throw new Error("Worker is null");
-
-      const id = Math.random().toString();
-      const handler = (e) => {
-        if (e.data === id) {
-          delayWorker.removeEventListener("message", handler);
-          if (!resolved) {
-            resolved = true;
-            clearTimeout(fallbackTimer); // Berhasil, batalkan fallback timer
-            resolve();
-          }
-        }
-      };
-
-      delayWorker.addEventListener("message", handler);
-      delayWorker.postMessage({ id: id, time: ms });
-    } catch (e) {
-      // Terjadi error instan (misal worker mati, memory corrupt), langsung gunakan native
-      console.warn(
-        `[NRA DreamLab] âš ï¸ Worker error instan: ${e.message}. Menggunakan setTimeout native dan merestart worker...`,
-      );
-      if (delayWorker) {
-        try { delayWorker.terminate(); } catch (_) {}
-        delayWorker = null;
-      }
-      initWorker(); // Re-init sekarang juga
-
-      // Karena kita tahu postMessage gagal, jadwalkan resolve menggunakan setTimeout sesuai 'ms'
-      // tanpa harus menunggu 'fallbackMs' yang lebih lama
-      setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          clearTimeout(fallbackTimer);
-          resolve();
-        }
-      }, ms);
-    }
-  });
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -357,14 +200,10 @@ function tagGhostCooldowns() {
 }
 
 /**
- * Promisified utility to wait for a DOM element to exist, checking every 300ms.
- * Supports both CSS selectors and XPath.
- * @param {string} selector
- * @param {boolean} isXPath
- * @param {number} timeout
- * @returns {Promise<Element>}
+ * Wait for a DOM element to exist via MutationObserver.
+ * ponytail: removed unused XPath support
  */
-async function waitForElement(selector, isXPath = false, timeout = 10000) {
+async function waitForElement(selector, timeout = 10000) {
   return new Promise((resolve, reject) => {
     let timer;
     let settled = false;
@@ -377,16 +216,8 @@ async function waitForElement(selector, isXPath = false, timeout = 10000) {
         reject(new Error("USER_STOPPED"));
         return null;
       }
-
-      let el = null;
-      if (isXPath) {
-        el = document.evaluate(selector, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-      } else {
-        el = document.querySelector(selector);
-      }
-
+      const el = document.querySelector(selector);
       if (el) {
-        // Safe visibility check, better than offsetParent
         const rect = el.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) return el;
       }
@@ -395,7 +226,7 @@ async function waitForElement(selector, isXPath = false, timeout = 10000) {
 
     const initial = check();
     if (initial) return resolve(initial);
-    if (settled) return; // Already rejected by check()
+    if (settled) return;
 
     const observer = new MutationObserver(() => {
       const el = check();
@@ -407,41 +238,18 @@ async function waitForElement(selector, isXPath = false, timeout = 10000) {
       }
     });
 
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
 
     timer = setTimeout(() => {
       if (settled) return;
       settled = true;
       observer.disconnect();
-      reject(new Error(`Timeout waiting for element matching: ${selector}`));
+      reject(new Error("Timeout waiting for element matching: " + selector));
     }, timeout);
   });
 }
 
-function auditSelectors() {
-  for (const [key, selector] of Object.entries(CANVA_SELECTORS)) {
-    let element;
-    if (selector.startsWith("//")) {
-      // XPath selector
-      const result = document.evaluate(
-        selector,
-        document,
-        null,
-        XPathResult.FIRST_ORDERED_NODE_TYPE,
-        null,
-      );
-      element = result.singleNodeValue;
-    } else {
-      // CSS selector
-      element = document.querySelector(selector); // Shorter timeout for quick check
-    }
-    if (!element) {
-      console.error(`DIAGNOSTIC ERROR: Selector ${key} is NULL/NOT FOUND`);
-    } else {
-      console.log(`DIAGNOSTIC OK: Selector ${key} found`);
-    }
-  }
-}
+// ponytail: removed unused auditSelectors
 
 /**
  * Extracts the cooldown time remaining from a rate-limit warning element on the screen.
@@ -763,7 +571,7 @@ async function injectPrompt(currentPrompt) {
 
 async function submitAndWaitForImages() {
   console.info("[NRA DreamLab] Mencari tombol Generate...");
-  const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON, false, 15000);
+  const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON, 15000);
 
   // Hitung jumlah kontainer sebelum generate untuk deteksi node baru
   const containersBefore = getRenderContainers().length;
@@ -1012,7 +820,7 @@ async function handleCooldown(cooldownMs, isStartup = false) {
   tagGhostCooldowns();
   const targetEndTime = Date.now() + cooldownMs;
   while (Date.now() < targetEndTime) {
-    if (!isRunning) {
+    if (!isAutomatingGlobal) {
       if (isStartup) {
         console.log(
           "[NRA DreamLab] Automation aborted by user during startup cooldown.",
@@ -1340,7 +1148,7 @@ chrome.storage.local.get(['isAutomating', 'isRecovering'], async (res) => {
       isLoopActive = true;
 
       // Tunggu hingga textarea prompt tersedia di DOM sebelum melanjutkan loop
-      await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA, false, 45000);
+      await waitForElement(CANVA_SELECTORS.PROMPT_TEXTAREA, 45000);
       if (isLoopActive) {
         startMainLoop().catch(err => { if (!err || err.message !== "USER_STOPPED") console.error(err); }).finally(() => {
           isLoopActive = false;
@@ -1362,3 +1170,6 @@ setTimeout(() => {
     chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Canva Connected" });
   } catch(e) {}
 }, 500);
+
+
+

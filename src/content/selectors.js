@@ -1,30 +1,10 @@
-// Centralized DOM selectors for Canva Auto Prompter
+// Centralized DOM selectors for NRA DreamLab
+// ponytail: removed unused XPath selectors (BUSY_WARNING, STATIC_WARNING, STYLE_TRIGGER, RATIO_TRIGGER, MONTHLY_LIMIT_WARNING); add back if Canva changes detection strategy
 const CANVA_SELECTORS = {
-  // Textarea selectors
   PROMPT_TEXTAREA:
     'textarea[placeholder*="Describe"], textarea[placeholder*="Ceritakan"], textarea[aria-label*="prompt" i], textarea[class*="canva-ai-input"]',
-
-  // Button selectors
   SUBMIT_BUTTON: 'button[type="submit"]',
   DOWNLOAD_BUTTON:
     'button[aria-label*="Download" i], button[aria-label*="Unduh" i], button:has(svg path[d*="m11.25 15.85"])',
-
-  // Alert/status selectors
-  ALERT_STATUS: '[@role="alert" or @role="status"]',
-
-  // Cooldown warning selectors
-  BUSY_WARNING:
-    "//*[not(@data-bot-ignored='true') and contains(text(), 'Lots of people are using Dream Lab')]",
-  STATIC_WARNING:
-    "//*[not(@data-bot-ignored='true') and not(ancestor-or-self::*[@role='alert' or @role='status']) and (contains(text(), 'generate again in') or contains(text(), 'Try again in'))]",
-
-  // Configuration selectors
-  STYLE_TRIGGER:
-    "//*[(local-name()='button' or @role='button') and normalize-space(text())='Style']",
-  RATIO_TRIGGER:
-    "//*[(local-name()='button' or @role='button') and normalize-space(text())='Ratio']",
-
-  // Monthly limit warning
-  MONTHLY_LIMIT_WARNING:
-    "//*[contains(text(), 'monthly AI limit') or contains(text(), 'hit your plan') or contains(text(), 'Upgrade to get more AI')]",
+  ALERT_STATUS: '[@role="alert" or @role="status"]'
 };
