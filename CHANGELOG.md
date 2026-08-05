@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.25] - 2026-08-05
+### Fixed
+- **Post-Flight Cooldown Retrigger (Stale DOM)**: Prevented redundant cooldown triggers caused by Canva's UI slowly removing alert texts. Added a `justFinishedCooldown` bypass flag and dynamic Generate button validation inside the text scraper.
+
 ## [1.1.24] - 2026-08-05
 ### Fixed
 - **Cooldown Loop Timer**: Solved a race condition where overlapping cooldown timers caused an infinite delay loop without resuming automation. Implemented an atomic `isCooldownActive` guard to enforce single-threaded cooldown execution.

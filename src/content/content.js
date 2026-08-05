@@ -257,6 +257,10 @@ async function waitForElement(selector, timeout = 10000) {
  * @returns {number} Cooldown in milliseconds, or 0 if not found.
  */
 function getScreenCooldownMs() {
+  // Tambahan sanitasi: Jika submit button aktif dan tidak di-disable, abaikan alert stale text
+  const btn = document.querySelector(CANVA_SELECTORS.SUBMIT_BUTTON);
+  if (btn && !btn.disabled) return 0;
+
   // Ensure we ignore elements tagged by tagGhostCooldowns
   let ignoredNodes = [];
   try {
@@ -962,12 +966,14 @@ async function startMainLoop() {
 
         // 2. PRE-FLIGHT GATEKEEPER: Cek dan tahan bot jika ada cooldown aktif SEBELUM mulai mengetik
         let startupCooldown = getScreenCooldownMs();
+        let justFinishedCooldown = false;
         if (startupCooldown > 0) {
           console.warn(`[NRA DreamLab] Batasan limit aktif terdeteksi sebelum mulai mengetik! Menahan loop selama ${startupCooldown}ms`);
           await handleCooldown(startupCooldown, false);
 
           console.info("[NRA DreamLab] 🛡️ Cooldown selesai. Mengaktifkan Post-Cooldown Recovery Delay selama 5 detik untuk stabilitas sesi...");
           await delay(5000);
+          justFinishedCooldown = true;
         }
 
         chrome.runtime.sendMessage({
@@ -1017,13 +1023,17 @@ async function startMainLoop() {
         }
 
         // 6. POST-FLIGHT CHECK: Cek kembali cooldown jika limit baru lahir pasca-submit
-        let postCooldownMs = getScreenCooldownMs();
-        if (postCooldownMs > 0) {
-          console.warn(`[NRA DreamLab] Limit akun terdeteksi pasca-submit! Waktu tunggu: ${postCooldownMs}ms`);
-          await handleCooldown(postCooldownMs, false);
+        if (!justFinishedCooldown) {
+          let postCooldownMs = getScreenCooldownMs();
+          if (postCooldownMs > 0) {
+            console.warn(`[NRA DreamLab] Limit akun terdeteksi pasca-submit! Waktu tunggu: ${postCooldownMs}ms`);
+            await handleCooldown(postCooldownMs, false);
 
-          console.info("[NRA DreamLab] 🛡️ Cooldown selesai. Mengaktifkan Post-Cooldown Recovery Delay selama 5 detik untuk stabilitas sesi...");
-          await delay(5000);
+            console.info("[NRA DreamLab] 🛡️ Cooldown selesai. Mengaktifkan Post-Cooldown Recovery Delay selama 5 detik untuk stabilitas sesi...");
+            await delay(5000);
+          }
+        } else {
+          console.info("[NRA DreamLab] 🛡️ POST-FLIGHT cooldown check dilewati karena sesi ini baru saja bangkit dari cooldown (Stale DOM prevention).");
         }
 
         // 7. Update status ke storage & panel
