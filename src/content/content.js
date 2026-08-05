@@ -796,6 +796,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
   }
 }
 let isWaitingForCooldown = false;
+let isCooldownActive = false; // Guard
 function getRenderContainers(unprocessedOnly = false) {
   let selector = 'div[role="group"][data-testid]';
   let containers = Array.from(document.querySelectorAll(selector));
@@ -810,6 +811,8 @@ function getRenderContainers(unprocessedOnly = false) {
 }
 
 async function handleCooldown(cooldownMs, isStartup = false) {
+  if (isCooldownActive) return true;
+  isCooldownActive = true;
   isWaitingForCooldown = true;
   console.log(`[DEBUG] Entering handleCooldown for ${cooldownMs}ms`);
   if (!isStartup) sessionStats.totalCooldowns++;
@@ -847,6 +850,7 @@ async function handleCooldown(cooldownMs, isStartup = false) {
     status: `Resuming ${isStartup ? "automation" : "after cooldown"}...`,
   }).catch(() => {});
   isWaitingForCooldown = false;
+  isCooldownActive = false;
   return true;
 }
 
