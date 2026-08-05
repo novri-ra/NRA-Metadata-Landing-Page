@@ -594,9 +594,7 @@ function initEventListeners() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  console.log(
-    "[Panel] DOMContentLoaded fired. Event listeners are being attached...",
-  );
+  
   window.addEventListener("unhandledrejection", function (event) {
     console.error("[Panel] Unhandled Promise rejection:", event.reason);
     if (statusText) {
