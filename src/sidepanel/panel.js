@@ -533,8 +533,7 @@ function initEventListeners() {
   // Real-time Save (Input/Change Listeners to prevent data loss)
   let saveTimeout;
   if (promptInput) {
-    promptInput.addEventListener("input", () => {
-      clearTimeout(saveTimeout);
+    promptInput.addEventListener("input", () => { const isConnected = statusText && statusText.textContent === "Canva Connected"; if (isConnected && !isRunning && promptInput.value.trim().length > 0) { if (startBtn) { startBtn.disabled = false; startBtn.style.opacity = "1"; startBtn.style.cursor = "pointer"; } } else { if (startBtn && !isRunning) { startBtn.disabled = true; startBtn.style.opacity = "0.5"; startBtn.style.cursor = "not-allowed"; } } clearTimeout(saveTimeout);
       saveTimeout = setTimeout(() => {
         chrome.storage.local.set({ savedPromptText: promptInput.value });
       }, 500); // 500ms debounce
@@ -706,7 +705,7 @@ function initMessageListeners() {
       statusText.textContent = "Canva Connected";
       statusDot.classList.add("active");
       statusDot.style.backgroundColor = "#10b981";
-      if (startBtn) {
+      if (startBtn && !isRunning && promptInput && promptInput.value.trim().length > 0) {
         startBtn.disabled = false;
         startBtn.style.opacity = "1";
         startBtn.style.cursor = "pointer";
@@ -733,7 +732,7 @@ function initMessageListeners() {
               statusText.textContent = "Canva Connected";
               statusDot.classList.add("active");
               statusDot.style.backgroundColor = "#10b981";
-              if (startBtn && !isRunning) {
+              if (startBtn && !isRunning && promptInput && promptInput.value.trim().length > 0) {
                 startBtn.disabled = false;
                 startBtn.style.opacity = "1";
                 startBtn.style.cursor = "pointer";
@@ -1037,7 +1036,7 @@ function initExtendedFeatures() {
         statusText.textContent = "Canva Connected";
         statusDot.classList.add("active");
         statusDot.style.backgroundColor = "#10b981";
-        if (startBtn) {
+      if (startBtn && !isRunning && promptInput && promptInput.value.trim().length > 0) {
             startBtn.disabled = false;
             startBtn.style.opacity = "1";
             startBtn.style.cursor = "pointer";
