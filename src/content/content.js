@@ -318,13 +318,13 @@ function getScreenCooldownMs() {
         // Ekstrak angka dari teks yang mengikuti pattern match
         // Canva bisa menggunakan format "14:12" atau "14m 12s"
         const timeStr = pageText.substring(match.index);
-        
+
         // Cari format MM:SS
         const colonMatch = timeStr.match(/(\d+):(\d+)/);
         if (colonMatch) {
           return ((parseInt(colonMatch[1], 10) * 60) + parseInt(colonMatch[2], 10)) * 1000;
         }
-        
+
         // Cari format Xm Ys
         const textMatch = timeStr.match(/(\d+)\s*m\s*(\d+)\s*s/i);
         if (textMatch) {
@@ -336,7 +336,7 @@ function getScreenCooldownMs() {
         if (secMatch) {
           return parseInt(secMatch[1], 10) * 1000;
         }
-        
+
         // Fallback aman jika teks 'Try again' ada tapi angka gagal diekstrak
         console.warn("[NRA DreamLab] Waktu cooldown tidak dapat diekstrak dari teks. Fallback ke 3 menit.");
         return 3 * 60 * 1000;
@@ -356,7 +356,7 @@ function handleAutomationError(err) {
   isLoopActive = false;
 
   const errMessage = (err && err.message) ? err.message : JSON.stringify(err);
-  
+
   if (errMessage === "USER_STOPPED") {
     console.info("[NRA DreamLab] Process stopped manually.");
     chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
@@ -373,7 +373,7 @@ function handleAutomationError(err) {
       "[NRA DreamLab] Monthly AI limit reached. Stopping permanently.",
     );
     chrome.storage.local.set({ isAutomating: false, step: "ERROR" }, () => {
-      sendStatusUpdate("ðŸ›‘ Monthly Limit Reached. Stopped.");
+      sendStatusUpdate("Monthly Limit Reached. Stopped.");
       chrome.runtime.sendMessage({
         action: "SHOW_NOTIFICATION",
         title: "Canva Automation Halted",
@@ -394,27 +394,27 @@ function handleAutomationError(err) {
   chrome.runtime.sendMessage({ action: "RELEASE_AWAKE" }).catch(() => ({}));
 }
 
-  async function safeCdpClick(element, context = "element") {
-    try {
-      await cdpClick(element);
-    } catch (error) {
-      if (error && error.message === "USER_STOPPED") throw error;
-      console.error(`[NRA DreamLab] ðŸ›‘ Failed to click ${context}:`, error);
-      chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => {});
-      throw new Error(`Click interaction failed for ${context}`);
-    }
+async function safeCdpClick(element, context = "element") {
+  try {
+    await cdpClick(element);
+  } catch (error) {
+    if (error && error.message === "USER_STOPPED") throw error;
+    console.error(`[NRA DreamLab] Failed to click ${context}:`, error);
+    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => { });
+    throw new Error(`Click interaction failed for ${context}`);
   }
-  
-  async function safeCdpTypeHuman(text, context = "input") {
-    try {
-      await cdpTypeHuman(text);
-    } catch (error) {
-      if (error && error.message === "USER_STOPPED") throw error;
-      console.error(`[NRA DreamLab] ðŸ›‘ Failed to type in ${context}:`, error);
-      chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => {});
-      throw new Error(`Type interaction failed for ${context}`);
-    }
+}
+
+async function safeCdpTypeHuman(text, context = "input") {
+  try {
+    await cdpTypeHuman(text);
+  } catch (error) {
+    if (error && error.message === "USER_STOPPED") throw error;
+    console.error(`[NRA DreamLab] Failed to type in ${context}:`, error);
+    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => { });
+    throw new Error(`Type interaction failed for ${context}`);
   }
+}
 async function cdpClick(element) {
   // Proteksi tambahan: Pastikan elemen masih terhubung ke DOM
   if (!element.isConnected) {
@@ -482,10 +482,10 @@ async function safeSelectCanvaConfiguration(typeLabel, optionText) {
     return await selectCanvaConfiguration(typeLabel, optionText);
   } catch (error) {
     console.error(
-      `[NRA DreamLab] ðŸ›‘ Failed to configure ${typeLabel} with ${optionText}:`,
+      `[NRA DreamLab] Failed to configure ${typeLabel} with ${optionText}:`,
       error,
     );
-    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => {});
+    chrome.runtime.sendMessage({ action: "EMERGENCY_CLEANUP" }).catch(() => { });
     throw new Error(`Configuration interaction failed for ${typeLabel}`);
   }
 }
@@ -581,7 +581,7 @@ async function submitAndWaitForImages() {
   const containersBefore = getRenderContainers().length;
 
   console.info("[NRA DreamLab] Menekan tombol Generate...");
-  
+
   // Implement DOM Tagging (Marking): Prevent bot from reading previous generated images
   const oldContainers = getRenderContainers();
   oldContainers.forEach(c => {
@@ -591,7 +591,7 @@ async function submitAndWaitForImages() {
   await safeCdpClick(generateBtn, "generate button");
 
   console.info("[NRA DreamLab] Menunggu inisiasi node kontainer baru...");
-  
+
   // State Transition Wait: Jeda singkat agar Canva sempat memproses klik & menambah/menghapus DOM
   await delay(1500);
 
@@ -657,22 +657,22 @@ async function submitAndWaitForImages() {
 
     if ((!isProcessingText && downloadExists) || (!isProcessingText && isImageReady)) {
 
-        // JIKA SEBELUMNYA TERDETEKSI FINALIZING, BERIKAN JEDA AMAN SINKRONISASI ANIMASI 5 DETIK
-        if (detectedFinalizing) {
-          console.info("[NRA DreamLab] ✨ Teks Finalizing hilang. Menahan download selama 5 detik agar animasi render selesai sempurna...");
-          await delay(5000);
-        }
+      // JIKA SEBELUMNYA TERDETEKSI FINALIZING, BERIKAN JEDA AMAN SINKRONISASI ANIMASI 5 DETIK
+      if (detectedFinalizing) {
+        console.info("[NRA DreamLab] ✨ Teks Finalizing hilang. Menahan download selama 5 detik agar animasi render selesai sempurna...");
+        await delay(5000);
+      }
 
-        // Ambil ekstra safety delay dari storage jika dikonfigurasi oleh pengguna
-        const res = await chrome.storage.local.get(["safetyDelay"]);
-        const extraDelay = (parseInt(res.safetyDelay, 10) || 0) * 1000;
-        if (extraDelay > 0) {
-          console.info(`[NRA DreamLab] Menerapkan Extra Safety Delay sebesar ${extraDelay}ms...`);
-          await delay(extraDelay);
-        }
+      // Ambil ekstra safety delay dari storage jika dikonfigurasi oleh pengguna
+      const res = await chrome.storage.local.get(["safetyDelay"]);
+      const extraDelay = (parseInt(res.safetyDelay, 10) || 0) * 1000;
+      if (extraDelay > 0) {
+        console.info(`[NRA DreamLab] Menerapkan Extra Safety Delay sebesar ${extraDelay}ms...`);
+        await delay(extraDelay);
+      }
 
-        console.info("[NRA DreamLab] ✅ Gambar terdeteksi siap dan tajam! Menuju proses download...");
-        return true;
+      console.info("[NRA DreamLab] ✅ Gambar terdeteksi siap dan tajam! Menuju proses download...");
+      return true;
     }
 
     console.log("[NRA DreamLab] Menunggu proses rendering gambar Canva tuntas...");
@@ -751,14 +751,14 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
 
       allDownloadButtons = buttons;
       if (buttons.length >= targetCount) {
-         break;
+        break;
       } else {
-         console.info(`[NRA DreamLab] Baru ditemukan ${buttons.length}/${targetCount} tombol download, menunggu...`);
+        console.info(`[NRA DreamLab] Baru ditemukan ${buttons.length}/${targetCount} tombol download, menunggu...`);
       }
       console.info(`[NRA DreamLab] Tombol download belum siap, mencoba lagi dalam 2 detik... (Attempt ${attempt + 1}/${MAX_DOWNLOAD_RETRIES})`);
       await delay(2000);
     }
-    
+
     if (allDownloadButtons.length === 0) {
       throw new Error("Tombol download tidak ditemukan setelah batas waktu penungguan.");
     }
@@ -766,7 +766,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
     throw new Error("Gagal mengisolasi tombol unduh: " + error.message);
   }
 
-  
+
   let buttonsToClick = allDownloadButtons.slice(0, targetCount);
   console.log(`[NRA DreamLab] Mengunduh ${buttonsToClick.length} gambar eksklusif dari kontainer prompt aktif.`);
 
@@ -788,7 +788,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
         chrome.runtime.sendMessage({
           action: "UPDATE_STATS",
           stats: sanitizeStats(sessionStats)
-        }).catch(() => {});
+        }).catch(() => { });
       } catch (clickError) {
         console.warn(`[NRA DreamLab] Percobaan klik tombol ${i + 1} meleset, mencoba fallback klik native...`);
         btn.click();
@@ -823,17 +823,17 @@ async function handleCooldown(cooldownMs, isStartup = false) {
   if (!isStartup) sessionStats.totalCooldowns++;
   consecutiveCooldownCount++;
   if (consecutiveCooldownCount >= 2) {
-      console.error("[NRA DreamLab] Limit akun tercapai secara beruntun. Menghentikan bot.");
-      chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Error: Account limit reached. Automation paused." }).catch(() => {});
-      chrome.storage.local.set({ isAutomating: false, isPaused: true });
-      isWaitingForCooldown = false;
-      isCooldownActive = false;
-      consecutiveCooldownCount = 0;
-      throw new Error("MAX_COOLDOWN_REACHED");
+    console.error("[NRA DreamLab] Limit akun tercapai secara beruntun. Menghentikan bot.");
+    chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Error: Account limit reached. Automation paused." }).catch(() => { });
+    chrome.storage.local.set({ isAutomating: false, isPaused: true });
+    isWaitingForCooldown = false;
+    isCooldownActive = false;
+    consecutiveCooldownCount = 0;
+    throw new Error("MAX_COOLDOWN_REACHED");
   }
   cooldownMs += 5000;
   console.warn(
-    `[NRA DreamLab] ðŸ›‘ ${isStartup ? "Startup paused. Pre-existing cooldown" : "Cooldown"} detected: ${cooldownMs}ms. Waiting...`,
+    `[NRA DreamLab] ${isStartup ? "Startup paused. Pre-existing cooldown" : "Cooldown"} detected: ${cooldownMs}ms. Waiting...`,
   );
   tagGhostCooldowns();
   const targetEndTime = Date.now() + cooldownMs;
@@ -853,7 +853,7 @@ async function handleCooldown(cooldownMs, isStartup = false) {
     chrome.runtime.sendMessage({
       action: "STATUS_UPDATE",
       status: `${isStartup ? "Startup Paused (Limit Active)" : "Cooldown"}: ${formatTime(remainingSecs)}`,
-    }).catch(() => {});
+    }).catch(() => { });
     await delay(1000);
   }
   tagGhostCooldowns();
@@ -863,7 +863,7 @@ async function handleCooldown(cooldownMs, isStartup = false) {
   chrome.runtime.sendMessage({
     action: "STATUS_UPDATE",
     status: `Resuming ${isStartup ? "automation" : "after cooldown"}...`,
-  }).catch(() => {});
+  }).catch(() => { });
   isWaitingForCooldown = false;
   isCooldownActive = false;
   return true;
@@ -960,11 +960,11 @@ async function startMainLoop() {
         // 1. Hitung indeks aktif secara akurat sebelum array prompts dikurangi/di-shift
         const currentIndex = startIndex + (sessionStats.totalPrompts - prompts.length);
 
-        
+
         // MEMORY LEAK PREVENTION: Reload page natively every 50 processed prompts
         if (sessionStats.successCount > 0 && sessionStats.successCount % 50 === 0) {
           console.info("[NRA DreamLab] 🧹 Preventative memory dump: Reloading tab after 50 prompts to clear Canva DOM bloat.");
-          await chrome.storage.local.set({ 
+          await chrome.storage.local.set({
             isRecovering: true,
             lastProcessedPromptIndex: currentIndex
           });
@@ -990,7 +990,7 @@ async function startMainLoop() {
         chrome.runtime.sendMessage({
           action: "STATUS_UPDATE",
           status: `Processing prompt ${currentIndex + 1} of ${sessionStats.totalPrompts}...`,
-        }).catch(() => {});
+        }).catch(() => { });
 
         // 3. Update prompt aktif ke storage untuk penamaan file background.js
         await chrome.storage.local.set({ downloadingPrompt: currentPrompt });
@@ -1019,17 +1019,17 @@ async function startMainLoop() {
             retryCount++;
             if (retryCount < maxRetries) {
               console.warn("[NRA DreamLab] Memulai prosedur recovery, mereload halaman...");
-              
+
               // Simpan state recovery SEBELUM me-reload halaman
-              await chrome.storage.local.set({ 
+              await chrome.storage.local.set({
                 isRecovering: true,
                 lastProcessedPromptIndex: currentIndex - 1
               });
-              
+
               window.location.reload();
-              
+
               // Hentikan eksekusi: instance script ini akan musnah saat page reload
-              return; 
+              return;
             }
           }
         }
@@ -1053,7 +1053,7 @@ async function startMainLoop() {
           chrome.runtime.sendMessage({
             action: "PROMPT_FAILED",
             failedPrompt: currentPrompt
-          }).catch(() => {});
+          }).catch(() => { });
         }
 
         sessionStats.successCount++;
@@ -1066,7 +1066,7 @@ async function startMainLoop() {
         chrome.runtime.sendMessage({
           action: "UPDATE_TEXTAREA",
           remainingPrompts: prompts
-        }).catch(() => {});
+        }).catch(() => { });
 
         if (batchLimitGlobal > 0 && sessionStats.downloadCount >= batchLimitGlobal) {
           isRunning = false;
@@ -1169,7 +1169,7 @@ chrome.storage.local.get(['isAutomating', 'isRecovering'], async (res) => {
   if (res.isAutomating === true && res.isRecovering === true) {
     console.log("[NRA DreamLab] Memulihkan sesi setelah reload. Menunggu elemen Canva siap...");
     await chrome.storage.local.set({ isRecovering: false });
-    
+
     try {
       // Set flags SEBELUM waitForElement agar tidak langsung di-reject oleh USER_STOPPED check
       isRunning = true;
@@ -1195,8 +1195,8 @@ chrome.storage.local.get(['isAutomating', 'isRecovering'], async (res) => {
 // Broadcast READY immediately upon script injection/load
 setTimeout(() => {
   try {
-    chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Canva Connected" }).catch(() => {});
-  } catch(e) {}
+    chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Canva Connected" }).catch(() => { });
+  } catch (e) { }
 }, 500);
 
 
