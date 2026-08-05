@@ -821,8 +821,33 @@ async function handleCooldown(cooldownMs, isStartup = false) {
   isWaitingForCooldown = true;
   console.log(`[DEBUG] Entering handleCooldown for ${cooldownMs}ms`);
   if (!isStartup) sessionStats.totalCooldowns++;
+  cooldownMs += 5000;
+  console.warn(`[NRA DreamLab] ${isStartup ? "Startup paused. Pre-existing cooldown" : "Cooldown"} detected: ${cooldownMs}ms. Waiting...`);
+  tagGhostCooldowns();
+  const targetEndTime = Date.now() + cooldownMs;
+  while (Date.now() < targetEndTime) {
+    if (!isAutomatingGlobal) {
+      if (isStartup) {
+        console.log("[NRA DreamLab] Automation aborted by user during startup cooldown.");
+        isWaitingForCooldown = false;
+        isCooldownActive = false;
+        return false;
+      }
+      isWaitingForCooldown = false;
+      isCooldownActive = false;
+      throw new Error("USER_STOPPED");
+    }
+    const remainingSecs = Math.ceil((targetEndTime - Date.now()) / 1000);
+    chrome.runtime.sendMessage({
+      action: "STATUS_UPDATE",
+      status: `${isStartup ? "Startup Paused (Limit Active)" : "Cooldown"}: ${formatTime(remainingSecs)}`
+    }).catch(() => { });
+    await delay(1000);
+  }
+  tagGhostCooldowns();
+
   consecutiveCooldownCount++;
-  if (consecutiveCooldownCount >= 2) {
+  if (consecutiveCooldownCount >= 3) {
     console.error("[NRA DreamLab] Limit akun tercapai secara beruntun. Menghentikan bot.");
     chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Error: Account limit reached. Automation paused." }).catch(() => { });
     chrome.storage.local.set({ isAutomating: false, isPaused: true });
@@ -831,32 +856,6 @@ async function handleCooldown(cooldownMs, isStartup = false) {
     consecutiveCooldownCount = 0;
     throw new Error("MAX_COOLDOWN_REACHED");
   }
-  cooldownMs += 5000;
-  console.warn(
-    `[NRA DreamLab] ${isStartup ? "Startup paused. Pre-existing cooldown" : "Cooldown"} detected: ${cooldownMs}ms. Waiting...`,
-  );
-  tagGhostCooldowns();
-  const targetEndTime = Date.now() + cooldownMs;
-  while (Date.now() < targetEndTime) {
-    if (!isAutomatingGlobal) {
-      if (isStartup) {
-        console.log(
-          "[NRA DreamLab] Automation aborted by user during startup cooldown.",
-        );
-        isWaitingForCooldown = false;
-        return false;
-      }
-      isWaitingForCooldown = false;
-      throw new Error("USER_STOPPED");
-    }
-    const remainingSecs = Math.ceil((targetEndTime - Date.now()) / 1000);
-    chrome.runtime.sendMessage({
-      action: "STATUS_UPDATE",
-      status: `${isStartup ? "Startup Paused (Limit Active)" : "Cooldown"}: ${formatTime(remainingSecs)}`,
-    }).catch(() => { });
-    await delay(1000);
-  }
-  tagGhostCooldowns();
   console.log(
     `[NRA DreamLab] ${isStartup ? "Startup cooldown cleared. Proceeding to main generation loop..." : "Cooldown cleared. Resuming..."}`,
   );

@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.27] - 2026-08-05
+### Fixed
+- **Consecutive Cooldown Tolerance**: Increased `MAX_CONSECUTIVE_COOLDOWN` threshold from 2 to 3. Moved the auto-pause guard to evaluate *after* the timer finishes, ensuring the bot will patiently wait for the cooldown to clear before dropping the session on sequential rate-limits.
+
 ## [1.1.26] - 2026-08-05
 ### Added
 - **Consecutive Cooldown Guard**: Added an auto-pause safeguard that forces the bot to stop executing if multiple cooldowns are hit successively (`>= 2`) without successful generation. This protects against hard account limit loops.

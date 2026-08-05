@@ -1,4 +1,10 @@
-### [v1.1.26] - 2026-08-05
+### [v1.1.27] - 2026-08-05
+**Fix: Threshold Guard MAX_COOLDOWN Prematur**
+- **Masalah:** Jika batas limit server di-hit secara wajar dua kali beruntun, pengguna tidak bisa membiarkan timer selesai karena limit `consecutiveCooldownCount >= 2` diletakkan di *awal* fungsi sebelum menunggu, sehingga bot langsung melemparkan error tanpa sempat menunggu cooldown ke-2.
+- **Solusi:**
+  1. Menaikkan threshold toleransi menjadi `>= 3` berturut-turut.
+  2. Memindahkan eksekusi pengecekan threshold (guard) ke **akhir fungsi**, setelah siklus `delay` (while-loop timer cooldown) selesai menunggu dengan tuntas. Hal ini memastikan user tetap dapat melanjutkan eksekusi jika timer berakhir dan server kembali merespons.
+
 **Feat: Max Consecutive Cooldown Guard**
 - **Masalah:** Jika limit akun benar-benar habis di level server Canva, bot tetap mencoba mengirim prompt setelah cooldown habis yang memicu server langsung memberikan cooldown berikutnya (Infinite cooldown loops).
 - **Solusi:** Menambahkan variabel pelacak `consecutiveCooldownCount`. Setiap kali `handleCooldown()` dipanggil, variabel ini naik 1 (direset ke 0 jika image berhasil didownload). Jika threshold mencapai >= 2, bot akan memotong eksekusi dan mematikan diri sendiri dengan melempar *Error* serta mengganti UI status: `Error: Account limit reached. Automation paused.`
