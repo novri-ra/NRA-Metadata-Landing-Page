@@ -11,6 +11,16 @@ NRA DreamLab is a Chrome extension that automates the repetitive workflow of typ
 
 ---
 
+  
+## 📖 Documentation & Guides
+
+- 📖 **[User Guide (Panduan Penggunaan)](./USER_GUIDE.md)**: Panduan lengkap instalasi, konfigurasi, dan alur kerja otomasi.
+- 📝 **[Changelog](./CHANGELOG.md)**: Catatan pembaruan versi dan riwayat rilis.
+- 🐛 **[Bug Log](./BUG_LOG.md)**: Riwayat perbaikan masalah (Bug log).
+- 📄 **[License (MIT)](./LICENSE)**: Informasi lisensi sumber terbuka.
+
+---
+
 ## 📋 Table of Contents
 
 - [Features](#-features)
