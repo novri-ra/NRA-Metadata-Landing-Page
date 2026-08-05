@@ -1,4 +1,9 @@
-### [v1.1.25] - 2026-08-05
+### [v1.1.26] - 2026-08-05
+**Feat: Max Consecutive Cooldown Guard**
+- **Masalah:** Jika limit akun benar-benar habis di level server Canva, bot tetap mencoba mengirim prompt setelah cooldown habis yang memicu server langsung memberikan cooldown berikutnya (Infinite cooldown loops).
+- **Solusi:** Menambahkan variabel pelacak `consecutiveCooldownCount`. Setiap kali `handleCooldown()` dipanggil, variabel ini naik 1 (direset ke 0 jika image berhasil didownload). Jika threshold mencapai >= 2, bot akan memotong eksekusi dan mematikan diri sendiri dengan melempar *Error* serta mengganti UI status: `Error: Account limit reached. Automation paused.`
+
+
 **Fix: Mencegah Retrigger Cooldown Karena Stale DOM**
 - **Masalah:** Cooldown sering dieksekusi berulang kali. Setelah hitung mundur cooldown selesai di Pre-Flight, ekstensi terjebak di hitung mundur baru pada Post-Flight karena UI Canva lambat memperbarui pesan rate-limit di layar (DOM masih mengandung teks alert "Try again in...").
 - **Solusi:** 

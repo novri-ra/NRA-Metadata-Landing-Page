@@ -801,6 +801,7 @@ async function handleDownload(countSetting = "4", currentPrompt = "") {
 }
 let isWaitingForCooldown = false;
 let isCooldownActive = false; // Guard
+let consecutiveCooldownCount = 0; // Guard for consecutive cooldowns
 function getRenderContainers(unprocessedOnly = false) {
   let selector = 'div[role="group"][data-testid]';
   let containers = Array.from(document.querySelectorAll(selector));
@@ -820,6 +821,16 @@ async function handleCooldown(cooldownMs, isStartup = false) {
   isWaitingForCooldown = true;
   console.log(`[DEBUG] Entering handleCooldown for ${cooldownMs}ms`);
   if (!isStartup) sessionStats.totalCooldowns++;
+  consecutiveCooldownCount++;
+  if (consecutiveCooldownCount >= 2) {
+      console.error("[NRA DreamLab] Limit akun tercapai secara beruntun. Menghentikan bot.");
+      chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Error: Account limit reached. Automation paused." }).catch(() => {});
+      chrome.storage.local.set({ isAutomating: false, isPaused: true });
+      isWaitingForCooldown = false;
+      isCooldownActive = false;
+      consecutiveCooldownCount = 0;
+      throw new Error("MAX_COOLDOWN_REACHED");
+  }
   cooldownMs += 5000;
   console.warn(
     `[NRA DreamLab] ðŸ›‘ ${isStartup ? "Startup paused. Pre-existing cooldown" : "Cooldown"} detected: ${cooldownMs}ms. Waiting...`,
@@ -1002,6 +1013,7 @@ async function startMainLoop() {
           try {
             await handleDownload(downloadCountSetting, currentPrompt);
             downloadSuccess = true;
+            consecutiveCooldownCount = 0; // Reset guard setelah sukses
           } catch (error) {
             console.error(`[NRA DreamLab] Download attempt ${retryCount + 1} failed:`, error.message);
             retryCount++;

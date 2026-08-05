@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.26] - 2026-08-05
+### Added
+- **Consecutive Cooldown Guard**: Added an auto-pause safeguard that forces the bot to stop executing if multiple cooldowns are hit successively (`>= 2`) without successful generation. This protects against hard account limit loops.
+
 ## [1.1.25] - 2026-08-05
 ### Fixed
 - **Post-Flight Cooldown Retrigger (Stale DOM)**: Prevented redundant cooldown triggers caused by Canva's UI slowly removing alert texts. Added a `justFinishedCooldown` bypass flag and dynamic Generate button validation inside the text scraper.
