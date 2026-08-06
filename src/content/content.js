@@ -573,7 +573,7 @@ async function injectPrompt(currentPrompt) {
   await safeCdpTypeHuman(currentPrompt, "prompt input");
 }
 
-async function submitAndWaitForImages() {
+async function submitAndWaitForImages(currentIndex, totalPrompts) {
   console.info("[NRA DreamLab] Mencari tombol Generate...");
   const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON, 15000);
 
@@ -682,7 +682,7 @@ async function submitAndWaitForImages() {
   throw new Error("Timeout: Proses pembuatan tajam gambar Canva melampaui batas waktu aman.");
 }
 
-async function handleDownload(countSetting = "4", currentPrompt = "") {\n  sendStatusUpdate("Downloading images...");
+async function handleDownload(countSetting = "4", currentPrompt = "", currentIndex, totalPrompts) {\n  sendStatusUpdate(`[${currentIndex + 1}/${totalPrompts}] Downloading images...`);
   console.info(`[NRA DreamLab] Memulai isolasi kontainer untuk prompt aktif: "${currentPrompt}"`);
 
   // 1. Ambil kontainer render (div[role="group"][data-testid] atau section fallback)
@@ -995,12 +995,7 @@ async function startMainLoop() {
         await chrome.storage.local.set({ downloadingPrompt: currentPrompt });
 
         // 4. Konfigurasi, Injeksi (Mengetik dengan kecepatan baru), dan Submit
-        await prepareAndSubmitPrompt(
-          currentPrompt,
-          isConfigured,
-          imageStyle,
-          aspectRatio,
-        );
+        await prepareAndSubmitPrompt(\n          currentPrompt,\n          isConfigured,\n          imageStyle,\n          aspectRatio,\n          currentIndex,\n          sessionStats.totalPrompts\n        );
         isConfigured = true;
 
         // 5. Download / Retry Loop
@@ -1010,7 +1005,7 @@ async function startMainLoop() {
 
         while (!downloadSuccess && retryCount < maxRetries) {
           try {
-            await handleDownload(downloadCountSetting, currentPrompt);
+            await handleDownload(downloadCountSetting, currentPrompt, currentIndex, sessionStats.totalPrompts);
             downloadSuccess = true;
             consecutiveCooldownCount = 0; // Reset guard setelah sukses
           } catch (error) {
@@ -1108,18 +1103,7 @@ async function checkAndHandleStartupCooldown() {
   return true;
 }
 
-async function prepareAndSubmitPrompt(
-  currentPrompt,
-  isConfigured,
-  imageStyle,
-  aspectRatio,
-) {
-  if (!isConfigured) {
-    await configureStyleAndRatio(imageStyle, aspectRatio);
-  }
-  await injectPrompt(currentPrompt);
-  await submitAndWaitForImages();
-}
+async function prepareAndSubmitPrompt(\n  currentPrompt,\n  isConfigured,\n  imageStyle,\n  aspectRatio,\n  currentIndex,\n  totalPrompts\n) {\n  if (!isConfigured) {\n    await configureStyleAndRatio(imageStyle, aspectRatio);\n  }\n  await injectPrompt(currentPrompt);\n  sendStatusUpdate(`[${currentIndex + 1}/${totalPrompts}] Submitting prompt...`);\n  await submitAndWaitForImages(currentIndex, totalPrompts);\n}
 
 // ==========================================
 // Message Listener: Menerima perintah dari Panel
