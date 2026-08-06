@@ -1,4 +1,4 @@
-# Changelog
+# Changelog\n\n## [1.1.30] - 2026-08-06\n\n### Fixed\n- Enforce robust Ping recovery and un-lock Run button properly.\n- Ensure granular step status passes `currentIndex` and `totalPrompts` correctly down the call stack.\n\n
 
 ## [1.1.27] - 2026-08-05
 ### Fixed
