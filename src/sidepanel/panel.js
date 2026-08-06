@@ -285,7 +285,7 @@ function handleStartClick() {
                     "Error: Cannot communicate with Canva tab. Please refresh.";
                   statusDot.style.backgroundColor = "#ef4444";
                   statusDot.classList.remove("active");
-                  chrome.storage.local.set({ isAutomating: false });
+                  chrome.storage.local.set({ isAutomating: false, isPaused: false }); syncRunButtonUI(false);
                   return;
                 }
               },
@@ -389,7 +389,7 @@ function handleStartClick() {
                     statusText.textContent = "Error: Canva tab is not ready or refreshing.";
                     statusDot.style.backgroundColor = "#ef4444";
                     statusDot.classList.remove("active");
-                    chrome.storage.local.set({ isAutomating: false });
+                    chrome.storage.local.set({ isAutomating: false, isPaused: false }); syncRunButtonUI(false);
                     return;
                   }
                   chrome.tabs.sendMessage(
@@ -405,7 +405,7 @@ function handleStartClick() {
                         "Error: Cannot communicate with Canva tab. Please refresh.";
                       statusDot.style.backgroundColor = "#ef4444";
                       statusDot.classList.remove("active");
-                      chrome.storage.local.set({ isAutomating: false }); // Revert state safely
+                      chrome.storage.local.set({ isAutomating: false, isPaused: false }); syncRunButtonUI(false); // Revert state safely
                       return;
                     }
                   }
