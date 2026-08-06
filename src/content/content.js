@@ -682,7 +682,8 @@ async function submitAndWaitForImages(currentIndex, totalPrompts) {
   throw new Error("Timeout: Proses pembuatan tajam gambar Canva melampaui batas waktu aman.");
 }
 
-async function handleDownload(countSetting = "4", currentPrompt = "", currentIndex, totalPrompts) {\n  sendStatusUpdate(`[${currentIndex + 1}/${totalPrompts}] Downloading images...`);
+async function handleDownload(countSetting = "4", currentPrompt = "", currentIndex, totalPrompts) {
+  sendStatusUpdate(`[${currentIndex + 1}/${totalPrompts}] Downloading images...`);
   console.info(`[NRA DreamLab] Memulai isolasi kontainer untuk prompt aktif: "${currentPrompt}"`);
 
   // 1. Ambil kontainer render (div[role="group"][data-testid] atau section fallback)
@@ -995,7 +996,14 @@ async function startMainLoop() {
         await chrome.storage.local.set({ downloadingPrompt: currentPrompt });
 
         // 4. Konfigurasi, Injeksi (Mengetik dengan kecepatan baru), dan Submit
-        await prepareAndSubmitPrompt(\n          currentPrompt,\n          isConfigured,\n          imageStyle,\n          aspectRatio,\n          currentIndex,\n          sessionStats.totalPrompts\n        );
+        await prepareAndSubmitPrompt(
+          currentPrompt,
+          isConfigured,
+          imageStyle,
+          aspectRatio,
+          currentIndex,
+          sessionStats.totalPrompts
+        );
         isConfigured = true;
 
         // 5. Download / Retry Loop
@@ -1103,7 +1111,21 @@ async function checkAndHandleStartupCooldown() {
   return true;
 }
 
-async function prepareAndSubmitPrompt(\n  currentPrompt,\n  isConfigured,\n  imageStyle,\n  aspectRatio,\n  currentIndex,\n  totalPrompts\n) {\n  if (!isConfigured) {\n    await configureStyleAndRatio(imageStyle, aspectRatio);\n  }\n  await injectPrompt(currentPrompt);\n  sendStatusUpdate(`[${currentIndex + 1}/${totalPrompts}] Submitting prompt...`);\n  await submitAndWaitForImages(currentIndex, totalPrompts);\n}
+async function prepareAndSubmitPrompt(
+  currentPrompt,
+  isConfigured,
+  imageStyle,
+  aspectRatio,
+  currentIndex,
+  totalPrompts
+) {
+  if (!isConfigured) {
+    await configureStyleAndRatio(imageStyle, aspectRatio);
+  }
+  await injectPrompt(currentPrompt);
+  sendStatusUpdate(`[${currentIndex + 1}/${totalPrompts}] Submitting prompt...`);
+  await submitAndWaitForImages(currentIndex, totalPrompts);
+}
 
 // ==========================================
 // Message Listener: Menerima perintah dari Panel
