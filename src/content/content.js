@@ -1047,6 +1047,8 @@ async function startMainLoop() {
           console.info("[NRA DreamLab] 🛡️ POST-FLIGHT cooldown check dilewati karena sesi ini baru saja bangkit dari cooldown (Stale DOM prevention).");
         }
 
+        justFinishedCooldown = false;
+
         // 7. Update status ke storage & panel
         if (!downloadSuccess) {
           chrome.runtime.sendMessage({
