@@ -359,7 +359,7 @@ function handleAutomationError(err) {
 
   if (errMessage === "USER_STOPPED") {
     console.info("[NRA DreamLab] Process stopped manually.");
-    chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
+    chrome.storage.local.set({ isAutomating: false, step: "IDLE", step: "IDLE" }, () => {
       sendStatusUpdate("Automation stopped by user.");
     });
     return;
@@ -372,7 +372,7 @@ function handleAutomationError(err) {
     console.error(
       "[NRA DreamLab] Monthly AI limit reached. Stopping permanently.",
     );
-    chrome.storage.local.set({ isAutomating: false, step: "ERROR" }, () => {
+    chrome.storage.local.set({ isAutomating: false, step: "IDLE", step: "ERROR" }, () => {
       sendStatusUpdate("Monthly Limit Reached. Stopped.");
       chrome.runtime.sendMessage({
         action: "SHOW_NOTIFICATION",
@@ -385,7 +385,7 @@ function handleAutomationError(err) {
   }
 
   const errMsg = errMessage || "Unknown error occurred.";
-  chrome.storage.local.set({ isAutomating: false, step: "ERROR" }, () => {
+  chrome.storage.local.set({ isAutomating: false, step: "IDLE", step: "ERROR" }, () => {
     chrome.runtime.sendMessage({
       action: "STATUS_UPDATE",
       status: "Error: " + errMsg,
@@ -682,7 +682,7 @@ async function submitAndWaitForImages() {
   throw new Error("Timeout: Proses pembuatan tajam gambar Canva melampaui batas waktu aman.");
 }
 
-async function handleDownload(countSetting = "4", currentPrompt = "") {
+async function handleDownload(countSetting = "4", currentPrompt = "") {\n  sendStatusUpdate("Downloading images...");
   console.info(`[NRA DreamLab] Memulai isolasi kontainer untuk prompt aktif: "${currentPrompt}"`);
 
   // 1. Ambil kontainer render (div[role="group"][data-testid] atau section fallback)
@@ -850,7 +850,7 @@ async function handleCooldown(cooldownMs, isStartup = false) {
   if (consecutiveCooldownCount >= 3) {
     console.error("[NRA DreamLab] Limit akun tercapai secara beruntun. Menghentikan bot.");
     chrome.runtime.sendMessage({ action: "STATUS_UPDATE", status: "Error: Account limit reached. Automation paused." }).catch(() => { });
-    chrome.storage.local.set({ isAutomating: false, isPaused: true });
+    chrome.storage.local.set({ isAutomating: false, step: "IDLE", isPaused: true });
     isWaitingForCooldown = false;
     isCooldownActive = false;
     consecutiveCooldownCount = 0;
@@ -988,7 +988,7 @@ async function startMainLoop() {
 
         chrome.runtime.sendMessage({
           action: "STATUS_UPDATE",
-          status: `Processing prompt ${currentIndex + 1} of ${sessionStats.totalPrompts}...`,
+          status: `[${currentIndex + 1}/${sessionStats.totalPrompts}] Typing prompt...`,
         }).catch(() => { });
 
         // 3. Update prompt aktif ke storage untuk penamaan file background.js
@@ -1071,7 +1071,7 @@ async function startMainLoop() {
 
         if (batchLimitGlobal > 0 && sessionStats.downloadCount >= batchLimitGlobal) {
           isRunning = false;
-          chrome.storage.local.set({ isAutomating: false }, () => {
+          chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
             sendStatusUpdate("Batch limit reached. Automation stopped.");
           });
           break;
@@ -1083,7 +1083,7 @@ async function startMainLoop() {
       // Final cleanup
       if (isRunning) {
         console.log("[NRA DreamLab] All prompts processed successfully.");
-        chrome.storage.local.set({ isAutomating: false }, () => {
+        chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
           sendStatusUpdate("All prompts processed successfully!");
         });
         chrome.runtime.sendMessage({ action: "RELEASE_AWAKE" }).catch(() => ({}));
@@ -1188,7 +1188,7 @@ chrome.storage.local.get(['isAutomating', 'isRecovering'], async (res) => {
       console.error("[NRA DreamLab] Gagal memulihkan sesi setelah reload. Elemen tidak ditemukan:", e.message);
       isRunning = false;
       isLoopActive = false;
-      chrome.storage.local.set({ isAutomating: false });
+      chrome.storage.local.set({ isAutomating: false, step: "IDLE" });
     }
   }
 });

@@ -18,9 +18,12 @@ function syncRunButtonUI(isAutomating) {
     startBtn.style.background = "#e74c3c";
     startBtn.style.boxShadow = "0 4px 15px rgba(231, 76, 60, 0.4)";
   } else {
-    startBtn.textContent = "Run";
+        startBtn.textContent = "Run";
     startBtn.style.background = "";
     startBtn.style.boxShadow = "";
+    startBtn.disabled = false;
+    startBtn.style.opacity = "1";
+    startBtn.style.cursor = "pointer";
 
     chrome.storage.local.set({ isPaused: false });
     const pauseButton = document.getElementById("pauseButton");
