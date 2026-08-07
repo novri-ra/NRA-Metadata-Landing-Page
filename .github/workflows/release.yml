@@ -99,12 +99,12 @@ jobs:
         run: |
           echo "📦 Creating extension package..."
           cd obfuscated
-          zip -r ../canva-auto-prompter-${GITHUB_REF_NAME#v}.zip .
+          zip -r ../NRA-Canva-Auto-Prompter-${GITHUB_REF_NAME#v}.zip .
           cd ..
 
-          if [ -f canva-auto-prompter-${GITHUB_REF_NAME#v}.zip ]; then
-            echo "✅ Zip created: canva-auto-prompter-${GITHUB_REF_NAME#v}.zip"
-            ls -lh canva-auto-prompter-${GITHUB_REF_NAME#v}.zip
+          if [ -f NRA-Canva-Auto-Prompter-${GITHUB_REF_NAME#v}.zip ]; then
+            echo "✅ Zip created: NRA-Canva-Auto-Prompter-${GITHUB_REF_NAME#v}.zip"
+            ls -lh NRA-Canva-Auto-Prompter-${GITHUB_REF_NAME#v}.zip
           else
             echo "❌ ERROR: Failed to create zip file!"
             exit 1
@@ -117,7 +117,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: canva-auto-prompter-*.zip
+          files: NRA-Canva-Auto-Prompter-*.zip
           generate_release_notes: true
           draft: false
           prerelease: false
