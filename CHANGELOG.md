@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.32] - 2026-08-07
+
+### Verified
+- **Stable Release**: All fixes from v1.1.31 (stale DOM cooldown retrigger, tagGhostCooldowns XPath, getScreenCooldownMs strictness) verified 100% working in live user environment.
+- **Run Button State**: Confirmed no longer stuck after cooldown recovery.
+
 ## [1.1.31] - 2026-08-07
 
 ### Fixed

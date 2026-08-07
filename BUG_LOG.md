@@ -1,3 +1,8 @@
+### [v1.1.32] - 2026-08-07
+**Verification: Rilis Stabil & Testing Berhasil**
+- **Status:** Pengujian pengguna berhasil 100%. Perbaikan terkait cooldown berulang akibat stale DOM dan status tombol Run yang tersangkut telah sepenuhnya teratasi di lingkungan live.
+- **Tindakan:** Merilis versi v1.1.32 sebagai versi stabil terbaru.
+
 ### [v1.1.31] - 2026-08-07
 **Fix: Repeated Cooldown Retrigger from Stale DOM Alerts**
 - **Masalah:** Bot kembali memicu siklus cooldown kedua tepat setelah cooldown awal selesai dan prompt baru saja di-submit. POST-FLIGHT CHECK dan Pre-Flight CHECK mengeksekusi `getScreenCooldownMs()` dan membacanya dari teks alert/banner Canva yang masih tertinggal (stale DOM).
