@@ -177,9 +177,7 @@ async function checkIfStopped() {
  */
 function tagGhostCooldowns() {
   const warnings = document.evaluate(
-    "//*[not(@data-bot-ignored='true') and (contains(text(), 'Lots of people are using Dream Lab') or (not(ancestor-or-self::*" +
-    CANVA_SELECTORS.ALERT_STATUS +
-    ") and (contains(text(), 'generate again in') or contains(text(), 'Try again in'))))]",
+    "//*[not(@data-bot-ignored='true') and (contains(text(), 'Lots of people are using') or contains(text(), 'generate again in') or contains(text(), 'Try again in'))]",
     document,
     null,
     XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE,
@@ -259,7 +257,9 @@ async function waitForElement(selector, timeout = 10000) {
 function getScreenCooldownMs() {
   // Tambahan sanitasi: Jika submit button aktif dan tidak di-disable, abaikan alert stale text
   const btn = document.querySelector(CANVA_SELECTORS.SUBMIT_BUTTON);
-  if (btn && !btn.disabled) return 0;
+  if (btn && !btn.disabled && btn.getAttribute("aria-disabled") !== "true") {
+    return 0;
+  }
 
   // Ensure we ignore elements tagged by tagGhostCooldowns
   let ignoredNodes = [];
@@ -267,10 +267,10 @@ function getScreenCooldownMs() {
     const nodes = document.querySelectorAll('[data-bot-ignored="true"]');
     if (nodes) ignoredNodes = Array.from(nodes);
   } catch (e) { }
-  const originalStyles = [];
+  // Hapus teks dari node yang diabaikan agar tidak terdeteksi sama sekali
   ignoredNodes.forEach((node) => {
-    originalStyles.push(node.style.display);
-    node.style.display = "none";
+    node.setAttribute("data-original-text", node.textContent);
+    node.textContent = "";
   });
 
   const COOLDOWN_PATTERNS = {
@@ -282,7 +282,6 @@ function getScreenCooldownMs() {
   let pageText = "";
 
   // Gunakan selektor terpusat hasil audit untuk memindai status alert halaman
-  // Menggunakan selector CSS murni karena querySelectorAll tidak mendukung format XPath
   const alertElements = document.querySelectorAll('[role="alert"], [role="status"]');
   alertElements.forEach(function (el) {
     pageText += el.innerText + " ";
@@ -298,12 +297,15 @@ function getScreenCooldownMs() {
   }
 
   if (!pageText.trim()) {
-    pageText = document.body.textContent || "";
+    pageText = document.body.innerText || ""; // innerText ignores hidden/tagged elements
   }
 
-  // Restore original display styles
-  ignoredNodes.forEach((node, i) => {
-    node.style.display = originalStyles[i];
+  // Restore original text
+  ignoredNodes.forEach((node) => {
+    if (node.hasAttribute("data-original-text")) {
+      node.textContent = node.getAttribute("data-original-text");
+      node.removeAttribute("data-original-text");
+    }
   });
 
   for (const [key, pattern] of Object.entries(COOLDOWN_PATTERNS)) {

@@ -1,3 +1,13 @@
+### [v1.1.31] - 2026-08-07
+**Fix: Repeated Cooldown Retrigger from Stale DOM Alerts**
+- **Masalah:** Bot kembali memicu siklus cooldown kedua tepat setelah cooldown awal selesai dan prompt baru saja di-submit. POST-FLIGHT CHECK dan Pre-Flight CHECK mengeksekusi `getScreenCooldownMs()` dan membacanya dari teks alert/banner Canva yang masih tertinggal (stale DOM).
+- **Akar Masalah:** 
+  1. `tagGhostCooldowns` sebelumnya mengecualikan teks cooldown yang berada di dalam kontainer `role="alert"` atau `role="status"`.
+  2. `getScreenCooldownMs` menyembunyikan tag dengan `style.display = "none"` tetapi mengambil semua teks menggunakan `document.body.textContent`, yang tetap menangkap elemen `display: none`.
+- **Solusi:**
+  1. Memperbarui `tagGhostCooldowns` untuk menandai semua elemen cooldown secara inklusif.
+  2. Mengganti strategi penyembunyian di `getScreenCooldownMs` dengan secara sementara mengosongkan `.textContent` elemen yang ditandai, dan mengganti fallback ke `innerText` untuk akurasi. Menambahkan pengecekan `aria-disabled` yang lebih ketat pada tombol submit.
+
 ### [v1.1.27] - 2026-08-05
 **Fix: Threshold Guard MAX_COOLDOWN Prematur**
 - **Masalah:** Jika batas limit server di-hit secara wajar dua kali beruntun, pengguna tidak bisa membiarkan timer selesai karena limit `consecutiveCooldownCount >= 2` diletakkan di *awal* fungsi sebelum menunggu, sehingga bot langsung melemparkan error tanpa sempat menunggu cooldown ke-2.

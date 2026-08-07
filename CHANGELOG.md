@@ -1,4 +1,19 @@
-# Changelog\n\n## [1.1.30] - 2026-08-06\n\n### Fixed\n- Enforce robust Ping recovery and un-lock Run button properly.\n- Ensure granular step status passes `currentIndex` and `totalPrompts` correctly down the call stack.\n\n
+# Changelog
+
+## [1.1.31] - 2026-08-07
+
+### Fixed
+- **Stale DOM Cooldown Retrigger**: Prevented repeated cooldown cycles caused by POST-FLIGHT CHECK reading leftover alert/banner text from the DOM after a cooldown just finished.
+- **tagGhostCooldowns**: Simplified XPath to tag ALL elements containing cooldown text (including `role="alert"` and `role="status"`), not just those outside alert containers.
+- **getScreenCooldownMs**: Replaced `display:none` hiding (which `textContent` ignores) with `textContent` clearing to fully suppress stale nodes. Switched body fallback from `textContent` to `innerText`. Added `aria-disabled` check on Generate button.
+
+## [1.1.30] - 2026-08-06
+
+### Fixed
+- Enforce robust Ping recovery and un-lock Run button properly.
+- Ensure granular step status passes `currentIndex` and `totalPrompts` correctly down the call stack.
+
+
 
 ## [1.1.27] - 2026-08-05
 ### Fixed
