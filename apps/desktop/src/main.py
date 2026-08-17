@@ -113,6 +113,16 @@ class App(ctk.CTk):
         self.auto_zip = ctk.BooleanVar(value=False)
         ctk.CTkSwitch(sidebar, text="Auto-Zip Vector", variable=self.auto_zip, progress_color="#10b981").grid(row=r, column=0, sticky="w", padx=10, pady=3); r += 1
 
+        make_label(sidebar, "Author:").grid(row=r, column=0, sticky="w", padx=10, pady=2); r += 1
+        self.author_entry = make_entry(sidebar)
+        self.author_entry.insert(0, self.config.get("author", ""))
+        self.author_entry.grid(row=r, column=0, sticky="ew", padx=10, pady=(0, 5)); r += 1
+
+        make_label(sidebar, "Copyright:").grid(row=r, column=0, sticky="w", padx=10, pady=2); r += 1
+        self.copyright_entry = make_entry(sidebar)
+        self.copyright_entry.insert(0, self.config.get("copyright", ""))
+        self.copyright_entry.grid(row=r, column=0, sticky="ew", padx=10, pady=(0, 5)); r += 1
+
         # Process Formats
         make_label(sidebar, "Process Formats:").grid(row=r, column=0, sticky="w", padx=10, pady=(3, 2)); r += 1
         fmt_saved = self.config.get("formats", {})
@@ -189,9 +199,16 @@ class App(ctk.CTk):
         make_entry(self.edit_frame, text_var=self.edit_title_var, placeholder_text="Title").pack(fill="x", padx=10, pady=2)
         make_label(self.edit_frame, "Description:").pack(fill="x", padx=10, pady=(5,0))
         make_entry(self.edit_frame, text_var=self.edit_desc_var, placeholder_text="Description").pack(fill="x", padx=10, pady=2)
-        make_label(self.edit_frame, "Keywords:").pack(fill="x", padx=10, pady=(5,0))
+        
+        self.kw_counter_lbl = make_label(self.edit_frame, "Keywords (0 / 20)", text_color="#10b981")
+        self.kw_counter_lbl.pack(fill="x", padx=10, pady=(5,0))
         make_entry(self.edit_frame, text_var=self.edit_kws_var, placeholder_text="Keywords (comma separated)").pack(fill="x", padx=10, pady=2)
-        ctk.CTkButton(self.edit_frame, text="Save / Re-embed", fg_color="#10b981", hover_color="#059669", height=28, command=self.save_manual).pack(fill="x", padx=10, pady=5)
+        self.edit_kws_var.trace_add("write", lambda *_: self._update_kw_counter())
+
+        btn_row = ctk.CTkFrame(self.edit_frame, fg_color="transparent")
+        btn_row.pack(fill="x", padx=10, pady=3)
+        ctk.CTkButton(btn_row, text="Dedup & Clean", fg_color="#475569", hover_color="#334155", height=28, width=100, command=self._dedup_keywords).pack(side="left", padx=(0,5))
+        ctk.CTkButton(btn_row, text="Save / Re-embed", fg_color="#10b981", hover_color="#059669", height=28, command=self.save_manual).pack(side="right", expand=True, fill="x")
 
         self.stats_lbl = make_label(main_panel, "Total: 0 | Success: 0 | Error: 0", text_color="#3b82f6")
         self.stats_lbl.grid(row=1, column=0, sticky="w", pady=(10, 5))
@@ -251,6 +268,35 @@ class App(ctk.CTk):
             except: pass
         self.after(0, _draw)
 
+    def _get_copyright_text(self) -> str:
+        cr = self.copyright_entry.get().strip()
+        if cr:
+            return cr
+        author = self.author_entry.get().strip()
+        if author:
+            from datetime import datetime as dt
+            return f"Copyright (c) {dt.now().year} {author}. All rights reserved."
+        return ""
+
+    def _update_kw_counter(self):
+        raw = self.edit_kws_var.get()
+        count = len([k for k in raw.split(",") if k.strip()])
+        min_kw = int(self.min_kw_entry.get() or 5)
+        max_kw = int(self.max_kw_entry.get() or 20)
+        if min_kw <= count <= max_kw:
+            color = "#10b981"
+        elif count < min_kw:
+            color = "#f59e0b"
+        else:
+            color = "#ef4444"
+        self.kw_counter_lbl.configure(text=f"Keywords ({count} / {max_kw})", text_color=color)
+
+    def _dedup_keywords(self):
+        raw = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
+        max_kw = int(self.max_kw_entry.get() or 50)
+        cleaned = sanitize_keywords(raw, max_kw)
+        self.edit_kws_var.set(", ".join(cleaned))
+
     def save_manual(self):
         if not self.current_edit_file or not os.path.exists(self.current_edit_file): return
         title = self.edit_title_var.get()
@@ -258,7 +304,7 @@ class App(ctk.CTk):
         kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
         
         name = os.path.basename(self.current_edit_file)
-        if self.processor.embed_metadata(self.current_edit_file, title, desc, kws, "Copyright Text"):
+        if self.processor.embed_metadata(self.current_edit_file, title, desc, kws, self._get_copyright_text(), self.author_entry.get().strip()):
             meta = {"title": title, "description": desc, "keywords": kws}
             set_cached_metadata(self.current_edit_hash, meta)
             self.log(f"{name} (Manual save OK)", "success")
@@ -490,7 +536,7 @@ class App(ctk.CTk):
         if img:
             self.update_preview(img, status, color, meta, final_path, file_hash)
 
-        if self.processor.embed_metadata(final_path, title, desc, keywords, "Copyright Text"):
+        if self.processor.embed_metadata(final_path, title, desc, keywords, self._get_copyright_text(), self.author_entry.get().strip()):
             self.log(f"{name} ({len(keywords)} kw)", "success")
             # Write master CSV (at root)
             csv_logger.log(name, title, desc, keywords)
@@ -584,7 +630,7 @@ class App(ctk.CTk):
             raw_kws = [k.strip() for k in row.get("Keywords", "").split(",") if k.strip()]
             keywords = sanitize_keywords(raw_kws, max_kw)
 
-            if self.processor.embed_metadata(asset_path, title, desc, keywords, "Copyright Text"):
+            if self.processor.embed_metadata(asset_path, title, desc, keywords, self._get_copyright_text(), self.author_entry.get().strip()):
                 file_hash = get_file_hash(asset_path)
                 set_cached_metadata(file_hash, {"title": title, "description": desc, "keywords": keywords})
                 self.log(f"[OFFLINE SUCCESS] {filename}", "success")
@@ -608,7 +654,9 @@ class App(ctk.CTk):
             "min_kw": int(self.min_kw_entry.get() or 5),
             "max_kw": int(self.max_kw_entry.get() or 20),
             "workers": int(self.workers_slider.get()),
-            "formats": {ext: var.get() for ext, var in self.fmt_vars.items()}
+            "formats": {ext: var.get() for ext, var in self.fmt_vars.items()},
+            "author": self.author_entry.get().strip(),
+            "copyright": self.copyright_entry.get().strip()
         })
         save_config(self.config)
         
