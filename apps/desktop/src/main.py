@@ -14,7 +14,7 @@ from packages.ai_engine.service import AIService
 from packages.shared_utils.config import load_config, save_config
 from packages.shared_utils.logger import CSVLogger
 from packages.shared_utils.cache import get_file_hash, get_cached_metadata, set_cached_metadata
-from packages.shared_utils.filter import clean_metadata, sanitize_keywords, get_blacklist, add_to_blacklist, remove_from_blacklist
+from packages.shared_utils.filter import clean_metadata, sanitize_keywords, get_blacklist, add_to_blacklist, remove_from_blacklist, validate_compliance, autofix_compliance
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.shared_utils.tracker import tracker
 from packages.shared_utils.cache import get_cache_hits
@@ -270,15 +270,27 @@ class App(ctk.CTk):
         lf.grid(row=0, column=0, sticky="ew", padx=(0, 4))
         _label(lf, "Min KW").pack(anchor="w")
         self.min_kw_entry = _entry(lf, width=60)
-        self.min_kw_entry.insert(0, str(self.config.get("min_kw", 5)))
+        self.min_kw_entry.insert(0, str(self.config.get("min_kw", 10)))
         self.min_kw_entry.pack(fill="x")
 
         rf = ctk.CTkFrame(kw_row, fg_color="transparent")
         rf.grid(row=0, column=1, sticky="ew", padx=(4, 0))
         _label(rf, "Max KW").pack(anchor="w")
         self.max_kw_entry = _entry(rf, width=60)
-        self.max_kw_entry.insert(0, str(self.config.get("max_kw", 20)))
+        self.max_kw_entry.insert(0, str(self.config.get("max_kw", 49)))
         self.max_kw_entry.pack(fill="x")
+
+        _label(sidebar, "Mandatory Keywords").pack(fill="x", anchor="w", **LPAD)
+        self.custom_kw_entry = _entry(sidebar, placeholder_text="e.g. 3d, isolated")
+        self.custom_kw_entry.insert(0, self.config.get("custom_kw", ""))
+        self.custom_kw_entry.pack(fill="x", **PAD)
+        
+        inj_row = ctk.CTkFrame(sidebar, fg_color="transparent")
+        inj_row.pack(fill="x", **LPAD)
+        _label(inj_row, "Inject at:").pack(side="left", padx=(0, 4))
+        self.custom_kw_pos = _combo(inj_row, ["Start (Priority)", "End"])
+        self.custom_kw_pos.set(self.config.get("custom_kw_pos", "Start (Priority)"))
+        self.custom_kw_pos.pack(side="left", expand=True, fill="x")
 
         # ── Section: Processing ──
         _section_header(sidebar, "Processing").pack(fill="x", **{**PAD, "pady": (10, 6)})
@@ -345,6 +357,20 @@ class App(ctk.CTk):
         self.copyright_entry = _entry(sidebar)
         self.copyright_entry.insert(0, self.config.get("copyright", ""))
         self.copyright_entry.pack(fill="x", **PAD)
+
+        _label(sidebar, "Generate CSVs").pack(fill="x", anchor="w", **LPAD)
+        csv_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
+        csv_frame.pack(fill="x", padx=12, pady=(0, 6))
+        
+        self.csv_vars = {}
+        csv_defs = ["Generic", "Adobe Stock", "Shutterstock", "Vecteezy", "Freepik"]
+        saved_csvs = self.config.get("csv_platforms", ["Generic", "Adobe Stock", "Shutterstock"])
+        for i, plat in enumerate(csv_defs):
+            var = ctk.BooleanVar(value=(plat in saved_csvs))
+            self.csv_vars[plat] = var
+            ctk.CTkCheckBox(csv_frame, text=plat, variable=var,
+                            fg_color=C["accent"], hover_color=C["accent_h"],
+                            font=ctk.CTkFont(family="Segoe UI", size=11)).grid(row=i, column=0, sticky="w", pady=2)
 
         # ── Action Buttons ──
         _divider(sidebar).pack(fill="x", padx=12, pady=(8, 8))
@@ -503,6 +529,24 @@ class App(ctk.CTk):
         self.edit_desc_var = ctk.StringVar()
         self.edit_kws_var = ctk.StringVar()
 
+        _label(inspector, "Target Platform (Compliance)").pack(fill="x", padx=12, pady=(8, 0))
+        plat_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        plat_row.pack(fill="x", padx=12, pady=2)
+        
+        self.target_plat_var = ctk.StringVar(value="Adobe Stock")
+        self.target_plat_cb = _combo(plat_row, ["Adobe Stock", "Shutterstock", "Freepik", "Vecteezy"],
+                                     variable=self.target_plat_var, command=lambda _: self._update_compliance())
+        self.target_plat_cb.pack(side="left", expand=True, fill="x", padx=(0, 4))
+        
+        self.autofix_btn = _btn(plat_row, "Auto-Fix", C["accent"], C["accent_h"], height=28, width=70,
+                                font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+                                command=self._autofix_metadata)
+        self.autofix_btn.pack(side="right")
+        
+        self.compliance_lbl = ctk.CTkLabel(inspector, text="● Pending Validation", text_color=C["text3"],
+                                           font=ctk.CTkFont(family="Segoe UI", size=11))
+        self.compliance_lbl.pack(fill="x", padx=12, pady=(0, 4), anchor="w")
+
         _label(inspector, "Title").pack(fill="x", padx=12, pady=(2, 0))
         _entry(inspector, text_var=self.edit_title_var, placeholder_text="Title").pack(fill="x", padx=12, pady=2)
 
@@ -513,7 +557,8 @@ class App(ctk.CTk):
         self.kw_counter_lbl.pack(fill="x", padx=12, pady=(4, 0))
         _entry(inspector, text_var=self.edit_kws_var,
                placeholder_text="Keywords (comma separated)").pack(fill="x", padx=12, pady=2)
-        self.edit_kws_var.trace_add("write", lambda *_: self._update_kw_counter())
+        self.edit_title_var.trace_add("write", lambda *_: self._update_compliance())
+        self.edit_kws_var.trace_add("write", lambda *_: [self._update_kw_counter(), self._update_compliance()])
 
         btn_row = ctk.CTkFrame(inspector, fg_color="transparent")
         btn_row.pack(fill="x", padx=12, pady=(4, 12))
@@ -808,8 +853,10 @@ class App(ctk.CTk):
         
         custom = self.config.get("custom_presets", {})
         custom[name] = {
-            "min_kw": self._safe_int(self.min_kw_entry.get(), 5),
-            "max_kw": self._safe_int(self.max_kw_entry.get(), 20),
+            "min_kw": self._safe_int(self.min_kw_entry.get(), 10),
+            "max_kw": self._safe_int(self.max_kw_entry.get(), 49),
+            "custom_kw": self.custom_kw_entry.get(),
+            "custom_kw_pos": self.custom_kw_pos.get(),
             "style_preset": self.style_cb.get(),
             "formats": {ext: var.get() for ext, var in self.fmt_vars.items()}
         }
@@ -917,6 +964,31 @@ class App(ctk.CTk):
         if models:
             self.model_cb.set(models[0])
 
+    def _get_selected_csv_platforms(self) -> set:
+        return {plat for plat, var in self.csv_vars.items() if var.get()}
+
+    def _autofix_metadata(self):
+        title = self.edit_title_var.get()
+        kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
+        plat = self.target_plat_var.get()
+        
+        fixed_title, fixed_kws = autofix_compliance(title, kws, plat)
+        self.edit_title_var.set(fixed_title)
+        self.edit_kws_var.set(", ".join(fixed_kws))
+        self._update_compliance()
+
+    def _update_compliance(self):
+        title = self.edit_title_var.get()
+        kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
+        plat = self.target_plat_var.get()
+        
+        res = validate_compliance(title, kws, plat)
+        if res["valid"]:
+            self.compliance_lbl.configure(text=f"● Compliant ({plat})", text_color=C["success"])
+        else:
+            err_text = " | ".join(res["errors"])
+            self.compliance_lbl.configure(text=f"● {err_text}", text_color=C["error"])
+
     def _get_copyright_text(self) -> str:
         cr = self.copyright_entry.get().strip()
         if cr:
@@ -936,8 +1008,8 @@ class App(ctk.CTk):
     def _update_kw_counter(self):
         raw = self.edit_kws_var.get()
         count = len([k for k in raw.split(",") if k.strip()])
-        min_kw = self._safe_int(self.min_kw_entry.get(), 5)
-        max_kw = self._safe_int(self.max_kw_entry.get(), 20)
+        min_kw = self._safe_int(self.min_kw_entry.get(), 10)
+        max_kw = self._safe_int(self.max_kw_entry.get(), 49)
         if min_kw <= count <= max_kw:
             color = C["success"]
         elif count < min_kw:
@@ -971,7 +1043,7 @@ class App(ctk.CTk):
                 tw = csv.writer(tf)
                 tw.writerow(["Filename","Title","Description","Keywords"])
                 tw.writerow([name, title, desc, ",".join(kws)])
-            generate_microstock_csvs(sub_dir)
+            generate_microstock_csvs(sub_dir, self._get_selected_csv_platforms())
         else:
             self.log(f"{name} (Manual save fail)", "error")
 
@@ -1165,6 +1237,20 @@ class App(ctk.CTk):
             meta = ai.generate_metadata(preview, min_kw, max_kw, style_preset)
             set_cached_metadata(file_hash, meta)
             status, color = "API", C["warn"]
+            
+            # Inject mandatory custom keywords on first API generation
+            custom_kws_raw = self.config.get("custom_kw", "")
+            if custom_kws_raw.strip():
+                custom_kws = [k.strip() for k in custom_kws_raw.split(",") if k.strip()]
+                # remove any exact overlaps in AI response
+                ai_kws = [k for k in meta.get("keywords", []) if k.lower() not in [ck.lower() for ck in custom_kws]]
+                
+                pos = self.config.get("custom_kw_pos", "Start (Priority)")
+                if pos == "Start (Priority)":
+                    merged_kws = custom_kws + ai_kws
+                else:
+                    merged_kws = ai_kws + custom_kws
+                meta["keywords"] = merged_kws
 
         try:
             img = Image.open(preview).copy()
@@ -1193,14 +1279,14 @@ class App(ctk.CTk):
         if self.processor.embed_metadata(final_path, title, desc, keywords, self._get_copyright_text(), self.author_entry.get().strip()):
             self.log(f"{name} ({len(keywords)} kw)", "success")
             csv_logger.log(name, title, desc, keywords)
-            generate_microstock_csvs(out_dir)
+            generate_microstock_csvs(out_dir, self._get_selected_csv_platforms())
             temp_master = os.path.join(sub_dir, "metadata_output.csv")
             import csv
             with open(temp_master, 'w', newline='', encoding='utf-8') as tf:
                 tw = csv.writer(tf)
                 tw.writerow(["Filename","Title","Description","Keywords"])
                 tw.writerow([name, title, desc, ",".join(keywords)])
-            generate_microstock_csvs(sub_dir)
+            generate_microstock_csvs(sub_dir, self._get_selected_csv_platforms())
 
             if getattr(self, 'auto_zip', None) and self.auto_zip.get() and name.lower().endswith(('.svg', '.eps')):
                 import zipfile
@@ -1305,12 +1391,15 @@ class App(ctk.CTk):
             "temperature": round(float(self.temp_slider.get()), 1),
             "style_preset": self.style_cb.get(),
             "api_key": self.api_key_entry.get(),
-            "min_kw": self._safe_int(self.min_kw_entry.get(), 5),
-            "max_kw": self._safe_int(self.max_kw_entry.get(), 20),
+            "min_kw": self._safe_int(self.min_kw_entry.get(), 10),
+            "max_kw": self._safe_int(self.max_kw_entry.get(), 49),
+            "custom_kw": self.custom_kw_entry.get(),
+            "custom_kw_pos": self.custom_kw_pos.get(),
             "workers": int(self.workers_slider.get()),
             "formats": {ext: var.get() for ext, var in self.fmt_vars.items()},
             "author": self.author_entry.get().strip(),
-            "copyright": self.copyright_entry.get().strip()
+            "copyright": self.copyright_entry.get().strip(),
+            "csv_platforms": list(self._get_selected_csv_platforms())
         })
         save_config(self.config)
 
@@ -1357,7 +1446,7 @@ class App(ctk.CTk):
             self.log("Batch CANCELED.", "error")
         else:
             self.log("Batch complete. Generating exports...", "info")
-            generate_microstock_csvs(out_dir)
+            generate_microstock_csvs(out_dir, self._get_selected_csv_platforms())
 
         self.is_running = False
         self.after(0, lambda: self.start_btn.configure(state="normal"))
