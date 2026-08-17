@@ -65,6 +65,61 @@ def sanitize_keywords(keywords: list[str], max_kw: int = 50) -> list[str]:
                 break
     return cleaned
 
+PLATFORM_RULES = {
+    "Adobe Stock": {"title_max_chars": 200, "title_min_words": 1, "kw_min": 5, "kw_max": 49},
+    "Shutterstock": {"title_max_chars": 150, "title_min_words": 5, "kw_min": 7, "kw_max": 50},
+    "Freepik": {"title_max_chars": 100, "title_min_words": 1, "kw_min": 5, "kw_max": 50},
+    "Vecteezy": {"title_max_chars": 150, "title_min_words": 1, "kw_min": 5, "kw_max": 50}
+}
+
+def validate_compliance(title: str, keywords: list[str], platform: str) -> dict:
+    rules = PLATFORM_RULES.get(platform)
+    if not rules: return {"valid": True, "errors": []}
+    
+    errors = []
+    
+    # Title validation
+    if len(title) > rules["title_max_chars"]:
+        errors.append(f"Title exceeds {rules['title_max_chars']} chars")
+    
+    word_count = len([w for w in title.split() if w.strip()])
+    if word_count < rules["title_min_words"]:
+        errors.append(f"Title has {word_count} words (min {rules['title_min_words']})")
+    
+    # Keywords validation
+    kw_count = len(keywords)
+    if kw_count < rules["kw_min"]:
+        errors.append(f"Has {kw_count} keywords (min {rules['kw_min']})")
+    elif kw_count > rules["kw_max"]:
+        errors.append(f"Has {kw_count} keywords (max {rules['kw_max']})")
+        
+    return {"valid": len(errors) == 0, "errors": errors}
+
+def autofix_compliance(title: str, keywords: list[str], platform: str) -> tuple[str, list[str]]:
+    rules = PLATFORM_RULES.get(platform)
+    if not rules: return title, keywords
+    
+    # Fix Title
+    fixed_title = title
+    if len(fixed_title) > rules["title_max_chars"]:
+        # truncate while keeping whole words if possible
+        fixed_title = fixed_title[:rules["title_max_chars"]].rsplit(' ', 1)[0]
+        # fallback if single word was > max chars
+        if len(fixed_title) > rules["title_max_chars"]:
+            fixed_title = fixed_title[:rules["title_max_chars"]]
+            
+    # Fix Keywords
+    fixed_keywords = list(keywords)
+    if platform == "Freepik":
+        # Freepik only letters and spaces
+        fixed_keywords = [re.sub(r'[^a-zA-Z\s]', '', k).strip() for k in fixed_keywords]
+        fixed_keywords = [k for k in fixed_keywords if k]
+        
+    if len(fixed_keywords) > rules["kw_max"]:
+        fixed_keywords = fixed_keywords[:rules["kw_max"]]
+        
+    return fixed_title, fixed_keywords
+
 def clean_metadata(meta: dict, max_kw: int = 50) -> dict:
     return {
         "title": filter_text(meta.get("title", "")),
