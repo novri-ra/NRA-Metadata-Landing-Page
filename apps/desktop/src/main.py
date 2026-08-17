@@ -17,6 +17,7 @@ from packages.shared_utils.filter import clean_metadata, sanitize_keywords
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.shared_utils.tracker import tracker
 from packages.shared_utils.cache import get_cache_hits
+from packages.shared_utils.ftp_uploader import FTPClient
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -39,6 +40,7 @@ class App(ctk.CTk):
         super().__init__()
         self.title("Auto Metadata")
         self.geometry("1100x650")
+        self.minsize(1000, 650)
         self.configure(fg_color="#0f172a")
 
         self.input_dir = ctk.StringVar()
@@ -61,54 +63,55 @@ class App(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # Sidebar
-        sidebar = make_frame(self)
+        # Sidebar (scrollable for small screens)
+        sidebar = ctk.CTkScrollableFrame(self, fg_color="#1e293b", corner_radius=12, width=220)
         sidebar.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         sidebar.grid_columnconfigure(0, weight=1)
 
-        make_label(sidebar, "Settings", font=ctk.CTkFont(size=18, weight="bold"), text_color="white").grid(row=0, column=0, pady=(10,20))
+        r = 0
+        make_label(sidebar, "Settings", font=ctk.CTkFont(size=18, weight="bold"), text_color="white").grid(row=r, column=0, pady=(5,10)); r += 1
 
-        make_label(sidebar, "Provider:").grid(row=1, column=0, sticky="w", padx=10, pady=5)
+        make_label(sidebar, "Provider:").grid(row=r, column=0, sticky="w", padx=10, pady=2); r += 1
         self.provider_cb = ctk.CTkComboBox(sidebar, values=["Gemini", "OpenAI", "Mistral"], fg_color="#0f172a", border_color="#334155", button_color="#3b82f6")
         self.provider_cb.set(self.config.get("provider", "Gemini"))
-        self.provider_cb.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.provider_cb.grid(row=r, column=0, sticky="ew", padx=10, pady=(0, 5)); r += 1
 
-        make_label(sidebar, "Asset Style:").grid(row=3, column=0, sticky="w", padx=10, pady=5)
+        make_label(sidebar, "Asset Style:").grid(row=r, column=0, sticky="w", padx=10, pady=2); r += 1
         self.style_cb = ctk.CTkComboBox(sidebar, values=["General Commercial", "Icons & Clipart", "Backgrounds & Patterns", "Characters & Mascot"], fg_color="#0f172a", border_color="#334155", button_color="#3b82f6")
         self.style_cb.set(self.config.get("style_preset", "General Commercial"))
-        self.style_cb.grid(row=4, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.style_cb.grid(row=r, column=0, sticky="ew", padx=10, pady=(0, 5)); r += 1
 
-        make_label(sidebar, "API Key:").grid(row=5, column=0, sticky="w", padx=10, pady=5)
+        make_label(sidebar, "API Key:").grid(row=r, column=0, sticky="w", padx=10, pady=2); r += 1
         self.api_key_entry = make_entry(sidebar, show="*")
         self.api_key_entry.insert(0, self.config.get("api_key", ""))
-        self.api_key_entry.grid(row=6, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.api_key_entry.grid(row=r, column=0, sticky="ew", padx=10, pady=(0, 5)); r += 1
 
-        make_label(sidebar, "Min KW:").grid(row=7, column=0, sticky="w", padx=10, pady=5)
+        make_label(sidebar, "Min KW:").grid(row=r, column=0, sticky="w", padx=10, pady=2); r += 1
         self.min_kw_entry = make_entry(sidebar)
         self.min_kw_entry.insert(0, str(self.config.get("min_kw", 5)))
-        self.min_kw_entry.grid(row=8, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.min_kw_entry.grid(row=r, column=0, sticky="ew", padx=10, pady=(0, 5)); r += 1
 
-        make_label(sidebar, "Max KW:").grid(row=9, column=0, sticky="w", padx=10, pady=5)
+        make_label(sidebar, "Max KW:").grid(row=r, column=0, sticky="w", padx=10, pady=2); r += 1
         self.max_kw_entry = make_entry(sidebar)
         self.max_kw_entry.insert(0, str(self.config.get("max_kw", 20)))
-        self.max_kw_entry.grid(row=10, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.max_kw_entry.grid(row=r, column=0, sticky="ew", padx=10, pady=(0, 5)); r += 1
 
-        make_label(sidebar, "Workers:").grid(row=11, column=0, sticky="w", padx=10, pady=5)
+        make_label(sidebar, "Workers:").grid(row=r, column=0, sticky="w", padx=10, pady=2); r += 1
         self.workers_val = ctk.StringVar(value=str(self.config.get("workers", 2)))
         def update_worker_lbl(val): self.workers_val.set(str(int(val)))
         self.workers_slider = ctk.CTkSlider(sidebar, from_=1, to=8, number_of_steps=7, command=update_worker_lbl, progress_color="#3b82f6")
         self.workers_slider.set(self.config.get("workers", 2))
-        self.workers_slider.grid(row=12, column=0, sticky="ew", padx=10, pady=0)
-        ctk.CTkLabel(sidebar, textvariable=self.workers_val).grid(row=13, column=0, pady=(0, 10))
+        self.workers_slider.grid(row=r, column=0, sticky="ew", padx=10, pady=0); r += 1
+        ctk.CTkLabel(sidebar, textvariable=self.workers_val).grid(row=r, column=0, pady=(0, 5)); r += 1
 
         self.auto_watch = ctk.BooleanVar(value=False)
-        ctk.CTkSwitch(sidebar, text="Auto-Watch Input", variable=self.auto_watch, progress_color="#10b981").grid(row=14, column=0, sticky="w", padx=10, pady=(0, 10))
+        ctk.CTkSwitch(sidebar, text="Auto-Watch Input", variable=self.auto_watch, progress_color="#10b981").grid(row=r, column=0, sticky="w", padx=10, pady=3); r += 1
 
         self.auto_zip = ctk.BooleanVar(value=False)
-        ctk.CTkSwitch(sidebar, text="Auto-Zip Vector", variable=self.auto_zip, progress_color="#10b981").grid(row=15, column=0, sticky="w", padx=10, pady=(0, 10))
+        ctk.CTkSwitch(sidebar, text="Auto-Zip Vector", variable=self.auto_zip, progress_color="#10b981").grid(row=r, column=0, sticky="w", padx=10, pady=3); r += 1
 
         # Process Formats
-        make_label(sidebar, "Process Formats:").grid(row=16, column=0, sticky="w", padx=10, pady=(5, 2))
+        make_label(sidebar, "Process Formats:").grid(row=r, column=0, sticky="w", padx=10, pady=(3, 2)); r += 1
         fmt_saved = self.config.get("formats", {})
         self.fmt_vars = {}
         fmt_defs = [
@@ -117,7 +120,7 @@ class App(ctk.CTk):
             ("MP4", ".mp4", False), ("MOV", ".mov", False),
         ]
         fmt_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
-        fmt_frame.grid(row=17, column=0, sticky="ew", padx=10, pady=(0, 10))
+        fmt_frame.grid(row=r, column=0, sticky="ew", padx=10, pady=(0, 5)); r += 1
         for i, (label, ext, default) in enumerate(fmt_defs):
             var = ctk.BooleanVar(value=fmt_saved.get(ext, default))
             self.fmt_vars[ext] = var
@@ -127,10 +130,13 @@ class App(ctk.CTk):
                             font=ctk.CTkFont(size=12)).grid(row=i // 3, column=i % 3, sticky="w", padx=2, pady=1)
 
         self.start_btn = ctk.CTkButton(sidebar, text="Start", font=ctk.CTkFont(weight="bold"), fg_color="#3b82f6", hover_color="#2563eb", corner_radius=8, command=self.start_processing)
-        self.start_btn.grid(row=18, column=0, sticky="ew", padx=10, pady=10)
+        self.start_btn.grid(row=r, column=0, sticky="ew", padx=10, pady=5); r += 1
 
         self.retag_btn = ctk.CTkButton(sidebar, text="Offline Re-Tag from CSV", font=ctk.CTkFont(weight="bold"), fg_color="#f59e0b", hover_color="#d97706", corner_radius=8, command=self.start_offline_retag)
-        self.retag_btn.grid(row=19, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.retag_btn.grid(row=r, column=0, sticky="ew", padx=10, pady=3); r += 1
+
+        self.ftp_btn = ctk.CTkButton(sidebar, text="FTP / SFTP Uploader", font=ctk.CTkFont(weight="bold"), fg_color="#8b5cf6", hover_color="#7c3aed", corner_radius=8, command=self.open_ftp_dialog)
+        self.ftp_btn.grid(row=r, column=0, sticky="ew", padx=10, pady=(3, 10)); r += 1
 
         # Main Panel
         main_panel = make_frame(self, fg_color="#0f172a")
@@ -261,6 +267,124 @@ class App(ctk.CTk):
     def browse_input(self):
         dir_path = ctk.filedialog.askdirectory()
         if dir_path: self.input_dir.set(dir_path)
+
+    def open_ftp_dialog(self):
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("FTP / SFTP Uploader")
+        dialog.geometry("450x450")
+        dialog.transient(self)
+        dialog.grab_set()
+
+        make_label(dialog, "Preset:").pack(padx=10, pady=(10, 2), anchor="w")
+        preset_cb = ctk.CTkComboBox(dialog, values=["Custom", "Adobe Stock", "Shutterstock", "Vecteezy", "Freepik"])
+        preset_cb.pack(padx=10, pady=2, fill="x")
+
+        make_label(dialog, "Host:").pack(padx=10, pady=2, anchor="w")
+        host_entry = make_entry(dialog)
+        host_entry.insert(0, self.config.get("ftp_host", ""))
+        host_entry.pack(padx=10, pady=2, fill="x")
+
+        make_label(dialog, "Port:").pack(padx=10, pady=2, anchor="w")
+        port_entry = make_entry(dialog)
+        port_entry.insert(0, "21")
+        port_entry.pack(padx=10, pady=2, fill="x")
+
+        make_label(dialog, "Username:").pack(padx=10, pady=2, anchor="w")
+        user_entry = make_entry(dialog)
+        user_entry.insert(0, self.config.get("ftp_user", ""))
+        user_entry.pack(padx=10, pady=2, fill="x")
+
+        make_label(dialog, "Password:").pack(padx=10, pady=2, anchor="w")
+        pass_entry = make_entry(dialog, show="*")
+        pass_entry.pack(padx=10, pady=2, fill="x")
+
+        zip_only = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(dialog, text="Upload .ZIP only", variable=zip_only).pack(padx=10, pady=10, anchor="w")
+
+        status_lbl = ctk.CTkLabel(dialog, text="", text_color="#10b981")
+        status_lbl.pack(pady=5)
+
+        def apply_preset(choice):
+            hosts = {
+                "Adobe Stock": "ftp.contributor.adobestock.com",
+                "Shutterstock": "ftp.shutterstock.com",
+                "Vecteezy": "ftp.vecteezy.com",
+                "Freepik": "ftp.freepik.com"
+            }
+            if choice in hosts:
+                host_entry.delete(0, "end")
+                host_entry.insert(0, hosts[choice])
+        preset_cb.configure(command=apply_preset)
+
+        def test_conn():
+            status_lbl.configure(text="Testing...", text_color="#f59e0b")
+            dialog.update()
+            h, p = host_entry.get(), int(port_entry.get() or 21)
+            u, pw = user_entry.get(), pass_entry.get()
+            
+            client = FTPClient(h, p, u, pw)
+            ok, msg = client.connect()
+            if ok:
+                status_lbl.configure(text="Connection OK", text_color="#10b981")
+                client.disconnect()
+            else:
+                status_lbl.configure(text=f"Fail: {msg}", text_color="#ef4444")
+
+        def start_upload():
+            h, p = host_entry.get(), int(port_entry.get() or 21)
+            u, pw = user_entry.get(), pass_entry.get()
+            self.config["ftp_host"] = h
+            self.config["ftp_user"] = u
+            save_config(self.config)
+            
+            target_dir = self.input_dir.get()
+            if not target_dir or not os.path.isdir(target_dir):
+                status_lbl.configure(text="No folder selected in main window", text_color="#ef4444")
+                return
+
+            dialog.destroy()
+            threading.Thread(target=self._run_ftp_upload, args=(h, p, u, pw, target_dir, zip_only.get()), daemon=True).start()
+
+        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=10, pady=10, side="bottom")
+        ctk.CTkButton(btn_frame, text="Test Connection", fg_color="#475569", command=test_conn).pack(side="left", expand=True, padx=5)
+        ctk.CTkButton(btn_frame, text="Start Upload", fg_color="#8b5cf6", command=start_upload).pack(side="right", expand=True, padx=5)
+
+    def _run_ftp_upload(self, host, port, user, passwd, folder, zip_only):
+        self.log(f"Connecting to FTP {host}...", "info")
+        client = FTPClient(host, port, user, passwd)
+        ok, msg = client.connect()
+        if not ok:
+            return self.log(f"FTP Connect Error: {msg}", "error")
+
+        files_to_upload = []
+        valid_exts = (".zip",) if zip_only else (".zip", ".eps", ".jpg", ".svg", ".csv")
+        for root, _, files in os.walk(folder):
+            for f in files:
+                if f.lower().endswith(valid_exts):
+                    files_to_upload.append(os.path.join(root, f))
+
+        if not files_to_upload:
+            client.disconnect()
+            return self.log("No valid files to upload via FTP.", "error")
+
+        self.log(f"FTP Uploading {len(files_to_upload)} files...", "info")
+        self.progress_bar.set(0)
+        
+        success = 0
+        total = len(files_to_upload)
+        for i, fpath in enumerate(files_to_upload):
+            fname = os.path.basename(fpath)
+            self.log(f"FTP: uploading {fname}...", "processing")
+            if client.upload_file(fpath):
+                self.log(f"FTP: OK {fname}", "success")
+                success += 1
+            else:
+                self.log(f"FTP: FAIL {fname}", "error")
+            self.after(0, self.progress_bar.set, (i + 1) / total)
+
+        client.disconnect()
+        self.log(f"FTP Upload Complete: {success}/{total} successful.", "info")
 
     def _get_allowed_extensions(self) -> set:
         exts = {ext for ext, var in self.fmt_vars.items() if var.get()}
