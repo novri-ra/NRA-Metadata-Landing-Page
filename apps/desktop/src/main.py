@@ -2,6 +2,7 @@ import os
 import shutil
 import threading
 import time
+import tkinter as tk
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
@@ -141,17 +142,21 @@ class App(ctk.CTk):
             "Groq": ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"],
         }
 
+        self._restore_geometry()
         self.build_ui()
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        # Defer sash restore until window is rendered
+        self.after(100, self._restore_sash_positions)
         threading.Thread(target=self._watcher_loop, daemon=True).start()
 
     # ── UI Construction ──────────────────────────────────────────────────
     def build_ui(self):
-        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
         # ── Header Bar ──────────────────────────────────────────────────
         header = ctk.CTkFrame(self, fg_color=C["surface"], corner_radius=0, height=42)
-        header.grid(row=0, column=0, columnspan=2, sticky="ew")
+        header.grid(row=0, column=0, sticky="ew")
         header.grid_columnconfigure(1, weight=1)
         header.grid_propagate(False)
 
@@ -165,12 +170,21 @@ class App(ctk.CTk):
                                           text_color=C["text3"])
         self.header_status.grid(row=0, column=1, sticky="e", padx=16)
 
+        # ── Outer PanedWindow: Sidebar | Main ────────────────────────
+        self.outer_paned = tk.PanedWindow(self, orient=tk.HORIZONTAL,
+                                          sashwidth=5, bg=C["border"],
+                                          borderwidth=0, opaqueresize=True,
+                                          sashrelief=tk.FLAT)
+        self.outer_paned.grid(row=1, column=0, sticky="nsew", pady=(1, 0))
+
         # ── Sidebar ─────────────────────────────────────────────────────
-        sidebar = ctk.CTkScrollableFrame(self, fg_color=C["surface"], corner_radius=0,
-                                         width=250, scrollbar_button_color=C["surface2"],
+        sidebar_container = ctk.CTkFrame(self.outer_paned, fg_color=C["surface"], corner_radius=0)
+        sidebar = ctk.CTkScrollableFrame(sidebar_container, fg_color=C["surface"], corner_radius=0,
+                                         scrollbar_button_color=C["surface2"],
                                          scrollbar_button_hover_color=C["border"])
-        sidebar.grid(row=1, column=0, sticky="nsew", padx=(0, 0), pady=(1, 0))
+        sidebar.pack(fill="both", expand=True)
         sidebar.grid_columnconfigure(0, weight=1)
+        self.outer_paned.add(sidebar_container, minsize=220, width=self.config.get("sidebar_width", 260))
 
         PAD = {"padx": 12, "pady": (0, 4)}
         LPAD = {"padx": 12, "pady": (0, 1)}
@@ -343,8 +357,8 @@ class App(ctk.CTk):
         # ═══════════════════════════════════════════════════════════════
         # ── Main Content Area ─────────────────────────────────────────
         # ═══════════════════════════════════════════════════════════════
-        main = ctk.CTkFrame(self, fg_color=C["bg"], corner_radius=0)
-        main.grid(row=1, column=1, sticky="nsew", padx=0, pady=(1, 0))
+        main = ctk.CTkFrame(self.outer_paned, fg_color=C["bg"], corner_radius=0)
+        self.outer_paned.add(main, minsize=500)
         main.grid_columnconfigure(0, weight=1)
         main.grid_rowconfigure(2, weight=1)
 
@@ -381,16 +395,21 @@ class App(ctk.CTk):
         self.progress_bar.set(0)
         self.progress_bar.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
 
-        # ── Content: Log (left) + Inspector (right) ──
-        content = ctk.CTkFrame(main, fg_color="transparent")
-        content.grid(row=2, column=0, sticky="nsew", padx=12, pady=(8, 12))
-        content.grid_columnconfigure(0, weight=3)
-        content.grid_columnconfigure(1, weight=2)
-        content.grid_rowconfigure(0, weight=1)
+        # ── Content: Log (left) + Inspector (right) via PanedWindow ──
+        content_wrap = ctk.CTkFrame(main, fg_color="transparent")
+        content_wrap.grid(row=2, column=0, sticky="nsew", padx=12, pady=(8, 12))
+        content_wrap.grid_columnconfigure(0, weight=1)
+        content_wrap.grid_rowconfigure(0, weight=1)
+
+        self.content_paned = tk.PanedWindow(content_wrap, orient=tk.HORIZONTAL,
+                                             sashwidth=5, bg=C["border"],
+                                             borderwidth=0, opaqueresize=True,
+                                             sashrelief=tk.FLAT)
+        self.content_paned.grid(row=0, column=0, sticky="nsew")
 
         # Console / Log
-        log_frame = _frame(content, border_width=1, border_color=C["border_sub"])
-        log_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        log_frame = _frame(self.content_paned, border_width=1, border_color=C["border_sub"])
+        self.content_paned.add(log_frame, minsize=300, width=self.config.get("log_width", 500))
         log_frame.grid_rowconfigure(1, weight=1)
         log_frame.grid_columnconfigure(0, weight=1)
 
@@ -413,8 +432,8 @@ class App(ctk.CTk):
         self.console.configure(state="disabled")
 
         # ── Inspector Panel ──
-        inspector = _frame(content, border_width=1, border_color=C["border_sub"])
-        inspector.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        inspector = _frame(self.content_paned, border_width=1, border_color=C["border_sub"])
+        self.content_paned.add(inspector, minsize=280)
 
         _label(inspector, "Inspector",
                font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
@@ -512,6 +531,52 @@ class App(ctk.CTk):
                 self.current_edit_hash = file_hash
             except: pass
         self.after(0, _draw)
+
+    # ── Geometry & Sash Persistence ────────────────────────────────────
+    def _restore_geometry(self):
+        geo = self.config.get("window_geometry")
+        if geo:
+            try:
+                self.geometry(geo)
+            except Exception:
+                self.geometry("1200x720")
+        else:
+            self.geometry("1200x720")
+
+    def _restore_sash_positions(self):
+        try:
+            sw = self.config.get("sidebar_width")
+            if sw and self.outer_paned.winfo_ismapped():
+                self.outer_paned.sash_place(0, int(sw), 0)
+        except Exception:
+            pass
+        try:
+            lw = self.config.get("log_width")
+            if lw and self.content_paned.winfo_ismapped():
+                self.content_paned.sash_place(0, int(lw), 0)
+        except Exception:
+            pass
+
+    def _save_state(self):
+        try:
+            self.config["window_geometry"] = self.geometry()
+        except Exception:
+            pass
+        try:
+            if self.outer_paned.winfo_ismapped():
+                self.config["sidebar_width"] = self.outer_paned.sash_coord(0)[0]
+        except Exception:
+            pass
+        try:
+            if self.content_paned.winfo_ismapped():
+                self.config["log_width"] = self.content_paned.sash_coord(0)[0]
+        except Exception:
+            pass
+        save_config(self.config)
+
+    def _on_close(self):
+        self._save_state()
+        self.destroy()
 
     def _on_provider_change(self, choice):
         models = self.MODEL_MAP.get(choice, [])
