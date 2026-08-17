@@ -135,6 +135,8 @@ class App(ctk.CTk):
         self.current_edit_file = None
         self.current_edit_hash = None
 
+        self.log_buffer = []
+        
         self.MODEL_MAP = {
             "Gemini": ["gemini-1.5-flash", "gemini-1.5-pro"],
             "OpenAI": ["gpt-4o-mini", "gpt-4o"],
@@ -189,6 +191,23 @@ class App(ctk.CTk):
         PAD = {"padx": 12, "pady": (0, 4)}
         LPAD = {"padx": 12, "pady": (0, 1)}
 
+        # ── Section: Presets ──
+        _section_header(sidebar, "Profiles").pack(fill="x", **{**PAD, "pady": (12, 6)})
+        
+        preset_row = ctk.CTkFrame(sidebar, fg_color="transparent")
+        preset_row.pack(fill="x", **LPAD)
+        self.preset_var = ctk.StringVar(value="Default")
+        self.preset_cb = _combo(preset_row, ["Default", "Adobe Stock Vector", "Shutterstock Photo", "Vecteezy Icon/Clipart"],
+                                command=self._on_preset_change, variable=self.preset_var)
+        self.preset_cb.pack(side="left", expand=True, fill="x", padx=(0, 4))
+        
+        _btn(preset_row, "Save", C["surface2"], C["border"], width=40, font=ctk.CTkFont(family="Segoe UI", size=10),
+             command=self._save_preset).pack(side="left", padx=1)
+        _btn(preset_row, "Del", C["error"], C["error_h"], width=30, font=ctk.CTkFont(family="Segoe UI", size=10),
+             command=self._delete_preset).pack(side="left", padx=(1,0))
+             
+        self._load_custom_presets()
+
         # ── Section: AI Engine ──
         _section_header(sidebar, "AI Engine").pack(fill="x", **{**PAD, "pady": (12, 6)})
 
@@ -237,7 +256,7 @@ class App(ctk.CTk):
 
         _label(sidebar, "Asset Style").pack(fill="x", anchor="w", **LPAD)
         self.style_cb = _combo(sidebar, ["General Commercial", "Icons & Clipart",
-                                         "Backgrounds & Patterns", "Characters & Mascot"])
+                                         "Backgrounds & Patterns", "Characters & Mascot", "Photo Realistic", "Vector Clipart"])
         self.style_cb.set(self.config.get("style_preset", "General Commercial"))
         self.style_cb.pack(fill="x", **PAD)
 
@@ -413,9 +432,25 @@ class App(ctk.CTk):
         log_frame.grid_rowconfigure(1, weight=1)
         log_frame.grid_columnconfigure(0, weight=1)
 
-        _label(log_frame, "Processing Log",
-               font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
-               text_color=C["text3"]).grid(row=0, column=0, sticky="w", padx=12, pady=(8, 4))
+        # Log Control Bar
+        log_ctrl = ctk.CTkFrame(log_frame, fg_color="transparent")
+        log_ctrl.grid(row=0, column=0, sticky="ew", padx=12, pady=(8, 4))
+        
+        _label(log_ctrl, "Processing Log", font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+               text_color=C["text3"]).pack(side="left")
+               
+        self.log_search_var = ctk.StringVar()
+        self.log_search_var.trace_add("write", lambda *_: self._refresh_log())
+        _entry(log_ctrl, text_var=self.log_search_var, placeholder_text="Search...", width=120, height=24).pack(side="left", padx=(12, 4))
+        
+        self.log_level_var = ctk.StringVar(value="All")
+        _combo(log_ctrl, ["All", "Info", "Success", "Warn", "Error"], variable=self.log_level_var,
+               command=self._refresh_log, width=80, height=24).pack(side="left", padx=4)
+               
+        _btn(log_ctrl, "Clear", C["surface2"], C["border"], height=24, width=50, font=ctk.CTkFont(size=10),
+             command=self._clear_log).pack(side="right", padx=(4, 0))
+        _btn(log_ctrl, "Export", C["surface2"], C["border"], height=24, width=50, font=ctk.CTkFont(size=10),
+             command=self._export_log).pack(side="right")
 
         self.console = ctk.CTkTextbox(log_frame, fg_color=C["surface"], corner_radius=0,
                                       border_width=0,
@@ -486,16 +521,110 @@ class App(ctk.CTk):
 
     # ── Logging ──────────────────────────────────────────────────────────
     def log(self, message: str, level="info"):
-        def _append():
-            self.console.configure(state="normal")
-            ts = datetime.now().strftime("%H:%M:%S")
-            tb = self.console._textbox
-            tb.insert("end", f"[{ts}] ", "timestamp")
-            tb.insert("end", f"[{level.upper()}] ", level)
-            tb.insert("end", f"{message}\n", level)
-            self.console.see("end")
-            self.console.configure(state="disabled")
-        self.after(0, _append)
+        entry = {"ts": datetime.now().strftime("%H:%M:%S"), "level": level, "msg": message}
+        self.log_buffer.append(entry)
+        
+        # Immediate append if filter matches (optimization to avoid full refresh on every log)
+        q = self.log_search_var.get().lower()
+        flt = self.log_level_var.get().lower()
+        if (flt == "all" or flt == level) and (not q or q in message.lower()):
+            def _append():
+                self.console.configure(state="normal")
+                tb = self.console._textbox
+                tb.insert("end", f"[{entry['ts']}] ", "timestamp")
+                tb.insert("end", f"[{level.upper()}] ", level)
+                tb.insert("end", f"{message}\n", level)
+                self.console.see("end")
+                self.console.configure(state="disabled")
+            self.after(0, _append)
+
+    def _refresh_log(self, *_):
+        q = self.log_search_var.get().lower()
+        flt = self.log_level_var.get().lower()
+        self.console.configure(state="normal")
+        self.console.delete("1.0", "end")
+        tb = self.console._textbox
+        for entry in self.log_buffer:
+            lvl = entry["level"]
+            msg = entry["msg"]
+            if flt != "all" and flt != lvl: continue
+            if q and q not in msg.lower(): continue
+            tb.insert("end", f"[{entry['ts']}] ", "timestamp")
+            tb.insert("end", f"[{lvl.upper()}] ", lvl)
+            tb.insert("end", f"{msg}\n", lvl)
+        self.console.see("end")
+        self.console.configure(state="disabled")
+
+    def _clear_log(self):
+        self.log_buffer.clear()
+        self._refresh_log()
+
+    def _export_log(self):
+        if not self.log_buffer: return
+        path = ctk.filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt")])
+        if path:
+            with open(path, "w", encoding="utf-8") as f:
+                for entry in self.log_buffer:
+                    f.write(f"[{entry['ts']}] [{entry['level'].upper()}] {entry['msg']}\n")
+
+    # ── Presets ──────────────────────────────────────────────────────────
+    def _load_custom_presets(self):
+        self.presets = {
+            "Default": {},
+            "Adobe Stock Vector": {"min_kw": 15, "max_kw": 45, "formats": {".svg": True, ".eps": True, ".ai": False, ".jpg": False, ".png": False, ".mp4": False, ".mov": False}, "style_preset": "General Commercial"},
+            "Shutterstock Photo": {"min_kw": 20, "max_kw": 50, "formats": {".svg": False, ".eps": False, ".ai": False, ".jpg": True, ".png": False, ".mp4": False, ".mov": False}, "style_preset": "Photo Realistic"},
+            "Vecteezy Icon/Clipart": {"min_kw": 10, "max_kw": 30, "formats": {".svg": True, ".eps": True, ".ai": False, ".jpg": False, ".png": True, ".mp4": False, ".mov": False}, "style_preset": "Vector Clipart"}
+        }
+        custom = self.config.get("custom_presets", {})
+        self.presets.update(custom)
+        self.preset_cb.configure(values=list(self.presets.keys()))
+
+    def _on_preset_change(self, choice):
+        p = self.presets.get(choice)
+        if not p: return
+        if "min_kw" in p:
+            self.min_kw_entry.delete(0, "end")
+            self.min_kw_entry.insert(0, str(p["min_kw"]))
+        if "max_kw" in p:
+            self.max_kw_entry.delete(0, "end")
+            self.max_kw_entry.insert(0, str(p["max_kw"]))
+        if "style_preset" in p:
+            # Need to ensure combo has it, though normally we'd dynamically add or rely on style mapping
+            self.style_cb.set(p["style_preset"])
+        if "formats" in p:
+            for ext, val in p["formats"].items():
+                if ext in self.fmt_vars:
+                    self.fmt_vars[ext].set(val)
+
+    def _save_preset(self):
+        dialog = ctk.CTkInputDialog(text="Enter preset name:", title="Save Preset")
+        name = dialog.get_input()
+        if not name or name.strip() in ["", "Default"]: return
+        name = name.strip()
+        
+        custom = self.config.get("custom_presets", {})
+        custom[name] = {
+            "min_kw": int(self.min_kw_entry.get() or 5),
+            "max_kw": int(self.max_kw_entry.get() or 20),
+            "style_preset": self.style_cb.get(),
+            "formats": {ext: var.get() for ext, var in self.fmt_vars.items()}
+        }
+        self.config["custom_presets"] = custom
+        save_config(self.config)
+        self._load_custom_presets()
+        self.preset_cb.set(name)
+
+    def _delete_preset(self):
+        name = self.preset_cb.get()
+        if name in ["Default", "Adobe Stock Vector", "Shutterstock Photo", "Vecteezy Icon/Clipart"]:
+            return # Can't delete built-in
+        custom = self.config.get("custom_presets", {})
+        if name in custom:
+            del custom[name]
+            self.config["custom_presets"] = custom
+            save_config(self.config)
+            self._load_custom_presets()
+            self.preset_cb.set("Default")
 
     def update_stats(self, key):
         def _update():
