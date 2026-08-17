@@ -523,6 +523,8 @@ class App(ctk.CTk):
     def log(self, message: str, level="info"):
         entry = {"ts": datetime.now().strftime("%H:%M:%S"), "level": level, "msg": message}
         self.log_buffer.append(entry)
+        if len(self.log_buffer) > 5000:
+            self.log_buffer.pop(0)
         
         # Immediate append if filter matches (optimization to avoid full refresh on every log)
         q = self.log_search_var.get().lower()
