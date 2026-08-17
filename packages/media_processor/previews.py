@@ -12,6 +12,8 @@ def get_msedge_path():
         if os.path.exists(p): return p
     return None
 
+from packages.media_processor.embedder import log_failed_file
+
 def extract_preview_image(file_path: str, processor) -> str | None:
     ext = file_path.lower().split('.')[-1]
     temp_dir = tempfile.gettempdir()
@@ -24,7 +26,9 @@ def extract_preview_image(file_path: str, processor) -> str | None:
             img.save(out_path, 'JPEG')
             return out_path
         except Exception as e:
-            print(f"Image extract error: {e}")
+            err = f"Image extract error: {e}"
+            print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+            log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
             return None
     elif ext in ['eps', 'ai']:
         gs_path = processor.get_tool_path("ghostscript")
@@ -32,7 +36,10 @@ def extract_preview_image(file_path: str, processor) -> str | None:
         try:
             subprocess.run(cmd, check=True, capture_output=True)
             return out_path
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
+            err = f"Ghostscript error: {e.stderr}"
+            print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+            log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
             return None
     elif ext in ['mp4', 'mov', 'avi', 'mkv']:
         ffmpeg_path = processor.get_tool_path("ffmpeg")
@@ -40,7 +47,10 @@ def extract_preview_image(file_path: str, processor) -> str | None:
         try:
             subprocess.run(cmd, check=True, capture_output=True)
             return out_path
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
+            err = f"FFmpeg error: {e.stderr}"
+            print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+            log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
             return None
     elif ext == 'svg':
         edge_path = get_msedge_path()
@@ -56,7 +66,9 @@ def extract_preview_image(file_path: str, processor) -> str | None:
                     os.remove(png_path)
                     return out_path
             except Exception as e:
-                print(f"Edge SVG extract error: {e}")
+                err = f"Edge SVG extract error: {e}"
+                print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+                log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
         
         # Fallback 1: svglib
         try:
@@ -72,7 +84,9 @@ def extract_preview_image(file_path: str, processor) -> str | None:
                 os.remove(png_path)
                 return out_path
         except Exception as e:
-            print(f"svglib extract error: {e}")
+            err = f"svglib extract error: {e}"
+            print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+            log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
             
         # Fallback 2: Raw text inspection wrapper for LLM
         return file_path

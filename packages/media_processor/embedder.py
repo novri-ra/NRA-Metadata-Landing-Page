@@ -2,6 +2,17 @@ import os
 import sys
 import subprocess
 import xml.etree.ElementTree as ET
+import threading
+from datetime import datetime
+
+_fail_log_lock = threading.Lock()
+
+def log_failed_file(working_dir: str, filename: str, reason: str):
+    with _fail_log_lock:
+        log_path = os.path.join(working_dir, "failed_files.log")
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(f"[{ts}] {filename}: {reason}\n")
 
 class MediaProcessor:
     def get_base_path(self) -> str:
@@ -17,13 +28,15 @@ class MediaProcessor:
             if tool_name == "ffmpeg": return os.path.join(base, "tools", "ffmpeg", "ffmpeg.exe")
         return tool_name
 
-    def embed_metadata(self, file_path: str, title: str, description: str, keywords: list[str], copyright_text: str) -> bool:
+    def embed_metadata(self, file_path: str, title: str, description: str, keywords: list[str], copyright_text: str, author: str = "") -> bool:
         ext = file_path.lower().split('.')[-1]
         if ext == 'svg':
-            return self._embed_svg_metadata(file_path, title, description, keywords, copyright_text)
+            return self._embed_svg_metadata(file_path, title, description, keywords, copyright_text, author)
 
         exiftool_path = self.get_tool_path("exiftool")
         cmd = [exiftool_path, "-overwrite_original", f"-Title={title}", f"-ObjectName={title}", f"-Description={description}", f"-Caption-Abstract={description}", f"-ImageDescription={description}", f"-Copyright={copyright_text}", f"-Rights={copyright_text}"]
+        if author:
+            cmd.extend([f"-By-line={author}", f"-Creator={author}", f"-Credit={author}", f"-Artist={author}"])
         for kw in keywords:
             cmd.extend([f"-Keywords={kw}", f"-Subject={kw}"])
         cmd.append(file_path)
@@ -32,10 +45,16 @@ class MediaProcessor:
             subprocess.run(cmd, check=True, capture_output=True)
             return True
         except subprocess.CalledProcessError as e:
-            print(f"ExifTool error: {e.stderr}")
+            err_msg = e.stderr.decode(errors='replace') if isinstance(e.stderr, bytes) else str(e.stderr)
+            print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool - {err_msg}")
+            log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), f"ExifTool: {err_msg}")
+            return False
+        except Exception as e:
+            print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool - {e}")
+            log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), f"ExifTool: {e}")
             return False
 
-    def _embed_svg_metadata(self, file_path: str, title: str, description: str, keywords: list[str], copyright_text: str) -> bool:
+    def _embed_svg_metadata(self, file_path: str, title: str, description: str, keywords: list[str], copyright_text: str, author: str = "") -> bool:
         try:
             ET.register_namespace('', "http://www.w3.org/2000/svg")
             ET.register_namespace('dc', "http://purl.org/dc/elements/1.1/")
@@ -47,8 +66,26 @@ class MediaProcessor:
             desc_el.text = description
             root.insert(0, desc_el)
             root.insert(0, title_el)
+            
+            if author or copyright_text:
+                metadata_el = ET.Element('{http://www.w3.org/2000/svg}metadata')
+                rdf_el = ET.Element('{http://www.w3.org/1999/02/22-rdf-syntax-ns#}RDF')
+                work_el = ET.Element('{http://purl.org/dc/elements/1.1/}Work')
+                if author:
+                    creator_el = ET.Element('{http://purl.org/dc/elements/1.1/}creator')
+                    creator_el.text = author
+                    work_el.append(creator_el)
+                if copyright_text:
+                    rights_el = ET.Element('{http://purl.org/dc/elements/1.1/}rights')
+                    rights_el.text = copyright_text
+                    work_el.append(rights_el)
+                rdf_el.append(work_el)
+                metadata_el.append(rdf_el)
+                root.insert(0, metadata_el)
+            
             tree.write(file_path, encoding='utf-8', xml_declaration=True)
             return True
         except Exception as e:
-            print(f"SVG metadata error: {e}")
+            print(f"[SKIP ERROR] {os.path.basename(file_path)}: SVG metadata - {e}")
+            log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), f"SVG: {e}")
             return False
