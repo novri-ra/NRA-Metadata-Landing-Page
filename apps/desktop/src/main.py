@@ -136,6 +136,7 @@ class App(ctk.CTk):
         self.current_edit_hash = None
 
         self.log_buffer = []
+        self.log_lock = threading.Lock()
         
         self.MODEL_MAP = {
             "Gemini": ["gemini-1.5-flash", "gemini-1.5-pro"],
@@ -444,7 +445,7 @@ class App(ctk.CTk):
         _entry(log_ctrl, text_var=self.log_search_var, placeholder_text="Search...", width=120, height=24).pack(side="left", padx=(12, 4))
         
         self.log_level_var = ctk.StringVar(value="All")
-        _combo(log_ctrl, ["All", "Info", "Success", "Warn", "Error"], variable=self.log_level_var,
+        _combo(log_ctrl, ["All", "Info", "Processing", "Success", "Warn", "Error", "Cache"], variable=self.log_level_var,
                command=self._refresh_log, width=80, height=24).pack(side="left", padx=4)
                
         _btn(log_ctrl, "Clear", C["surface2"], C["border"], height=24, width=50, font=ctk.CTkFont(size=10),
@@ -522,9 +523,10 @@ class App(ctk.CTk):
     # ── Logging ──────────────────────────────────────────────────────────
     def log(self, message: str, level="info"):
         entry = {"ts": datetime.now().strftime("%H:%M:%S"), "level": level, "msg": message}
-        self.log_buffer.append(entry)
-        if len(self.log_buffer) > 5000:
-            self.log_buffer.pop(0)
+        with self.log_lock:
+            self.log_buffer.append(entry)
+            if len(self.log_buffer) > 5000:
+                self.log_buffer.pop(0)
         
         # Immediate append if filter matches (optimization to avoid full refresh on every log)
         q = self.log_search_var.get().lower()
@@ -546,7 +548,9 @@ class App(ctk.CTk):
         self.console.configure(state="normal")
         self.console.delete("1.0", "end")
         tb = self.console._textbox
-        for entry in self.log_buffer:
+        with self.log_lock:
+            buffer_copy = list(self.log_buffer)
+        for entry in buffer_copy:
             lvl = entry["level"]
             msg = entry["msg"]
             if flt != "all" and flt != lvl: continue
@@ -558,15 +562,18 @@ class App(ctk.CTk):
         self.console.configure(state="disabled")
 
     def _clear_log(self):
-        self.log_buffer.clear()
+        with self.log_lock:
+            self.log_buffer.clear()
         self._refresh_log()
 
     def _export_log(self):
-        if not self.log_buffer: return
+        with self.log_lock:
+            if not self.log_buffer: return
+            buffer_copy = list(self.log_buffer)
         path = ctk.filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt")])
         if path:
             with open(path, "w", encoding="utf-8") as f:
-                for entry in self.log_buffer:
+                for entry in buffer_copy:
                     f.write(f"[{entry['ts']}] [{entry['level'].upper()}] {entry['msg']}\n")
 
     # ── Presets ──────────────────────────────────────────────────────────
@@ -606,8 +613,8 @@ class App(ctk.CTk):
         
         custom = self.config.get("custom_presets", {})
         custom[name] = {
-            "min_kw": int(self.min_kw_entry.get() or 5),
-            "max_kw": int(self.max_kw_entry.get() or 20),
+            "min_kw": self._safe_int(self.min_kw_entry.get(), 5),
+            "max_kw": self._safe_int(self.max_kw_entry.get(), 20),
             "style_preset": self.style_cb.get(),
             "formats": {ext: var.get() for ext, var in self.fmt_vars.items()}
         }
@@ -725,11 +732,17 @@ class App(ctk.CTk):
             return f"Copyright (c) {dt.now().year} {author}. All rights reserved."
         return ""
 
+    def _safe_int(self, val, default=0):
+        try:
+            return int(val)
+        except (ValueError, TypeError):
+            return default
+
     def _update_kw_counter(self):
         raw = self.edit_kws_var.get()
         count = len([k for k in raw.split(",") if k.strip()])
-        min_kw = int(self.min_kw_entry.get() or 5)
-        max_kw = int(self.max_kw_entry.get() or 20)
+        min_kw = self._safe_int(self.min_kw_entry.get(), 5)
+        max_kw = self._safe_int(self.max_kw_entry.get(), 20)
         if min_kw <= count <= max_kw:
             color = C["success"]
         elif count < min_kw:
@@ -740,7 +753,7 @@ class App(ctk.CTk):
 
     def _dedup_keywords(self):
         raw = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
-        max_kw = int(self.max_kw_entry.get() or 50)
+        max_kw = self._safe_int(self.max_kw_entry.get(), 50)
         cleaned = sanitize_keywords(raw, max_kw)
         self.edit_kws_var.set(", ".join(cleaned))
 
@@ -1052,7 +1065,7 @@ class App(ctk.CTk):
             self.after(0, lambda: self.start_btn.configure(state="normal"))
             return
 
-        max_kw = int(self.max_kw_entry.get() or 50)
+        max_kw = self._safe_int(self.max_kw_entry.get(), 50)
         total = len(rows)
         success = 0
         self.log(f"Offline Re-Tag: {total} rows from {os.path.basename(csv_path)}", "info")
@@ -1097,8 +1110,8 @@ class App(ctk.CTk):
             "temperature": round(float(self.temp_slider.get()), 1),
             "style_preset": self.style_cb.get(),
             "api_key": self.api_key_entry.get(),
-            "min_kw": int(self.min_kw_entry.get() or 5),
-            "max_kw": int(self.max_kw_entry.get() or 20),
+            "min_kw": self._safe_int(self.min_kw_entry.get(), 5),
+            "max_kw": self._safe_int(self.max_kw_entry.get(), 20),
             "workers": int(self.workers_slider.get()),
             "formats": {ext: var.get() for ext, var in self.fmt_vars.items()},
             "author": self.author_entry.get().strip(),
