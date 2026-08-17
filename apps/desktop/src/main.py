@@ -270,15 +270,27 @@ class App(ctk.CTk):
         lf.grid(row=0, column=0, sticky="ew", padx=(0, 4))
         _label(lf, "Min KW").pack(anchor="w")
         self.min_kw_entry = _entry(lf, width=60)
-        self.min_kw_entry.insert(0, str(self.config.get("min_kw", 5)))
+        self.min_kw_entry.insert(0, str(self.config.get("min_kw", 10)))
         self.min_kw_entry.pack(fill="x")
 
         rf = ctk.CTkFrame(kw_row, fg_color="transparent")
         rf.grid(row=0, column=1, sticky="ew", padx=(4, 0))
         _label(rf, "Max KW").pack(anchor="w")
         self.max_kw_entry = _entry(rf, width=60)
-        self.max_kw_entry.insert(0, str(self.config.get("max_kw", 20)))
+        self.max_kw_entry.insert(0, str(self.config.get("max_kw", 49)))
         self.max_kw_entry.pack(fill="x")
+
+        _label(sidebar, "Mandatory Keywords").pack(fill="x", anchor="w", **LPAD)
+        self.custom_kw_entry = _entry(sidebar, placeholder_text="e.g. 3d, isolated")
+        self.custom_kw_entry.insert(0, self.config.get("custom_kw", ""))
+        self.custom_kw_entry.pack(fill="x", **PAD)
+        
+        inj_row = ctk.CTkFrame(sidebar, fg_color="transparent")
+        inj_row.pack(fill="x", **LPAD)
+        _label(inj_row, "Inject at:").pack(side="left", padx=(0, 4))
+        self.custom_kw_pos = _combo(inj_row, ["Start (Priority)", "End"])
+        self.custom_kw_pos.set(self.config.get("custom_kw_pos", "Start (Priority)"))
+        self.custom_kw_pos.pack(side="left", expand=True, fill="x")
 
         # ── Section: Processing ──
         _section_header(sidebar, "Processing").pack(fill="x", **{**PAD, "pady": (10, 6)})
@@ -841,8 +853,10 @@ class App(ctk.CTk):
         
         custom = self.config.get("custom_presets", {})
         custom[name] = {
-            "min_kw": self._safe_int(self.min_kw_entry.get(), 5),
-            "max_kw": self._safe_int(self.max_kw_entry.get(), 20),
+            "min_kw": self._safe_int(self.min_kw_entry.get(), 10),
+            "max_kw": self._safe_int(self.max_kw_entry.get(), 49),
+            "custom_kw": self.custom_kw_entry.get(),
+            "custom_kw_pos": self.custom_kw_pos.get(),
             "style_preset": self.style_cb.get(),
             "formats": {ext: var.get() for ext, var in self.fmt_vars.items()}
         }
@@ -994,8 +1008,8 @@ class App(ctk.CTk):
     def _update_kw_counter(self):
         raw = self.edit_kws_var.get()
         count = len([k for k in raw.split(",") if k.strip()])
-        min_kw = self._safe_int(self.min_kw_entry.get(), 5)
-        max_kw = self._safe_int(self.max_kw_entry.get(), 20)
+        min_kw = self._safe_int(self.min_kw_entry.get(), 10)
+        max_kw = self._safe_int(self.max_kw_entry.get(), 49)
         if min_kw <= count <= max_kw:
             color = C["success"]
         elif count < min_kw:
@@ -1223,6 +1237,20 @@ class App(ctk.CTk):
             meta = ai.generate_metadata(preview, min_kw, max_kw, style_preset)
             set_cached_metadata(file_hash, meta)
             status, color = "API", C["warn"]
+            
+            # Inject mandatory custom keywords on first API generation
+            custom_kws_raw = self.config.get("custom_kw", "")
+            if custom_kws_raw.strip():
+                custom_kws = [k.strip() for k in custom_kws_raw.split(",") if k.strip()]
+                # remove any exact overlaps in AI response
+                ai_kws = [k for k in meta.get("keywords", []) if k.lower() not in [ck.lower() for ck in custom_kws]]
+                
+                pos = self.config.get("custom_kw_pos", "Start (Priority)")
+                if pos == "Start (Priority)":
+                    merged_kws = custom_kws + ai_kws
+                else:
+                    merged_kws = ai_kws + custom_kws
+                meta["keywords"] = merged_kws
 
         try:
             img = Image.open(preview).copy()
@@ -1363,8 +1391,10 @@ class App(ctk.CTk):
             "temperature": round(float(self.temp_slider.get()), 1),
             "style_preset": self.style_cb.get(),
             "api_key": self.api_key_entry.get(),
-            "min_kw": self._safe_int(self.min_kw_entry.get(), 5),
-            "max_kw": self._safe_int(self.max_kw_entry.get(), 20),
+            "min_kw": self._safe_int(self.min_kw_entry.get(), 10),
+            "max_kw": self._safe_int(self.max_kw_entry.get(), 49),
+            "custom_kw": self.custom_kw_entry.get(),
+            "custom_kw_pos": self.custom_kw_pos.get(),
             "workers": int(self.workers_slider.get()),
             "formats": {ext: var.get() for ext, var in self.fmt_vars.items()},
             "author": self.author_entry.get().strip(),
