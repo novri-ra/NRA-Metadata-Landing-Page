@@ -105,13 +105,32 @@ class App(ctk.CTk):
         ctk.CTkSwitch(sidebar, text="Auto-Watch Input", variable=self.auto_watch, progress_color="#10b981").grid(row=14, column=0, sticky="w", padx=10, pady=(0, 10))
 
         self.auto_zip = ctk.BooleanVar(value=False)
-        ctk.CTkSwitch(sidebar, text="Auto-Zip Vector", variable=self.auto_zip, progress_color="#10b981").grid(row=15, column=0, sticky="w", padx=10, pady=(0, 20))
+        ctk.CTkSwitch(sidebar, text="Auto-Zip Vector", variable=self.auto_zip, progress_color="#10b981").grid(row=15, column=0, sticky="w", padx=10, pady=(0, 10))
+
+        # Process Formats
+        make_label(sidebar, "Process Formats:").grid(row=16, column=0, sticky="w", padx=10, pady=(5, 2))
+        fmt_saved = self.config.get("formats", {})
+        self.fmt_vars = {}
+        fmt_defs = [
+            ("SVG", ".svg", True),  ("EPS", ".eps", True),  ("AI", ".ai", False),
+            ("JPG", ".jpg", True),  ("PNG", ".png", True),
+            ("MP4", ".mp4", False), ("MOV", ".mov", False),
+        ]
+        fmt_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
+        fmt_frame.grid(row=17, column=0, sticky="ew", padx=10, pady=(0, 10))
+        for i, (label, ext, default) in enumerate(fmt_defs):
+            var = ctk.BooleanVar(value=fmt_saved.get(ext, default))
+            self.fmt_vars[ext] = var
+            ctk.CTkCheckBox(fmt_frame, text=label, variable=var, width=70, height=22,
+                            checkbox_width=18, checkbox_height=18,
+                            fg_color="#3b82f6", hover_color="#2563eb",
+                            font=ctk.CTkFont(size=12)).grid(row=i // 3, column=i % 3, sticky="w", padx=2, pady=1)
 
         self.start_btn = ctk.CTkButton(sidebar, text="Start", font=ctk.CTkFont(weight="bold"), fg_color="#3b82f6", hover_color="#2563eb", corner_radius=8, command=self.start_processing)
-        self.start_btn.grid(row=16, column=0, sticky="ew", padx=10, pady=10)
+        self.start_btn.grid(row=18, column=0, sticky="ew", padx=10, pady=10)
 
         self.retag_btn = ctk.CTkButton(sidebar, text="Offline Re-Tag from CSV", font=ctk.CTkFont(weight="bold"), fg_color="#f59e0b", hover_color="#d97706", corner_radius=8, command=self.start_offline_retag)
-        self.retag_btn.grid(row=17, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.retag_btn.grid(row=19, column=0, sticky="ew", padx=10, pady=(0, 10))
 
         # Main Panel
         main_panel = make_frame(self, fg_color="#0f172a")
@@ -243,13 +262,23 @@ class App(ctk.CTk):
         dir_path = ctk.filedialog.askdirectory()
         if dir_path: self.input_dir.set(dir_path)
 
+    def _get_allowed_extensions(self) -> set:
+        exts = {ext for ext, var in self.fmt_vars.items() if var.get()}
+        if ".jpg" in exts:
+            exts.add(".jpeg")
+        return exts
+
+    def _is_allowed_file(self, filename: str) -> bool:
+        ext = os.path.splitext(filename)[1].lower()
+        return ext in self._get_allowed_extensions()
+
     def _watcher_loop(self):
         while True:
             time.sleep(3)
             if self.auto_watch.get() and not self.is_running:
                 in_dir = self.input_dir.get()
                 if in_dir and os.path.isdir(in_dir):
-                    files = [f for f in os.listdir(in_dir) if os.path.isfile(os.path.join(in_dir, f))]
+                    files = [f for f in os.listdir(in_dir) if os.path.isfile(os.path.join(in_dir, f)) and self._is_allowed_file(f)]
                     if any(f not in self.processed_files for f in files):
                         self.after(0, lambda: self.start_processing(new_only=True))
 
@@ -419,7 +448,8 @@ class App(ctk.CTk):
             "api_key": self.api_key_entry.get(),
             "min_kw": int(self.min_kw_entry.get() or 5),
             "max_kw": int(self.max_kw_entry.get() or 20),
-            "workers": int(self.workers_slider.get())
+            "workers": int(self.workers_slider.get()),
+            "formats": {ext: var.get() for ext, var in self.fmt_vars.items()}
         })
         save_config(self.config)
         
@@ -427,7 +457,7 @@ class App(ctk.CTk):
         out_dir = in_dir
         if not in_dir: return self.log("Path missing.", "error")
 
-        files = [f for f in os.listdir(in_dir) if os.path.isfile(os.path.join(in_dir, f))]
+        files = [f for f in os.listdir(in_dir) if os.path.isfile(os.path.join(in_dir, f)) and self._is_allowed_file(f)]
         if new_only:
             files = [f for f in files if f not in self.processed_files]
             
