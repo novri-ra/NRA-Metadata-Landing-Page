@@ -75,9 +75,39 @@ class App(ctk.CTk):
         make_label(sidebar, "Settings", font=ctk.CTkFont(size=18, weight="bold"), text_color="white").grid(row=r, column=0, pady=(5,10)); r += 1
 
         make_label(sidebar, "Provider:").grid(row=r, column=0, sticky="w", padx=10, pady=2); r += 1
-        self.provider_cb = ctk.CTkComboBox(sidebar, values=["Gemini", "OpenAI", "Mistral"], fg_color="#0f172a", border_color="#334155", button_color="#3b82f6")
+        self.provider_cb = ctk.CTkComboBox(sidebar, values=["Gemini", "OpenAI", "Mistral", "Groq"], fg_color="#0f172a", border_color="#334155", button_color="#3b82f6", command=self._on_provider_change)
         self.provider_cb.set(self.config.get("provider", "Gemini"))
         self.provider_cb.grid(row=r, column=0, sticky="ew", padx=10, pady=(0, 5)); r += 1
+
+        # Model Selector
+        self.MODEL_MAP = {
+            "Gemini": ["gemini-1.5-flash", "gemini-1.5-pro"],
+            "OpenAI": ["gpt-4o-mini", "gpt-4o"],
+            "Mistral": ["mistral-small-latest", "mistral-large-latest"],
+            "Groq": ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"],
+        }
+        make_label(sidebar, "Model:").grid(row=r, column=0, sticky="w", padx=10, pady=2); r += 1
+        provider = self.config.get("provider", "Gemini")
+        self.model_cb = ctk.CTkComboBox(sidebar, values=self.MODEL_MAP.get(provider, []), fg_color="#0f172a", border_color="#334155", button_color="#3b82f6")
+        saved_model = self.config.get("model", "")
+        if saved_model and saved_model in self.MODEL_MAP.get(provider, []):
+            self.model_cb.set(saved_model)
+        elif self.MODEL_MAP.get(provider):
+            self.model_cb.set(self.MODEL_MAP[provider][0])
+        self.model_cb.grid(row=r, column=0, sticky="ew", padx=10, pady=(0, 5)); r += 1
+
+        # Temperature Slider
+        make_label(sidebar, "Temperature:").grid(row=r, column=0, sticky="w", padx=10, pady=2); r += 1
+        self.temp_val = ctk.StringVar(value=f"{self.config.get('temperature', 0.3):.1f}")
+        def update_temp_lbl(val):
+            v = round(float(val), 1)
+            label = "Deterministic" if v <= 0.3 else "Creative" if v <= 0.7 else "Experimental"
+            self.temp_val.set(f"{v:.1f} ({label})")
+        self.temp_slider = ctk.CTkSlider(sidebar, from_=0.0, to=1.0, number_of_steps=10, command=update_temp_lbl, progress_color="#f59e0b")
+        self.temp_slider.set(self.config.get("temperature", 0.3))
+        self.temp_slider.grid(row=r, column=0, sticky="ew", padx=10, pady=0); r += 1
+        ctk.CTkLabel(sidebar, textvariable=self.temp_val, font=ctk.CTkFont(size=11), text_color="#94a3b8").grid(row=r, column=0, pady=(0, 5)); r += 1
+        update_temp_lbl(self.config.get("temperature", 0.3))
 
         make_label(sidebar, "Asset Style:").grid(row=r, column=0, sticky="w", padx=10, pady=2); r += 1
         self.style_cb = ctk.CTkComboBox(sidebar, values=["General Commercial", "Icons & Clipart", "Backgrounds & Patterns", "Characters & Mascot"], fg_color="#0f172a", border_color="#334155", button_color="#3b82f6")
@@ -185,7 +215,7 @@ class App(ctk.CTk):
         self.edit_frame = make_frame(top_frame, width=280)
         self.edit_frame.grid(row=0, column=1, sticky="nsew")
         
-        self.preview_lbl = ctk.CTkLabel(self.edit_frame, text="No Preview", width=160, height=140)
+        self.preview_lbl = ctk.CTkLabel(self.edit_frame, text="No Preview Available", width=180, height=180, fg_color="#0f172a", corner_radius=8, font=ctk.CTkFont(size=11), text_color="#64748b")
         self.preview_lbl.pack(pady=5)
         
         self.status_badge = ctk.CTkLabel(self.edit_frame, text="", fg_color="transparent", corner_radius=6, padx=6, font=ctk.CTkFont(size=11, weight="bold"))
@@ -254,9 +284,9 @@ class App(ctk.CTk):
     def update_preview(self, img, status_text: str, status_color: str, meta: dict, out_path: str, file_hash: str):
         def _draw():
             try:
-                img.thumbnail((160, 160))
+                img.thumbnail((180, 180))
                 self.current_preview_img = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
-                self.preview_lbl.configure(image=self.current_preview_img, text="")
+                self.preview_lbl.configure(image=self.current_preview_img, text="", fg_color="transparent")
                 self.status_badge.configure(text=status_text, fg_color=status_color)
                 
                 self.edit_title_var.set(meta.get("title", ""))
@@ -267,6 +297,12 @@ class App(ctk.CTk):
                 self.current_edit_hash = file_hash
             except: pass
         self.after(0, _draw)
+
+    def _on_provider_change(self, choice):
+        models = self.MODEL_MAP.get(choice, [])
+        self.model_cb.configure(values=models)
+        if models:
+            self.model_cb.set(models[0])
 
     def _get_copyright_text(self) -> str:
         cr = self.copyright_entry.get().strip()
@@ -649,6 +685,8 @@ class App(ctk.CTk):
         
         self.config.update({
             "provider": self.provider_cb.get(),
+            "model": self.model_cb.get(),
+            "temperature": round(float(self.temp_slider.get()), 1),
             "style_preset": self.style_cb.get(),
             "api_key": self.api_key_entry.get(),
             "min_kw": int(self.min_kw_entry.get() or 5),
@@ -687,7 +725,7 @@ class App(ctk.CTk):
         threading.Thread(target=self._run_batch, args=(paths, out_dir), daemon=True).start()
 
     def _run_batch(self, paths, out_dir):
-        ai = AIService(self.config["provider"], self.config["api_key"])
+        ai = AIService(self.config["provider"], self.config["api_key"], self.config.get("model"), self.config.get("temperature", 0.3))
         csv_logger = CSVLogger(os.path.join(out_dir, "metadata_output.csv"))
         
         with ThreadPoolExecutor(max_workers=self.config["workers"]) as executor:

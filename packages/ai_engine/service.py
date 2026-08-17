@@ -14,13 +14,19 @@ class MetadataModel(BaseModel):
     keywords: list[str] = Field(description="Array of descriptive keywords")
 
 class AIService:
-    def __init__(self, provider: str, api_key: str):
+    def __init__(self, provider: str, api_key: str, model: str = None, temperature: float = 0.3):
         self.provider = provider
         self.api_key = api_key
+        self.model = model
+        self.temperature = temperature
+        
         if self.provider == "Gemini":
             self.gemini_client = genai.Client(api_key=self.api_key)
         elif self.provider == "OpenAI":
             self.openai_client = OpenAI(api_key=self.api_key)
+        elif self.provider == "Groq":
+            import groq
+            self.groq_client = groq.Groq(api_key=self.api_key)
 
     def _encode_image(self, image_path: str) -> str:
         with open(image_path, "rb") as image_file:
@@ -71,9 +77,10 @@ class AIService:
                         contents = [prompt, img]
                         
                     response = self.gemini_client.models.generate_content(
-                        model='gemini-1.5-flash',
+                        model=self.model or 'gemini-1.5-flash',
                         contents=contents,
                         config=genai.types.GenerateContentConfig(
+                            temperature=self.temperature,
                             response_mime_type="application/json",
                             response_schema=MetadataModel
                         )
@@ -93,8 +100,9 @@ class AIService:
                         ]}]
                         
                     response = self.openai_client.chat.completions.create(
-                        model="gpt-4o-mini",
+                        model=self.model or "gpt-4o-mini",
                         messages=msgs,
+                        temperature=self.temperature,
                         response_format={ "type": "json_object" }
                     )
                     return self._parse_json(response.choices[0].message.content)
@@ -112,13 +120,34 @@ class AIService:
                         ]
                     headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
                     data = {
-                        "model": "pixtral-12b-2409",
+                        "model": self.model or "mistral-small-latest",
                         "messages": [{"role": "user", "content": content}],
+                        "temperature": self.temperature,
                         "response_format": {"type": "json_object"}
                     }
                     res = requests.post("https://api.mistral.ai/v1/chat/completions", headers=headers, json=data)
                     res.raise_for_status()
                     return self._parse_json(res.json()["choices"][0]["message"]["content"])
+
+                elif self.provider == "Groq":
+                    if is_text_fallback:
+                        with open(image_path, 'r', encoding='utf-8') as f:
+                            svg_content = f.read()[:20000]
+                        msgs = [{"role": "user", "content": f"{prompt}\n\nSVG Content:\n{svg_content}"}]
+                    else:
+                        base64_image = self._encode_image(image_path)
+                        msgs = [{"role": "user", "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                        ]}]
+                        
+                    response = self.groq_client.chat.completions.create(
+                        model=self.model or "llama-3.2-11b-vision-preview",
+                        messages=msgs,
+                        temperature=self.temperature,
+                        response_format={"type": "json_object"}
+                    )
+                    return self._parse_json(response.choices[0].message.content)
 
             except Exception as e:
                 err_str = str(e)
