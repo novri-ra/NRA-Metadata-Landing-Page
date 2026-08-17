@@ -14,7 +14,7 @@ from packages.ai_engine.service import AIService
 from packages.shared_utils.config import load_config, save_config
 from packages.shared_utils.logger import CSVLogger
 from packages.shared_utils.cache import get_file_hash, get_cached_metadata, set_cached_metadata
-from packages.shared_utils.filter import clean_metadata, sanitize_keywords
+from packages.shared_utils.filter import clean_metadata, sanitize_keywords, get_blacklist, add_to_blacklist, remove_from_blacklist
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.shared_utils.tracker import tracker
 from packages.shared_utils.cache import get_cache_hits
@@ -372,7 +372,11 @@ class App(ctk.CTk):
 
         self.ftp_btn = _btn(sidebar, "FTP / SFTP Upload", C["violet"], C["violet_h"],
                             command=self.open_ftp_dialog)
-        self.ftp_btn.pack(fill="x", padx=12, pady=(2, 16))
+        self.ftp_btn.pack(fill="x", padx=12, pady=(2, 6))
+
+        self.blacklist_btn = _btn(sidebar, "Manage Blacklist", C["surface2"], C["border"],
+                                  command=self.open_blacklist_manager)
+        self.blacklist_btn.pack(fill="x", padx=12, pady=(2, 16))
 
         # ═══════════════════════════════════════════════════════════════
         # ── Main Content Area ─────────────────────────────────────────
@@ -516,11 +520,202 @@ class App(ctk.CTk):
         _btn(btn_row, "Dedup", C["surface2"], C["border"],
              height=28, width=80, command=self._dedup_keywords,
              font=ctk.CTkFont(family="Segoe UI", size=11)).pack(side="left", padx=(0, 4))
+        _btn(btn_row, "Batch Replace", C["warn"], C["warn_h"],
+             height=28, width=100, command=self.open_batch_replace,
+             font=ctk.CTkFont(family="Segoe UI", size=11)).pack(side="left", padx=(0, 4))
         _btn(btn_row, "Save & Embed", C["success"], C["success_h"],
              height=28, command=self.save_manual,
              font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold")).pack(side="right", expand=True, fill="x")
 
     # ── Logging ──────────────────────────────────────────────────────────
+    # ── Blacklist Manager ───────────────────────────────────────────────
+    def open_blacklist_manager(self):
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Blacklist Manager")
+        dialog.geometry("400x500")
+        dialog.configure(fg_color=C["bg"])
+        dialog.transient(self)
+        dialog.grab_set()
+
+        _label(dialog, "Add New Word(s): (comma separated)").pack(padx=12, pady=(12, 2), anchor="w")
+        add_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        add_frame.pack(fill="x", padx=12, pady=2)
+        add_entry = _entry(add_frame)
+        add_entry.pack(side="left", expand=True, fill="x", padx=(0, 4))
+        
+        list_frame = ctk.CTkScrollableFrame(dialog, fg_color=C["surface"], corner_radius=CR)
+        list_frame.pack(fill="both", expand=True, padx=12, pady=10)
+
+        def refresh_list():
+            for w in list_frame.winfo_children():
+                w.destroy()
+            for word in sorted(list(get_blacklist())):
+                row = ctk.CTkFrame(list_frame, fg_color="transparent")
+                row.pack(fill="x", pady=1)
+                ctk.CTkLabel(row, text=word, text_color=C["text"], font=ctk.CTkFont(size=12)).pack(side="left", padx=4)
+                del_btn = ctk.CTkButton(row, text="×", width=20, height=20, fg_color="transparent", 
+                                        text_color=C["error"], hover_color=C["surface2"],
+                                        command=lambda w=word: [remove_from_blacklist(w), refresh_list()])
+                del_btn.pack(side="right")
+
+        def add_words():
+            words = add_entry.get().split(",")
+            add_to_blacklist(words)
+            add_entry.delete(0, "end")
+            refresh_list()
+
+        _btn(add_frame, "Add", C["accent"], C["accent_h"], width=60, command=add_words).pack(side="right")
+
+        refresh_list()
+        
+        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=12, pady=10, side="bottom")
+        
+        def import_bl():
+            path = ctk.filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
+            if path:
+                with open(path, "r", encoding="utf-8") as f:
+                    words = [line.strip() for line in f if line.strip()]
+                    add_to_blacklist(words)
+                    refresh_list()
+                    self.log(f"Imported {len(words)} words to blacklist.", "info")
+
+        def export_bl():
+            path = ctk.filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt")])
+            if path:
+                import shutil
+                from packages.shared_utils.filter import BLACKLIST_FILE
+                shutil.copy(BLACKLIST_FILE, path)
+                self.log("Blacklist exported.", "info")
+
+        _btn(btn_frame, "Import .txt", C["surface2"], C["border"], command=import_bl).pack(side="left", expand=True, padx=(0, 4))
+        _btn(btn_frame, "Export .txt", C["surface2"], C["border"], command=export_bl).pack(side="right", expand=True, padx=(4, 0))
+
+    # ── Batch Find & Replace ─────────────────────────────────────────────
+    def open_batch_replace(self):
+        target_dir = self.input_dir.get()
+        if not target_dir or not os.path.isdir(target_dir):
+            self.log("Set Folder first to run batch replace.", "error")
+            return
+
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Batch Metadata Find & Replace")
+        dialog.geometry("400x420")
+        dialog.configure(fg_color=C["bg"])
+        dialog.transient(self)
+        dialog.grab_set()
+
+        _label(dialog, "Target Field").pack(padx=12, pady=(12, 2), anchor="w")
+        field_cb = _combo(dialog, ["All Fields", "Title", "Description", "Keywords"])
+        field_cb.pack(fill="x", padx=12, pady=2)
+
+        _label(dialog, "Find Text").pack(padx=12, pady=(10, 2), anchor="w")
+        find_entry = _entry(dialog)
+        find_entry.pack(fill="x", padx=12, pady=2)
+
+        _label(dialog, "Replace With").pack(padx=12, pady=(10, 2), anchor="w")
+        repl_entry = _entry(dialog)
+        repl_entry.pack(fill="x", padx=12, pady=2)
+
+        match_case = ctk.BooleanVar(value=False)
+        whole_word = ctk.BooleanVar(value=False)
+
+        opts_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        opts_frame.pack(fill="x", padx=12, pady=10)
+        ctk.CTkCheckBox(opts_frame, text="Match Case", variable=match_case, 
+                        fg_color=C["accent"]).pack(side="left", padx=(0, 10))
+        ctk.CTkCheckBox(opts_frame, text="Whole Word Only", variable=whole_word, 
+                        fg_color=C["accent"]).pack(side="left")
+
+        status_lbl = ctk.CTkLabel(dialog, text="", text_color=C["warn"], font=ctk.CTkFont(size=11))
+        status_lbl.pack(pady=5)
+
+        def run_replace():
+            f_text = find_entry.get()
+            if not f_text: return
+            r_text = repl_entry.get()
+            field = field_cb.get()
+            mc = match_case.get()
+            ww = whole_word.get()
+
+            import re
+            flags = 0 if mc else re.IGNORECASE
+            pattern_str = rf'\b{re.escape(f_text)}\b' if ww else re.escape(f_text)
+            try:
+                regex = re.compile(pattern_str, flags)
+            except Exception as e:
+                status_lbl.configure(text=f"Invalid Regex: {e}", text_color=C["error"])
+                return
+
+            status_lbl.configure(text="Processing...", text_color=C["warn"])
+            dialog.update()
+
+            count = 0
+            # Parse all output CSVs in subdirectories
+            for root, _, files in os.walk(target_dir):
+                for fname in files:
+                    # we modify cache AND embed via processor
+                    if self._is_allowed_file(fname):
+                        fpath = os.path.join(root, fname)
+                        fhash = get_file_hash(fpath)
+                        meta = get_cached_metadata(fhash)
+                        if not meta: continue
+                        
+                        changed = False
+                        
+                        def _repl(text):
+                            if not text: return text
+                            new_t, n = regex.subn(r_text, text)
+                            nonlocal changed, count
+                            if n > 0:
+                                changed = True
+                                count += n
+                            return new_t
+                        
+                        if field in ("All Fields", "Title"):
+                            meta["title"] = _repl(meta.get("title", ""))
+                        if field in ("All Fields", "Description"):
+                            meta["description"] = _repl(meta.get("description", ""))
+                        if field in ("All Fields", "Keywords"):
+                            kws = meta.get("keywords", [])
+                            new_kws = []
+                            for k in kws:
+                                replaced_k = _repl(k)
+                                # if replaced to empty string, drop it
+                                if replaced_k.strip():
+                                    new_kws.append(replaced_k)
+                            meta["keywords"] = new_kws
+
+                        if changed:
+                            set_cached_metadata(fhash, meta)
+                            self.processor.embed_metadata(fpath, meta["title"], meta["description"], meta["keywords"], self._get_copyright_text(), self.author_entry.get().strip())
+                            
+                            # update sub-dir csv
+                            sub_dir = os.path.dirname(fpath)
+                            temp_master = os.path.join(sub_dir, "metadata_output.csv")
+                            import csv
+                            try:
+                                with open(temp_master, 'w', newline='', encoding='utf-8') as tf:
+                                    tw = csv.writer(tf)
+                                    tw.writerow(["Filename","Title","Description","Keywords"])
+                                    tw.writerow([fname, meta["title"], meta["description"], ",".join(meta["keywords"])])
+                            except: pass
+            
+            generate_microstock_csvs(target_dir)
+            
+            # also update UI if current file is active
+            if self.current_edit_hash:
+                m = get_cached_metadata(self.current_edit_hash)
+                if m:
+                    self.edit_title_var.set(m.get("title", ""))
+                    self.edit_desc_var.set(m.get("description", ""))
+                    self.edit_kws_var.set(", ".join(m.get("keywords", [])))
+            
+            self.log(f"Batch Replace: Replaced {count} occurrences of '{f_text}'.", "success")
+            dialog.destroy()
+
+        _btn(dialog, "Replace All", C["warn"], C["warn_h"], command=run_replace).pack(side="bottom", pady=16, padx=12, fill="x")
+
     def log(self, message: str, level="info"):
         entry = {"ts": datetime.now().strftime("%H:%M:%S"), "level": level, "msg": message}
         with self.log_lock:

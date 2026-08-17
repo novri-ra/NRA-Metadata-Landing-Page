@@ -2,6 +2,7 @@ import os
 import re
 
 BLACKLIST_FILE = os.path.join(os.getcwd(), "blacklist.txt")
+_blacklist = set()
 
 def _load_blacklist() -> set:
     bl = {"apple", "nike", "disney", "photoshop", "lego", "coca cola"}
@@ -10,11 +11,39 @@ def _load_blacklist() -> set:
             bl.update(line.strip().lower() for line in f if line.strip())
     return bl
 
-_blacklist = _load_blacklist()
+def get_blacklist() -> set:
+    global _blacklist
+    if not _blacklist:
+        _blacklist = _load_blacklist()
+    return _blacklist
+
+def add_to_blacklist(words: list[str]):
+    global _blacklist
+    _blacklist = get_blacklist()
+    for w in words:
+        if w.strip():
+            _blacklist.add(w.strip().lower())
+    _save_blacklist()
+
+def remove_from_blacklist(word: str):
+    global _blacklist
+    _blacklist = get_blacklist()
+    w = word.strip().lower()
+    if w in _blacklist:
+        _blacklist.remove(w)
+    _save_blacklist()
+
+def _save_blacklist():
+    global _blacklist
+    # Save custom ones out, we don't necessarily have to separate built-ins, just dump all
+    with open(BLACKLIST_FILE, 'w', encoding='utf-8') as f:
+        for w in sorted(list(get_blacklist())):
+            f.write(f"{w}\n")
 
 def filter_text(text: str) -> str:
     if not text: return text
-    for word in _blacklist:
+    bl = get_blacklist()
+    for word in bl:
         text = re.sub(rf'\b{re.escape(word)}\b', '', text, flags=re.IGNORECASE)
     return re.sub(r'\s+', ' ', text).strip()
 
