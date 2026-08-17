@@ -52,6 +52,9 @@ class App(ctk.CTk):
         self.current_preview_img = None
         self.processed_files = set()
         self.is_running = False
+        self.pause_event = threading.Event()
+        self.pause_event.set()
+        self.cancel_flag = False
         
         self.current_edit_file = None
         self.current_edit_hash = None
@@ -130,7 +133,18 @@ class App(ctk.CTk):
                             font=ctk.CTkFont(size=12)).grid(row=i // 3, column=i % 3, sticky="w", padx=2, pady=1)
 
         self.start_btn = ctk.CTkButton(sidebar, text="Start", font=ctk.CTkFont(weight="bold"), fg_color="#3b82f6", hover_color="#2563eb", corner_radius=8, command=self.start_processing)
-        self.start_btn.grid(row=r, column=0, sticky="ew", padx=10, pady=5); r += 1
+        self.start_btn.grid(row=r, column=0, sticky="ew", padx=10, pady=(5,2)); r += 1
+
+        ctrl_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
+        ctrl_frame.grid(row=r, column=0, sticky="ew", padx=10, pady=(0,5)); r += 1
+        
+        self.pause_btn = ctk.CTkButton(ctrl_frame, text="Pause", width=90, fg_color="#f59e0b", hover_color="#d97706", command=self.toggle_pause)
+        self.pause_btn.pack(side="left", padx=(0,5), expand=True, fill="x")
+        self.pause_btn.configure(state="disabled")
+
+        self.cancel_btn = ctk.CTkButton(ctrl_frame, text="Cancel", width=90, fg_color="#ef4444", hover_color="#dc2626", command=self.cancel_batch)
+        self.cancel_btn.pack(side="right", padx=(5,0), expand=True, fill="x")
+        self.cancel_btn.configure(state="disabled")
 
         self.retag_btn = ctk.CTkButton(sidebar, text="Offline Re-Tag from CSV", font=ctk.CTkFont(weight="bold"), fg_color="#f59e0b", hover_color="#d97706", corner_radius=8, command=self.start_offline_retag)
         self.retag_btn.grid(row=r, column=0, sticky="ew", padx=10, pady=3); r += 1
@@ -406,7 +420,28 @@ class App(ctk.CTk):
                     if any(f not in self.processed_files for f in files):
                         self.after(0, lambda: self.start_processing(new_only=True))
 
+    def toggle_pause(self):
+        if self.pause_event.is_set():
+            self.pause_event.clear()
+            self.pause_btn.configure(text="Resume", fg_color="#10b981", hover_color="#059669")
+            self.log("Batch PAUSED.", "info")
+        else:
+            self.pause_event.set()
+            self.pause_btn.configure(text="Pause", fg_color="#f59e0b", hover_color="#d97706")
+            self.log("Batch RESUMED.", "info")
+
+    def cancel_batch(self):
+        if self.is_running:
+            self.cancel_flag = True
+            self.pause_event.set() # Unblock if paused
+            self.log("Canceling batch... finishing current active files.", "error")
+            self.pause_btn.configure(state="disabled")
+            self.cancel_btn.configure(state="disabled")
+
     def process_file(self, file_path, out_dir, ai, min_kw, max_kw, style_preset, csv_logger):
+        self.pause_event.wait()
+        if self.cancel_flag: return
+
         name = os.path.basename(file_path)
         self.log(f"{name}", "processing")
         
@@ -589,6 +624,11 @@ class App(ctk.CTk):
         self.processed_files.update(files)
 
         self.is_running = True
+        self.cancel_flag = False
+        self.pause_event.set()
+        self.pause_btn.configure(text="Pause", fg_color="#f59e0b", hover_color="#d97706", state="normal")
+        self.cancel_btn.configure(state="normal")
+        
         self.start_btn.configure(state="disabled")
         self.progress_bar.set(0)
         self.stats = {"total": len(files), "success": 0, "error": 0}
@@ -606,13 +646,19 @@ class App(ctk.CTk):
             futures = [executor.submit(self.process_file, f, out_dir, ai, self.config["min_kw"], self.config["max_kw"], self.config["style_preset"], csv_logger) for f in paths]
             for i, f in enumerate(futures):
                 f.result()
-                self.after(0, self.progress_bar.set, (i + 1) / len(paths))
+                if not self.cancel_flag:
+                    self.after(0, self.progress_bar.set, (i + 1) / len(paths))
 
-        self.log("Batch complete. Generating exports...", "info")
-        generate_microstock_csvs(out_dir)
+        if self.cancel_flag:
+            self.log("Batch CANCELED.", "error")
+        else:
+            self.log("Batch complete. Generating exports...", "info")
+            generate_microstock_csvs(out_dir)
         
         self.is_running = False
         self.after(0, lambda: self.start_btn.configure(state="normal"))
+        self.after(0, lambda: self.pause_btn.configure(state="disabled"))
+        self.after(0, lambda: self.cancel_btn.configure(state="disabled"))
 
 if __name__ == "__main__":
     app = App()

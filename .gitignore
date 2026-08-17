@@ -11,6 +11,7 @@ cache.db
 # Test outputs & logs
 metadata_output.csv
 *_export.csv
+failed_files.log
 
 # Binaries & Builds
 tools/

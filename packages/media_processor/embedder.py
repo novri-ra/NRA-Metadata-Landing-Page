@@ -2,6 +2,17 @@ import os
 import sys
 import subprocess
 import xml.etree.ElementTree as ET
+import threading
+from datetime import datetime
+
+_fail_log_lock = threading.Lock()
+
+def log_failed_file(working_dir: str, filename: str, reason: str):
+    with _fail_log_lock:
+        log_path = os.path.join(working_dir, "failed_files.log")
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(f"[{ts}] {filename}: {reason}\n")
 
 class MediaProcessor:
     def get_base_path(self) -> str:
@@ -32,7 +43,13 @@ class MediaProcessor:
             subprocess.run(cmd, check=True, capture_output=True)
             return True
         except subprocess.CalledProcessError as e:
-            print(f"ExifTool error: {e.stderr}")
+            err_msg = e.stderr.decode(errors='replace') if isinstance(e.stderr, bytes) else str(e.stderr)
+            print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool - {err_msg}")
+            log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), f"ExifTool: {err_msg}")
+            return False
+        except Exception as e:
+            print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool - {e}")
+            log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), f"ExifTool: {e}")
             return False
 
     def _embed_svg_metadata(self, file_path: str, title: str, description: str, keywords: list[str], copyright_text: str) -> bool:
@@ -50,5 +67,6 @@ class MediaProcessor:
             tree.write(file_path, encoding='utf-8', xml_declaration=True)
             return True
         except Exception as e:
-            print(f"SVG metadata error: {e}")
+            print(f"[SKIP ERROR] {os.path.basename(file_path)}: SVG metadata - {e}")
+            log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), f"SVG: {e}")
             return False
