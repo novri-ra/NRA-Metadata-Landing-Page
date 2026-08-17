@@ -1,0 +1,32 @@
+# Sensitive & Config
+config.json
+*.env
+.env.*
+
+# DB & Cache
+*.db
+cache.db
+.cache/
+
+# Test outputs & logs
+metadata_output.csv
+*_export.csv
+
+# Binaries & Builds
+tools/
+dist/
+build/
+*.exe
+*.spec
+nra_metadata.egg-info/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+.venv/
+env/
+venv/
+
+# OS files
+Thumbs.db
+.DS_Store
