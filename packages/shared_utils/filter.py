@@ -177,23 +177,23 @@ def detect_redundant_keywords(keywords: list[str]) -> dict[str, list[str]]:
     
     def simple_stem(word: str) -> str:
         w = word.lower().strip()
-        # Longer suffixes first (need longer word)
-        if len(w) > 5:
-            if w.endswith('ies'): return w[:-3] + 'y'
-            if w.endswith('ing'):
-                stem = w[:-3]
-                # Handle doubled consonant: running -> runn -> run
-                if len(stem) >= 2 and stem[-1] == stem[-2]:
-                    stem = stem[:-1]
-                return stem
-            if w.endswith('tion'): return w[:-4]
-        if len(w) > 4:
-            if w.endswith('es'): return w[:-2]
-            if w.endswith('er'): return w[:-2]
-            if w.endswith('ed'): return w[:-2]
-        # Simple plural: word > 3 chars and ends with 's' (not 'ss')
-        if len(w) > 3 and w.endswith('s') and not w.endswith('ss'):
+        
+        # Plurals
+        if w.endswith('ies') and len(w) > 5:
+            return w[:-3] + 'y'
+        if w.endswith('es') and len(w) > 4 and not w.endswith('hes'):
+            return w[:-2]
+        if w.endswith('s') and len(w) > 3 and not w.endswith('ss'):
             return w[:-1]
+            
+        # Gerunds
+        if w.endswith('ing') and len(w) > 5:
+            stem = w[:-3]
+            # Handle doubled consonant: running -> runn -> run
+            if len(stem) >= 2 and stem[-1] == stem[-2]:
+                stem = stem[:-1]
+            return stem
+
         return w
 
     for kw in keywords:
