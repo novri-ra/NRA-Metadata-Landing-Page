@@ -168,6 +168,67 @@ def trim_keywords(keywords: list[str]) -> list[str]:
     """Trim spacing on each keyword."""
     return [trim_spacing(k) for k in keywords if trim_spacing(k)]
 
+def detect_redundant_keywords(keywords: list[str]) -> dict[str, list[str]]:
+    """
+    Detects similar keywords using simple stemming (plurals, -ing, -er).
+    Returns a dict mapping a root form to the list of duplicate variations.
+    """
+    groups = {}
+    
+    def simple_stem(word: str) -> str:
+        w = word.lower().strip()
+        # Longer suffixes first (need longer word)
+        if len(w) > 5:
+            if w.endswith('ies'): return w[:-3] + 'y'
+            if w.endswith('ing'):
+                stem = w[:-3]
+                # Handle doubled consonant: running -> runn -> run
+                if len(stem) >= 2 and stem[-1] == stem[-2]:
+                    stem = stem[:-1]
+                return stem
+            if w.endswith('tion'): return w[:-4]
+        if len(w) > 4:
+            if w.endswith('es'): return w[:-2]
+            if w.endswith('er'): return w[:-2]
+            if w.endswith('ed'): return w[:-2]
+        # Simple plural: word > 3 chars and ends with 's' (not 'ss')
+        if len(w) > 3 and w.endswith('s') and not w.endswith('ss'):
+            return w[:-1]
+        return w
+
+    for kw in keywords:
+        root = simple_stem(kw)
+        if root not in groups:
+            groups[root] = []
+        groups[root].append(kw)
+
+    # Return only groups with >1 item
+    return {root: kws for root, kws in groups.items() if len(kws) > 1}
+
+def remove_redundant_keywords(keywords: list[str]) -> list[str]:
+    """
+    Given a list of keywords, keep only the shortest form from each redundancy group
+    and maintain the original order for the first occurrence.
+    """
+    groups = detect_redundant_keywords(keywords)
+    # Map each keyword to its kept form
+    keep_map = {}
+    for root, kws in groups.items():
+        # Keep the shortest by length
+        kept = sorted(kws, key=len)[0]
+        for k in kws:
+            keep_map[k] = kept
+    
+    seen = set()
+    cleaned = []
+    for kw in keywords:
+        actual_kw = keep_map.get(kw, kw)
+        if actual_kw.lower() not in seen:
+            seen.add(actual_kw.lower())
+            cleaned.append(actual_kw)
+            
+    return cleaned
+
 
 def clean_metadata(meta: dict, max_kw: int = 50) -> dict:
     return {

@@ -17,7 +17,7 @@ from packages.shared_utils.cache import get_file_hash, get_cached_metadata, set_
 from packages.shared_utils.filter import (clean_metadata, sanitize_keywords, get_blacklist,
     add_to_blacklist, remove_from_blacklist, validate_compliance, autofix_compliance,
     to_title_case, to_sentence_case, to_uppercase, to_lowercase,
-    lowercase_keywords, trim_spacing, trim_keywords)
+    lowercase_keywords, trim_spacing, trim_keywords, detect_redundant_keywords, remove_redundant_keywords)
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.shared_utils.tracker import tracker
 from packages.shared_utils.cache import get_cache_hits
@@ -634,10 +634,32 @@ class App(ctk.CTk):
 
         self.kw_counter_lbl = _label(inspector, "Keywords (0 / 20)", text_color=C["success"])
         self.kw_counter_lbl.pack(fill="x", padx=12, pady=(4, 0))
-        self._kws_entry = _entry(inspector, text_var=self.edit_kws_var,
-               placeholder_text="Keywords (comma separated)")
-        self._kws_entry.pack(fill="x", padx=12, pady=2)
-        self._kws_entry.bind("<FocusIn>", lambda e: self._save_snapshot())
+
+        # ── Keyword Chips Area ──
+        self.kw_chips_frame = ctk.CTkScrollableFrame(inspector, fg_color=C["surface2"], corner_radius=CR, height=120)
+        self.kw_chips_frame.pack(fill="x", padx=12, pady=2)
+
+        self.kw_add_frame = ctk.CTkFrame(inspector, fg_color="transparent")
+        self.kw_add_frame.pack(fill="x", padx=12, pady=(0, 4))
+        self.kw_add_entry = _entry(self.kw_add_frame, placeholder_text="Add keyword... (Press Enter)")
+        self.kw_add_entry.pack(side="left", fill="x", expand=True)
+        self.kw_add_entry.bind("<Return>", lambda e: self._add_keyword_chip())
+
+        # Sync chip frame with edit_kws_var
+        self.edit_kws_var.trace_add("write", lambda *_: self._render_keyword_chips())
+        self._kw_chip_widgets = []
+
+        # Redundancy detector UI
+        self.redundancy_frame = ctk.CTkFrame(inspector, fg_color="transparent")
+        self.redundancy_frame.pack(fill="x", padx=12, pady=(0, 2))
+        self.redundancy_lbl = ctk.CTkLabel(self.redundancy_frame, text="", text_color=C["warn"],
+                                           font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"))
+        self.redundancy_lbl.pack(side="left")
+        self.redundancy_btn = _btn(self.redundancy_frame, "Remove Redundancies", C["surface2"], C["border"],
+                                   height=22, font=ctk.CTkFont(family="Segoe UI", size=9),
+                                   command=self._remove_redundancies)
+        self.redundancy_btn.pack(side="right")
+        self.redundancy_btn.pack_forget()
 
         # Keyword cleanup buttons
         kw_fmt_row = ctk.CTkFrame(inspector, fg_color="transparent")
@@ -1125,6 +1147,109 @@ class App(ctk.CTk):
         else:
             color = C["error"]
         self.kw_counter_lbl.configure(text=f"Keywords ({count} / {max_kw})", text_color=color)
+        self._check_redundancies()
+
+    def _check_redundancies(self):
+        kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
+        redundancies = detect_redundant_keywords(kws)
+        if redundancies:
+            total_dup = sum(len(v) for v in redundancies.values())
+            self.redundancy_lbl.configure(text=f"⚠ {total_dup} similar keywords detected!")
+            self.redundancy_btn.pack(side="right")
+        else:
+            self.redundancy_lbl.configure(text="")
+            self.redundancy_btn.pack_forget()
+
+    def _remove_redundancies(self):
+        self._save_snapshot()
+        kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
+        cleaned = remove_redundant_keywords(kws)
+        self.edit_kws_var.set(", ".join(cleaned))
+
+    def _get_kws_list(self):
+        return [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
+
+    def _set_kws_list(self, kws):
+        self.edit_kws_var.set(", ".join([k.strip() for k in kws if k.strip()]))
+
+    def _add_keyword_chip(self):
+        new_kw = self.kw_add_entry.get().strip()
+        if not new_kw: return
+        self._save_snapshot()
+        kws = self._get_kws_list()
+        # prevent exact duplicates locally
+        if new_kw.lower() not in [k.lower() for k in kws]:
+            kws.append(new_kw)
+            self._set_kws_list(kws)
+        self.kw_add_entry.delete(0, "end")
+
+    def _remove_keyword_chip(self, idx):
+        self._save_snapshot()
+        kws = self._get_kws_list()
+        if 0 <= idx < len(kws):
+            kws.pop(idx)
+            self._set_kws_list(kws)
+
+    def _move_keyword_chip(self, idx, direction):
+        kws = self._get_kws_list()
+        if direction == "up" and idx > 0:
+            self._save_snapshot()
+            kws[idx], kws[idx-1] = kws[idx-1], kws[idx]
+            self._set_kws_list(kws)
+        elif direction == "down" and idx < len(kws) - 1:
+            self._save_snapshot()
+            kws[idx], kws[idx+1] = kws[idx+1], kws[idx]
+            self._set_kws_list(kws)
+
+    # Re-entry guard to prevent infinite update loop
+    _rendering_chips = False
+    def _render_keyword_chips(self):
+        if self._rendering_chips: return
+        self._rendering_chips = True
+        
+        for widget in self._kw_chip_widgets:
+            widget.destroy()
+        self._kw_chip_widgets.clear()
+        
+        kws = self._get_kws_list()
+        
+        # Grid layout for chips
+        row, col = 0, 0
+        for i, kw in enumerate(kws):
+            chip = ctk.CTkFrame(self.kw_chips_frame, fg_color=C["surface"], corner_radius=CR)
+            chip.grid(row=row, column=col, padx=2, pady=2, sticky="w")
+            self._kw_chip_widgets.append(chip)
+            
+            # Left arrow
+            if i > 0:
+                l_btn = ctk.CTkButton(chip, text="◀", width=16, height=20, fg_color="transparent",
+                                      text_color=C["text3"], hover_color=C["surface2"],
+                                      font=ctk.CTkFont(size=10),
+                                      command=lambda idx=i: self._move_keyword_chip(idx, "up"))
+                l_btn.pack(side="left", padx=(2,0))
+
+            lbl = ctk.CTkLabel(chip, text=kw, font=ctk.CTkFont(family="Segoe UI", size=11), text_color=C["text"])
+            lbl.pack(side="left", padx=4, pady=2)
+            
+            # Right arrow
+            if i < len(kws) - 1:
+                r_btn = ctk.CTkButton(chip, text="▶", width=16, height=20, fg_color="transparent",
+                                      text_color=C["text3"], hover_color=C["surface2"],
+                                      font=ctk.CTkFont(size=10),
+                                      command=lambda idx=i: self._move_keyword_chip(idx, "down"))
+                r_btn.pack(side="left", padx=(0,0))
+
+            x_btn = ctk.CTkButton(chip, text="×", width=20, height=20, fg_color="transparent",
+                                  text_color=C["error"], hover_color=C["surface2"],
+                                  command=lambda idx=i: self._remove_keyword_chip(idx))
+            x_btn.pack(side="right", padx=(0, 2))
+            
+            col += 1
+            if col > 1: # 2 columns max
+                col = 0
+                row += 1
+
+        self._rendering_chips = False
 
     def _dedup_keywords(self):
         self._save_snapshot()
