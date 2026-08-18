@@ -128,23 +128,23 @@ _TITLE_CASE_MINOR = {
 }
 
 def to_title_case(text: str) -> str:
-    """Capitalize first letter of each word, except minor words (unless first/last)."""
+    """Capitalize first letter of each word, except minor words (unless first/last), preserving internal uppercase."""
     if not text:
         return text
     words = text.split()
     result = []
     for i, w in enumerate(words):
         if i == 0 or i == len(words) - 1 or w.lower() not in _TITLE_CASE_MINOR:
-            result.append(w.capitalize())
+            result.append(w[0].upper() + w[1:] if w else '')
         else:
             result.append(w.lower())
     return ' '.join(result)
 
 def to_sentence_case(text: str) -> str:
-    """Capitalize only the first character of the string."""
+    """Capitalize only the first character of the string, preserving rest of casing."""
     if not text:
         return text
-    return text[0].upper() + text[1:].lower()
+    return text[0].upper() + text[1:]
 
 def to_uppercase(text: str) -> str:
     return text.upper() if text else text
