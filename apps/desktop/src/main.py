@@ -17,7 +17,8 @@ from packages.shared_utils.cache import get_file_hash, get_cached_metadata, set_
 from packages.shared_utils.filter import (clean_metadata, sanitize_keywords, get_blacklist,
     add_to_blacklist, remove_from_blacklist, validate_compliance, autofix_compliance,
     to_title_case, to_sentence_case, to_uppercase, to_lowercase,
-    lowercase_keywords, trim_spacing, trim_keywords, detect_redundant_keywords, remove_redundant_keywords)
+    lowercase_keywords, trim_spacing, trim_keywords, detect_redundant_keywords, remove_redundant_keywords,
+    calculate_quality_score)
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.shared_utils.tracker import tracker
 from packages.shared_utils.cache import get_cache_hits
@@ -583,6 +584,12 @@ class App(ctk.CTk):
                                          font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"))
         self.status_badge.place(relx=0.03, rely=0.05, anchor="nw")
 
+        self.variant_badge = ctk.CTkLabel(preview_frame, text="", fg_color="transparent",
+                                          corner_radius=4, padx=6,
+                                          font=ctk.CTkFont(family="Segoe UI", size=9),
+                                          text_color=C["accent"])
+        self.variant_badge.place(relx=0.03, rely=0.90, anchor="sw")
+
         self.edit_frame = inspector  # reference for edit vars
 
         self.edit_title_var = ctk.StringVar()
@@ -606,6 +613,29 @@ class App(ctk.CTk):
         self.compliance_lbl = ctk.CTkLabel(inspector, text="● Pending Validation", text_color=C["text3"],
                                            font=ctk.CTkFont(family="Segoe UI", size=11))
         self.compliance_lbl.pack(fill="x", padx=12, pady=(0, 4), anchor="w")
+
+        # ── Quality Score Bar ──
+        self.quality_score_lbl = ctk.CTkLabel(inspector, text="SEO & Quality: —",
+                                              font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+                                              text_color=C["text3"])
+        self.quality_score_lbl.pack(fill="x", padx=12, pady=(0, 0), anchor="w")
+        self.quality_bar = ctk.CTkProgressBar(inspector, progress_color=C["success"],
+                                              fg_color=C["surface2"], height=6, corner_radius=3)
+        self.quality_bar.set(0)
+        self.quality_bar.pack(fill="x", padx=12, pady=(0, 2))
+        self.quality_issues_lbl = ctk.CTkLabel(inspector, text="", text_color=C["text3"],
+                                               font=ctk.CTkFont(family="Segoe UI", size=9),
+                                               wraplength=280, justify="left")
+        self.quality_issues_lbl.pack(fill="x", padx=12, pady=(0, 4), anchor="w")
+
+        # ── Sync Companion Toggle ──
+        sync_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        sync_row.pack(fill="x", padx=12, pady=(0, 4))
+        self.sync_companions = ctk.BooleanVar(value=True)
+        ctk.CTkSwitch(sync_row, text="Sync Companion Files", variable=self.sync_companions,
+                       progress_color=C["accent"], button_color=C["text3"],
+                       button_hover_color=C["text2"],
+                       font=ctk.CTkFont(family="Segoe UI", size=11)).pack(anchor="w")
 
         _label(inspector, "Title").pack(fill="x", padx=12, pady=(2, 0))
         self._title_entry = _entry(inspector, text_var=self.edit_title_var, placeholder_text="Title")
@@ -683,7 +713,9 @@ class App(ctk.CTk):
              command=self._open_keyword_presets).pack(side="right")
 
         self.edit_title_var.trace_add("write", lambda *_: self._update_compliance())
-        self.edit_kws_var.trace_add("write", lambda *_: [self._update_kw_counter(), self._update_compliance()])
+        self.edit_kws_var.trace_add("write", lambda *_: [self._update_kw_counter(), self._update_compliance(), self._update_quality_score()])
+        self.edit_title_var.trace_add("write", lambda *_: self._update_quality_score())
+        self.edit_desc_var.trace_add("write", lambda *_: self._update_quality_score())
 
         # Undo / Redo toolbar
         undo_row = ctk.CTkFrame(inspector, fg_color="transparent")
@@ -1262,6 +1294,8 @@ class App(ctk.CTk):
                 self.current_edit_hash = file_hash
                 self.undo_stack.clear()
                 self.redo_stack.clear()
+                self._update_variant_badge()
+                self._update_quality_score()
             except: pass
         self.after(0, _draw)
 
@@ -1475,6 +1509,74 @@ class App(ctk.CTk):
 
         self._rendering_chips = False
 
+    def _update_quality_score(self):
+        title = self.edit_title_var.get()
+        desc = self.edit_desc_var.get()
+        kws = self._get_kws_list()
+        result = calculate_quality_score(title, desc, kws)
+        score = result["score"]
+        issues = result["issues"]
+
+        if score >= 85:
+            color = C["success"]
+        elif score >= 60:
+            color = C["warn"]
+        else:
+            color = C["error"]
+
+        self.quality_score_lbl.configure(text=f"SEO & Quality: {score}%", text_color=color)
+        self.quality_bar.configure(progress_color=color)
+        self.quality_bar.set(score / 100)
+
+        if issues:
+            self.quality_issues_lbl.configure(text="\u2022 " + "\n\u2022 ".join(issues[:4]), text_color=color)
+        else:
+            self.quality_issues_lbl.configure(text="\u2713 All checks passed", text_color=C["success"])
+
+    def _get_companion_files(self, file_path):
+        """Find files with same base name but different extensions in the same folder."""
+        if not file_path or not os.path.exists(file_path):
+            return []
+        folder = os.path.dirname(file_path)
+        base = os.path.splitext(os.path.basename(file_path))[0]
+        companions = []
+        for f in os.listdir(folder):
+            f_base = os.path.splitext(f)[0]
+            f_path = os.path.join(folder, f)
+            if f_base == base and f_path != file_path and os.path.isfile(f_path):
+                companions.append(f_path)
+        return companions
+
+    def _sync_to_companions(self, file_path, title, desc, kws):
+        """Embed metadata to all companion files with the same base name."""
+        companions = self._get_companion_files(file_path)
+        if not companions:
+            return 0
+        count = 0
+        copyright_text = self._get_copyright_text()
+        author = self.author_entry.get().strip()
+        for comp in companions:
+            comp_hash = get_file_hash(comp)
+            meta = {"title": title, "description": desc, "keywords": kws}
+            set_cached_metadata(comp_hash, meta)
+            if self.processor.embed_metadata(comp, title, desc, kws, copyright_text, author):
+                count += 1
+        return count
+
+    def _update_variant_badge(self):
+        """Update the variant badge showing companion file count."""
+        if not self.current_edit_file:
+            self.variant_badge.configure(text="")
+            return
+        companions = self._get_companion_files(self.current_edit_file)
+        if companions:
+            exts = [os.path.splitext(os.path.basename(c))[1].upper().lstrip('.') for c in companions]
+            own_ext = os.path.splitext(self.current_edit_file)[1].upper().lstrip('.')
+            all_exts = [own_ext] + sorted(exts)
+            self.variant_badge.configure(text=f"{len(all_exts)} Variants: [{', '.join(all_exts)}]")
+        else:
+            self.variant_badge.configure(text="")
+
     def _dedup_keywords(self):
         self._save_snapshot()
         raw = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
@@ -1504,6 +1606,12 @@ class App(ctk.CTk):
             meta = {"title": title, "description": desc, "keywords": kws}
             set_cached_metadata(self.current_edit_hash, meta)
             self.log(f"{name} (Manual save OK)", "success")
+
+            # Sync companion files if enabled
+            if self.sync_companions.get():
+                synced = self._sync_to_companions(self.current_edit_file, title, desc, kws)
+                if synced > 0:
+                    self.log(f"  └─ Synced metadata to {synced} companion file(s)", "info")
 
             sub_dir = os.path.dirname(self.current_edit_file)
             temp_master = os.path.join(sub_dir, "metadata_output.csv")
