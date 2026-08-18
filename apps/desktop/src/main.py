@@ -14,11 +14,16 @@ from packages.ai_engine.service import AIService
 from packages.shared_utils.config import load_config, save_config
 from packages.shared_utils.logger import CSVLogger
 from packages.shared_utils.cache import get_file_hash, get_cached_metadata, set_cached_metadata
-from packages.shared_utils.filter import clean_metadata, sanitize_keywords, get_blacklist, add_to_blacklist, remove_from_blacklist, validate_compliance, autofix_compliance
+from packages.shared_utils.filter import (clean_metadata, sanitize_keywords, get_blacklist,
+    add_to_blacklist, remove_from_blacklist, validate_compliance, autofix_compliance,
+    to_title_case, to_sentence_case, to_uppercase, to_lowercase,
+    lowercase_keywords, trim_spacing, trim_keywords, detect_redundant_keywords, remove_redundant_keywords)
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.shared_utils.tracker import tracker
 from packages.shared_utils.cache import get_cache_hits
 from packages.shared_utils.ftp_uploader import FTPClient
+from packages.shared_utils.presets import (get_preset_names, get_preset, save_preset as save_kw_preset,
+    delete_preset as delete_kw_preset, export_presets, import_presets)
 
 # ── Design System (Zinc + Indigo, inspired by Linear/Raycast) ────────────
 C = {
@@ -135,6 +140,10 @@ class App(ctk.CTk):
         self.current_edit_file = None
         self.current_edit_hash = None
 
+        self.undo_stack = []
+        self.redo_stack = []
+        self._is_undoing = False
+
         self.log_buffer = []
         self.log_lock = threading.Lock()
         
@@ -151,6 +160,57 @@ class App(ctk.CTk):
         # Defer sash restore until window is rendered
         self.after(100, self._restore_sash_positions)
         threading.Thread(target=self._watcher_loop, daemon=True).start()
+
+        self.bind("<Control-z>", lambda e: self.undo_metadata())
+        self.bind("<Control-y>", lambda e: self.redo_metadata())
+
+    # ── History & Undo ───────────────────────────────────────────────────
+    def _save_snapshot(self):
+        if self._is_undoing: return
+        self.redo_stack.clear()
+        state = {
+            "title": self.edit_title_var.get(),
+            "desc": self.edit_desc_var.get(),
+            "kws": self.edit_kws_var.get()
+        }
+        if not self.undo_stack or self.undo_stack[-1] != state:
+            self.undo_stack.append(state)
+            if len(self.undo_stack) > 50:
+                self.undo_stack.pop(0)
+
+    def _restore_snapshot(self, state):
+        self._is_undoing = True
+        self.edit_title_var.set(state.get("title", ""))
+        self.edit_desc_var.set(state.get("desc", ""))
+        self.edit_kws_var.set(state.get("kws", ""))
+        self._is_undoing = False
+        self._update_kw_counter()
+        self._update_compliance()
+
+    def undo_metadata(self):
+        if not self.undo_stack: return
+        current_state = {
+            "title": self.edit_title_var.get(),
+            "desc": self.edit_desc_var.get(),
+            "kws": self.edit_kws_var.get()
+        }
+        if not self.redo_stack or self.redo_stack[-1] != current_state:
+            self.redo_stack.append(current_state)
+        state = self.undo_stack.pop()
+        if state == current_state and self.undo_stack:
+            state = self.undo_stack.pop()
+        self._restore_snapshot(state)
+
+    def redo_metadata(self):
+        if not self.redo_stack: return
+        current_state = {
+            "title": self.edit_title_var.get(),
+            "desc": self.edit_desc_var.get(),
+            "kws": self.edit_kws_var.get()
+        }
+        self.undo_stack.append(current_state)
+        state = self.redo_stack.pop()
+        self._restore_snapshot(state)
 
     # ── UI Construction ──────────────────────────────────────────────────
     def build_ui(self):
@@ -548,20 +608,97 @@ class App(ctk.CTk):
         self.compliance_lbl.pack(fill="x", padx=12, pady=(0, 4), anchor="w")
 
         _label(inspector, "Title").pack(fill="x", padx=12, pady=(2, 0))
-        _entry(inspector, text_var=self.edit_title_var, placeholder_text="Title").pack(fill="x", padx=12, pady=2)
+        self._title_entry = _entry(inspector, text_var=self.edit_title_var, placeholder_text="Title")
+        self._title_entry.pack(fill="x", padx=12, pady=2)
+        self._title_entry.bind("<FocusIn>", lambda e: self._save_snapshot())
+
+        # Title Case Formatter buttons
+        title_fmt_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        title_fmt_row.pack(fill="x", padx=12, pady=(0, 2))
+        _sm_font = ctk.CTkFont(family="Segoe UI", size=9)
+        _btn(title_fmt_row, "Title Case", C["surface2"], C["border"],
+             height=22, width=68, font=_sm_font,
+             command=lambda: [self._save_snapshot(), self.edit_title_var.set(to_title_case(self.edit_title_var.get()))]).pack(side="left", padx=(0, 2))
+        _btn(title_fmt_row, "Sentence", C["surface2"], C["border"],
+             height=22, width=62, font=_sm_font,
+             command=lambda: [self._save_snapshot(), self.edit_title_var.set(to_sentence_case(self.edit_title_var.get()))]).pack(side="left", padx=(0, 2))
+        _btn(title_fmt_row, "UPPER", C["surface2"], C["border"],
+             height=22, width=48, font=_sm_font,
+             command=lambda: [self._save_snapshot(), self.edit_title_var.set(to_uppercase(self.edit_title_var.get()))]).pack(side="left", padx=(0, 2))
+        _btn(title_fmt_row, "lower", C["surface2"], C["border"],
+             height=22, width=42, font=_sm_font,
+             command=lambda: [self._save_snapshot(), self.edit_title_var.set(to_lowercase(self.edit_title_var.get()))]).pack(side="left")
 
         _label(inspector, "Description").pack(fill="x", padx=12, pady=(4, 0))
-        _entry(inspector, text_var=self.edit_desc_var, placeholder_text="Description").pack(fill="x", padx=12, pady=2)
+        self._desc_entry = _entry(inspector, text_var=self.edit_desc_var, placeholder_text="Description")
+        self._desc_entry.pack(fill="x", padx=12, pady=2)
+        self._desc_entry.bind("<FocusIn>", lambda e: self._save_snapshot())
 
         self.kw_counter_lbl = _label(inspector, "Keywords (0 / 20)", text_color=C["success"])
         self.kw_counter_lbl.pack(fill="x", padx=12, pady=(4, 0))
-        _entry(inspector, text_var=self.edit_kws_var,
-               placeholder_text="Keywords (comma separated)").pack(fill="x", padx=12, pady=2)
+
+        # ── Keyword Chips Area ──
+        self.kw_chips_frame = ctk.CTkScrollableFrame(inspector, fg_color=C["surface2"], corner_radius=CR, height=120)
+        self.kw_chips_frame.pack(fill="x", padx=12, pady=2)
+
+        self.kw_add_frame = ctk.CTkFrame(inspector, fg_color="transparent")
+        self.kw_add_frame.pack(fill="x", padx=12, pady=(0, 4))
+        self.kw_add_entry = _entry(self.kw_add_frame, placeholder_text="Add keyword... (Press Enter)")
+        self.kw_add_entry.pack(side="left", fill="x", expand=True)
+        self.kw_add_entry.bind("<Return>", lambda e: self._add_keyword_chip())
+
+        # Sync chip frame with edit_kws_var
+        self.edit_kws_var.trace_add("write", lambda *_: self._render_keyword_chips())
+        self._kw_chip_widgets = []
+
+        # Redundancy detector UI
+        self.redundancy_frame = ctk.CTkFrame(inspector, fg_color="transparent")
+        self.redundancy_frame.pack(fill="x", padx=12, pady=(0, 2))
+        self.redundancy_lbl = ctk.CTkLabel(self.redundancy_frame, text="", text_color=C["warn"],
+                                           font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"))
+        self.redundancy_lbl.pack(side="left")
+        self.redundancy_btn = _btn(self.redundancy_frame, "Remove Redundancies", C["surface2"], C["border"],
+                                   height=22, font=ctk.CTkFont(family="Segoe UI", size=9),
+                                   command=self._remove_redundancies)
+        self.redundancy_btn.pack(side="right")
+        self.redundancy_btn.pack_forget()
+
+        # Keyword cleanup buttons
+        kw_fmt_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        kw_fmt_row.pack(fill="x", padx=12, pady=(0, 2))
+        _btn(kw_fmt_row, "lowercase all", C["surface2"], C["border"],
+             height=22, width=84, font=ctk.CTkFont(family="Segoe UI", size=9),
+             command=self._lowercase_all_keywords).pack(side="left", padx=(0, 2))
+        _btn(kw_fmt_row, "Trim Spacing", C["surface2"], C["border"],
+             height=22, width=80, font=ctk.CTkFont(family="Segoe UI", size=9),
+             command=self._trim_all_keywords).pack(side="left")
+
+        # ── Keyword Presets ──
+        preset_kw_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        preset_kw_row.pack(fill="x", padx=12, pady=(4, 2))
+        _label(preset_kw_row, "Keyword Presets", font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+               text_color=C["text3"]).pack(side="left")
+        _btn(preset_kw_row, "Manage", C["surface2"], C["border"],
+             height=22, width=60, font=ctk.CTkFont(family="Segoe UI", size=9),
+             command=self._open_keyword_presets).pack(side="right")
+
         self.edit_title_var.trace_add("write", lambda *_: self._update_compliance())
         self.edit_kws_var.trace_add("write", lambda *_: [self._update_kw_counter(), self._update_compliance()])
 
+        # Undo / Redo toolbar
+        undo_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        undo_row.pack(fill="x", padx=12, pady=(2, 0))
+        _btn(undo_row, "↶ Undo", C["surface2"], C["border"],
+             height=24, width=70, font=ctk.CTkFont(family="Segoe UI", size=10),
+             command=self.undo_metadata).pack(side="left", padx=(0, 4))
+        _btn(undo_row, "↷ Redo", C["surface2"], C["border"],
+             height=24, width=70, font=ctk.CTkFont(family="Segoe UI", size=10),
+             command=self.redo_metadata).pack(side="left")
+        _label(undo_row, "Ctrl+Z / Ctrl+Y",
+               font=ctk.CTkFont(family="Segoe UI", size=9), text_color=C["text3"]).pack(side="right")
+
         btn_row = ctk.CTkFrame(inspector, fg_color="transparent")
-        btn_row.pack(fill="x", padx=12, pady=(4, 12))
+        btn_row.pack(fill="x", padx=12, pady=(4, 4))
         _btn(btn_row, "Dedup", C["surface2"], C["border"],
              height=28, width=80, command=self._dedup_keywords,
              font=ctk.CTkFont(family="Segoe UI", size=11)).pack(side="left", padx=(0, 4))
@@ -571,6 +708,219 @@ class App(ctk.CTk):
         _btn(btn_row, "Save & Embed", C["success"], C["success_h"],
              height=28, command=self.save_manual,
              font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold")).pack(side="right", expand=True, fill="x")
+
+        btn_row2 = ctk.CTkFrame(inspector, fg_color="transparent")
+        btn_row2.pack(fill="x", padx=12, pady=(0, 12))
+        _btn(btn_row2, "Apply to Batch...", C["violet"], C["violet_h"],
+             height=28, command=self._open_batch_apply,
+             font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold")).pack(fill="x")
+
+    # ── Keyword Presets ──────────────────────────────────────────────────
+    def _open_keyword_presets(self):
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Keyword Presets")
+        dialog.geometry("420x480")
+        dialog.configure(fg_color=C["bg"])
+        dialog.transient(self)
+        dialog.grab_set()
+
+        _label(dialog, "Save Current Keywords as Preset",
+               font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold")).pack(padx=12, pady=(12, 4), anchor="w")
+
+        save_row = ctk.CTkFrame(dialog, fg_color="transparent")
+        save_row.pack(fill="x", padx=12, pady=2)
+        name_entry = _entry(save_row, placeholder_text="Preset name...")
+        name_entry.pack(side="left", fill="x", expand=True, padx=(0, 4))
+
+        def do_save():
+            n = name_entry.get().strip()
+            if not n: return
+            kws = self._get_kws_list()
+            save_kw_preset(n, kws)
+            name_entry.delete(0, "end")
+            refresh()
+            self.log(f"Saved keyword preset: {n} ({len(kws)} keywords)", "info")
+
+        _btn(save_row, "Save", C["accent"], C["accent_h"], width=60, command=do_save).pack(side="right")
+
+        _divider(dialog).pack(fill="x", padx=12, pady=(8, 4))
+        _label(dialog, "Saved Presets",
+               font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold")).pack(padx=12, pady=(4, 4), anchor="w")
+
+        list_frame = ctk.CTkScrollableFrame(dialog, fg_color=C["surface"], corner_radius=CR)
+        list_frame.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+
+        def refresh():
+            for w in list_frame.winfo_children():
+                w.destroy()
+            for pname in get_preset_names():
+                row = ctk.CTkFrame(list_frame, fg_color="transparent")
+                row.pack(fill="x", pady=1)
+                kws = get_preset(pname)
+                ctk.CTkLabel(row, text=f"{pname}  ({len(kws)} kw)",
+                             text_color=C["text"], font=ctk.CTkFont(size=11)).pack(side="left", padx=4)
+
+                ctk.CTkButton(row, text="\u00d7", width=20, height=20, fg_color="transparent",
+                              text_color=C["error"], hover_color=C["surface2"],
+                              command=lambda n=pname: [delete_kw_preset(n), refresh()]).pack(side="right", padx=2)
+
+                ctk.CTkButton(row, text="+ Append", width=60, height=20,
+                              fg_color=C["surface2"], hover_color=C["border"],
+                              font=ctk.CTkFont(size=9),
+                              command=lambda n=pname: self._apply_preset_kws(n, "append")).pack(side="right", padx=2)
+
+                ctk.CTkButton(row, text="Replace", width=55, height=20,
+                              fg_color=C["accent"], hover_color=C["accent_h"],
+                              font=ctk.CTkFont(size=9),
+                              command=lambda n=pname: self._apply_preset_kws(n, "replace")).pack(side="right", padx=2)
+
+        refresh()
+
+        io_row = ctk.CTkFrame(dialog, fg_color="transparent")
+        io_row.pack(fill="x", padx=12, pady=(0, 12))
+
+        def do_import():
+            path = ctk.filedialog.askopenfilename(filetypes=[("JSON", "*.json")])
+            if path:
+                count = import_presets(path)
+                refresh()
+                self.log(f"Imported {count} keyword presets.", "info")
+
+        def do_export():
+            path = ctk.filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON", "*.json")])
+            if path:
+                export_presets(path)
+                self.log("Keyword presets exported.", "info")
+
+        _btn(io_row, "Import .json", C["surface2"], C["border"], command=do_import).pack(side="left", expand=True, padx=(0, 4))
+        _btn(io_row, "Export .json", C["surface2"], C["border"], command=do_export).pack(side="right", expand=True, padx=(4, 0))
+
+    def _apply_preset_kws(self, name, mode):
+        kws = get_preset(name)
+        if not kws: return
+        self._save_snapshot()
+        if mode == "replace":
+            self._set_kws_list(kws)
+        else:
+            existing = self._get_kws_list()
+            existing_lower = {k.lower() for k in existing}
+            merged = existing + [k for k in kws if k.lower() not in existing_lower]
+            self._set_kws_list(merged)
+        self.log(f"Applied preset '{name}' ({mode})", "info")
+
+    # ── Batch Copy & Apply Metadata ──────────────────────────────────────
+    def _open_batch_apply(self):
+        target_dir = self.input_dir.get()
+        if not target_dir or not os.path.isdir(target_dir):
+            return self.log("Set Folder first to use Batch Apply.", "error")
+        if not self.current_edit_file:
+            return self.log("Select a file in the inspector first.", "error")
+
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Batch Copy & Apply Metadata")
+        dialog.geometry("400x400")
+        dialog.configure(fg_color=C["bg"])
+        dialog.transient(self)
+        dialog.grab_set()
+
+        _label(dialog, "Copy metadata from current file to:",
+               font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold")).pack(padx=12, pady=(12, 8), anchor="w")
+
+        # Fields to copy
+        _label(dialog, "Fields to copy:").pack(padx=12, pady=(4, 2), anchor="w")
+        copy_title = ctk.BooleanVar(value=True)
+        copy_desc = ctk.BooleanVar(value=True)
+        copy_kws = ctk.BooleanVar(value=True)
+
+        fields_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        fields_frame.pack(fill="x", padx=12, pady=2)
+        ctk.CTkCheckBox(fields_frame, text="Title", variable=copy_title,
+                        fg_color=C["accent"]).pack(side="left", padx=(0, 8))
+        ctk.CTkCheckBox(fields_frame, text="Description", variable=copy_desc,
+                        fg_color=C["accent"]).pack(side="left", padx=(0, 8))
+        ctk.CTkCheckBox(fields_frame, text="Keywords", variable=copy_kws,
+                        fg_color=C["accent"]).pack(side="left")
+
+        # Target scope
+        _label(dialog, "Apply to:").pack(padx=12, pady=(10, 2), anchor="w")
+        scope_var = ctk.StringVar(value="All files in folder")
+        _combo(dialog, ["All files in folder", "Specific extension only", "Files without metadata only"],
+               variable=scope_var).pack(fill="x", padx=12, pady=2)
+
+        _label(dialog, "Extension filter (e.g. .svg .eps):").pack(padx=12, pady=(8, 2), anchor="w")
+        ext_entry = _entry(dialog, placeholder_text=".svg .eps")
+        ext_entry.pack(fill="x", padx=12, pady=2)
+
+        status_lbl = ctk.CTkLabel(dialog, text="", text_color=C["warn"], font=ctk.CTkFont(size=11))
+        status_lbl.pack(pady=8)
+
+        def run_batch_apply():
+            scope = scope_var.get()
+            ct, cd, ck = copy_title.get(), copy_desc.get(), copy_kws.get()
+            if not (ct or cd or ck):
+                status_lbl.configure(text="Select at least one field.", text_color=C["error"])
+                return
+
+            src_title = self.edit_title_var.get()
+            src_desc = self.edit_desc_var.get()
+            src_kws = self._get_kws_list()
+
+            ext_filter = None
+            if scope == "Specific extension only":
+                raw = ext_entry.get().strip()
+                if not raw:
+                    status_lbl.configure(text="Enter extensions to filter.", text_color=C["error"])
+                    return
+                ext_filter = {e.strip().lower() if e.strip().startswith('.') else '.' + e.strip().lower()
+                              for e in raw.split()}
+
+            status_lbl.configure(text="Applying...", text_color=C["warn"])
+            dialog.update()
+
+            applied = 0
+            skipped = 0
+            for root, _, files in os.walk(target_dir):
+                for fname in files:
+                    if not self._is_allowed_file(fname):
+                        continue
+                    fpath = os.path.join(root, fname)
+                    if fpath == self.current_edit_file:
+                        continue
+
+                    # Extension filter
+                    if ext_filter:
+                        fext = os.path.splitext(fname)[1].lower()
+                        if fext not in ext_filter:
+                            continue
+
+                    fhash = get_file_hash(fpath)
+                    meta = get_cached_metadata(fhash) or {}
+
+                    # Skip files that already have metadata
+                    if scope == "Files without metadata only":
+                        if meta.get("title") or meta.get("keywords"):
+                            skipped += 1
+                            continue
+
+                    new_title = src_title if ct else meta.get("title", "")
+                    new_desc = src_desc if cd else meta.get("description", "")
+                    new_kws = list(src_kws) if ck else meta.get("keywords", [])
+
+                    new_meta = {"title": new_title, "description": new_desc, "keywords": new_kws}
+                    set_cached_metadata(fhash, new_meta)
+                    self.processor.embed_metadata(fpath, new_title, new_desc, new_kws,
+                                                  self._get_copyright_text(), self.author_entry.get().strip())
+                    applied += 1
+
+            if applied > 0:
+                generate_microstock_csvs(target_dir, self._get_selected_csv_platforms())
+
+            self.log(f"Batch Apply: {applied} files updated, {skipped} skipped.", "success")
+            dialog.destroy()
+
+        _btn(dialog, "Apply to Batch", C["accent"], C["accent_h"],
+             command=run_batch_apply,
+             font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold")).pack(fill="x", padx=12, pady=(4, 12), side="bottom")
 
     # ── Logging ──────────────────────────────────────────────────────────
     # ── Blacklist Manager ───────────────────────────────────────────────
@@ -752,6 +1102,7 @@ class App(ctk.CTk):
             if self.current_edit_hash:
                 m = get_cached_metadata(self.current_edit_hash)
                 if m:
+                    self._save_snapshot()
                     self.edit_title_var.set(m.get("title", ""))
                     self.edit_desc_var.set(m.get("description", ""))
                     self.edit_kws_var.set(", ".join(m.get("keywords", [])))
@@ -909,6 +1260,8 @@ class App(ctk.CTk):
 
                 self.current_edit_file = out_path
                 self.current_edit_hash = file_hash
+                self.undo_stack.clear()
+                self.redo_stack.clear()
             except: pass
         self.after(0, _draw)
 
@@ -968,6 +1321,7 @@ class App(ctk.CTk):
         return {plat for plat, var in self.csv_vars.items() if var.get()}
 
     def _autofix_metadata(self):
+        self._save_snapshot()
         title = self.edit_title_var.get()
         kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
         plat = self.target_plat_var.get()
@@ -1017,15 +1371,130 @@ class App(ctk.CTk):
         else:
             color = C["error"]
         self.kw_counter_lbl.configure(text=f"Keywords ({count} / {max_kw})", text_color=color)
+        self._check_redundancies()
+
+    def _check_redundancies(self):
+        kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
+        redundancies = detect_redundant_keywords(kws)
+        if redundancies:
+            total_dup = sum(len(v) for v in redundancies.values())
+            self.redundancy_lbl.configure(text=f"⚠ {total_dup} similar keywords detected!")
+            self.redundancy_btn.pack(side="right")
+        else:
+            self.redundancy_lbl.configure(text="")
+            self.redundancy_btn.pack_forget()
+
+    def _remove_redundancies(self):
+        self._save_snapshot()
+        kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
+        cleaned = remove_redundant_keywords(kws)
+        self.edit_kws_var.set(", ".join(cleaned))
+
+    def _get_kws_list(self):
+        return [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
+
+    def _set_kws_list(self, kws):
+        self.edit_kws_var.set(", ".join([k.strip() for k in kws if k.strip()]))
+
+    def _add_keyword_chip(self):
+        new_kw = self.kw_add_entry.get().strip()
+        if not new_kw: return
+        self._save_snapshot()
+        kws = self._get_kws_list()
+        # prevent exact duplicates locally
+        if new_kw.lower() not in [k.lower() for k in kws]:
+            kws.append(new_kw)
+            self._set_kws_list(kws)
+        self.kw_add_entry.delete(0, "end")
+
+    def _remove_keyword_chip(self, idx):
+        self._save_snapshot()
+        kws = self._get_kws_list()
+        if 0 <= idx < len(kws):
+            kws.pop(idx)
+            self._set_kws_list(kws)
+
+    def _move_keyword_chip(self, idx, direction):
+        kws = self._get_kws_list()
+        if direction == "up" and idx > 0:
+            self._save_snapshot()
+            kws[idx], kws[idx-1] = kws[idx-1], kws[idx]
+            self._set_kws_list(kws)
+        elif direction == "down" and idx < len(kws) - 1:
+            self._save_snapshot()
+            kws[idx], kws[idx+1] = kws[idx+1], kws[idx]
+            self._set_kws_list(kws)
+
+    # Re-entry guard to prevent infinite update loop
+    _rendering_chips = False
+    def _render_keyword_chips(self):
+        if self._rendering_chips: return
+        self._rendering_chips = True
+        
+        for widget in self._kw_chip_widgets:
+            widget.destroy()
+        self._kw_chip_widgets.clear()
+        
+        kws = self._get_kws_list()
+        
+        # Grid layout for chips
+        row, col = 0, 0
+        for i, kw in enumerate(kws):
+            chip = ctk.CTkFrame(self.kw_chips_frame, fg_color=C["surface"], corner_radius=CR)
+            chip.grid(row=row, column=col, padx=2, pady=2, sticky="w")
+            self._kw_chip_widgets.append(chip)
+            
+            # Left arrow
+            if i > 0:
+                l_btn = ctk.CTkButton(chip, text="◀", width=16, height=20, fg_color="transparent",
+                                      text_color=C["text3"], hover_color=C["surface2"],
+                                      font=ctk.CTkFont(size=10),
+                                      command=lambda idx=i: self._move_keyword_chip(idx, "up"))
+                l_btn.pack(side="left", padx=(2,0))
+
+            lbl = ctk.CTkLabel(chip, text=kw, font=ctk.CTkFont(family="Segoe UI", size=11), text_color=C["text"])
+            lbl.pack(side="left", padx=4, pady=2)
+            
+            # Right arrow
+            if i < len(kws) - 1:
+                r_btn = ctk.CTkButton(chip, text="▶", width=16, height=20, fg_color="transparent",
+                                      text_color=C["text3"], hover_color=C["surface2"],
+                                      font=ctk.CTkFont(size=10),
+                                      command=lambda idx=i: self._move_keyword_chip(idx, "down"))
+                r_btn.pack(side="left", padx=(0,0))
+
+            x_btn = ctk.CTkButton(chip, text="×", width=20, height=20, fg_color="transparent",
+                                  text_color=C["error"], hover_color=C["surface2"],
+                                  command=lambda idx=i: self._remove_keyword_chip(idx))
+            x_btn.pack(side="right", padx=(0, 2))
+            
+            col += 1
+            if col > 1: # 2 columns max
+                col = 0
+                row += 1
+
+        self._rendering_chips = False
 
     def _dedup_keywords(self):
+        self._save_snapshot()
         raw = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
         max_kw = self._safe_int(self.max_kw_entry.get(), 50)
         cleaned = sanitize_keywords(raw, max_kw)
         self.edit_kws_var.set(", ".join(cleaned))
 
+    def _lowercase_all_keywords(self):
+        self._save_snapshot()
+        raw = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
+        self.edit_kws_var.set(", ".join(lowercase_keywords(raw)))
+
+    def _trim_all_keywords(self):
+        self._save_snapshot()
+        raw = [k for k in self.edit_kws_var.get().split(",")]
+        self.edit_kws_var.set(", ".join(trim_keywords(raw)))
+
     def save_manual(self):
         if not self.current_edit_file or not os.path.exists(self.current_edit_file): return
+        self._save_snapshot()
         title = self.edit_title_var.get()
         desc = self.edit_desc_var.get()
         kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]

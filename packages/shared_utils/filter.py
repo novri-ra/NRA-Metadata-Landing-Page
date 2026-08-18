@@ -120,6 +120,118 @@ def autofix_compliance(title: str, keywords: list[str], platform: str) -> tuple[
         
     return fixed_title, fixed_keywords
 
+# ── Case Formatting Utilities ─────────────────────────────────────────────
+_TITLE_CASE_MINOR = {
+    'a', 'an', 'the', 'and', 'but', 'or', 'nor', 'for', 'yet', 'so',
+    'in', 'on', 'at', 'to', 'by', 'of', 'up', 'as', 'is', 'if', 'it',
+    'with', 'from', 'into', 'over', 'after', 'between', 'under', 'about',
+}
+
+def to_title_case(text: str) -> str:
+    """Capitalize first letter of each word, except minor words (unless first/last), preserving internal uppercase."""
+    if not text:
+        return text
+    words = text.split()
+    result = []
+    for i, w in enumerate(words):
+        if i == 0 or i == len(words) - 1 or w.lower() not in _TITLE_CASE_MINOR:
+            result.append(w[0].upper() + w[1:] if w else '')
+        else:
+            result.append(w.lower())
+    return ' '.join(result)
+
+def to_sentence_case(text: str) -> str:
+    """Capitalize only the first character of the string, preserving rest of casing."""
+    if not text:
+        return text
+    return text[0].upper() + text[1:]
+
+def to_uppercase(text: str) -> str:
+    return text.upper() if text else text
+
+def to_lowercase(text: str) -> str:
+    return text.lower() if text else text
+
+def lowercase_keywords(keywords: list[str]) -> list[str]:
+    """Lowercase all keywords for microstock consistency."""
+    return [k.lower() for k in keywords]
+
+def trim_spacing(text: str) -> str:
+    """Remove double spaces and invalid non-alphanumeric edge characters."""
+    if not text:
+        return text
+    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r'^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$', '', text).strip()
+    return text
+
+def trim_keywords(keywords: list[str]) -> list[str]:
+    """Trim spacing on each keyword."""
+    return [trim_spacing(k) for k in keywords if trim_spacing(k)]
+
+def detect_redundant_keywords(keywords: list[str]) -> dict[str, list[str]]:
+    """
+    Detects similar keywords using simple stemming (plurals, -ing, -er).
+    Returns a dict mapping a root form to the list of duplicate variations.
+    """
+    groups = {}
+    
+    def simple_stem(word: str) -> str:
+        w = word.lower().strip()
+        
+        # Plurals
+        if w.endswith('ies') and len(w) > 5:
+            return w[:-3] + 'y'
+        if w.endswith('es') and len(w) > 4 and not w.endswith('hes') and not w.endswith('sses'):
+            # Only strip 'es' if it's not preceded by a vowel (e.g., trees -> tree, not tre)
+            if w[-3] not in 'aeiou':
+                return w[:-2]
+        if w.endswith('s') and len(w) > 3 and not w.endswith('ss'):
+            return w[:-1]
+            
+        # Gerunds
+        if w.endswith('ing') and len(w) > 5:
+            stem = w[:-3]
+            # Handle doubled consonant (but not doubled vowels like 'ee' in treeing)
+            if len(stem) >= 2 and stem[-1] == stem[-2] and stem[-1] not in 'aeiou':
+                stem = stem[:-1]
+            return stem
+
+        return w
+
+    for kw in keywords:
+        root = simple_stem(kw)
+        if root not in groups:
+            groups[root] = []
+        groups[root].append(kw)
+
+    # Return only groups with >1 item
+    return {root: kws for root, kws in groups.items() if len(kws) > 1}
+
+def remove_redundant_keywords(keywords: list[str]) -> list[str]:
+    """
+    Given a list of keywords, keep only the shortest form from each redundancy group
+    and maintain the original order for the first occurrence.
+    """
+    groups = detect_redundant_keywords(keywords)
+    # Map each keyword to its kept form
+    keep_map = {}
+    for root, kws in groups.items():
+        # Keep the shortest by length
+        kept = sorted(kws, key=len)[0]
+        for k in kws:
+            keep_map[k] = kept
+    
+    seen = set()
+    cleaned = []
+    for kw in keywords:
+        actual_kw = keep_map.get(kw, kw)
+        if actual_kw.lower() not in seen:
+            seen.add(actual_kw.lower())
+            cleaned.append(actual_kw)
+            
+    return cleaned
+
+
 def clean_metadata(meta: dict, max_kw: int = 50) -> dict:
     return {
         "title": filter_text(meta.get("title", "")),
