@@ -239,3 +239,110 @@ def clean_metadata(meta: dict, max_kw: int = 50) -> dict:
         "category": filter_text(meta.get("category", "")),
         "keywords": sanitize_keywords(meta.get("keywords", []), max_kw)
     }
+
+# ── Metadata Quality & Spam Score ─────────────────────────────────────
+_COMMON_WORDS = {
+    'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+    'of', 'with', 'by', 'from', 'is', 'it', 'as', 'be', 'are', 'was',
+    'this', 'that', 'not', 'no', 'so', 'if', 'up', 'out', 'do', 'has',
+}
+
+_SPAM_WORDS = {
+    'best', 'free', 'amazing', 'incredible', 'awesome', 'perfect',
+    'ultimate', 'exclusive', 'guaranteed', 'viral', 'trending',
+    'click', 'buy', 'cheap', 'discount', 'sale', 'offer', '#1',
+}
+
+def calculate_quality_score(title: str, description: str, keywords: list) -> dict:
+    """
+    Returns dict with:
+      score: 0-100
+      issues: list of strings describing problems
+    """
+    issues = []
+    points = 0
+    max_points = 0
+
+    # ── Title quality (30 pts) ──
+    max_points += 30
+    title_words = title.split() if title else []
+    tw_count = len(title_words)
+    if tw_count == 0:
+        issues.append("Title is empty")
+    elif tw_count < 3:
+        issues.append("Title too short (< 3 words)")
+        points += 10
+    elif tw_count > 25:
+        issues.append("Title too long (> 25 words)")
+        points += 15
+    else:
+        points += 30
+
+    # Check title word repetition
+    if tw_count > 0:
+        title_lower = [w.lower() for w in title_words]
+        unique_ratio = len(set(title_lower)) / len(title_lower)
+        if unique_ratio < 0.6:
+            issues.append("Too many repeated words in title")
+
+    # ── Description quality (20 pts) ──
+    max_points += 20
+    desc_words = description.split() if description else []
+    dw_count = len(desc_words)
+    if dw_count == 0:
+        issues.append("Description is empty")
+    elif dw_count < 5:
+        issues.append("Description too short (< 5 words)")
+        points += 8
+    elif dw_count > 200:
+        issues.append("Description too long (> 200 words)")
+        points += 12
+    else:
+        points += 20
+
+    # ── Keyword count (20 pts) ──
+    max_points += 20
+    kw_count = len(keywords)
+    if kw_count == 0:
+        issues.append("No keywords")
+    elif kw_count < 5:
+        issues.append(f"Too few keywords ({kw_count}, min 5)")
+        points += 5
+    elif kw_count > 49:
+        issues.append(f"Too many keywords ({kw_count}, max 49)")
+        points += 10
+    else:
+        points += 20
+
+    # ── Keyword variety (15 pts) ──
+    max_points += 15
+    if kw_count > 0:
+        kw_lower = [k.lower().strip() for k in keywords]
+        unique_kws = set(kw_lower)
+        dup_count = kw_count - len(unique_kws)
+        if dup_count > 0:
+            issues.append(f"{dup_count} duplicate keyword(s)")
+            points += 5
+        else:
+            points += 15
+
+        # Check how many are just common/stop words
+        common_kws = [k for k in kw_lower if k in _COMMON_WORDS]
+        if len(common_kws) > kw_count * 0.3:
+            issues.append("Too many generic/common keywords")
+
+    # ── Spam detection (15 pts) ──
+    max_points += 15
+    spam_found = []
+    all_text = (title + ' ' + description + ' ' + ' '.join(keywords)).lower()
+    for sw in _SPAM_WORDS:
+        if sw in all_text:
+            spam_found.append(sw)
+    if spam_found:
+        issues.append(f"Spammy words detected: {', '.join(spam_found[:5])}")
+        points += max(0, 15 - len(spam_found) * 3)
+    else:
+        points += 15
+
+    score = round((points / max_points) * 100) if max_points > 0 else 0
+    return {"score": score, "issues": issues}
