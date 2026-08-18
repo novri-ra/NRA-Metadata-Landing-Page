@@ -1510,6 +1510,13 @@ class App(ctk.CTk):
         self._rendering_chips = False
 
     def _update_quality_score(self):
+        if not getattr(self, 'current_edit_file', None):
+            self.quality_score_lbl.configure(text="SEO & Quality: —", text_color=C["text3"])
+            self.quality_bar.configure(progress_color=C["surface2"])
+            self.quality_bar.set(0)
+            self.quality_issues_lbl.configure(text="")
+            return
+
         title = self.edit_title_var.get()
         desc = self.edit_desc_var.get()
         kws = self._get_kws_list()
@@ -1855,6 +1862,13 @@ class App(ctk.CTk):
 
         if self.processor.embed_metadata(final_path, title, desc, keywords, self._get_copyright_text(), self.author_entry.get().strip()):
             self.log(f"{name} ({len(keywords)} kw)", "success")
+            
+            # Sync to companions in batch if enabled
+            if self.sync_companions.get():
+                synced = self._sync_to_companions(final_path, title, desc, keywords)
+                if synced > 0:
+                    self.log(f"  \u2514\u2500 Synced metadata to {synced} companion file(s)", "info")
+                    
             csv_logger.log(name, title, desc, keywords)
             generate_microstock_csvs(out_dir, self._get_selected_csv_platforms())
             temp_master = os.path.join(sub_dir, "metadata_output.csv")
