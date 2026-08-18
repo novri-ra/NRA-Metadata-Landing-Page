@@ -181,16 +181,18 @@ def detect_redundant_keywords(keywords: list[str]) -> dict[str, list[str]]:
         # Plurals
         if w.endswith('ies') and len(w) > 5:
             return w[:-3] + 'y'
-        if w.endswith('es') and len(w) > 4 and not w.endswith('hes'):
-            return w[:-2]
+        if w.endswith('es') and len(w) > 4 and not w.endswith('hes') and not w.endswith('sses'):
+            # Only strip 'es' if it's not preceded by a vowel (e.g., trees -> tree, not tre)
+            if w[-3] not in 'aeiou':
+                return w[:-2]
         if w.endswith('s') and len(w) > 3 and not w.endswith('ss'):
             return w[:-1]
             
         # Gerunds
         if w.endswith('ing') and len(w) > 5:
             stem = w[:-3]
-            # Handle doubled consonant: running -> runn -> run
-            if len(stem) >= 2 and stem[-1] == stem[-2]:
+            # Handle doubled consonant (but not doubled vowels like 'ee' in treeing)
+            if len(stem) >= 2 and stem[-1] == stem[-2] and stem[-1] not in 'aeiou':
                 stem = stem[:-1]
             return stem
 
