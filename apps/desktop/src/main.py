@@ -14,7 +14,10 @@ from packages.ai_engine.service import AIService
 from packages.shared_utils.config import load_config, save_config
 from packages.shared_utils.logger import CSVLogger
 from packages.shared_utils.cache import get_file_hash, get_cached_metadata, set_cached_metadata
-from packages.shared_utils.filter import clean_metadata, sanitize_keywords, get_blacklist, add_to_blacklist, remove_from_blacklist, validate_compliance, autofix_compliance
+from packages.shared_utils.filter import (clean_metadata, sanitize_keywords, get_blacklist,
+    add_to_blacklist, remove_from_blacklist, validate_compliance, autofix_compliance,
+    to_title_case, to_sentence_case, to_uppercase, to_lowercase,
+    lowercase_keywords, trim_spacing, trim_keywords)
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.shared_utils.tracker import tracker
 from packages.shared_utils.cache import get_cache_hits
@@ -135,6 +138,10 @@ class App(ctk.CTk):
         self.current_edit_file = None
         self.current_edit_hash = None
 
+        self.undo_stack = []
+        self.redo_stack = []
+        self._is_undoing = False
+
         self.log_buffer = []
         self.log_lock = threading.Lock()
         
@@ -151,6 +158,57 @@ class App(ctk.CTk):
         # Defer sash restore until window is rendered
         self.after(100, self._restore_sash_positions)
         threading.Thread(target=self._watcher_loop, daemon=True).start()
+
+        self.bind("<Control-z>", lambda e: self.undo_metadata())
+        self.bind("<Control-y>", lambda e: self.redo_metadata())
+
+    # ── History & Undo ───────────────────────────────────────────────────
+    def _save_snapshot(self):
+        if self._is_undoing: return
+        self.redo_stack.clear()
+        state = {
+            "title": self.edit_title_var.get(),
+            "desc": self.edit_desc_var.get(),
+            "kws": self.edit_kws_var.get()
+        }
+        if not self.undo_stack or self.undo_stack[-1] != state:
+            self.undo_stack.append(state)
+            if len(self.undo_stack) > 50:
+                self.undo_stack.pop(0)
+
+    def _restore_snapshot(self, state):
+        self._is_undoing = True
+        self.edit_title_var.set(state.get("title", ""))
+        self.edit_desc_var.set(state.get("desc", ""))
+        self.edit_kws_var.set(state.get("kws", ""))
+        self._is_undoing = False
+        self._update_kw_counter()
+        self._update_compliance()
+
+    def undo_metadata(self):
+        if not self.undo_stack: return
+        current_state = {
+            "title": self.edit_title_var.get(),
+            "desc": self.edit_desc_var.get(),
+            "kws": self.edit_kws_var.get()
+        }
+        if not self.redo_stack or self.redo_stack[-1] != current_state:
+            self.redo_stack.append(current_state)
+        state = self.undo_stack.pop()
+        if state == current_state and self.undo_stack:
+            state = self.undo_stack.pop()
+        self._restore_snapshot(state)
+
+    def redo_metadata(self):
+        if not self.redo_stack: return
+        current_state = {
+            "title": self.edit_title_var.get(),
+            "desc": self.edit_desc_var.get(),
+            "kws": self.edit_kws_var.get()
+        }
+        self.undo_stack.append(current_state)
+        state = self.redo_stack.pop()
+        self._restore_snapshot(state)
 
     # ── UI Construction ──────────────────────────────────────────────────
     def build_ui(self):
@@ -548,17 +606,63 @@ class App(ctk.CTk):
         self.compliance_lbl.pack(fill="x", padx=12, pady=(0, 4), anchor="w")
 
         _label(inspector, "Title").pack(fill="x", padx=12, pady=(2, 0))
-        _entry(inspector, text_var=self.edit_title_var, placeholder_text="Title").pack(fill="x", padx=12, pady=2)
+        self._title_entry = _entry(inspector, text_var=self.edit_title_var, placeholder_text="Title")
+        self._title_entry.pack(fill="x", padx=12, pady=2)
+        self._title_entry.bind("<FocusIn>", lambda e: self._save_snapshot())
+
+        # Title Case Formatter buttons
+        title_fmt_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        title_fmt_row.pack(fill="x", padx=12, pady=(0, 2))
+        _sm_font = ctk.CTkFont(family="Segoe UI", size=9)
+        _btn(title_fmt_row, "Title Case", C["surface2"], C["border"],
+             height=22, width=68, font=_sm_font,
+             command=lambda: [self._save_snapshot(), self.edit_title_var.set(to_title_case(self.edit_title_var.get()))]).pack(side="left", padx=(0, 2))
+        _btn(title_fmt_row, "Sentence", C["surface2"], C["border"],
+             height=22, width=62, font=_sm_font,
+             command=lambda: [self._save_snapshot(), self.edit_title_var.set(to_sentence_case(self.edit_title_var.get()))]).pack(side="left", padx=(0, 2))
+        _btn(title_fmt_row, "UPPER", C["surface2"], C["border"],
+             height=22, width=48, font=_sm_font,
+             command=lambda: [self._save_snapshot(), self.edit_title_var.set(to_uppercase(self.edit_title_var.get()))]).pack(side="left", padx=(0, 2))
+        _btn(title_fmt_row, "lower", C["surface2"], C["border"],
+             height=22, width=42, font=_sm_font,
+             command=lambda: [self._save_snapshot(), self.edit_title_var.set(to_lowercase(self.edit_title_var.get()))]).pack(side="left")
 
         _label(inspector, "Description").pack(fill="x", padx=12, pady=(4, 0))
-        _entry(inspector, text_var=self.edit_desc_var, placeholder_text="Description").pack(fill="x", padx=12, pady=2)
+        self._desc_entry = _entry(inspector, text_var=self.edit_desc_var, placeholder_text="Description")
+        self._desc_entry.pack(fill="x", padx=12, pady=2)
+        self._desc_entry.bind("<FocusIn>", lambda e: self._save_snapshot())
 
         self.kw_counter_lbl = _label(inspector, "Keywords (0 / 20)", text_color=C["success"])
         self.kw_counter_lbl.pack(fill="x", padx=12, pady=(4, 0))
-        _entry(inspector, text_var=self.edit_kws_var,
-               placeholder_text="Keywords (comma separated)").pack(fill="x", padx=12, pady=2)
+        self._kws_entry = _entry(inspector, text_var=self.edit_kws_var,
+               placeholder_text="Keywords (comma separated)")
+        self._kws_entry.pack(fill="x", padx=12, pady=2)
+        self._kws_entry.bind("<FocusIn>", lambda e: self._save_snapshot())
+
+        # Keyword cleanup buttons
+        kw_fmt_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        kw_fmt_row.pack(fill="x", padx=12, pady=(0, 2))
+        _btn(kw_fmt_row, "lowercase all", C["surface2"], C["border"],
+             height=22, width=84, font=ctk.CTkFont(family="Segoe UI", size=9),
+             command=self._lowercase_all_keywords).pack(side="left", padx=(0, 2))
+        _btn(kw_fmt_row, "Trim Spacing", C["surface2"], C["border"],
+             height=22, width=80, font=ctk.CTkFont(family="Segoe UI", size=9),
+             command=self._trim_all_keywords).pack(side="left")
+
         self.edit_title_var.trace_add("write", lambda *_: self._update_compliance())
         self.edit_kws_var.trace_add("write", lambda *_: [self._update_kw_counter(), self._update_compliance()])
+
+        # Undo / Redo toolbar
+        undo_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        undo_row.pack(fill="x", padx=12, pady=(2, 0))
+        _btn(undo_row, "↶ Undo", C["surface2"], C["border"],
+             height=24, width=70, font=ctk.CTkFont(family="Segoe UI", size=10),
+             command=self.undo_metadata).pack(side="left", padx=(0, 4))
+        _btn(undo_row, "↷ Redo", C["surface2"], C["border"],
+             height=24, width=70, font=ctk.CTkFont(family="Segoe UI", size=10),
+             command=self.redo_metadata).pack(side="left")
+        _label(undo_row, "Ctrl+Z / Ctrl+Y",
+               font=ctk.CTkFont(family="Segoe UI", size=9), text_color=C["text3"]).pack(side="right")
 
         btn_row = ctk.CTkFrame(inspector, fg_color="transparent")
         btn_row.pack(fill="x", padx=12, pady=(4, 12))
@@ -752,6 +856,7 @@ class App(ctk.CTk):
             if self.current_edit_hash:
                 m = get_cached_metadata(self.current_edit_hash)
                 if m:
+                    self._save_snapshot()
                     self.edit_title_var.set(m.get("title", ""))
                     self.edit_desc_var.set(m.get("description", ""))
                     self.edit_kws_var.set(", ".join(m.get("keywords", [])))
@@ -909,6 +1014,8 @@ class App(ctk.CTk):
 
                 self.current_edit_file = out_path
                 self.current_edit_hash = file_hash
+                self.undo_stack.clear()
+                self.redo_stack.clear()
             except: pass
         self.after(0, _draw)
 
@@ -968,6 +1075,7 @@ class App(ctk.CTk):
         return {plat for plat, var in self.csv_vars.items() if var.get()}
 
     def _autofix_metadata(self):
+        self._save_snapshot()
         title = self.edit_title_var.get()
         kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
         plat = self.target_plat_var.get()
@@ -1019,13 +1127,25 @@ class App(ctk.CTk):
         self.kw_counter_lbl.configure(text=f"Keywords ({count} / {max_kw})", text_color=color)
 
     def _dedup_keywords(self):
+        self._save_snapshot()
         raw = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
         max_kw = self._safe_int(self.max_kw_entry.get(), 50)
         cleaned = sanitize_keywords(raw, max_kw)
         self.edit_kws_var.set(", ".join(cleaned))
 
+    def _lowercase_all_keywords(self):
+        self._save_snapshot()
+        raw = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
+        self.edit_kws_var.set(", ".join(lowercase_keywords(raw)))
+
+    def _trim_all_keywords(self):
+        self._save_snapshot()
+        raw = [k for k in self.edit_kws_var.get().split(",")]
+        self.edit_kws_var.set(", ".join(trim_keywords(raw)))
+
     def save_manual(self):
         if not self.current_edit_file or not os.path.exists(self.current_edit_file): return
+        self._save_snapshot()
         title = self.edit_title_var.get()
         desc = self.edit_desc_var.get()
         kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]

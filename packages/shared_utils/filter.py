@@ -120,6 +120,55 @@ def autofix_compliance(title: str, keywords: list[str], platform: str) -> tuple[
         
     return fixed_title, fixed_keywords
 
+# ── Case Formatting Utilities ─────────────────────────────────────────────
+_TITLE_CASE_MINOR = {
+    'a', 'an', 'the', 'and', 'but', 'or', 'nor', 'for', 'yet', 'so',
+    'in', 'on', 'at', 'to', 'by', 'of', 'up', 'as', 'is', 'if', 'it',
+    'with', 'from', 'into', 'over', 'after', 'between', 'under', 'about',
+}
+
+def to_title_case(text: str) -> str:
+    """Capitalize first letter of each word, except minor words (unless first/last)."""
+    if not text:
+        return text
+    words = text.split()
+    result = []
+    for i, w in enumerate(words):
+        if i == 0 or i == len(words) - 1 or w.lower() not in _TITLE_CASE_MINOR:
+            result.append(w.capitalize())
+        else:
+            result.append(w.lower())
+    return ' '.join(result)
+
+def to_sentence_case(text: str) -> str:
+    """Capitalize only the first character of the string."""
+    if not text:
+        return text
+    return text[0].upper() + text[1:].lower()
+
+def to_uppercase(text: str) -> str:
+    return text.upper() if text else text
+
+def to_lowercase(text: str) -> str:
+    return text.lower() if text else text
+
+def lowercase_keywords(keywords: list[str]) -> list[str]:
+    """Lowercase all keywords for microstock consistency."""
+    return [k.lower() for k in keywords]
+
+def trim_spacing(text: str) -> str:
+    """Remove double spaces and invalid non-alphanumeric edge characters."""
+    if not text:
+        return text
+    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r'^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$', '', text).strip()
+    return text
+
+def trim_keywords(keywords: list[str]) -> list[str]:
+    """Trim spacing on each keyword."""
+    return [trim_spacing(k) for k in keywords if trim_spacing(k)]
+
+
 def clean_metadata(meta: dict, max_kw: int = 50) -> dict:
     return {
         "title": filter_text(meta.get("title", "")),
