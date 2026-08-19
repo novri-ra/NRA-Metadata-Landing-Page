@@ -345,4 +345,10 @@ def calculate_quality_score(title: str, description: str, keywords: list) -> dic
         points += 15
 
     score = round((points / max_points) * 100) if max_points > 0 else 0
-    return {"score": score, "issues": issues}
+    if score >= 85:
+        status = "Excellent"
+    elif score >= 60:
+        status = "Good"
+    else:
+        status = "Needs Improvement"
+    return {"score": score, "status": status, "issues": issues}

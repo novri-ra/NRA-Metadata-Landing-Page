@@ -1528,6 +1528,7 @@ class App(ctk.CTk):
         result = calculate_quality_score(title, desc, kws)
         score = result["score"]
         issues = result["issues"]
+        status = result.get("status", "")
 
         if score >= 85:
             color = C["success"]
@@ -1536,7 +1537,7 @@ class App(ctk.CTk):
         else:
             color = C["error"]
 
-        self.quality_score_lbl.configure(text=f"SEO & Quality: {score}%", text_color=color)
+        self.quality_score_lbl.configure(text=f"SEO & Quality: {score}% — {status}", text_color=color)
         self.quality_bar.configure(progress_color=color)
         self.quality_bar.set(score / 100)
 
@@ -1585,7 +1586,7 @@ class App(ctk.CTk):
             exts = [os.path.splitext(os.path.basename(c))[1].upper().lstrip('.') for c in companions]
             own_ext = os.path.splitext(self.current_edit_file)[1].upper().lstrip('.')
             all_exts = [own_ext] + sorted(exts)
-            self.variant_badge.configure(text=f"{len(all_exts)} Variants: [{', '.join(all_exts)}]")
+            self.variant_badge.configure(text=f"Companion Variants Detected: [{', '.join(all_exts)}]")
         else:
             self.variant_badge.configure(text="")
 
