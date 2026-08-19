@@ -415,6 +415,11 @@ class App(ctk.CTk):
         self.custom_kw_entry.insert(0, self.config.get("custom_kw", ""))
         self.custom_kw_entry.pack(fill="x", **PAD)
         
+        _label(sidebar, "Extra AI Context / Focus").pack(fill="x", anchor="w", **LPAD)
+        self.extra_prompt_entry = _entry(sidebar, placeholder_text="e.g. Isolated on white background")
+        self.extra_prompt_entry.insert(0, self.config.get("extra_prompt", ""))
+        self.extra_prompt_entry.pack(fill="x", **PAD)
+
         inj_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         inj_row.pack(fill="x", **LPAD)
         _label(inj_row, "Inject at:").pack(side="left", padx=(0, 4))
@@ -522,7 +527,7 @@ class App(ctk.CTk):
         self.cancel_btn.pack(side="right", padx=(4, 0), expand=True, fill="x")
         self.cancel_btn.configure(state="disabled")
 
-        self.retag_btn = _btn(sidebar, "Offline Re-Tag from CSV", C["surface2"], C["border"],
+        self.retag_btn = _btn(sidebar, "Import Metadata from CSV...", C["surface2"], C["border"],
                               command=self.start_offline_retag)
         self.retag_btn.pack(fill="x", padx=12, pady=(4, 2))
 
@@ -1350,6 +1355,7 @@ class App(ctk.CTk):
             "max_kw": self._safe_int(self.max_kw_entry.get(), 49),
             "custom_kw": self.custom_kw_entry.get(),
             "custom_kw_pos": self.custom_kw_pos.get(),
+                "extra_prompt": self.extra_prompt_entry.get(),
             "style_preset": self.style_cb.get(),
             "formats": {ext: var.get() for ext, var in self.fmt_vars.items()}
         }
@@ -1447,6 +1453,7 @@ class App(ctk.CTk):
                 "max_kw": self._safe_int(self.max_kw_entry.get(), 49),
                 "custom_kw": self.custom_kw_entry.get(),
                 "custom_kw_pos": self.custom_kw_pos.get(),
+                "extra_prompt": self.extra_prompt_entry.get(),
                 "workers": int(self.workers_slider.get()),
                 "formats": {ext: var.get() for ext, var in self.fmt_vars.items()},
                 "author": self.author_entry.get().strip(),
@@ -1925,7 +1932,7 @@ class App(ctk.CTk):
             self.pause_btn.configure(state="disabled")
             self.cancel_btn.configure(state="disabled")
 
-    def process_file(self, file_path, out_dir, ai, min_kw, max_kw, style_preset, csv_logger):
+    def process_file(self, file_path, out_dir, ai, min_kw, max_kw, style_preset, extra_prompt, csv_logger):
         self.pause_event.wait()
         if self.cancel_flag: return
 
@@ -1946,7 +1953,7 @@ class App(ctk.CTk):
             meta = cached
             status, color = "CACHE", C["violet"]
         else:
-            meta = ai.generate_metadata(preview, min_kw, max_kw, style_preset)
+            meta = ai.generate_metadata(preview, min_kw, max_kw, style_preset, extra_prompt)
             set_cached_metadata(file_hash, meta)
             status, color = "API", C["warn"]
             
@@ -2089,15 +2096,21 @@ class App(ctk.CTk):
 
             if self.processor.embed_metadata(asset_path, title, desc, keywords, self._get_copyright_text(), self.author_entry.get().strip()):
                 file_hash = get_file_hash(asset_path)
-                set_cached_metadata(file_hash, {"title": title, "description": desc, "keywords": keywords})
+                meta = {"title": title, "description": desc, "keywords": keywords}
+                set_cached_metadata(file_hash, meta)
                 self.log(f"[OFFLINE SUCCESS] {filename}", "success")
                 success += 1
+                
+                # Sync UI with the imported metadata for the inspector
+                preview_img = extract_preview_image(asset_path, self.processor)
+                if preview_img:
+                    self.update_preview(preview_img, "Imported CSV", C["success"], meta, asset_path, file_hash)
             else:
                 self.log(f"[OFFLINE FAIL] {filename}", "error")
 
             self.after(0, self.progress_bar.set, (i + 1) / total)
 
-        self.log(f"Offline Re-Tag done: {success}/{total} succeeded", "info")
+        self.log(f"Successfully tagged {success}/{total} files from CSV.", "success")
         self.after(0, lambda: self.retag_btn.configure(state="normal"))
         self.after(0, lambda: self.start_btn.configure(state="normal"))
 
@@ -2146,7 +2159,7 @@ class App(ctk.CTk):
         csv_logger = CSVLogger(os.path.join(out_dir, "metadata_output.csv"))
 
         with ThreadPoolExecutor(max_workers=self.config["workers"]) as executor:
-            futures = [executor.submit(self.process_file, f, out_dir, ai, self.config["min_kw"], self.config["max_kw"], self.config["style_preset"], csv_logger) for f in paths]
+            futures = [executor.submit(self.process_file, f, out_dir, ai, self.config["min_kw"], self.config["max_kw"], self.config["style_preset"], self.config.get("extra_prompt", ""), csv_logger) for f in paths]
             for i, f in enumerate(futures):
                 f.result()
                 if not self.cancel_flag:
