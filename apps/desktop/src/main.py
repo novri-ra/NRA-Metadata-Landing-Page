@@ -125,11 +125,11 @@ class App(ctk.CTk):
         self.minsize(1060, 680)
         self.configure(fg_color=C["bg"])
 
-        self.input_dir = ctk.StringVar()
+        self.config = load_config()
+        self.input_dir = ctk.StringVar(value=self.config.get("last_folder", ""))
         self.input_dir.trace_add("write", lambda *_: self.after(100, self._refresh_file_queue))
         self.output_dir = ctk.StringVar()
 
-        self.config = load_config()
         self.processor = MediaProcessor()
         self.stats = {"total": 0, "success": 0, "error": 0}
         self.current_preview_img = None
@@ -327,7 +327,7 @@ class App(ctk.CTk):
         
         preset_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         preset_row.pack(fill="x", **LPAD)
-        self.preset_var = ctk.StringVar(value="Default")
+        self.preset_var = ctk.StringVar(value=self.config.get("active_profile", "Default"))
         self.preset_cb = _combo(preset_row, ["Default", "Adobe Stock Vector", "Shutterstock Photo", "Vecteezy Icon/Clipart"],
                                 command=self._on_preset_change, variable=self.preset_var)
         self.preset_cb.pack(side="left", expand=True, fill="x", padx=(0, 4))
@@ -464,12 +464,12 @@ class App(ctk.CTk):
         # Toggles
         toggle_frame = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         toggle_frame.pack(fill="x", padx=12, pady=(0, 6))
-        self.auto_watch = ctk.BooleanVar(value=False)
+        self.auto_watch = ctk.BooleanVar(value=self.config.get("auto_watch", False))
         ctk.CTkSwitch(toggle_frame, text="Auto-Watch", variable=self.auto_watch,
                        progress_color=C["success"], button_color=C["text3"],
                        button_hover_color=C["text2"],
                        font=ctk.CTkFont(family="Segoe UI", size=11)).pack(anchor="w", pady=1)
-        self.auto_zip = ctk.BooleanVar(value=False)
+        self.auto_zip = ctk.BooleanVar(value=self.config.get("auto_zip_vector", False))
         ctk.CTkSwitch(toggle_frame, text="Auto-Zip Vector", variable=self.auto_zip,
                        progress_color=C["success"], button_color=C["text3"],
                        button_hover_color=C["text2"],
@@ -707,7 +707,7 @@ class App(ctk.CTk):
         plat_row = ctk.CTkFrame(inspector, fg_color=C["surface"])
         plat_row.pack(fill="x", padx=12, pady=2)
         
-        self.target_plat_var = ctk.StringVar(value="Adobe Stock")
+        self.target_plat_var = ctk.StringVar(value=self.config.get("target_platform", "Adobe Stock"))
         self.target_plat_cb = _combo(plat_row, ["Adobe Stock", "Shutterstock", "Freepik", "Vecteezy"],
                                      variable=self.target_plat_var, command=lambda _: self._update_compliance())
         self.target_plat_cb.pack(side="left", expand=True, fill="x", padx=(0, 4))
@@ -738,7 +738,7 @@ class App(ctk.CTk):
         # ── Sync Companion Toggle ──
         sync_row = ctk.CTkFrame(inspector, fg_color=C["surface"])
         sync_row.pack(fill="x", padx=12, pady=(0, 4))
-        self.sync_companions = ctk.BooleanVar(value=True)
+        self.sync_companions = ctk.BooleanVar(value=self.config.get("sync_companion_files", True))
         ctk.CTkSwitch(sync_row, text="Sync Companion Files", variable=self.sync_companions,
                        progress_color=C["accent"], button_color=C["text3"],
                        button_hover_color=C["text2"],
@@ -1434,25 +1434,42 @@ class App(ctk.CTk):
         except Exception:
             pass
 
-    def _save_state(self):
+    def _save_current_config(self):
+        """Collect all widget values and persist to config.json."""
         try:
-            self.config["window_geometry"] = self.geometry()
-        except Exception:
-            pass
-        try:
+            self.config.update({
+                "provider": self.provider_cb.get(),
+                "model": self.model_cb.get(),
+                "temperature": round(float(self.temp_slider.get()), 1),
+                "style_preset": self.style_cb.get(),
+                "api_key": self.api_key_entry.get(),
+                "min_kw": self._safe_int(self.min_kw_entry.get(), 10),
+                "max_kw": self._safe_int(self.max_kw_entry.get(), 49),
+                "custom_kw": self.custom_kw_entry.get(),
+                "custom_kw_pos": self.custom_kw_pos.get(),
+                "workers": int(self.workers_slider.get()),
+                "formats": {ext: var.get() for ext, var in self.fmt_vars.items()},
+                "author": self.author_entry.get().strip(),
+                "copyright": self.copyright_entry.get().strip(),
+                "csv_platforms": list(self._get_selected_csv_platforms()),
+                "auto_watch": self.auto_watch.get(),
+                "auto_zip_vector": self.auto_zip.get(),
+                "target_platform": self.target_plat_var.get(),
+                "sync_companion_files": self.sync_companions.get(),
+                "last_folder": self.input_dir.get(),
+                "active_profile": self.preset_var.get(),
+            })
             if self.outer_paned.winfo_ismapped():
                 self.config["sidebar_width"] = self.outer_paned.sash_coord(0)[0]
-        except Exception:
-            pass
-        try:
             if self.content_paned.winfo_ismapped():
                 self.config["log_width"] = self.content_paned.sash_coord(0)[0]
+            self.config["window_geometry"] = self.geometry()
         except Exception:
             pass
         save_config(self.config)
 
     def _on_close(self):
-        self._save_state()
+        self._save_current_config()
         self.destroy()
 
     def _on_provider_change(self, choice):
@@ -2087,23 +2104,7 @@ class App(ctk.CTk):
     def start_processing(self, new_only=False):
         if self.is_running: return
 
-        self.config.update({
-            "provider": self.provider_cb.get(),
-            "model": self.model_cb.get(),
-            "temperature": round(float(self.temp_slider.get()), 1),
-            "style_preset": self.style_cb.get(),
-            "api_key": self.api_key_entry.get(),
-            "min_kw": self._safe_int(self.min_kw_entry.get(), 10),
-            "max_kw": self._safe_int(self.max_kw_entry.get(), 49),
-            "custom_kw": self.custom_kw_entry.get(),
-            "custom_kw_pos": self.custom_kw_pos.get(),
-            "workers": int(self.workers_slider.get()),
-            "formats": {ext: var.get() for ext, var in self.fmt_vars.items()},
-            "author": self.author_entry.get().strip(),
-            "copyright": self.copyright_entry.get().strip(),
-            "csv_platforms": list(self._get_selected_csv_platforms())
-        })
-        save_config(self.config)
+        self._save_current_config()
 
         in_dir = self.input_dir.get()
         out_dir = in_dir
