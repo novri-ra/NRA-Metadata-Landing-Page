@@ -1,5 +1,7 @@
 # Sensitive & Config
 config.json
+config.enc
+.auth_session
 *.env
 .env.*
 
@@ -12,6 +14,7 @@ cache.db
 metadata_output.csv
 *_export.csv
 failed_files.log
+*.log
 
 # Binaries & Builds
 tools/
@@ -27,7 +30,18 @@ __pycache__/
 .venv/
 env/
 venv/
+.pytest_cache/
+htmlcov/
 
 # OS files
 Thumbs.db
 .DS_Store
+*.swp
+*~
+
+# Temporary test files
+_test_*.py
+_patch_*.py
+_inject_*.py
+test.jpg
+test_media/
