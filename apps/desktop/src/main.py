@@ -559,8 +559,13 @@ class App(ctk.CTk):
         self.console.configure(state="disabled")
 
         # ── Inspector Panel ──
-        inspector = _frame(self.content_paned, border_width=1, border_color=C["border_sub"])
-        self.content_paned.add(inspector, minsize=280)
+        inspector_container = _frame(self.content_paned, border_width=1, border_color=C["border_sub"])
+        self.content_paned.add(inspector_container, minsize=280)
+
+        inspector = ctk.CTkScrollableFrame(inspector_container, fg_color=C["surface"],
+                                         scrollbar_button_color=C["surface2"],
+                                         scrollbar_button_hover_color=C["border"])
+        inspector.pack(fill="both", expand=True)
 
         _label(inspector, "Inspector",
                font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
