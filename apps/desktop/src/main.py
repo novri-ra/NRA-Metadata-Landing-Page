@@ -106,7 +106,7 @@ def _slider(parent, **kw):
 
 def _section_header(parent, text):
     """Render a muted uppercase section header with a thin line after it."""
-    f = ctk.CTkFrame(parent, fg_color="transparent")
+    f = ctk.CTkFrame(parent, fg_color=C["surface"])
     ctk.CTkLabel(f, text=text.upper(), font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
                  text_color=C["text3"]).pack(side="left")
     ctk.CTkFrame(f, height=1, fg_color=C["border_sub"]).pack(side="left", fill="x", expand=True, padx=(8, 0), pady=1)
@@ -185,7 +185,7 @@ class App(ctk.CTk):
         self._queue_vars.clear()
         
         for i, f in enumerate(files):
-            row = ctk.CTkFrame(self.queue_scroll, fg_color=C["surface2"] if i%2==0 else "transparent", corner_radius=0)
+            row = ctk.CTkFrame(self.queue_scroll, fg_color=C["surface2"] if i%2==0 else C["surface"], corner_radius=0)
             row.pack(fill="x")
             
             is_processed = f in self.processed_files
@@ -316,6 +316,7 @@ class App(ctk.CTk):
                                          scrollbar_button_hover_color=C["border"])
         sidebar.pack(fill="both", expand=True)
         sidebar.grid_columnconfigure(0, weight=1)
+        sidebar._parent_canvas.configure(bg=C["surface"], highlightthickness=0)
         self.outer_paned.add(sidebar_container, minsize=220, width=self.config.get("sidebar_width", 260))
 
         PAD = {"padx": 12, "pady": (0, 4)}
@@ -324,7 +325,7 @@ class App(ctk.CTk):
         # ── Section: Presets ──
         _section_header(sidebar, "Profiles").pack(fill="x", **{**PAD, "pady": (12, 6)})
         
-        preset_row = ctk.CTkFrame(sidebar, fg_color="transparent")
+        preset_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         preset_row.pack(fill="x", **LPAD)
         self.preset_var = ctk.StringVar(value="Default")
         self.preset_cb = _combo(preset_row, ["Default", "Adobe Stock Vector", "Shutterstock Photo", "Vecteezy Icon/Clipart"],
@@ -363,7 +364,7 @@ class App(ctk.CTk):
         self.api_key_entry.pack(fill="x", **PAD)
 
         # Temperature
-        temp_row = ctk.CTkFrame(sidebar, fg_color="transparent")
+        temp_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         temp_row.pack(fill="x", **LPAD)
         _label(temp_row, "Temperature").pack(side="left")
         self.temp_val = ctk.StringVar(value=f"{self.config.get('temperature', 0.3):.1f}")
@@ -390,19 +391,19 @@ class App(ctk.CTk):
         self.style_cb.set(self.config.get("style_preset", "General Commercial"))
         self.style_cb.pack(fill="x", **PAD)
 
-        kw_row = ctk.CTkFrame(sidebar, fg_color="transparent")
+        kw_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         kw_row.pack(fill="x", padx=12, pady=(0, 4))
         kw_row.grid_columnconfigure(0, weight=1)
         kw_row.grid_columnconfigure(1, weight=1)
 
-        lf = ctk.CTkFrame(kw_row, fg_color="transparent")
+        lf = ctk.CTkFrame(kw_row, fg_color=C["surface"])
         lf.grid(row=0, column=0, sticky="ew", padx=(0, 4))
         _label(lf, "Min KW").pack(anchor="w")
         self.min_kw_entry = _entry(lf, width=60)
         self.min_kw_entry.insert(0, str(self.config.get("min_kw", 10)))
         self.min_kw_entry.pack(fill="x")
 
-        rf = ctk.CTkFrame(kw_row, fg_color="transparent")
+        rf = ctk.CTkFrame(kw_row, fg_color=C["surface"])
         rf.grid(row=0, column=1, sticky="ew", padx=(4, 0))
         _label(rf, "Max KW").pack(anchor="w")
         self.max_kw_entry = _entry(rf, width=60)
@@ -414,7 +415,7 @@ class App(ctk.CTk):
         self.custom_kw_entry.insert(0, self.config.get("custom_kw", ""))
         self.custom_kw_entry.pack(fill="x", **PAD)
         
-        inj_row = ctk.CTkFrame(sidebar, fg_color="transparent")
+        inj_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         inj_row.pack(fill="x", **LPAD)
         _label(inj_row, "Inject at:").pack(side="left", padx=(0, 4))
         self.custom_kw_pos = _combo(inj_row, ["Start (Priority)", "End"])
@@ -425,7 +426,7 @@ class App(ctk.CTk):
         _section_header(sidebar, "Processing").pack(fill="x", **{**PAD, "pady": (10, 6)})
 
         # Workers
-        workers_row = ctk.CTkFrame(sidebar, fg_color="transparent")
+        workers_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         workers_row.pack(fill="x", **LPAD)
         _label(workers_row, "Workers").pack(side="left")
         self.workers_val = ctk.StringVar(value=str(self.config.get("workers", 2)))
@@ -448,7 +449,7 @@ class App(ctk.CTk):
             ("JPG", ".jpg", True), ("PNG", ".png", True),
             ("MP4", ".mp4", False), ("MOV", ".mov", False),
         ]
-        fmt_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
+        fmt_frame = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         fmt_frame.pack(fill="x", padx=12, pady=(0, 6))
         for i, (label, ext, default) in enumerate(fmt_defs):
             var = ctk.BooleanVar(value=fmt_saved.get(ext, default))
@@ -461,7 +462,7 @@ class App(ctk.CTk):
                             ).grid(row=i // 4, column=i % 4, sticky="w", padx=1, pady=1)
 
         # Toggles
-        toggle_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
+        toggle_frame = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         toggle_frame.pack(fill="x", padx=12, pady=(0, 6))
         self.auto_watch = ctk.BooleanVar(value=False)
         ctk.CTkSwitch(toggle_frame, text="Auto-Watch", variable=self.auto_watch,
@@ -488,7 +489,7 @@ class App(ctk.CTk):
         self.copyright_entry.pack(fill="x", **PAD)
 
         _label(sidebar, "Generate CSVs").pack(fill="x", anchor="w", **LPAD)
-        csv_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
+        csv_frame = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         csv_frame.pack(fill="x", padx=12, pady=(0, 6))
         
         self.csv_vars = {}
@@ -508,7 +509,7 @@ class App(ctk.CTk):
                               command=self.start_processing)
         self.start_btn.pack(fill="x", padx=12, pady=(0, 4))
 
-        ctrl_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
+        ctrl_frame = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         ctrl_frame.pack(fill="x", padx=12, pady=(0, 4))
 
         self.pause_btn = _btn(ctrl_frame, "Pause", C["warn"], C["warn_h"],
@@ -558,7 +559,7 @@ class App(ctk.CTk):
         queue_outer.grid(row=1, column=0, sticky="ew", padx=12, pady=(6, 0))
         queue_outer.grid_columnconfigure(0, weight=1)
 
-        queue_header = ctk.CTkFrame(queue_outer, fg_color="transparent")
+        queue_header = ctk.CTkFrame(queue_outer, fg_color=C["surface"])
         queue_header.pack(fill="x", padx=8, pady=(6, 2))
         _label(queue_header, "FILE QUEUE", font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
                text_color=C["text3"]).pack(side="left")
@@ -582,10 +583,11 @@ class App(ctk.CTk):
                                                     scrollbar_button_color=C["surface2"],
                                                     scrollbar_button_hover_color=C["border"])
         self.queue_scroll.pack(fill="x", padx=4, pady=(0, 4))
+        self.queue_scroll._parent_canvas.configure(bg=C["surface"], highlightthickness=0)
         self._queue_vars = {}
 
         # ── Stats & Progress Row ──
-        stats_row = ctk.CTkFrame(main, fg_color="transparent")
+        stats_row = ctk.CTkFrame(main, fg_color=C["bg"])
         stats_row.grid(row=2, column=0, sticky="ew", padx=12, pady=(8, 0))
         stats_row.grid_columnconfigure(0, weight=1)
         stats_row.grid_columnconfigure(1, weight=1)
@@ -606,7 +608,7 @@ class App(ctk.CTk):
         self.progress_bar.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
 
         # ── Content: Log (left) + Inspector (right) via PanedWindow ──
-        content_wrap = ctk.CTkFrame(main, fg_color="transparent")
+        content_wrap = ctk.CTkFrame(main, fg_color=C["bg"])
         content_wrap.grid(row=3, column=0, sticky="nsew", padx=12, pady=(8, 12))
         content_wrap.grid_columnconfigure(0, weight=1)
         content_wrap.grid_rowconfigure(0, weight=1)
@@ -624,7 +626,7 @@ class App(ctk.CTk):
         log_frame.grid_columnconfigure(0, weight=1)
 
         # Log Control Bar
-        log_ctrl = ctk.CTkFrame(log_frame, fg_color="transparent")
+        log_ctrl = ctk.CTkFrame(log_frame, fg_color=C["surface"])
         log_ctrl.grid(row=0, column=0, sticky="ew", padx=12, pady=(8, 4))
         
         _label(log_ctrl, "Processing Log", font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
@@ -665,6 +667,7 @@ class App(ctk.CTk):
                                          scrollbar_button_color=C["surface2"],
                                          scrollbar_button_hover_color=C["border"])
         inspector.pack(fill="both", expand=True)
+        inspector._parent_canvas.configure(bg=C["surface"], highlightthickness=0)
 
         _label(inspector, "Inspector",
                font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
@@ -701,7 +704,7 @@ class App(ctk.CTk):
         self.edit_kws_var = ctk.StringVar()
 
         _label(inspector, "Target Platform (Compliance)").pack(fill="x", padx=12, pady=(8, 0))
-        plat_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        plat_row = ctk.CTkFrame(inspector, fg_color=C["surface"])
         plat_row.pack(fill="x", padx=12, pady=2)
         
         self.target_plat_var = ctk.StringVar(value="Adobe Stock")
@@ -733,7 +736,7 @@ class App(ctk.CTk):
         self.quality_issues_lbl.pack(fill="x", padx=12, pady=(0, 4), anchor="w")
 
         # ── Sync Companion Toggle ──
-        sync_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        sync_row = ctk.CTkFrame(inspector, fg_color=C["surface"])
         sync_row.pack(fill="x", padx=12, pady=(0, 4))
         self.sync_companions = ctk.BooleanVar(value=True)
         ctk.CTkSwitch(sync_row, text="Sync Companion Files", variable=self.sync_companions,
@@ -747,7 +750,7 @@ class App(ctk.CTk):
         self._title_entry.bind("<FocusIn>", lambda e: self._save_snapshot())
 
         # Title Case Formatter buttons
-        title_fmt_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        title_fmt_row = ctk.CTkFrame(inspector, fg_color=C["surface"])
         title_fmt_row.pack(fill="x", padx=12, pady=(0, 2))
         _sm_font = ctk.CTkFont(family="Segoe UI", size=9)
         _btn(title_fmt_row, "Title Case", C["surface2"], C["border"],
@@ -774,8 +777,9 @@ class App(ctk.CTk):
         # ── Keyword Chips Area ──
         self.kw_chips_frame = ctk.CTkScrollableFrame(inspector, fg_color=C["surface2"], corner_radius=CR, height=120)
         self.kw_chips_frame.pack(fill="x", padx=12, pady=2)
+        self.kw_chips_frame._parent_canvas.configure(bg=C["surface2"], highlightthickness=0)
 
-        self.kw_add_frame = ctk.CTkFrame(inspector, fg_color="transparent")
+        self.kw_add_frame = ctk.CTkFrame(inspector, fg_color=C["surface"])
         self.kw_add_frame.pack(fill="x", padx=12, pady=(0, 4))
         self.kw_add_entry = _entry(self.kw_add_frame, placeholder_text="Add keyword... (Press Enter)")
         self.kw_add_entry.pack(side="left", fill="x", expand=True)
@@ -786,7 +790,7 @@ class App(ctk.CTk):
         self._kw_chip_widgets = []
 
         # Redundancy detector UI
-        self.redundancy_frame = ctk.CTkFrame(inspector, fg_color="transparent")
+        self.redundancy_frame = ctk.CTkFrame(inspector, fg_color=C["surface"])
         self.redundancy_frame.pack(fill="x", padx=12, pady=(0, 2))
         self.redundancy_lbl = ctk.CTkLabel(self.redundancy_frame, text="", text_color=C["warn"],
                                            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"))
@@ -798,7 +802,7 @@ class App(ctk.CTk):
         self.redundancy_btn.pack_forget()
 
         # Keyword cleanup buttons
-        kw_fmt_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        kw_fmt_row = ctk.CTkFrame(inspector, fg_color=C["surface"])
         kw_fmt_row.pack(fill="x", padx=12, pady=(0, 2))
         _btn(kw_fmt_row, "lowercase all", C["surface2"], C["border"],
              height=22, width=84, font=ctk.CTkFont(family="Segoe UI", size=9),
@@ -808,7 +812,7 @@ class App(ctk.CTk):
              command=self._trim_all_keywords).pack(side="left")
 
         # ── Keyword Presets ──
-        preset_kw_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        preset_kw_row = ctk.CTkFrame(inspector, fg_color=C["surface"])
         preset_kw_row.pack(fill="x", padx=12, pady=(4, 2))
         _label(preset_kw_row, "Keyword Presets", font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
                text_color=C["text3"]).pack(side="left")
@@ -822,7 +826,7 @@ class App(ctk.CTk):
         self.edit_desc_var.trace_add("write", lambda *_: self._update_quality_score())
 
         # Undo / Redo toolbar
-        undo_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        undo_row = ctk.CTkFrame(inspector, fg_color=C["surface"])
         undo_row.pack(fill="x", padx=12, pady=(2, 0))
         _btn(undo_row, "↶ Undo", C["surface2"], C["border"],
              height=24, width=70, font=ctk.CTkFont(family="Segoe UI", size=10),
@@ -833,7 +837,7 @@ class App(ctk.CTk):
         _label(undo_row, "Ctrl+Z / Ctrl+Y",
                font=ctk.CTkFont(family="Segoe UI", size=9), text_color=C["text3"]).pack(side="right")
 
-        btn_row = ctk.CTkFrame(inspector, fg_color="transparent")
+        btn_row = ctk.CTkFrame(inspector, fg_color=C["surface"])
         btn_row.pack(fill="x", padx=12, pady=(4, 4))
         _btn(btn_row, "Dedup", C["surface2"], C["border"],
              height=28, width=80, command=self._dedup_keywords,
@@ -845,7 +849,7 @@ class App(ctk.CTk):
              height=28, command=self.save_manual,
              font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold")).pack(side="right", expand=True, fill="x")
 
-        btn_row2 = ctk.CTkFrame(inspector, fg_color="transparent")
+        btn_row2 = ctk.CTkFrame(inspector, fg_color=C["surface"])
         btn_row2.pack(fill="x", padx=12, pady=(0, 12))
         _btn(btn_row2, "Apply to Batch...", C["violet"], C["violet_h"],
              height=28, command=self._open_batch_apply,
@@ -885,6 +889,7 @@ class App(ctk.CTk):
 
         list_frame = ctk.CTkScrollableFrame(dialog, fg_color=C["surface"], corner_radius=CR)
         list_frame.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+        list_frame._parent_canvas.configure(bg=C["surface"], highlightthickness=0)
 
         def refresh():
             for w in list_frame.winfo_children():
@@ -1076,6 +1081,7 @@ class App(ctk.CTk):
         
         list_frame = ctk.CTkScrollableFrame(dialog, fg_color=C["surface"], corner_radius=CR)
         list_frame.pack(fill="both", expand=True, padx=12, pady=10)
+        list_frame._parent_canvas.configure(bg=C["surface"], highlightthickness=0)
 
         def refresh_list():
             for w in list_frame.winfo_children():
