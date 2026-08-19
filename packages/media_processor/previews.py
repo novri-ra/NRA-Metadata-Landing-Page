@@ -15,6 +15,7 @@ def get_msedge_path():
 from packages.media_processor.embedder import log_failed_file
 
 def extract_preview_image(file_path: str, processor) -> str | None:
+    file_path = os.path.abspath(file_path)
     ext = file_path.lower().split('.')[-1]
     temp_dir = tempfile.gettempdir()
     out_path = os.path.join(temp_dir, f"preview_{os.path.basename(file_path)}.jpg")

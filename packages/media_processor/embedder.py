@@ -29,6 +29,7 @@ class MediaProcessor:
         return tool_name
 
     def embed_metadata(self, file_path: str, title: str, description: str, keywords: list[str], copyright_text: str, author: str = "") -> bool:
+        file_path = os.path.abspath(file_path)
         ext = file_path.lower().split('.')[-1]
         if ext == 'svg':
             return self._embed_svg_metadata(file_path, title, description, keywords, copyright_text, author)

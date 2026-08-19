@@ -10,6 +10,7 @@ import customtkinter as ctk
 
 from packages.media_processor.embedder import MediaProcessor
 from packages.media_processor.previews import extract_preview_image
+from packages.shared_utils.license_manager import AuthClient
 from packages.ai_engine.service import AIService
 from packages.shared_utils.config import load_config, save_config
 from packages.shared_utils.logger import CSVLogger
@@ -126,6 +127,7 @@ class App(ctk.CTk):
         self.configure(fg_color=C["bg"])
 
         self.config = load_config()
+        self.auth = AuthClient()
         self.input_dir = ctk.StringVar(value=self.config.get("last_folder", ""))
         self.input_dir.trace_add("write", lambda *_: self.after(100, self._refresh_file_queue))
         self.output_dir = ctk.StringVar()
@@ -2116,6 +2118,15 @@ class App(ctk.CTk):
 
     def start_processing(self, new_only=False):
         if self.is_running: return
+        
+        # Security: Background Auth Check
+        auth_status = self.auth.verify_session()
+        if auth_status.get("status") == "INVALID_SESSION":
+            self.log("Sesi berakhir: Akun digunakan di perangkat lain.", "error")
+            import tkinter.messagebox
+            tkinter.messagebox.showerror("Akses Ditolak", "Sesi berakhir: Akun aktif di perangkat lain atau tidak valid.")
+            self.show_login_modal()
+            return
 
         self._save_current_config()
 
