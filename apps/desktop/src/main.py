@@ -2208,7 +2208,7 @@ class App(ctk.CTk):
         ]
 
         for i, (label, value, color) in enumerate(rows):
-            r = ctk.CTkFrame(stats_frame, fg_color="transparent")
+            r = ctk.CTkFrame(stats_frame, fg_color=C["surface"])
             r.pack(fill="x", padx=12, pady=3)
             ctk.CTkLabel(r, text=label, font=ctk.CTkFont(family="Segoe UI", size=12),
                          text_color=C["text2"]).pack(side="left")
