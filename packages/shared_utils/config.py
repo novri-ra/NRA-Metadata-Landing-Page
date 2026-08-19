@@ -6,8 +6,12 @@ CONFIG_FILE = os.path.join(os.getcwd(), "config.json")
 
 def load_config() -> dict:
     if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, 'r') as f:
-            return json.load(f)
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
     return {}
 
 def save_config(config: dict):
