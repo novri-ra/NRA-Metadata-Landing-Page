@@ -179,6 +179,12 @@ class App(ctk.CTk):
         self.after(100, self._check_initial_auth)
         
     def _check_initial_auth(self):
+        # Run diagnostic checks silently, print to internal logs
+        env_results = run_environment_checks()
+        for name, ok, msg in env_results:
+            if not ok:
+                self.log(f"Diag Warning: {name} - {msg}", "error")
+                
         is_valid, msg = self.auth.validate_session()
         if not is_valid:
             self.show_login_modal()
