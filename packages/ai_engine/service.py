@@ -6,6 +6,7 @@ from google import genai
 from openai import OpenAI
 from pydantic import BaseModel, Field
 from packages.shared_utils.tracker import tracker
+from packages.shared_utils.config import load_config
 
 class MetadataModel(BaseModel):
     title: str = Field(description="A concise title")
@@ -27,6 +28,10 @@ class AIService:
         elif self.provider == "Groq":
             import groq
             self.groq_client = groq.Groq(api_key=self.api_key)
+        elif self.provider == "9router":
+            config = load_config()
+            base_url = config.get("9router_base_url", "https://api.9router.com/v1")
+            self.openai_client = OpenAI(api_key=self.api_key, base_url=base_url)
 
     def _encode_image(self, image_path: str) -> str:
         with open(image_path, "rb") as image_file:
@@ -70,7 +75,7 @@ class AIService:
                     if is_text_fallback:
                         with open(image_path, 'r', encoding='utf-8') as f:
                             svg_content = f.read()[:20000] # Cap 20KB
-                        contents = [prompt, f"SVG Content:\n{svg_content}"]
+                        contents = [prompt, f"SVG Content:\\n{svg_content}"]
                     else:
                         import PIL.Image
                         img = PIL.Image.open(image_path)
@@ -87,11 +92,11 @@ class AIService:
                     )
                     return json.loads(response.text)
 
-                elif self.provider == "OpenAI":
+                elif self.provider in ["OpenAI", "9router"]:
                     if is_text_fallback:
                         with open(image_path, 'r', encoding='utf-8') as f:
                             svg_content = f.read()[:20000]
-                        msgs = [{"role": "user", "content": f"{prompt}\n\nSVG Content:\n{svg_content}"}]
+                        msgs = [{"role": "user", "content": f"{prompt}\\n\\nSVG Content:\\n{svg_content}"}]
                     else:
                         base64_image = self._encode_image(image_path)
                         msgs = [{"role": "user", "content": [
@@ -99,8 +104,9 @@ class AIService:
                             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                         ]}]
                         
+                    default_model = "gpt-4o-mini" if self.provider == "OpenAI" else "9router/auto"
                     response = self.openai_client.chat.completions.create(
-                        model=self.model or "gpt-4o-mini",
+                        model=self.model or default_model,
                         messages=msgs,
                         temperature=self.temperature,
                         response_format={ "type": "json_object" }
@@ -111,7 +117,7 @@ class AIService:
                     if is_text_fallback:
                         with open(image_path, 'r', encoding='utf-8') as f:
                             svg_content = f.read()[:20000]
-                        content = f"{prompt}\n\nSVG Content:\n{svg_content}"
+                        content = f"{prompt}\\n\\nSVG Content:\\n{svg_content}"
                     else:
                         base64_image = self._encode_image(image_path)
                         content = [
@@ -133,7 +139,7 @@ class AIService:
                     if is_text_fallback:
                         with open(image_path, 'r', encoding='utf-8') as f:
                             svg_content = f.read()[:20000]
-                        msgs = [{"role": "user", "content": f"{prompt}\n\nSVG Content:\n{svg_content}"}]
+                        msgs = [{"role": "user", "content": f"{prompt}\\n\\nSVG Content:\\n{svg_content}"}]
                     else:
                         base64_image = self._encode_image(image_path)
                         msgs = [{"role": "user", "content": [
@@ -154,6 +160,10 @@ class AIService:
                 # Check for rate limit or server error indicators
                 is_retryable = "429" in err_str or "500" in err_str or "502" in err_str or "503" in err_str or "504" in err_str or "timeout" in err_str.lower() or "connection" in err_str.lower()
                 
+                if "401" in err_str or "invalid_api_key" in err_str.lower() or "authentication" in err_str.lower():
+                    print(f"AI Service Error ({self.provider}): Authentication Failed. Check API Key.")
+                    return self._fallback_metadata()
+
                 if is_retryable and attempt < max_retries:
                     wait_time = backoff_times[attempt]
                     print(f"AI Service retry {attempt+1}/{max_retries} for {self.provider} after {wait_time}s due to: {err_str}")

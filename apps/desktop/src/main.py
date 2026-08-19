@@ -158,6 +158,17 @@ class App(ctk.CTk):
             "OpenAI": ["gpt-4o-mini", "gpt-4o"],
             "Mistral": ["mistral-small-latest", "mistral-large-latest"],
             "Groq": ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"],
+            "9router": [
+                "9router/auto", 
+                "claude-3-5-sonnet", 
+                "gpt-4o", 
+                "gpt-4o-mini", 
+                "gemini-1.5-pro", 
+                "gemini-1.5-flash", 
+                "mistral-large", 
+                "deepseek-coder", 
+                "custom-model"
+            ],
         }
 
         self._restore_geometry()
@@ -437,7 +448,7 @@ class App(ctk.CTk):
         _section_header(sidebar, "AI Engine").pack(fill="x", **{**PAD, "pady": (12, 6)})
 
         _label(sidebar, "Provider").pack(fill="x", anchor="w", **LPAD)
-        self.provider_cb = _combo(sidebar, ["Gemini", "OpenAI", "Mistral", "Groq"],
+        self.provider_cb = _combo(sidebar, ["Gemini", "OpenAI", "Mistral", "Groq", "9router"],
                                   command=self._on_provider_change)
         self.provider_cb.set(self.config.get("provider", "Gemini"))
         self.provider_cb.pack(fill="x", **PAD)
@@ -1578,6 +1589,13 @@ class App(ctk.CTk):
         self.model_cb.configure(values=models)
         if models:
             self.model_cb.set(models[0])
+            
+        if choice == "9router":
+            self.base_url_lbl.pack(anchor="w", padx=12, pady=(8, 0))
+            self.base_url_entry.pack(fill="x", **PAD)
+        else:
+            self.base_url_lbl.pack_forget()
+            self.base_url_entry.pack_forget()
 
     def _get_selected_csv_platforms(self) -> set:
         return {plat for plat, var in self.csv_vars.items() if var.get()}
