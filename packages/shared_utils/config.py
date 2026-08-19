@@ -1,19 +1,74 @@
 import os
+import sys
 import json
+import ctypes
+import ctypes.wintypes
 from pathlib import Path
 
 CONFIG_FILE = os.path.join(os.getcwd(), "config.json")
+CONFIG_FILE_ENC = os.path.join(os.getcwd(), "config.enc")
+
+class DATA_BLOB(ctypes.Structure):
+    _fields_ = [('cbData', ctypes.wintypes.DWORD), ('pbData', ctypes.POINTER(ctypes.c_char))]
+
+def _dpapi_encrypt(data: bytes) -> bytes:
+    if sys.platform != 'win32': return data
+    try:
+        crypt32 = ctypes.windll.crypt32
+        blob_in = DATA_BLOB(len(data), ctypes.cast(data, ctypes.POINTER(ctypes.c_char)))
+        blob_out = DATA_BLOB()
+        if crypt32.CryptProtectData(ctypes.byref(blob_in), None, None, None, None, 0, ctypes.byref(blob_out)):
+            res = ctypes.string_at(blob_out.pbData, blob_out.cbData)
+            ctypes.windll.kernel32.LocalFree(blob_out.pbData)
+            return res
+    except Exception:
+        pass
+    return data
+
+def _dpapi_decrypt(data: bytes) -> bytes:
+    if sys.platform != 'win32': return data
+    try:
+        crypt32 = ctypes.windll.crypt32
+        blob_in = DATA_BLOB(len(data), ctypes.cast(data, ctypes.POINTER(ctypes.c_char)))
+        blob_out = DATA_BLOB()
+        if crypt32.CryptUnprotectData(ctypes.byref(blob_in), None, None, None, None, 0, ctypes.byref(blob_out)):
+            res = ctypes.string_at(blob_out.pbData, blob_out.cbData)
+            ctypes.windll.kernel32.LocalFree(blob_out.pbData)
+            return res
+    except Exception:
+        pass
+    return data
 
 def load_config() -> dict:
+    # Migrate old plain config.json if exists
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, 'r') as f:
+            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                return data if isinstance(data, dict) else {}
+            # Remove plain config and save as encrypted
+            save_config(data)
+            try: os.remove(CONFIG_FILE)
+            except: pass
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            pass
+
+    if os.path.exists(CONFIG_FILE_ENC):
+        try:
+            with open(CONFIG_FILE_ENC, 'rb') as f:
+                enc_data = f.read()
+            dec_data = _dpapi_decrypt(enc_data)
+            data = json.loads(dec_data.decode('utf-8'))
+            return data if isinstance(data, dict) else {}
         except Exception:
             return {}
     return {}
 
 def save_config(config: dict):
-    with open(CONFIG_FILE, 'w') as f:
-        json.dump(config, f)
+    try:
+        json_data = json.dumps(config).encode('utf-8')
+        enc_data = _dpapi_encrypt(json_data)
+        with open(CONFIG_FILE_ENC, 'wb') as f:
+            f.write(enc_data)
+    except Exception as e:
+        print(f"Error saving encrypted config: {e}")

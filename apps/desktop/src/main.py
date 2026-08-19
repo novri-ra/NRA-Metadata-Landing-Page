@@ -10,6 +10,7 @@ import customtkinter as ctk
 
 from packages.media_processor.embedder import MediaProcessor
 from packages.media_processor.previews import extract_preview_image
+from packages.shared_utils.license_manager import AuthClient
 from packages.ai_engine.service import AIService
 from packages.shared_utils.config import load_config, save_config
 from packages.shared_utils.logger import CSVLogger
@@ -126,6 +127,7 @@ class App(ctk.CTk):
         self.configure(fg_color=C["bg"])
 
         self.config = load_config()
+        self.auth = AuthClient()
         self.input_dir = ctk.StringVar(value=self.config.get("last_folder", ""))
         self.input_dir.trace_add("write", lambda *_: self.after(100, self._refresh_file_queue))
         self.output_dir = ctk.StringVar()
@@ -161,6 +163,98 @@ class App(ctk.CTk):
         self._restore_geometry()
         self.build_ui()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+        
+        # Initial Auth Check
+        self.after(100, self._check_initial_auth)
+        
+    def _check_initial_auth(self):
+        is_valid, msg = self.auth.validate_session()
+        if not is_valid:
+            self.show_login_modal()
+            
+    def show_login_modal(self):
+        self.withdraw()
+        
+        modal = ctk.CTkToplevel(self)
+        modal.title("NRA Metadata - Login")
+        modal.geometry("400x520")
+        modal.resizable(False, False)
+        modal.configure(fg_color=C["bg"])
+        modal.protocol("WM_DELETE_WINDOW", lambda: sys.exit(0))
+        modal.attributes("-topmost", True)
+        
+        title_lbl = ctk.CTkLabel(modal, text="NRA METADATA", font=ctk.CTkFont(family="Inter", size=24, weight="bold"), text_color=C["text"])
+        title_lbl.pack(pady=(30, 20))
+        
+        tabview = ctk.CTkTabview(modal, width=320, height=350, fg_color=C["surface"], segmented_button_fg_color=C["surface"], segmented_button_selected_color=C["primary"], segmented_button_selected_hover_color=C["primary_hover"])
+        tabview.pack(padx=40, pady=10, fill="both", expand=True)
+        
+        tab_login = tabview.add("Login")
+        tab_register = tabview.add("Buat Akun Baru")
+        
+        # Login Tab
+        user_var_login = ctk.StringVar(value=self.auth.username)
+        pass_var_login = ctk.StringVar()
+        
+        ctk.CTkLabel(tab_login, text="Username", text_color=C["text"]).pack(anchor="w", padx=20, pady=(10, 2))
+        ctk.CTkEntry(tab_login, textvariable=user_var_login, width=280).pack(padx=20, pady=(0, 10))
+        
+        ctk.CTkLabel(tab_login, text="Password", text_color=C["text"]).pack(anchor="w", padx=20, pady=(5, 2))
+        ctk.CTkEntry(tab_login, textvariable=pass_var_login, show="*", width=280).pack(padx=20, pady=(0, 20))
+        
+        status_lbl_login = ctk.CTkLabel(tab_login, text="", text_color=C["error"])
+        status_lbl_login.pack(pady=(0, 10))
+        
+        def on_login():
+            status_lbl_login.configure(text="Logging in...", text_color=C["muted"])
+            modal.update()
+            u = user_var_login.get().strip()
+            p = pass_var_login.get().strip()
+            if not u or not p:
+                status_lbl_login.configure(text="Isi username dan password", text_color=C["error"])
+                return
+            res = self.auth.login(u, p)
+            if res.get("status") == "SUCCESS":
+                modal.destroy()
+                self.deiconify()
+                self.log(f"Login sukses sebagai {u}", "success")
+            else:
+                status_lbl_login.configure(text=res.get("message", "Error login"), text_color=C["error"])
+                
+        ctk.CTkButton(tab_login, text="Masuk", fg_color=C["primary"], hover_color=C["primary_hover"], command=on_login, width=280).pack(pady=(0, 10))
+
+        # Register Tab
+        user_var_reg = ctk.StringVar()
+        pass_var_reg = ctk.StringVar()
+        
+        ctk.CTkLabel(tab_register, text="Username", text_color=C["text"]).pack(anchor="w", padx=20, pady=(10, 2))
+        ctk.CTkEntry(tab_register, textvariable=user_var_reg, width=280).pack(padx=20, pady=(0, 10))
+        
+        ctk.CTkLabel(tab_register, text="Password", text_color=C["text"]).pack(anchor="w", padx=20, pady=(5, 2))
+        ctk.CTkEntry(tab_register, textvariable=pass_var_reg, show="*", width=280).pack(padx=20, pady=(0, 20))
+        
+        status_lbl_reg = ctk.CTkLabel(tab_register, text="", text_color=C["error"])
+        status_lbl_reg.pack(pady=(0, 10))
+        
+        def on_register():
+            status_lbl_reg.configure(text="Mendaftarkan akun...", text_color=C["muted"])
+            modal.update()
+            u = user_var_reg.get().strip()
+            p = pass_var_reg.get().strip()
+            if not u or not p:
+                status_lbl_reg.configure(text="Isi username dan password", text_color=C["error"])
+                return
+            res = self.auth.register(u, p)
+            if res.get("status") == "SUCCESS":
+                status_lbl_reg.configure(text="Registrasi sukses, silakan login di tab Login.", text_color=C["success"])
+                user_var_login.set(u)
+                tabview.set("Login")
+            else:
+                status_lbl_reg.configure(text=res.get("message", "Error registrasi"), text_color=C["error"])
+                
+        ctk.CTkButton(tab_register, text="Daftar", fg_color=C["primary"], hover_color=C["primary_hover"], command=on_register, width=280).pack(pady=(0, 10))
+        
+        modal.grab_set()
         # Defer sash restore until window is rendered
         self.after(100, self._restore_sash_positions)
         threading.Thread(target=self._watcher_loop, daemon=True).start()
@@ -2116,6 +2210,18 @@ class App(ctk.CTk):
 
     def start_processing(self, new_only=False):
         if self.is_running: return
+        
+        # Security: Background Auth Check
+        is_valid, msg = self.auth.validate_session()
+        if not is_valid and msg == "KICKED":
+            self.log("Sesi berakhir: Akun digunakan di perangkat lain.", "error")
+            import tkinter.messagebox
+            tkinter.messagebox.showerror("Akses Ditolak", "Sesi Berakhir: Akun Anda telah login di perangkat lain")
+            self.show_login_modal()
+            return
+        elif not is_valid:
+            self.show_login_modal()
+            return
 
         self._save_current_config()
 
