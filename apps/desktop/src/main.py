@@ -669,15 +669,15 @@ class App(ctk.CTk):
         main = ctk.CTkFrame(self.outer_paned, fg_color=C["bg"], corner_radius=0)
         self.outer_paned.add(main, minsize=500)
         main.grid_columnconfigure(0, weight=1)
-        main.grid_rowconfigure(3, weight=1)
+        main.grid_rowconfigure(4, weight=1)
 
         # ── Folder Bar ──
         # ── Update Banner ──
         self.update_banner = ctk.CTkLabel(main, text="", text_color=C["text3"], fg_color=C["bg"], height=0)
-        self.update_banner.pack(fill="x", padx=15, pady=(0, 0))
+        self.update_banner.grid(row=0, column=0, sticky="ew", padx=15, pady=(0, 0))
         
         folder_bar = _frame(main)
-        folder_bar.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 0))
+        folder_bar.grid(row=1, column=0, sticky="ew", padx=12, pady=(12, 0))
         folder_bar.grid_columnconfigure(1, weight=1)
 
         _label(folder_bar, "Folder", font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
@@ -689,7 +689,7 @@ class App(ctk.CTk):
 
         # ── File Queue Panel ──
         queue_outer = _frame(main, border_width=1, border_color=C["border_sub"])
-        queue_outer.grid(row=1, column=0, sticky="ew", padx=12, pady=(6, 0))
+        queue_outer.grid(row=2, column=0, sticky="ew", padx=12, pady=(6, 0))
         queue_outer.grid_columnconfigure(0, weight=1)
 
         queue_header = ctk.CTkFrame(queue_outer, fg_color=C["surface"])
@@ -721,7 +721,7 @@ class App(ctk.CTk):
 
         # ── Stats & Progress Row ──
         stats_row = ctk.CTkFrame(main, fg_color=C["bg"])
-        stats_row.grid(row=2, column=0, sticky="ew", padx=12, pady=(8, 0))
+        stats_row.grid(row=3, column=0, sticky="ew", padx=12, pady=(8, 0))
         stats_row.grid_columnconfigure(0, weight=1)
         stats_row.grid_columnconfigure(1, weight=1)
 
@@ -742,7 +742,7 @@ class App(ctk.CTk):
 
         # ── Content: Log (left) + Inspector (right) via PanedWindow ──
         content_wrap = ctk.CTkFrame(main, fg_color=C["bg"])
-        content_wrap.grid(row=3, column=0, sticky="nsew", padx=12, pady=(8, 12))
+        content_wrap.grid(row=4, column=0, sticky="nsew", padx=12, pady=(8, 12))
         content_wrap.grid_columnconfigure(0, weight=1)
         content_wrap.grid_rowconfigure(0, weight=1)
 

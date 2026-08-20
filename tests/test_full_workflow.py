@@ -106,3 +106,12 @@ class TestAdobeStockCsvExport(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class TestConfigPersistence(unittest.TestCase):
+    def test_save_and_load_config(self):
+        from packages.shared_utils.config import save_config, load_config
+        payload = { "provider": "9router", "model": "custom-model", "9router_base_url": "http://localhost:11434", "api_key": "sk-test", "temperature": 0.7, "min_kw": 15, "max_kw": 40, "extra_prompt": "Test mode", "csv_platforms": ["Adobe Stock", "Vecteezy"] }
+        save_config(payload)
+        loaded = load_config()
+        for k, v in payload.items():
+            self.assertEqual(loaded.get(k), v, f"Config {k} mismatch: {loaded.get(k)} != {v}")
