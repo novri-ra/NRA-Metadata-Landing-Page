@@ -2,6 +2,9 @@ import json
 import base64
 import requests
 import time
+from packages.shared_utils.cost_tracker import CostTracker
+cost_tracker_inst = CostTracker()
+CostTracker_instance = CostTracker()
 from google import genai
 from openai import OpenAI
 from pydantic import BaseModel, Field

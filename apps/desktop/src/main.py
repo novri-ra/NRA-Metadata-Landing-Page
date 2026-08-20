@@ -21,6 +21,8 @@ from packages.shared_utils.filter import (clean_metadata, sanitize_keywords, get
     lowercase_keywords, trim_spacing, trim_keywords, detect_redundant_keywords, remove_redundant_keywords,
     calculate_quality_score)
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
+from packages.shared_utils.cost_tracker import CostTracker
+from packages.shared_utils.updater import check_github_release, APP_VERSION
 from packages.shared_utils.tracker import tracker
 from packages.shared_utils.cache import get_cache_hits
 from packages.shared_utils.ftp_uploader import FTPClient
@@ -177,7 +179,18 @@ class App(ctk.CTk):
         
         # Initial Auth Check
         self.after(100, self._check_initial_auth)
+        self.after(2000, lambda: check_github_release(callback=lambda info: self.after(0, lambda: self._show_update_banner(info))))
         
+    def _show_update_banner(self, info: dict):
+        import webbrowser
+        self.update_banner.configure(
+            text=f" [Update Available: v{info['version']}] ",
+            text_color="#FFFFFF",
+            fg_color=C["accent"],
+            cursor="hand2"
+        )
+        self.update_banner.bind("<Button-1>", lambda e: webbrowser.open(info["url"]))
+
     def _check_initial_auth(self):
         # Run diagnostic checks silently, print to internal logs
         env_results = run_environment_checks()
@@ -659,6 +672,10 @@ class App(ctk.CTk):
         main.grid_rowconfigure(3, weight=1)
 
         # ── Folder Bar ──
+        # ── Update Banner ──
+        self.update_banner = ctk.CTkLabel(main, text="", text_color=C["text3"], fg_color=C["bg"], height=0)
+        self.update_banner.pack(fill="x", padx=15, pady=(0, 0))
+        
         folder_bar = _frame(main)
         folder_bar.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 0))
         folder_bar.grid_columnconfigure(1, weight=1)
@@ -1493,7 +1510,7 @@ class App(ctk.CTk):
             self.stats_lbl.configure(
                 text=f"Total: {self.stats['total']}  ·  Success: {self.stats['success']}  ·  Error: {self.stats['error']}")
             self.cost_lbl.configure(
-                text=f"Cost: ${tracker.estimated_cost_usd:.3f}  ·  Cache: {get_cache_hits()}")
+                text=f"Tokens: ~{self.batch_session_stats.get('tokens_est', 0)//1000}k | Est. Cost: ${self.batch_session_stats.get('cost', 0):.3f}  ·  Cache: {get_cache_hits()}")
 
             # Update header status
             if self.is_running:
@@ -2267,7 +2284,7 @@ class App(ctk.CTk):
         self.processed_files.update(files)
 
         self.is_running = True
-        self.batch_session_stats = {"processed": 0, "skipped": skipped_count, "cost": tracker.estimated_cost_usd, "tokens_est": 0, "csvs": []}
+        self.batch_session_stats = {"processed": 0, "skipped": skipped_count, "cost": self.batch_session_stats.get('cost', 0), "tokens_est": 0, "csvs": []}
         self.cancel_flag = False
         self.pause_event.set()
         self.pause_btn.configure(text="Pause", fg_color=C["warn"], hover_color=C["warn_h"], state="normal")
@@ -2303,7 +2320,7 @@ class App(ctk.CTk):
 
             # Collect generated CSV list
             csv_files = [f for f in os.listdir(out_dir) if f.endswith("_export.csv") or f == "metadata_output.csv"]
-            cost_delta = tracker.estimated_cost_usd - self.batch_session_stats["cost"]
+            cost_delta = self.batch_session_stats.get('cost', 0) - self.batch_session_stats["cost"]
             self.batch_session_stats.update({
                 "processed": self.stats["success"],
                 "errors": self.stats["error"],
