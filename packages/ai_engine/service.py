@@ -54,7 +54,7 @@ class AIService:
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode('utf-8')
 
-    def generate_metadata(self, image_path: str, min_kw: int, max_kw: int, style_preset: str = "General Commercial") -> dict:
+    def generate_metadata(self, image_path: str, min_kw: int = 25, max_kw: int = 49, style_preset: str = "Standard", extra_prompt: str = "", **kwargs) -> dict:
         tracker.add_call()
         
         style_prompts = {
