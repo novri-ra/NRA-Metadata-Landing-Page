@@ -193,5 +193,53 @@ class TestWANumberValidation(unittest.TestCase):
         self.assertIsNone(self._normalize_wa("abcdef"))
 
 
+class TestBatchOutputStructure(unittest.TestCase):
+    def test_no_individual_subfolders_in_csv_exporter(self):
+        # We verify that generate_microstock_csvs processes from a single master csv 
+        # and doesn't create individual directories.
+        self.out_dir = "test_csv_dir"
+        os.makedirs(self.out_dir, exist_ok=True)
+        with open(os.path.join(self.out_dir, "metadata_output.csv"), "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["Filename", "Title", "Description", "Keywords", "PrimaryCategory"])
+            writer.writeheader()
+            writer.writerow({
+                "Filename": "file1.jpg",
+                "Title": "Test 1",
+                "Description": "Desc 1",
+                "Keywords": "kw1,kw2",
+                "PrimaryCategory": "Animals"
+            })
+            writer.writerow({
+                "Filename": "file2.jpg",
+                "Title": "Test 2",
+                "Description": "Desc 2",
+                "Keywords": "kw3,kw4",
+                "PrimaryCategory": "Technology"
+            })
+
+        generate_microstock_csvs(self.out_dir, platforms={"Adobe Stock", "Shutterstock"})
+        
+        # Ensure outputs are in the same dir and contain all rows
+        adobe_csv = os.path.join(self.out_dir, "adobe_stock_export.csv")
+        self.assertTrue(os.path.exists(adobe_csv))
+        
+        with open(adobe_csv, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            self.assertEqual(len(lines), 3) # Header + 2 rows
+            
+        shutterstock_csv = os.path.join(self.out_dir, "shutterstock_export.csv")
+        self.assertTrue(os.path.exists(shutterstock_csv))
+        with open(shutterstock_csv, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            self.assertEqual(len(lines), 3) # Header + 2 rows
+
+        # Cleanup
+        for root, dirs, files in os.walk(self.out_dir, topdown=False):
+            for name in files:
+                os.remove(os.path.join(root, name))
+            for name in dirs:
+                os.rmdir(os.path.join(root, name))
+        os.rmdir(self.out_dir)
+
 if __name__ == '__main__':
     unittest.main()
