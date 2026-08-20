@@ -1056,7 +1056,7 @@ class App(ctk.CTk):
         self.kw_add_entry.bind("<Return>", lambda e: self._add_keyword_chip())
 
         # Sync chip frame with edit_kws_var
-        self.edit_kws_var.trace_add("write", lambda *_: self._render_keyword_chips())
+        self.edit_kws_var.trace_add("write", lambda *_: self._trigger_render_keyword_chips())
         self._kw_chip_widgets = []
 
         # Redundancy detector UI
@@ -1741,8 +1741,11 @@ class App(ctk.CTk):
         save_config(self.config)
 
     def _on_close(self):
+        self.cancel_flag = True
         self._save_current_config()
         self.destroy()
+        import os
+        os._exit(0)
 
     def _update_model_list(self, choice):
         models = self.MODEL_MAP.get(choice, [])
@@ -1889,7 +1892,14 @@ class App(ctk.CTk):
             self._set_kws_list(kws)
 
     # Re-entry guard to prevent infinite update loop
+
+    def _trigger_render_keyword_chips(self):
+        if hasattr(self, '_kw_render_after_id') and self._kw_render_after_id:
+            self.after_cancel(self._kw_render_after_id)
+        self._kw_render_after_id = self.after(50, self._render_keyword_chips)
+
     _rendering_chips = False
+
     def _render_keyword_chips(self):
         if self._rendering_chips: return
         self._rendering_chips = True
@@ -2267,7 +2277,9 @@ class App(ctk.CTk):
                 meta["keywords"] = merged_kws
 
         try:
-            img = Image.open(preview).copy()
+            with Image.open(preview) as opened_img:
+                img = opened_img.copy()
+                img.thumbnail((300, 300), Image.Resampling.LANCZOS)
         except:
             img = None
 

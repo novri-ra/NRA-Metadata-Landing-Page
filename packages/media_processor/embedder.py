@@ -46,8 +46,11 @@ class MediaProcessor:
             file_path
         ]
         try:
-            subprocess.run(cmd, check=True, capture_output=True)
+            subprocess.run(cmd, check=True, capture_output=True, timeout=30)
             return True
+        except subprocess.TimeoutExpired:
+            print(f"[WARN] Sanitizer timeout on {os.path.basename(file_path)}")
+            return False
         except Exception as e:
             # We don't hard fail if sanitization fails (e.g. exiftool error on a specific file type)
             print(f"[WARN] Sanitizer error on {os.path.basename(file_path)}: {e}")
@@ -72,8 +75,12 @@ class MediaProcessor:
         cmd.append(file_path)
 
         try:
-            subprocess.run(cmd, check=True, capture_output=True)
+            subprocess.run(cmd, check=True, capture_output=True, timeout=60)
             return True
+        except subprocess.TimeoutExpired:
+            print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool Timeout")
+            log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), "ExifTool: Timeout")
+            return False
         except subprocess.CalledProcessError as e:
             err_msg = e.stderr.decode(errors='replace') if isinstance(e.stderr, bytes) else str(e.stderr)
             print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool - {err_msg}")
