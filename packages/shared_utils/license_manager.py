@@ -59,11 +59,14 @@ class AuthClient:
         self.config["auth_user"] = ""
         self.config["auth_session"] = ""
         save_config(self.config)
-        
     def _post(self, payload: dict) -> dict:
         try:
             res = requests.post(self.endpoint, json=payload, verify=True, timeout=10, allow_redirects=True)
             return res.json()
+        except requests.exceptions.Timeout:
+            return {"status": "ERROR", "message": "Network timeout. Try again."}
+        except requests.exceptions.ConnectionError:
+            return {"status": "ERROR", "message": "Connection error."}
         except Exception as e:
             return {"status": "ERROR", "message": f"Network error: {str(e)}"}
 

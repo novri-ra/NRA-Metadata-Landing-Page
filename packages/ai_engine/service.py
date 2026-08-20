@@ -173,13 +173,13 @@ class AIService:
                         response_format={"type": "json_object"}
                     )
                     return self._parse_json(response.choices[0].message.content)
-
             except Exception as e:
                 err_str = str(e)
-                if "ConnectionRefused" in err_str or "ConnectError" in err_str or "Failed to connect" in err_str:
-                    print(f"[ERROR] Gagal terhubung ke endpoint {self.base_url or 'API'}. Pastikan server/proxy lokal Anda aktif.")
-                
-                is_retryable = "429" in err_str or "500" in err_str or "502" in err_str or "503" in err_str or "504" in err_str or "timeout" in err_str.lower() or "connection" in err_str.lower()
+                if "ConnectionRefused" in err_str or "ConnectError" in err_str or "Failed to connect" in err_str or "ECONNREFUSED" in err_str:
+                    print(f"[ERROR] Connection refused to endpoint {self.base_url or 'API'}. Ensure server/proxy is active.")
+                    is_retryable = True
+                else:
+                    is_retryable = "429" in err_str or "500" in err_str or "502" in err_str or "503" in err_str or "504" in err_str or "timeout" in err_str.lower() or "connection" in err_str.lower()
                 
                 if "401" in err_str or "invalid_api_key" in err_str.lower() or "authentication" in err_str.lower():
                     print(f"AI Service Error ({self.provider}): Authentication Failed. Check API Key.")
