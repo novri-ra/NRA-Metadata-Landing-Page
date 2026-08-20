@@ -34,7 +34,30 @@ ADOBE_CATEGORY_MAP = {
 def get_adobe_category_code(category_name: str) -> int:
     if not category_name:
         return 8
-    return ADOBE_CATEGORY_MAP.get(category_name, 8)
+    res = ADOBE_CATEGORY_MAP.get(category_name)
+    if res is not None:
+        return res
+    cat_lower = category_name.lower()
+    if "animal" in cat_lower: return 1
+    if "building" in cat_lower or "architecture" in cat_lower: return 2
+    if "business" in cat_lower: return 3
+    if "environment" in cat_lower or "nature" in cat_lower: return 5
+    if "mind" in cat_lower or "emotion" in cat_lower: return 6
+    if "food" in cat_lower: return 7
+    if "hobby" in cat_lower or "leisure" in cat_lower: return 9
+    if "industr" in cat_lower: return 10
+    if "landscape" in cat_lower: return 11
+    if "lifestyle" in cat_lower: return 12
+    if "people" in cat_lower: return 13
+    if "plant" in cat_lower or "flower" in cat_lower: return 14
+    if "cultur" in cat_lower or "religion" in cat_lower: return 15
+    if "scienc" in cat_lower: return 16
+    if "social" in cat_lower: return 17
+    if "sport" in cat_lower: return 18
+    if "tech" in cat_lower: return 19
+    if "transport" in cat_lower: return 20
+    if "travel" in cat_lower: return 21
+    return 8
 
 SHUTTERSTOCK_CATEGORIES = [
     "Abstract", "Animals/Wildlife", "Backgrounds/Textures", "Beauty/Fashion",

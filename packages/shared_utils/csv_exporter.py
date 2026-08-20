@@ -3,13 +3,17 @@ import os
 from packages.shared_utils.taxonomy import get_adobe_category_code
 
 def fmt_str(s: str, max_len: int) -> str:
+    if len(s) <= max_len: return s
+    idx = s.rfind(' ', 0, max_len)
+    if idx > 0: return s[:idx]
     return s[:max_len]
 
 def fmt_kw(s: str) -> str:
     return ", ".join([k.strip() for k in s.split(",") if k.strip()])
 
 def fmt_kw_limited(s: str, max_count: int) -> str:
-    return ", ".join([k.strip() for k in s.split(",") if k.strip()][:max_count])
+    kws = [k.strip() for k in s.split(",") if k.strip()]
+    return ", ".join(kws[:max_count])
 
 def is_illus(fname: str) -> str:
     return "yes" if fname.lower().endswith(('.svg', '.eps', '.ai', '.png')) else "no"

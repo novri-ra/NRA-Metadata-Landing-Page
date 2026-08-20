@@ -2,6 +2,9 @@ import json
 import base64
 import requests
 import time
+from packages.shared_utils.cost_tracker import CostTracker
+cost_tracker_inst = CostTracker()
+CostTracker_instance = CostTracker()
 from google import genai
 from openai import OpenAI
 from pydantic import BaseModel, Field
@@ -45,7 +48,7 @@ class AIService:
             config = load_config()
             raw_url = config.get("custom_base_url", config.get("9router_base_url", "https://api.9router.com/v1"))
             self.base_url = normalize_base_url(raw_url)
-            self.openai_client = OpenAI(api_key=self.api_key or "sk-dummy", base_url=self.base_url)
+            self.openai_client = OpenAI(api_key=self.api_key or "sk-9router", base_url=self.base_url)
 
     def _encode_image(self, image_path: str) -> str:
         with open(image_path, "rb") as image_file:
@@ -170,13 +173,13 @@ class AIService:
                         response_format={"type": "json_object"}
                     )
                     return self._parse_json(response.choices[0].message.content)
-
             except Exception as e:
                 err_str = str(e)
-                if "ConnectionRefused" in err_str or "ConnectError" in err_str or "Failed to connect" in err_str:
-                    print(f"[ERROR] Gagal terhubung ke endpoint {self.base_url or 'API'}. Pastikan server/proxy lokal Anda aktif.")
-                
-                is_retryable = "429" in err_str or "500" in err_str or "502" in err_str or "503" in err_str or "504" in err_str or "timeout" in err_str.lower() or "connection" in err_str.lower()
+                if "ConnectionRefused" in err_str or "ConnectError" in err_str or "Failed to connect" in err_str or "ECONNREFUSED" in err_str:
+                    print(f"[ERROR] Connection refused to endpoint {self.base_url or 'API'}. Ensure server/proxy is active.")
+                    is_retryable = True
+                else:
+                    is_retryable = "429" in err_str or "500" in err_str or "502" in err_str or "503" in err_str or "504" in err_str or "timeout" in err_str.lower() or "connection" in err_str.lower()
                 
                 if "401" in err_str or "invalid_api_key" in err_str.lower() or "authentication" in err_str.lower():
                     print(f"AI Service Error ({self.provider}): Authentication Failed. Check API Key.")

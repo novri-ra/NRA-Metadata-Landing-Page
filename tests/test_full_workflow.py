@@ -4,6 +4,24 @@ import csv
 from packages.shared_utils.taxonomy import get_adobe_category_code, ADOBE_CATEGORY_MAP
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.ai_engine.service import normalize_base_url
+from packages.shared_utils.cost_tracker import CostTracker
+from packages.shared_utils.updater import APP_VERSION
+
+class TestCostTracker(unittest.TestCase):
+    def test_cost_calculation(self):
+        tracker = CostTracker()
+        cost = tracker.calculate("OpenAI", "gpt-4o-mini", 4000, 400)
+        self.assertTrue(cost > 0)
+        self.assertEqual(tracker.estimated_cost_usd, cost)
+        
+        cost2 = tracker.calculate("9router", "9router/auto", 100, 100)
+        self.assertEqual(cost2, 0.0)
+
+class TestVersionCompare(unittest.TestCase):
+    def test_app_version_exists(self):
+        self.assertTrue(isinstance(APP_VERSION, str))
+        self.assertTrue(len(APP_VERSION.split('.')) >= 2)
+
 
 class TestTaxonomy(unittest.TestCase):
     def test_adobe_category_code_valid(self):
