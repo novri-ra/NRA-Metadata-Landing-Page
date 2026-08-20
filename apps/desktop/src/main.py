@@ -1744,31 +1744,41 @@ class App(ctk.CTk):
         self._save_current_config()
         self.destroy()
 
-    def _on_provider_change(self, choice):
+    def _update_model_list(self, choice):
         models = self.MODEL_MAP.get(choice, [])
         self.model_cb.configure(values=models)
         if models:
             self.model_cb.set(models[0])
-            
-        if not hasattr(self, "base_url_lbl") or not hasattr(self, "base_url_entry") or self.base_url_lbl is None or self.base_url_entry is None:\n            return\n\n        if choice in ["9router", "OpenRouter", "Local Gateway"]:
-            self.base_url_lbl.configure(text="Local Endpoint URL:")
-            self.base_url_lbl.pack(anchor="w", padx=12, pady=(8, 0))
-            self.base_url_entry.configure(placeholder_text="http://localhost:20128/v1")
-            self.base_url_entry.pack(fill="x", **PAD)
-            if choice == "9router":
-                if hasattr(self, "api_key_entry"):
-                    self.api_key_entry.configure(placeholder_text="API Key (Optional / if enabled in 9Router)")
-                self.model_cb.configure(state="normal")
-                self.model_cb.configure(values=["9router/auto", "claude-3-5-sonnet", "gpt-4o", "gpt-4o-mini", "gemini-1.5-flash", "gemini-1.5-pro", "custom-model"])
-                self.model_cb.set("9router/auto")
-            else:
-                self.model_cb.configure(state="readonly")
+
+        if choice.lower().strip() == "9router":
+            if hasattr(self, "api_key_entry"):
+                self.api_key_entry.configure(placeholder_text="API Key (Optional / if enabled in 9Router)")
+            self.model_cb.configure(state="normal")
+            self.model_cb.configure(values=["9router/auto", "claude-3-5-sonnet", "gpt-4o", "gpt-4o-mini", "gemini-1.5-flash", "gemini-1.5-pro", "custom-model"])
+            self.model_cb.set("9router/auto")
         else:
-            self.base_url_lbl.pack_forget()
-            self.base_url_entry.pack_forget()
             if hasattr(self, "api_key_entry"):
                 self.api_key_entry.configure(placeholder_text="API Key")
             self.model_cb.configure(state="readonly")
+
+    def _on_provider_change(self, choice):
+        if not hasattr(self, "base_url_lbl") or not hasattr(self, "base_url_entry"):
+            return
+        if self.base_url_lbl is None or self.base_url_entry is None:
+            return
+
+        provider_key = choice.lower().strip()
+        if provider_key in ["9router", "openrouter", "custom", "local gateway", "openai-compatible"]:
+            self.base_url_lbl.configure(text="Local Endpoint URL:")
+            self.base_url_entry.configure(placeholder_text="http://localhost:20128/v1")
+            self.base_url_lbl.pack(anchor="w", padx=12, pady=(10, 2))
+            self.base_url_entry.pack(fill="x", padx=12, pady=(0, 10))
+        else:
+            self.base_url_lbl.pack_forget()
+            self.base_url_entry.pack_forget()
+
+        if hasattr(self, "_update_model_list"):
+            self._update_model_list(choice)
 
     def _get_selected_csv_platforms(self) -> set:
         return {plat for plat, var in self.csv_vars.items() if var.get()}
