@@ -224,3 +224,10 @@ Dikembangkan secara penuh dedikasi sebagai jantung automasi ekosistem studio kom
 Arsitektur aplikasi dan sistem lisensi (*HWID Serverless Auth & DPAPI Crypto-Enclave*) adalah hak cipta independen. Pembaruan kode (*Pull Requests*) diterima hanya melalui evaluasi Maintainer resmi. Hak cipta pustaka utilitas metadata sepenuhnya didelegasikan untuk komunitas open source `ExifTool` (Phil Harvey).
 
 > **"Empower Your Portfolio, Scale Your Keywords, Secure Your Workflow."**
+  
+## Cara Menjalankan Cepat (Zero Setup)  
+  
+Untuk pengguna Windows, Anda tidak perlu repot menginstal Python secara manual.  
+1. Cukup klik ganda (double-click) file **`run_app.bat`** di folder utama proyek ini.  
+2. Sistem akan otomatis menggunakan Python di PC Anda jika tersedia, atau mengunduh dan menyiapkan environment Portable secara lokal beserta seluruh dependensinya di latar belakang.  
+3. Aplikasi akan langsung terbuka. 
