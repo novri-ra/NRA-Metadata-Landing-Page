@@ -1614,11 +1614,24 @@ class App(ctk.CTk):
             self.model_cb.set(models[0])
             
         if choice in ["9router", "OpenRouter", "Local Gateway"]:
+            self.base_url_lbl.configure(text="Local Endpoint URL:")
             self.base_url_lbl.pack(anchor="w", padx=12, pady=(8, 0))
+            self.base_url_entry.configure(placeholder_text="http://localhost:20128/v1")
             self.base_url_entry.pack(fill="x", **PAD)
+            if choice == "9router":
+                if hasattr(self, "api_key_entry"):
+                    self.api_key_entry.configure(placeholder_text="API Key (Optional / if enabled in 9Router)")
+                self.model_cb.configure(state="normal")
+                self.model_cb.configure(values=["9router/auto", "claude-3-5-sonnet", "gpt-4o", "gpt-4o-mini", "gemini-1.5-flash", "gemini-1.5-pro", "custom-model"])
+                self.model_cb.set("9router/auto")
+            else:
+                self.model_cb.configure(state="readonly")
         else:
             self.base_url_lbl.pack_forget()
             self.base_url_entry.pack_forget()
+            if hasattr(self, "api_key_entry"):
+                self.api_key_entry.configure(placeholder_text="API Key")
+            self.model_cb.configure(state="readonly")
 
     def _get_selected_csv_platforms(self) -> set:
         return {plat for plat, var in self.csv_vars.items() if var.get()}

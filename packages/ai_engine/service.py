@@ -48,7 +48,7 @@ class AIService:
             config = load_config()
             raw_url = config.get("custom_base_url", config.get("9router_base_url", "https://api.9router.com/v1"))
             self.base_url = normalize_base_url(raw_url)
-            self.openai_client = OpenAI(api_key=self.api_key or "sk-dummy", base_url=self.base_url)
+            self.openai_client = OpenAI(api_key=self.api_key or "sk-9router", base_url=self.base_url)
 
     def _encode_image(self, image_path: str) -> str:
         with open(image_path, "rb") as image_file:
