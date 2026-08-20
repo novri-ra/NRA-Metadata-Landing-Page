@@ -604,7 +604,7 @@ class App(ctk.CTk):
         _section_header(sidebar, "AI Engine").pack(fill="x", **{**PAD, "pady": (12, 6)})
 
         _label(sidebar, "Provider").pack(fill="x", anchor="w", **LPAD)
-        self.provider_cb = _combo(sidebar, ["Gemini", "OpenAI", "Mistral", "Groq", "9router"],
+        self.provider_cb = _combo(sidebar, ["Gemini", "OpenAI", "Mistral", "Groq"],
                                   command=self._on_provider_change)
         self.provider_cb.set(self.config.get("provider", "Gemini"))
         self.provider_cb.pack(fill="x", **PAD)
@@ -1768,7 +1768,7 @@ class App(ctk.CTk):
             return
 
         provider_key = choice.lower().strip()
-        if provider_key in ["9router", "openrouter", "custom", "local gateway", "openai-compatible"]:
+        if provider_key in ["openrouter", "custom", "local gateway", "openai-compatible"]:
             self.base_url_lbl.configure(text="Local Endpoint URL:")
             self.base_url_entry.configure(placeholder_text="http://localhost:20128/v1")
             self.base_url_lbl.pack(anchor="w", padx=12, pady=(10, 2))
