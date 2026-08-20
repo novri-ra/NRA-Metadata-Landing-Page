@@ -2266,8 +2266,13 @@ class App(ctk.CTk):
 
         meta = clean_metadata(meta, max_kw)
 
+        out_path = os.path.join(out_dir, name)
+
         base_name = os.path.splitext(name)[0]
-        final_path = os.path.join(out_dir, name)
+        sub_dir = os.path.join(out_dir, base_name)
+        os.makedirs(sub_dir, exist_ok=True)
+
+        final_path = os.path.join(sub_dir, name)
         shutil.move(file_path, final_path)
 
         title, desc, keywords = meta.get("title", ""), meta.get("description", ""), meta.get("keywords", [])
@@ -2278,20 +2283,29 @@ class App(ctk.CTk):
         if self.processor.embed_metadata(final_path, title, desc, keywords, self._get_copyright_text(), self.author_entry.get().strip()):
             self.log(f"{name} ({len(keywords)} kw)", "success")
             
+            # Sync to companions in batch if enabled
             if self.sync_companions.get():
                 synced = self._sync_to_companions(final_path, title, desc, keywords)
                 if synced > 0:
-                    self.log(f"  └─ Synced metadata to {synced} companion file(s)", "info")
+                    self.log(f"  \u2514\u2500 Synced metadata to {synced} companion file(s)", "info")
                     
             csv_logger.log(name, title, desc, keywords)
+            generate_microstock_csvs(out_dir, self._get_selected_csv_platforms())
+            temp_master = os.path.join(sub_dir, "metadata_output.csv")
+            import csv
+            with open(temp_master, 'w', newline='', encoding='utf-8') as tf:
+                tw = csv.writer(tf)
+                tw.writerow(["Filename","Title","Description","Keywords"])
+                tw.writerow([name, title, desc, ",".join(keywords)])
+            generate_microstock_csvs(sub_dir, self._get_selected_csv_platforms())
 
             if getattr(self, 'auto_zip', None) and self.auto_zip.get() and name.lower().endswith(('.svg', '.eps')):
                 import zipfile
-                jpg_path = os.path.join(out_dir, base_name + ".jpg")
+                jpg_path = os.path.join(sub_dir, base_name + ".jpg")
                 if img:
                     try: img.convert("RGB").save(jpg_path, "JPEG", quality=95)
                     except: pass
-                zip_path = os.path.join(out_dir, base_name + ".zip")
+                zip_path = os.path.join(sub_dir, base_name + ".zip")
                 try:
                     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
                         zf.write(final_path, arcname=name)
@@ -2439,16 +2453,10 @@ class App(ctk.CTk):
 
     def _run_batch(self, paths, out_dir):
         ai = AIService(self.config["provider"], self.config["api_key"], self.config.get("model"), self.config.get("temperature", 0.3))
-        
-        processed_dir = os.path.join(out_dir, "Processed Assets")
-        csv_dir = os.path.join(out_dir, "Metadata CSV")
-        os.makedirs(processed_dir, exist_ok=True)
-        os.makedirs(csv_dir, exist_ok=True)
-        
-        csv_logger = CSVLogger(os.path.join(csv_dir, "metadata_output.csv"))
+        csv_logger = CSVLogger(os.path.join(out_dir, "metadata_output.csv"))
 
         with ThreadPoolExecutor(max_workers=self.config["workers"]) as executor:
-            futures = [executor.submit(self.process_file, f, processed_dir, ai, self.config["min_kw"], self.config["max_kw"], self.config["style_preset"], self.config.get("extra_prompt", ""), csv_logger) for f in paths]
+            futures = [executor.submit(self.process_file, f, out_dir, ai, self.config["min_kw"], self.config["max_kw"], self.config["style_preset"], self.config.get("extra_prompt", ""), csv_logger) for f in paths]
             for i, f in enumerate(futures):
                 f.result()
                 if not self.cancel_flag:
@@ -2458,10 +2466,10 @@ class App(ctk.CTk):
             self.log("Batch CANCELED.", "error")
         else:
             self.log("Batch complete. Generating exports...", "info")
-            generate_microstock_csvs(csv_dir, self._get_selected_csv_platforms())
+            generate_microstock_csvs(out_dir, self._get_selected_csv_platforms())
 
             # Collect generated CSV list
-            csv_files = [f for f in os.listdir(csv_dir) if f.endswith("_export.csv") or f == "metadata_output.csv"]
+            csv_files = [f for f in os.listdir(out_dir) if f.endswith("_export.csv") or f == "metadata_output.csv"]
             cost_delta = self.batch_session_stats.get('cost', 0) - self.batch_session_stats["cost"]
             self.batch_session_stats.update({
                 "processed": self.stats["success"],
@@ -2469,9 +2477,17 @@ class App(ctk.CTk):
                 "cost": cost_delta,
                 "tokens_est": int(cost_delta / 0.002 * 1000) if cost_delta > 0 else 0,
                 "csvs": csv_files,
-                "out_dir": csv_dir,
+                "out_dir": out_dir,
             })
             self.after(0, lambda: self._show_batch_summary())
+
+        self.is_running = False
+        self.after(0, lambda: self.start_btn.configure(state="normal"))
+        self.after(0, lambda: self.pause_btn.configure(state="disabled"))
+        self.after(0, lambda: self.cancel_btn.configure(state="disabled"))
+        self.after(0, lambda: self.header_status.configure(text="Ready", text_color=C["text3"]))
+        self.after(0, lambda: self._refresh_file_queue())
+
 
     def _show_batch_summary(self):
         """Show batch processing summary dialog."""

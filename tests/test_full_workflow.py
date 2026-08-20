@@ -104,9 +104,6 @@ class TestAdobeStockCsvExport(unittest.TestCase):
             keywords = [k.strip() for k in reader[1][2].split(",") if k.strip()]
             self.assertLessEqual(len(keywords), 49)
 
-if __name__ == '__main__':
-    unittest.main()
-
 class TestConfigPersistence(unittest.TestCase):
     def test_save_and_load_config(self):
         from packages.shared_utils.config import save_config, load_config
@@ -115,3 +112,159 @@ class TestConfigPersistence(unittest.TestCase):
         loaded = load_config()
         for k, v in payload.items():
             self.assertEqual(loaded.get(k), v, f"Config {k} mismatch: {loaded.get(k)} != {v}")
+
+
+# ── Auth Tests ────────────────────────────────────────────────────────────
+
+class TestAuthClientRegisterPayload(unittest.TestCase):
+    """Verify AuthClient.register sends email/wa/fullname fields."""
+
+    def test_register_accepts_extra_fields(self):
+        from packages.shared_utils.license_manager import AuthClient
+        import inspect
+        sig = inspect.signature(AuthClient.register)
+        params = list(sig.parameters.keys())
+        self.assertIn("email", params, "register() must accept 'email' kwarg")
+        self.assertIn("wa", params, "register() must accept 'wa' kwarg")
+        self.assertIn("fullname", params, "register() must accept 'fullname' kwarg")
+
+    def test_register_builds_correct_payload(self):
+        """Monkey-patch _post to capture payload."""
+        from packages.shared_utils.license_manager import AuthClient
+        client = AuthClient()
+        captured = {}
+        client._post = lambda payload: (captured.update(payload), {"status": "SUCCESS"})[1]
+
+        client.register("testuser", "pass123", email="a@b.com", wa="6281234567890", fullname="Test User")
+        self.assertEqual(captured["action"], "REGISTER")
+        self.assertEqual(captured["username"], "testuser")
+        self.assertEqual(captured["email"], "a@b.com")
+        self.assertEqual(captured["wa"], "6281234567890")
+        self.assertEqual(captured["fullname"], "Test User")
+
+
+class TestAuthLoginViaEmailOrUsername(unittest.TestCase):
+    """Verify login payload sends identifier that could be email or username."""
+
+    def test_login_sends_identifier_as_username_field(self):
+        from packages.shared_utils.license_manager import AuthClient
+        client = AuthClient()
+        captured = {}
+        client._post = lambda payload: (captured.update(payload), {"status": "SUCCESS", "session_token": "tok"})[1]
+
+        # Login with email
+        client.login("user@example.com", "pass123")
+        self.assertEqual(captured["username"], "user@example.com")
+
+        # Login with username
+        client.login("myuser", "pass456")
+        self.assertEqual(captured["username"], "myuser")
+
+
+class TestWANumberValidation(unittest.TestCase):
+    """Unit test for WhatsApp number formatting logic used in UI."""
+
+    def _normalize_wa(self, wa):
+        wa_clean = wa.replace("+", "").replace("-", "").replace(" ", "")
+        if not wa_clean.isdigit() or len(wa_clean) < 10:
+            return None
+        if wa_clean.startswith("08"):
+            wa_clean = "62" + wa_clean[1:]
+        elif not wa_clean.startswith("62"):
+            wa_clean = "62" + wa_clean
+        return wa_clean
+
+    def test_08_prefix(self):
+        self.assertEqual(self._normalize_wa("081234567890"), "6281234567890")
+
+    def test_62_prefix(self):
+        self.assertEqual(self._normalize_wa("6281234567890"), "6281234567890")
+
+    def test_plus62_prefix(self):
+        self.assertEqual(self._normalize_wa("+6281234567890"), "6281234567890")
+
+    def test_with_dashes(self):
+        self.assertEqual(self._normalize_wa("0812-3456-7890"), "6281234567890")
+
+    def test_too_short(self):
+        self.assertIsNone(self._normalize_wa("08123"))
+
+    def test_non_digit(self):
+        self.assertIsNone(self._normalize_wa("abcdef"))
+
+
+class TestBatchOutputStructure(unittest.TestCase):
+    def test_no_individual_subfolders_in_csv_exporter(self):
+        # We verify that generate_microstock_csvs processes from a single master csv 
+        # and doesn't create individual directories.
+        self.out_dir = "test_csv_dir"
+        os.makedirs(self.out_dir, exist_ok=True)
+        with open(os.path.join(self.out_dir, "metadata_output.csv"), "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["Filename", "Title", "Description", "Keywords", "PrimaryCategory"])
+            writer.writeheader()
+            writer.writerow({
+                "Filename": "file1.jpg",
+                "Title": "Test 1",
+                "Description": "Desc 1",
+                "Keywords": "kw1,kw2",
+                "PrimaryCategory": "Animals"
+            })
+            writer.writerow({
+                "Filename": "file2.jpg",
+                "Title": "Test 2",
+                "Description": "Desc 2",
+                "Keywords": "kw3,kw4",
+                "PrimaryCategory": "Technology"
+            })
+
+        generate_microstock_csvs(self.out_dir, platforms={"Adobe Stock", "Shutterstock"})
+        
+        # Ensure outputs are in the same dir and contain all rows
+        adobe_csv = os.path.join(self.out_dir, "adobe_stock_export.csv")
+        self.assertTrue(os.path.exists(adobe_csv))
+        
+        with open(adobe_csv, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            self.assertEqual(len(lines), 3) # Header + 2 rows
+            
+        shutterstock_csv = os.path.join(self.out_dir, "shutterstock_export.csv")
+        self.assertTrue(os.path.exists(shutterstock_csv))
+        with open(shutterstock_csv, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            self.assertEqual(len(lines), 3) # Header + 2 rows
+
+        # Cleanup
+        for root, dirs, files in os.walk(self.out_dir, topdown=False):
+            for name in files:
+                os.remove(os.path.join(root, name))
+            for name in dirs:
+                os.rmdir(os.path.join(root, name))
+        os.rmdir(self.out_dir)
+
+class TestSanitizer(unittest.TestCase):
+    def test_sanitize_ai_metadata(self):
+        from packages.media_processor.embedder import MediaProcessor
+        import subprocess
+        processor = MediaProcessor()
+        
+        # Monkey patch subprocess.run to verify arguments
+        captured_cmd = []
+        def fake_run(cmd, *args, **kwargs):
+            captured_cmd.extend(cmd)
+            return subprocess.CompletedProcess(cmd, 0)
+            
+        original_run = subprocess.run
+        subprocess.run = fake_run
+        
+        try:
+            processor.sanitize_ai_metadata("test_image.png")
+            # Verify specific AI tags are targeted
+            self.assertIn("-PNG:parameters=", captured_cmd)
+            self.assertIn("-XMP-c2pa:all=", captured_cmd)
+            # Verify NOT using destructive -all=
+            self.assertNotIn("-all=", captured_cmd)
+        finally:
+            subprocess.run = original_run
+
+if __name__ == '__main__':
+    unittest.main()

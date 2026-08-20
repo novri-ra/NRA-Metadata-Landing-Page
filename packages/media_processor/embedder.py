@@ -28,12 +28,41 @@ class MediaProcessor:
             if tool_name == "ffmpeg": return os.path.join(base, "tools", "ffmpeg", "ffmpeg.exe")
         return tool_name
 
+    def sanitize_ai_metadata(self, file_path: str) -> bool:
+        """Strip AI provenance and generation tags while preserving Adobe/creative app metadata."""
+        exiftool_path = self.get_tool_path("exiftool")
+        cmd = [
+            exiftool_path,
+            "-overwrite_original",
+            "-PNG:parameters=",
+            "-PNG:prompt=",
+            "-PNG:workflow=",
+            "-PNG:negative_prompt=",
+            "-PNG:Generation time=",
+            "-XMP-c2pa:all=",
+            "-XMP-xmpGImg:all=",
+            "-XMP:AIContentGenerator=",
+            "-XMP:DigitalSourceType=",
+            file_path
+        ]
+        try:
+            subprocess.run(cmd, check=True, capture_output=True)
+            return True
+        except Exception as e:
+            # We don't hard fail if sanitization fails (e.g. exiftool error on a specific file type)
+            print(f"[WARN] Sanitizer error on {os.path.basename(file_path)}: {e}")
+            return False
+
     def embed_metadata(self, file_path: str, title: str, description: str, keywords: list[str], copyright_text: str, author: str = "") -> bool:
         file_path = os.path.abspath(file_path)
         ext = file_path.lower().split('.')[-1]
         if ext == 'svg':
             return self._embed_svg_metadata(file_path, title, description, keywords, copyright_text, author)
 
+        # 1. Sanitize AI metadata first
+        self.sanitize_ai_metadata(file_path)
+
+        # 2. Embed new metadata
         exiftool_path = self.get_tool_path("exiftool")
         cmd = [exiftool_path, "-overwrite_original", f"-Title={title}", f"-ObjectName={title}", f"-Description={description}", f"-Caption-Abstract={description}", f"-ImageDescription={description}", f"-Copyright={copyright_text}", f"-Rights={copyright_text}"]
         if author:

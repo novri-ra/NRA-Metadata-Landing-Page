@@ -59,6 +59,7 @@ class AuthClient:
         self.config["auth_user"] = ""
         self.config["auth_session"] = ""
         save_config(self.config)
+
     def _post(self, payload: dict) -> dict:
         try:
             res = requests.post(self.endpoint, json=payload, verify=True, timeout=10, allow_redirects=True)
@@ -70,10 +71,18 @@ class AuthClient:
         except Exception as e:
             return {"status": "ERROR", "message": f"Network error: {str(e)}"}
 
-    def register(self, username, password):
-        return self._post({"action": "REGISTER", "username": username, "password": password})
+    def register(self, username, password, email="", wa="", fullname=""):
+        return self._post({
+            "action": "REGISTER",
+            "username": username,
+            "password": password,
+            "email": email,
+            "wa": wa,
+            "fullname": fullname,
+        })
 
     def login(self, username, password):
+        """Login via username OR email — backend handles lookup."""
         res = self._post({
             "action": "LOGIN", 
             "username": username, 
@@ -82,7 +91,8 @@ class AuthClient:
             "ip": get_public_ip()
         })
         if res.get("status") == "SUCCESS":
-            self._save_session(username, res.get("session_token"))
+            actual_user = res.get("username", username)
+            self._save_session(actual_user, res.get("session_token"))
         return res
 
     def validate_session(self) -> tuple[bool, str]:

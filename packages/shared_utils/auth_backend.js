@@ -1,5 +1,5 @@
 // Google Apps Script Serverless Auth Backend
-// Spreadsheet columns (Row 1): [UserID, Username, PasswordHash, Salt, HardwareID, LastIP, SessionToken, LastActive, Status]
+// Spreadsheet columns (Row 1): [UserID, Username, Email, WhatsApp, PasswordHash, Salt, HardwareID, LastIP, SessionToken, LastActive, Status, FullName]
 
 function doPost(e) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
@@ -29,13 +29,19 @@ function doPost(e) {
 }
 
 function handleRegister(sheet, payload) {
+  var fullname = payload.fullname || "";
   var username = payload.username;
+  var email = payload.email || "";
+  var wa = payload.wa || "";
   var password = payload.password;
   
   var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
     if (data[i][1] === username) {
-      return response({"status": "ERROR", "message": "Username already exists"});
+      return response({"status": "ERROR", "message": "Username sudah terdaftar"});
+    }
+    if (email && data[i][2] === email) {
+      return response({"status": "ERROR", "message": "Email sudah terdaftar"});
     }
   }
   
@@ -43,40 +49,43 @@ function handleRegister(sheet, payload) {
   var passHash = hashPassword(password, salt);
   var userId = Utilities.getUuid();
   
-  // Append new user
-  sheet.appendRow([userId, username, passHash, salt, "", "", "", new Date().toISOString(), "ACTIVE"]);
-  return response({"status": "SUCCESS", "message": "User registered successfully"});
+  // [UserID, Username, Email, WhatsApp, PasswordHash, Salt, HardwareID, LastIP, SessionToken, LastActive, Status, FullName]
+  sheet.appendRow([userId, username, email, wa, passHash, salt, "", "", "", new Date().toISOString(), "ACTIVE", fullname]);
+  return response({"status": "SUCCESS", "message": "Registrasi berhasil"});
 }
 
 function handleLogin(sheet, payload) {
-  var username = payload.username;
+  var loginId = payload.username; // accepts username OR email
   var password = payload.password;
   var hwid = payload.hwid;
   var ip = payload.ip || "UNKNOWN";
   
   var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
-    if (data[i][1] === username) {
-      if (data[i][8] !== "ACTIVE") {
-        return response({"status": "ERROR", "message": "Account is inactive/banned"});
+    var storedUsername = data[i][1];
+    var storedEmail = data[i][2];
+    
+    if (storedUsername === loginId || storedEmail === loginId) {
+      if (data[i][10] !== "ACTIVE") {
+        return response({"status": "ERROR", "message": "Akun tidak aktif / banned"});
       }
-      var passHash = data[i][2];
-      var salt = data[i][3];
+      var passHash = data[i][4];
+      var salt = data[i][5];
       var calcHash = hashPassword(password, salt);
       
       if (calcHash === passHash) {
         var sessionToken = Utilities.getUuid();
         var now = new Date().toISOString();
-        // Update HardwareID, LastIP, SessionToken, LastActive
-        sheet.getRange(i+1, 5, 1, 4).setValues([[hwid, ip, sessionToken, now]]);
+        // Update HardwareID(7), LastIP(8), SessionToken(9), LastActive(10)
+        sheet.getRange(i+1, 7, 1, 4).setValues([[hwid, ip, sessionToken, now]]);
         
-        return response({"status": "SUCCESS", "session_token": sessionToken, "message": "Login successful"});
+        return response({"status": "SUCCESS", "session_token": sessionToken, "message": "Login berhasil", "username": storedUsername});
       } else {
-        return response({"status": "ERROR", "message": "Invalid password"});
+        return response({"status": "ERROR", "message": "Password salah"});
       }
     }
   }
-  return response({"status": "ERROR", "message": "User not found"});
+  return response({"status": "ERROR", "message": "User tidak ditemukan"});
 }
 
 function handleValidate(sheet, payload) {
@@ -87,12 +96,11 @@ function handleValidate(sheet, payload) {
   var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
     if (data[i][1] === username) {
-      var storedToken = data[i][6];
-      var storedHwid = data[i][4];
+      var storedToken = data[i][8];
+      var storedHwid = data[i][6];
       
       if (storedToken === sessionToken && storedHwid === hwid) {
-        // Update LastActive
-        sheet.getRange(i+1, 8).setValue(new Date().toISOString());
+        sheet.getRange(i+1, 10).setValue(new Date().toISOString());
         return response({"status": "SUCCESS", "message": "Session valid"});
       } else {
         return response({"status": "INVALID_SESSION", "message": "Akun aktif di perangkat lain"});
@@ -108,10 +116,9 @@ function handleLogout(sheet, payload) {
   
   var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
-    if (data[i][1] === username && data[i][6] === sessionToken) {
-      // Clear HWID and SessionToken
-      sheet.getRange(i+1, 5).setValue("");
+    if (data[i][1] === username && data[i][8] === sessionToken) {
       sheet.getRange(i+1, 7).setValue("");
+      sheet.getRange(i+1, 9).setValue("");
       return response({"status": "SUCCESS", "message": "Logged out"});
     }
   }
@@ -178,7 +185,7 @@ function validateUserSession(username, sessionToken) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
   var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
-    if (data[i][1] === username && data[i][6] === sessionToken) {
+    if (data[i][1] === username && data[i][8] === sessionToken) {
       return true;
     }
   }
