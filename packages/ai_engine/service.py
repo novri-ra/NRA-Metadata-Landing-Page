@@ -12,7 +12,19 @@ class MetadataModel(BaseModel):
     title: str = Field(description="A concise title")
     description: str = Field(description="A detailed description")
     category: str = Field(description="A broad category")
+    primary_category: str = Field(description="Primary Shutterstock category", default="")
+    secondary_category: str = Field(description="Secondary Shutterstock category", default="")
     keywords: list[str] = Field(description="Array of descriptive keywords")
+
+def normalize_base_url(url: str) -> str:
+    if not url:
+        return "https://api.9router.com/v1"
+    url = url.strip()
+    while url.endswith("/"):
+        url = url[:-1]
+    if not url.endswith("/v1"):
+        url += "/v1"
+    return url
 
 class AIService:
     def __init__(self, provider: str, api_key: str, model: str = None, temperature: float = 0.3):
@@ -20,6 +32,7 @@ class AIService:
         self.api_key = api_key
         self.model = model
         self.temperature = temperature
+        self.base_url = None
         
         if self.provider == "Gemini":
             self.gemini_client = genai.Client(api_key=self.api_key)
@@ -30,8 +43,9 @@ class AIService:
             self.groq_client = groq.Groq(api_key=self.api_key)
         elif self.provider == "9router":
             config = load_config()
-            base_url = config.get("9router_base_url", "https://api.9router.com/v1")
-            self.openai_client = OpenAI(api_key=self.api_key, base_url=base_url)
+            raw_url = config.get("custom_base_url", config.get("9router_base_url", "https://api.9router.com/v1"))
+            self.base_url = normalize_base_url(raw_url)
+            self.openai_client = OpenAI(api_key=self.api_key or "sk-dummy", base_url=self.base_url)
 
     def _encode_image(self, image_path: str) -> str:
         with open(image_path, "rb") as image_file:
@@ -53,6 +67,8 @@ class AIService:
         "title": a concise, SEO-optimized title (max 180 chars),
         "description": a detailed description for microstock search (max 200 chars),
         "category": a broad category,
+        "primary_category": primary Shutterstock category from Abstract, Animals/Wildlife, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and Drink, Healthcare/Medical, Holidays, Illustrations/Clip-Art, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, The Arts, Transportation, Vintage,
+        "secondary_category": optional secondary Shutterstock category,
         "keywords": an array of {min_kw} to {max_kw} descriptive keywords.
 
         KEYWORD PRIORITY ORDER (most important first):
@@ -74,7 +90,7 @@ class AIService:
                 if self.provider == "Gemini":
                     if is_text_fallback:
                         with open(image_path, 'r', encoding='utf-8') as f:
-                            svg_content = f.read()[:20000] # Cap 20KB
+                            svg_content = f.read()[:20000]
                         contents = [prompt, f"SVG Content:\\n{svg_content}"]
                     else:
                         import PIL.Image
@@ -157,7 +173,9 @@ class AIService:
 
             except Exception as e:
                 err_str = str(e)
-                # Check for rate limit or server error indicators
+                if "ConnectionRefused" in err_str or "ConnectError" in err_str or "Failed to connect" in err_str:
+                    print(f"[ERROR] Gagal terhubung ke endpoint {self.base_url or 'API'}. Pastikan server/proxy lokal Anda aktif.")
+                
                 is_retryable = "429" in err_str or "500" in err_str or "502" in err_str or "503" in err_str or "504" in err_str or "timeout" in err_str.lower() or "connection" in err_str.lower()
                 
                 if "401" in err_str or "invalid_api_key" in err_str.lower() or "authentication" in err_str.lower():
@@ -190,5 +208,7 @@ class AIService:
             "title": "Unknown Title",
             "description": "Metadata generation failed.",
             "category": "Unknown",
+            "primary_category": "Miscellaneous",
+            "secondary_category": "",
             "keywords": ["error", "fallback"]
         }
