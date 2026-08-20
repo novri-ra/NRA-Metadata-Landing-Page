@@ -16,6 +16,10 @@ function doPost(e) {
       return handleValidate(sheet, payload);
     } else if (action === 'LOGOUT') {
       return handleLogout(sheet, payload);
+    } else if (action === 'SAVE_PRESETS') {
+      return handleSavePresets(payload);
+    } else if (action === 'LOAD_PRESETS') {
+      return handleLoadPresets(payload);
     } else {
       return response({"status": "ERROR", "message": "Unknown action"});
     }
@@ -113,6 +117,86 @@ function handleLogout(sheet, payload) {
   }
   return response({"status": "SUCCESS", "message": "Already logged out"});
 }
+
+// ── Cloud Preset Sync ────────────────────────────────────────────────────
+
+function getUserPresetsSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("UserPresets");
+  if (!sheet) {
+    sheet = ss.insertSheet("UserPresets");
+    sheet.appendRow(["UserID", "DataJSON"]);
+  }
+  return sheet;
+}
+
+function handleSavePresets(payload) {
+  var username = payload.username;
+  var sessionToken = payload.session_token;
+  var presetsData = payload.presets_data;
+  
+  if (!validateUserSession(username, sessionToken)) {
+    return response({"status": "ERROR", "message": "Invalid session"});
+  }
+  
+  var userId = getUserId(username);
+  var sheet = getUserPresetsSheet();
+  var data = sheet.getDataRange().getValues();
+  
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === userId) {
+      sheet.getRange(i+1, 2).setValue(JSON.stringify(presetsData));
+      return response({"status": "SUCCESS", "message": "Presets saved successfully"});
+    }
+  }
+  
+  sheet.appendRow([userId, JSON.stringify(presetsData)]);
+  return response({"status": "SUCCESS", "message": "Presets created successfully"});
+}
+
+function handleLoadPresets(payload) {
+  var username = payload.username;
+  var sessionToken = payload.session_token;
+  
+  if (!validateUserSession(username, sessionToken)) {
+    return response({"status": "ERROR", "message": "Invalid session"});
+  }
+  
+  var userId = getUserId(username);
+  var sheet = getUserPresetsSheet();
+  var data = sheet.getDataRange().getValues();
+  
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === userId) {
+      return response({"status": "SUCCESS", "presets_data": JSON.parse(data[i][1])});
+    }
+  }
+  return response({"status": "SUCCESS", "presets_data": {}});
+}
+
+function validateUserSession(username, sessionToken) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][1] === username && data[i][6] === sessionToken) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function getUserId(username) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][1] === username) {
+      return data[i][0];
+    }
+  }
+  return null;
+}
+
+// ── Utilities ────────────────────────────────────────────────────────────
 
 function hashPassword(password, salt) {
   var rawHash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, password + salt);
