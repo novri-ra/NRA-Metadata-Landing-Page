@@ -104,9 +104,6 @@ class TestAdobeStockCsvExport(unittest.TestCase):
             keywords = [k.strip() for k in reader[1][2].split(",") if k.strip()]
             self.assertLessEqual(len(keywords), 49)
 
-if __name__ == '__main__':
-    unittest.main()
-
 class TestConfigPersistence(unittest.TestCase):
     def test_save_and_load_config(self):
         from packages.shared_utils.config import save_config, load_config
@@ -115,3 +112,86 @@ class TestConfigPersistence(unittest.TestCase):
         loaded = load_config()
         for k, v in payload.items():
             self.assertEqual(loaded.get(k), v, f"Config {k} mismatch: {loaded.get(k)} != {v}")
+
+
+# ── Auth Tests ────────────────────────────────────────────────────────────
+
+class TestAuthClientRegisterPayload(unittest.TestCase):
+    """Verify AuthClient.register sends email/wa/fullname fields."""
+
+    def test_register_accepts_extra_fields(self):
+        from packages.shared_utils.license_manager import AuthClient
+        import inspect
+        sig = inspect.signature(AuthClient.register)
+        params = list(sig.parameters.keys())
+        self.assertIn("email", params, "register() must accept 'email' kwarg")
+        self.assertIn("wa", params, "register() must accept 'wa' kwarg")
+        self.assertIn("fullname", params, "register() must accept 'fullname' kwarg")
+
+    def test_register_builds_correct_payload(self):
+        """Monkey-patch _post to capture payload."""
+        from packages.shared_utils.license_manager import AuthClient
+        client = AuthClient()
+        captured = {}
+        client._post = lambda payload: (captured.update(payload), {"status": "SUCCESS"})[1]
+
+        client.register("testuser", "pass123", email="a@b.com", wa="6281234567890", fullname="Test User")
+        self.assertEqual(captured["action"], "REGISTER")
+        self.assertEqual(captured["username"], "testuser")
+        self.assertEqual(captured["email"], "a@b.com")
+        self.assertEqual(captured["wa"], "6281234567890")
+        self.assertEqual(captured["fullname"], "Test User")
+
+
+class TestAuthLoginViaEmailOrUsername(unittest.TestCase):
+    """Verify login payload sends identifier that could be email or username."""
+
+    def test_login_sends_identifier_as_username_field(self):
+        from packages.shared_utils.license_manager import AuthClient
+        client = AuthClient()
+        captured = {}
+        client._post = lambda payload: (captured.update(payload), {"status": "SUCCESS", "session_token": "tok"})[1]
+
+        # Login with email
+        client.login("user@example.com", "pass123")
+        self.assertEqual(captured["username"], "user@example.com")
+
+        # Login with username
+        client.login("myuser", "pass456")
+        self.assertEqual(captured["username"], "myuser")
+
+
+class TestWANumberValidation(unittest.TestCase):
+    """Unit test for WhatsApp number formatting logic used in UI."""
+
+    def _normalize_wa(self, wa):
+        wa_clean = wa.replace("+", "").replace("-", "").replace(" ", "")
+        if not wa_clean.isdigit() or len(wa_clean) < 10:
+            return None
+        if wa_clean.startswith("08"):
+            wa_clean = "62" + wa_clean[1:]
+        elif not wa_clean.startswith("62"):
+            wa_clean = "62" + wa_clean
+        return wa_clean
+
+    def test_08_prefix(self):
+        self.assertEqual(self._normalize_wa("081234567890"), "6281234567890")
+
+    def test_62_prefix(self):
+        self.assertEqual(self._normalize_wa("6281234567890"), "6281234567890")
+
+    def test_plus62_prefix(self):
+        self.assertEqual(self._normalize_wa("+6281234567890"), "6281234567890")
+
+    def test_with_dashes(self):
+        self.assertEqual(self._normalize_wa("0812-3456-7890"), "6281234567890")
+
+    def test_too_short(self):
+        self.assertIsNone(self._normalize_wa("08123"))
+
+    def test_non_digit(self):
+        self.assertIsNone(self._normalize_wa("abcdef"))
+
+
+if __name__ == '__main__':
+    unittest.main()
