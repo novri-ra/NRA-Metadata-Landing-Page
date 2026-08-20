@@ -241,5 +241,30 @@ class TestBatchOutputStructure(unittest.TestCase):
                 os.rmdir(os.path.join(root, name))
         os.rmdir(self.out_dir)
 
+class TestSanitizer(unittest.TestCase):
+    def test_sanitize_ai_metadata(self):
+        from packages.media_processor.embedder import MediaProcessor
+        import subprocess
+        processor = MediaProcessor()
+        
+        # Monkey patch subprocess.run to verify arguments
+        captured_cmd = []
+        def fake_run(cmd, *args, **kwargs):
+            captured_cmd.extend(cmd)
+            return subprocess.CompletedProcess(cmd, 0)
+            
+        original_run = subprocess.run
+        subprocess.run = fake_run
+        
+        try:
+            processor.sanitize_ai_metadata("test_image.png")
+            # Verify specific AI tags are targeted
+            self.assertIn("-PNG:parameters=", captured_cmd)
+            self.assertIn("-XMP-c2pa:all=", captured_cmd)
+            # Verify NOT using destructive -all=
+            self.assertNotIn("-all=", captured_cmd)
+        finally:
+            subprocess.run = original_run
+
 if __name__ == '__main__':
     unittest.main()
