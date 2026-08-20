@@ -2267,7 +2267,9 @@ class App(ctk.CTk):
                 meta["keywords"] = merged_kws
 
         try:
-            img = Image.open(preview).copy()
+            with Image.open(preview) as opened_img:
+                img = opened_img.copy()
+                img.thumbnail((300, 300), Image.Resampling.LANCZOS)
         except:
             img = None
 
