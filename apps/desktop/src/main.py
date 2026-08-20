@@ -1596,7 +1596,7 @@ class App(ctk.CTk):
         if models:
             self.model_cb.set(models[0])
             
-        if choice == "9router":
+        if choice in ["9router", "OpenRouter", "Local Gateway"]:
             self.base_url_lbl.pack(anchor="w", padx=12, pady=(8, 0))
             self.base_url_entry.pack(fill="x", **PAD)
         else:
