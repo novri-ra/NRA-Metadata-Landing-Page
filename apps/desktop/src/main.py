@@ -26,6 +26,7 @@ from packages.shared_utils.updater import check_github_release, APP_VERSION
 from packages.shared_utils.tracker import tracker
 from packages.shared_utils.cache import get_cache_hits
 from packages.shared_utils.ftp_uploader import FTPClient
+from packages.shared_utils.env_check import run_environment_checks
 from packages.shared_utils.presets import (get_preset_names, get_preset, save_preset as save_kw_preset,
     delete_preset as delete_kw_preset, export_presets, import_presets)
 
