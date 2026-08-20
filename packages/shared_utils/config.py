@@ -12,32 +12,32 @@ class DATA_BLOB(ctypes.Structure):
     _fields_ = [('cbData', ctypes.wintypes.DWORD), ('pbData', ctypes.POINTER(ctypes.c_char))]
 
 def _dpapi_encrypt(data: bytes) -> bytes:
-    if sys.platform != 'win32': return data
+    if sys.platform != 'win32': raise RuntimeError("DPAPI encryption requires Windows")
     try:
         crypt32 = ctypes.windll.crypt32
         blob_in = DATA_BLOB(len(data), ctypes.cast(data, ctypes.POINTER(ctypes.c_char)))
         blob_out = DATA_BLOB()
-        if crypt32.CryptProtectData(ctypes.byref(blob_in), None, None, None, None, 0, ctypes.byref(blob_out)):
+        if crypt32.CryptProtectData(ctypes.byref(blob_in), None, None, None, None, 1, ctypes.byref(blob_out)):
             res = ctypes.string_at(blob_out.pbData, blob_out.cbData)
             ctypes.windll.kernel32.LocalFree(blob_out.pbData)
             return res
-    except Exception:
-        pass
-    return data
+    except Exception as e:
+        raise RuntimeError(f"CryptProtectData exception: {e}")
+    raise RuntimeError("CryptProtectData failed")
 
 def _dpapi_decrypt(data: bytes) -> bytes:
-    if sys.platform != 'win32': return data
+    if sys.platform != 'win32': raise RuntimeError("DPAPI decryption requires Windows")
     try:
         crypt32 = ctypes.windll.crypt32
         blob_in = DATA_BLOB(len(data), ctypes.cast(data, ctypes.POINTER(ctypes.c_char)))
         blob_out = DATA_BLOB()
-        if crypt32.CryptUnprotectData(ctypes.byref(blob_in), None, None, None, None, 0, ctypes.byref(blob_out)):
+        if crypt32.CryptUnprotectData(ctypes.byref(blob_in), None, None, None, None, 1, ctypes.byref(blob_out)):
             res = ctypes.string_at(blob_out.pbData, blob_out.cbData)
             ctypes.windll.kernel32.LocalFree(blob_out.pbData)
             return res
-    except Exception:
-        pass
-    return data
+    except Exception as e:
+        raise RuntimeError(f"CryptUnprotectData exception: {e}")
+    raise RuntimeError("CryptUnprotectData failed")
 
 def load_config() -> dict:
     # Migrate old plain config.json if exists
