@@ -150,7 +150,7 @@ class AIService:
                         "temperature": self.temperature,
                         "response_format": {"type": "json_object"}
                     }
-                    res = requests.post("https://api.mistral.ai/v1/chat/completions", headers=headers, json=data)
+                    res = requests.post("https://api.mistral.ai/v1/chat/completions", headers=headers, json=data, timeout=30)
                     res.raise_for_status()
                     return self._parse_json(res.json()["choices"][0]["message"]["content"])
 
