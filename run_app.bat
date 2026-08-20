@@ -1,75 +1,78 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal enabledelayedexpansion
 title NRA-Metadata Launcher
-
 cd /d "%~dp0"
+set "PYTHONPATH=%CD%"
 
-echo [NRA-Metadata] Memeriksa environment Python...
+echo =======================================================
+echo         NRA-Metadata - Auto Launcher
+echo =======================================================
+echo.
 
-:: Cek Python Global
-python --version >nul 2>&1
+:: 1. Cek Python Global di Sistem (Pastikan memiliki Tkinter)
+where python >nul 2>&1
 if %ERRORLEVEL% equ 0 (
-    for /f "tokens=2" %%v in ('python --version') do set "PY_VER=%%v"
-    echo [NRA-Metadata] Menggunakan Python Global v!PY_VER!
-    set "PYTHON_EXE=python"
-    
-    :: Install deps global jika belum
-    if not exist ".global_deps_installed" (
-        echo [NRA-Metadata] Menginstal dependensi ke global Python...
-        python -m pip install --upgrade pip >nul 2>&1
-        python -m pip install -r requirements.txt >nul 2>&1
-        echo done > ".global_deps_installed"
+    python -c "import tkinter, customtkinter" >nul 2>&1
+    if !ERRORLEVEL! equ 0 (
+        echo [*] Python global dengan dependensi lengkap ditemukan.
+        echo [*] Menjalankan NRA-Metadata...
+        echo.
+        python apps\desktop\src\main.py
+        goto :END
     )
-    goto :LaunchApp
+    python -c "import tkinter" >nul 2>&1
+    if !ERRORLEVEL! equ 0 (
+        echo [*] Python sistem ditemukan. Menginstal/memeriksa dependensi...
+        python -m pip install -r requirements.txt --no-warn-script-location
+        echo [*] Menjalankan NRA-Metadata...
+        echo.
+        python apps\desktop\src\main.py
+        goto :END
+    )
 )
 
-echo [NRA-Metadata] Python global tidak terdeteksi.
-echo [NRA-Metadata] Menyiapkan runtime portable otomatis (Zero-Setup)...
-
-set "RUNTIME_DIR=tools\python_runtime"
-set "PYTHON_EXE=%RUNTIME_DIR%\python.exe"
-
-if not exist "%RUNTIME_DIR%" (
-    mkdir "%RUNTIME_DIR%"
+:: 2. Auto-Install Python 3.11 Resmi via Winget (Jika Tersedia di Windows)
+where winget >nul 2>&1
+if %ERRORLEVEL% equ 0 (
+    echo [*] Python belum terpasang. Memasang Python 3.11 resmi via Windows Package Manager...
+    winget install Python.Python.3.11 --silent --accept-package-agreements --accept-source-agreements
+    if !ERRORLEVEL! equ 0 (
+        echo [*] Python 3.11 berhasil dipasang. Menyiapkan dependensi...
+        set "PATH=%LOCALAPPDATA%\Programs\Python\Python311;%LOCALAPPDATA%\Programs\Python\Python311\Scripts;%PATH%"
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+        python apps\desktop\src\main.py
+        goto :END
+    )
 )
 
-if not exist "%PYTHON_EXE%" (
-    echo [NRA-Metadata] Mengunduh Python 3.11 Embeddable...
-    powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip' -OutFile 'tools\python-embed.zip'"
-    
-    echo [NRA-Metadata] Mengekstrak Python...
-    powershell -Command "Expand-Archive -Path 'tools\python-embed.zip' -DestinationPath '%RUNTIME_DIR%' -Force"
-    del "tools\python-embed.zip"
-    
-    echo [NRA-Metadata] Mengkonfigurasi environment Python portable...
-    :: Un-comment import site di file ._pth agar pip bisa bekerja
-    powershell -Command "(Get-Content '%RUNTIME_DIR%\python311._pth') -replace '#import site', 'import site' | Set-Content '%RUNTIME_DIR%\python311._pth'"
-    
-    echo [NRA-Metadata] Mengunduh PIP...
-    powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://bootstrap.pypa.io/get-pip.py' -OutFile '%RUNTIME_DIR%\get-pip.py'"
-    
-    echo [NRA-Metadata] Menginstal PIP...
-    "%PYTHON_EXE%" "%RUNTIME_DIR%\get-pip.py" --no-warn-script-location
+:: 3. Fallback: Download & Silent Install Python Installer Resmi (Full Tkinter Support)
+echo [*] Mengunduh runtime Python 3.11 installer resmi (dengan dukungan penuh Tkinter)...
+if not exist "tools" mkdir tools
+set "INSTALLER_PATH=tools\python_installer.exe"
+
+if not exist "!INSTALLER_PATH!" (
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+      "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; " ^
+      "Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe' -OutFile '!INSTALLER_PATH!'"
 )
 
-:: Install Dependencies Portable
-if not exist "%RUNTIME_DIR%\.deps_installed" (
-    echo [NRA-Metadata] Menginstal dependensi proyek (ini hanya terjadi sekali, harap tunggu)...
-    "%PYTHON_EXE%" -m pip install --upgrade pip --no-warn-script-location
-    "%PYTHON_EXE%" -m pip install -r requirements.txt --no-warn-script-location
-    echo done > "%RUNTIME_DIR%\.deps_installed"
+if exist "!INSTALLER_PATH!" (
+    echo [*] Memasang Python lokal portabel...
+    start /wait "" "!INSTALLER_PATH!" /quiet InstallAllUsers=0 PrependPath=1 Include_tcltk=1 Include_pip=1
+    set "PATH=%LOCALAPPDATA%\Programs\Python\Python311;%LOCALAPPDATA%\Programs\Python\Python311\Scripts;%PATH%"
+    python -m pip install -r requirements.txt
+    python apps\desktop\src\main.py
+    goto :END
 )
 
-:LaunchApp
-echo [NRA-Metadata] Menjalankan Aplikasi...
-set PYTHONPATH=%CD%
-"%PYTHON_EXE%" apps\desktop\src\main.py
+:ERROR
+echo.
+echo [ERROR] Gagal menyiapkan environment Python.
+echo Silakan pastikan koneksi internet aktif atau pasang Python 3.11 manual dari python.org.
 
-if %ERRORLEVEL% neq 0 (
-    echo.
-    echo [FATAL ERROR] Aplikasi berhenti secara tidak wajar (Crash).
-    echo Silakan baca log di atas untuk mengetahui masalahnya.
-    pause
-)
-
-endlocal
+:END
+echo.
+echo =======================================================
+echo Launcher selesai. Tekan sembarang tombol untuk keluar.
+pause
