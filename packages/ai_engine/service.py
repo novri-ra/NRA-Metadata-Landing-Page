@@ -141,7 +141,7 @@ class AIService:
                         base64_image = self._encode_image(image_path)
                         content = [
                             {"type": "text", "text": prompt},
-                            {"type": "image_url", "image_url": f"data:image/jpeg;base64,{base64_image}"}
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                         ]
                     headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
                     data = {
