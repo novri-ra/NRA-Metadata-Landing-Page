@@ -157,21 +157,10 @@ class App(ctk.CTk):
         self.log_lock = threading.Lock()
         
         self.MODEL_MAP = {
-            "Gemini": ["gemini-1.5-flash", "gemini-1.5-pro"],
+            "Gemini": ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"],
             "OpenAI": ["gpt-4o-mini", "gpt-4o"],
-            "Mistral": ["mistral-small-latest", "mistral-large-latest"],
-            "Groq": ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"],
-            "9router": [
-                "9router/auto", 
-                "claude-3-5-sonnet", 
-                "gpt-4o", 
-                "gpt-4o-mini", 
-                "gemini-1.5-pro", 
-                "gemini-1.5-flash", 
-                "mistral-large", 
-                "deepseek-coder", 
-                "custom-model"
-            ],
+            "Mistral": ["mistral-small-latest", "mistral-large-latest", "pixtral-12b-2409"],
+            "Groq": ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"]
         }
 
         self._restore_geometry()
@@ -621,8 +610,28 @@ class App(ctk.CTk):
 
         _label(sidebar, "API Key").pack(fill="x", anchor="w", **LPAD)
         self.api_key_entry = _entry(sidebar, show="*")
-        self.api_key_entry.insert(0, self.config.get("api_key", ""))
+        
+        # Load API keys dict, handle migration from old single API key
+        if "api_keys" not in self.config:
+            self.config["api_keys"] = {}
+            if "api_key" in self.config:
+                old_key = self.config.pop("api_key")
+                old_provider = self.config.get("provider", "Gemini")
+                if old_key:
+                    self.config["api_keys"][old_provider] = old_key
+
+        current_provider = self.config.get("provider", "Gemini")
+        self.api_key_entry.insert(0, self.config["api_keys"].get(current_provider, ""))
         self.api_key_entry.pack(fill="x", **PAD)
+        
+        # Fetch Models Button
+        self.fetch_models_btn = ctk.CTkButton(
+            sidebar, text="🔄 Fetch Models", fg_color=C["surface2"],
+            hover_color=C["border"], text_color=C["text2"], height=28,
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            command=self._fetch_models
+        )
+        self.fetch_models_btn.pack(fill="x", padx=16, pady=(0, 16))
 
         # Temperature
         temp_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
@@ -1746,6 +1755,42 @@ class App(ctk.CTk):
         self.destroy()
         import os
         os._exit(0)
+
+    def _fetch_models(self):
+        provider = self.provider_cb.get()
+        api_key = self.api_key_entry.get().strip()
+        
+        if not api_key:
+            self.log(f"Please enter an API Key for {provider} first.", "error")
+            return
+            
+        self.fetch_models_btn.configure(text="[ Mengambil... ]", state="disabled")
+        self.update_idletasks()
+        
+        def _bg_fetch():
+            from packages.ai_engine.service import AIService
+            ai = AIService(provider, api_key)
+            models = ai.fetch_available_models()
+            self.after(0, lambda: self._fetch_models_done(provider, models))
+            
+        import threading
+        threading.Thread(target=_bg_fetch, daemon=True).start()
+
+    def _fetch_models_done(self, provider, models):
+        self.fetch_models_btn.configure(text="🔄 Fetch Models", state="normal")
+        if not models:
+            self.log(f"Failed to fetch models for {provider} or API Key invalid.", "error")
+            return
+            
+        # Update MAP and UI
+        self.MODEL_MAP[provider] = models
+        current_provider = self.provider_cb.get()
+        
+        if current_provider == provider:
+            self.model_cb.configure(values=models)
+            if models:
+                self.model_cb.set(models[0])
+            self.log(f"Successfully updated models for {provider}.", "success")
 
     def _update_model_list(self, choice):
         models = self.MODEL_MAP.get(choice, [])

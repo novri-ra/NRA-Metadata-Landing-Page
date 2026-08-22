@@ -215,3 +215,36 @@ class AIService:
             "secondary_category": "",
             "keywords": ["error", "fallback"]
         }
+
+    def fetch_available_models(self) -> list[str]:
+        try:
+            if self.provider == "OpenAI":
+                response = requests.get("https://api.openai.com/v1/models", headers={"Authorization": f"Bearer {self.api_key}"}, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    models = [m["id"] for m in data.get("data", []) if "gpt" in m["id"] and "vision" not in m["id"] and "instruct" not in m["id"]]
+                    models.sort(reverse=True)
+                    return models[:20] if models else ["gpt-4o", "gpt-4o-mini"]
+            elif self.provider == "Mistral":
+                response = requests.get("https://api.mistral.ai/v1/models", headers={"Authorization": f"Bearer {self.api_key}", "Accept": "application/json"}, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    models = [m["id"] for m in data.get("data", []) if m["id"].startswith(("mistral", "pixtral", "open-"))]
+                    return models if models else ["mistral-small-latest", "mistral-large-latest", "pixtral-12b-2409"]
+            elif self.provider == "Groq":
+                response = requests.get("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {self.api_key}"}, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    models = [m["id"] for m in data.get("data", []) if "vision" in m["id"] or "llama" in m["id"] or "mixtral" in m["id"]]
+                    return models if models else ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"]
+            elif self.provider == "Gemini":
+                response = requests.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}", timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    models = [m["name"].replace("models/", "") for m in data.get("models", []) if "gemini" in m["name"] and "generateContent" in m.get("supportedGenerationMethods", [])]
+                    models = [m for m in models if "vision" not in m or "1.5" in m or "2.0" in m]
+                    models.sort(reverse=True)
+                    return models if models else ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
+        except Exception as e:
+            print(f"Fetch models failed for {self.provider}: {e}")
+        return []
