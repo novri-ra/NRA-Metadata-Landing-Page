@@ -9,12 +9,19 @@ echo         NRA-Metadata - Auto Launcher
 echo =======================================================
 echo.
 
-:: 1. Cek Python Global di Sistem (Pastikan memiliki Tkinter)
+:: Provisioning Work Directories
+if not exist "cache" mkdir cache
+if not exist "logs" mkdir logs
+if not exist "output" mkdir output
+
+:: 1. Cek Python Global di Sistem
 where python >nul 2>&1
 if %ERRORLEVEL% equ 0 (
     python -c "import tkinter, customtkinter" >nul 2>&1
     if !ERRORLEVEL! equ 0 (
         echo [*] Python global dengan dependensi lengkap ditemukan.
+        echo [*] Memeriksa konfigurasi awal...
+        python scripts\init_config.py
         echo [*] Menjalankan NRA-Metadata...
         echo.
         python apps\desktop\src\main.py
@@ -24,6 +31,8 @@ if %ERRORLEVEL% equ 0 (
     if !ERRORLEVEL! equ 0 (
         echo [*] Python sistem ditemukan. Menginstal/memeriksa dependensi...
         python -m pip install -r requirements.txt --no-warn-script-location
+        echo [*] Memeriksa konfigurasi awal...
+        python scripts\init_config.py
         echo [*] Menjalankan NRA-Metadata...
         echo.
         python apps\desktop\src\main.py
@@ -31,7 +40,7 @@ if %ERRORLEVEL% equ 0 (
     )
 )
 
-:: 2. Auto-Install Python 3.11 Resmi via Winget (Jika Tersedia di Windows)
+:: 2. Auto-Install Python 3.11 Resmi via Winget
 where winget >nul 2>&1
 if %ERRORLEVEL% equ 0 (
     echo [*] Python belum terpasang. Memasang Python 3.11 resmi via Windows Package Manager...
@@ -41,13 +50,14 @@ if %ERRORLEVEL% equ 0 (
         set "PATH=%LOCALAPPDATA%\Programs\Python\Python311;%LOCALAPPDATA%\Programs\Python\Python311\Scripts;%PATH%"
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
+        python scripts\init_config.py
         python apps\desktop\src\main.py
         goto :END
     )
 )
 
-:: 3. Fallback: Download & Silent Install Python Installer Resmi (Full Tkinter Support)
-echo [*] Mengunduh runtime Python 3.11 installer resmi (dengan dukungan penuh Tkinter)...
+:: 3. Fallback: Download & Silent Install Python Installer Resmi
+echo [*] Mengunduh runtime Python 3.11 installer resmi...
 if not exist "tools" mkdir tools
 set "INSTALLER_PATH=tools\python_installer.exe"
 
@@ -62,6 +72,7 @@ if exist "!INSTALLER_PATH!" (
     start /wait "" "!INSTALLER_PATH!" /quiet InstallAllUsers=0 PrependPath=1 Include_tcltk=1 Include_pip=1
     set "PATH=%LOCALAPPDATA%\Programs\Python\Python311;%LOCALAPPDATA%\Programs\Python\Python311\Scripts;%PATH%"
     python -m pip install -r requirements.txt
+    python scripts\init_config.py
     python apps\desktop\src\main.py
     goto :END
 )
