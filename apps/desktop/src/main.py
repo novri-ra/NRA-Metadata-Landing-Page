@@ -157,10 +157,23 @@ class App(ctk.CTk):
         self.log_lock = threading.Lock()
         
         self.MODEL_MAP = {
-            "Gemini": ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"],
-            "OpenAI": ["gpt-4o-mini", "gpt-4o"],
-            "Mistral": ["mistral-small-latest", "mistral-large-latest", "pixtral-12b-2409"],
-            "Groq": ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"]
+            "Gemini": [
+                "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", 
+                "gemini-3.1-pro-preview", "gemini-3.1-flash-lite-preview", 
+                "gemini-3-flash-preview", "gemini-2.5-pro", "gemini-2.5-flash", 
+                "gemini-2.5-flash-lite", "gemma-4-31b-it"
+            ],
+            "Groq": [
+                "llama-3.3-70b-versatile", "meta-llama/llama-4-maverick-17b-128e-instruct", 
+                "qwen/qwen3-32b", "openai/gpt-oss-120b", "llama-3.2-11b-vision-preview"
+            ],
+            "Mistral": [
+                "mistral-large-latest", "codestral-latest", "mistral-medium-latest", 
+                "mistral-small-latest", "pixtral-12b-2409"
+            ],
+            "OpenAI": [
+                "gpt-4o-mini", "gpt-4o", "chatgpt-4o-latest"
+            ]
         }
 
         self._restore_geometry()
