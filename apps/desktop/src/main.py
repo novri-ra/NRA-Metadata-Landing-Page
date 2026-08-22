@@ -180,6 +180,9 @@ class App(ctk.CTk):
         self.build_ui()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         
+        # Update initial key counter
+        self.after(10, lambda: self._update_keys_counter(self.config.get("provider", "Gemini")))
+        
         # Initial Auth Check
         self.after(100, self._check_initial_auth)
         self.after(2000, lambda: check_github_release(callback=lambda info: self.after(0, lambda: self._show_update_banner(info))))
@@ -1888,6 +1891,49 @@ class App(ctk.CTk):
         import os
         os._exit(0)
 
+    def _load_keys_from_file(self):
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
+        if not path:
+            return
+            
+        provider = self.provider_cb.get()
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+                
+            keys = []
+            for line in lines:
+                k = line.strip()
+                if k and k not in keys:
+                    keys.append(k)
+                    
+            if keys:
+                if "api_keys_pool" not in self.config:
+                    self.config["api_keys_pool"] = {}
+                self.config["api_keys_pool"][provider] = keys
+                
+                # Update current entry to first key
+                self.api_key_entry.delete(0, "end")
+                self.api_key_entry.insert(0, keys[0])
+                self._on_key_type() # Save to old api_keys dict for backward compatibility
+                
+                self.keys_counter_lbl.configure(text=f"({len(keys)} keys loaded)")
+                self._save_current_config()
+                self.log(f"Loaded {len(keys)} API keys for {provider}", "success")
+            else:
+                self.log("File is empty or contains no valid keys.", "error")
+        except Exception as e:
+            self.log(f"Failed to read file: {e}", "error")
+
+    def _update_keys_counter(self, provider):
+        if hasattr(self, "keys_counter_lbl"):
+            pool = self.config.get("api_keys_pool", {}).get(provider, [])
+            # Also check old api_keys dict if pool is empty
+            if not pool and self.config.get("api_keys", {}).get(provider):
+                pool = [self.config["api_keys"][provider]]
+            self.keys_counter_lbl.configure(text=f"({len(pool)} keys loaded)")
+
     def _fetch_models(self):
         provider = self.provider_cb.get()
         api_key = self.api_key_entry.get().strip()
@@ -1956,6 +2002,10 @@ class App(ctk.CTk):
                 self.api_key_entry.insert(0, target_key)
                 
             self.api_key_entry.configure(placeholder_text="API Key")
+
+        # Update counter
+        if hasattr(self, "_update_keys_counter"):
+            self._update_keys_counter(choice)
 
         # 4. Sinkronkan daftar Model di dropdown ComboBox
         if hasattr(self, "_update_model_list"):

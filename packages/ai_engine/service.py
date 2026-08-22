@@ -30,13 +30,32 @@ def normalize_base_url(url: str) -> str:
     return url
 
 class AIService:
-    def __init__(self, provider: str, api_key: str, model: str = None, temperature: float = 0.3):
+    def __init__(self, provider: str, api_keys, model: str = None, temperature: float = 0.3):
         self.provider = provider
-        self.api_key = api_key
+        # Normalize to list
+        if isinstance(api_keys, str):
+            self.api_keys = [k.strip() for k in api_keys.splitlines() if k.strip()]
+            if not self.api_keys:
+                self.api_keys = [api_keys]
+        elif isinstance(api_keys, list):
+            self.api_keys = [k for k in api_keys if k and isinstance(k, str)]
+        else:
+            self.api_keys = []
+            
+        if not self.api_keys:
+            self.api_keys = [""]
+            
+        self.current_key_idx = 0
         self.model = model
         self.temperature = temperature
         self.base_url = None
+        self._init_clients()
+
+    @property
+    def api_key(self):
+        return self.api_keys[self.current_key_idx]
         
+    def _init_clients(self):
         if self.provider == "Gemini":
             self.gemini_client = genai.Client(api_key=self.api_key)
         elif self.provider == "OpenAI":
@@ -47,11 +66,6 @@ class AIService:
                 self.groq_client = groq.Groq(api_key=self.api_key)
             except ImportError:
                 self.groq_client = None
-        elif self.provider == "9router":
-            config = load_config()
-            raw_url = config.get("custom_base_url", config.get("9router_base_url", "https://api.9router.com/v1"))
-            self.base_url = normalize_base_url(raw_url)
-            self.openai_client = OpenAI(api_key=self.api_key or "sk-9router", base_url=self.base_url)
 
     def _encode_image(self, image_path: str) -> str:
         with open(image_path, "rb") as image_file:
@@ -184,9 +198,19 @@ class AIService:
                 else:
                     is_retryable = "429" in err_str or "500" in err_str or "502" in err_str or "503" in err_str or "504" in err_str or "timeout" in err_str.lower() or "connection" in err_str.lower()
                 
-                if "401" in err_str or "invalid_api_key" in err_str.lower() or "authentication" in err_str.lower():
-                    print(f"AI Service Error ({self.provider}): Authentication Failed. Check API Key.")
-                    return self._fallback_metadata()
+                # Check for Rate Limit / Quota / Invalid Key -> Rotate Key
+                if "429" in err_str or "quota" in err_str.lower() or "exhausted" in err_str.lower() or "401" in err_str or "invalid_api_key" in err_str.lower() or "authentication" in err_str.lower() or "403" in err_str:
+                    if len(self.api_keys) > 1:
+                        print(f"[WARNING] API Key #{self.current_key_idx + 1} limit/exhausted on {self.provider}. Rotating to key #{(self.current_key_idx + 1) % len(self.api_keys) + 1}...")
+                        self.current_key_idx = (self.current_key_idx + 1) % len(self.api_keys)
+                        self._init_clients() # re-init clients with new key
+                        if attempt < max_retries:
+                            continue # retry immediately with new key
+                    
+                    if "401" in err_str or "invalid_api_key" in err_str.lower() or "authentication" in err_str.lower():
+                        if len(self.api_keys) <= 1 or attempt >= max_retries:
+                            print(f"AI Service Error ({self.provider}): All keys exhausted or Authentication Failed. Check API Key.")
+                            return self._fallback_metadata()
 
                 if is_retryable and attempt < max_retries:
                     wait_time = backoff_times[attempt]
