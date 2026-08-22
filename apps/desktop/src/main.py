@@ -712,7 +712,7 @@ class App(ctk.CTk):
         inj_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         inj_row.pack(fill="x", **LPAD)
         _label(inj_row, "Inject at:").pack(side="left", padx=(0, 4))
-        self.custom_kw_pos = _combo(inj_row, ["Start (Priority)", "End"])
+        self.custom_kw_pos = _combo(inj_row, ["Start (Priority)", "End"], command=lambda _: self._save_current_config())
         self.custom_kw_pos.set(self.config.get("custom_kw_pos", "Start (Priority)"))
         self.custom_kw_pos.pack(side="left", expand=True, fill="x")
 
