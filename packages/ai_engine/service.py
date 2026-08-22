@@ -42,8 +42,11 @@ class AIService:
         elif self.provider == "OpenAI":
             self.openai_client = OpenAI(api_key=self.api_key)
         elif self.provider == "Groq":
-            import groq
-            self.groq_client = groq.Groq(api_key=self.api_key)
+            try:
+                import groq
+                self.groq_client = groq.Groq(api_key=self.api_key)
+            except ImportError:
+                self.groq_client = None
         elif self.provider == "9router":
             config = load_config()
             raw_url = config.get("custom_base_url", config.get("9router_base_url", "https://api.9router.com/v1"))
