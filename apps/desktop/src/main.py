@@ -209,7 +209,7 @@ class App(ctk.CTk):
         self.withdraw()
 
         modal = ctk.CTkToplevel(self)
-        modal.title("NRA Metadata â€” Autentikasi")
+        modal.title("NRA Metadata - Autentikasi")
         modal.geometry("480x640")
         modal.resizable(False, False)
         modal.configure(fg_color=C["bg"])
@@ -239,7 +239,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(header_frame, text="NRA METADATA",
                      font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold"),
                      text_color=C["text"]).pack()
-        ctk.CTkLabel(header_frame, text="v0.1.0-alpha â€¢ AI Auto Tagger",
+        ctk.CTkLabel(header_frame, text="v0.1.0-alpha - AI Auto Tagger",
                      font=ctk.CTkFont(family="Segoe UI", size=11),
                      text_color=C["text3"]).pack()
 
@@ -281,8 +281,7 @@ class App(ctk.CTk):
         if last_auth_user:
             welcome_frame = ctk.CTkFrame(login_scroll, fg_color=C["surface2"], corner_radius=8)
             welcome_frame.pack(fill="x", padx=20, pady=(0, 10))
-            ctk.CTkLabel(welcome_frame, text=f"ðŸ‘‹ Selamat datang kembali,
-{last_auth_user}", 
+            ctk.CTkLabel(welcome_frame, text=f"\U0001F44B Selamat datang kembali,\n{last_auth_user}", 
                          text_color=C["text"], font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
                          justify="left").pack(side="left", padx=12, pady=8)
                          
@@ -298,10 +297,10 @@ class App(ctk.CTk):
                           fg_color="transparent", text_color=C["accent"], hover_color=C["surface"],
                           command=clear_user).pack(side="right", padx=12)
 
-        user_entry = _field(login_scroll, "Username atau Email", user_var_login, icon="ðŸ‘¤")
+        user_entry = _field(login_scroll, "Username atau Email", user_var_login, icon="\U0001F464")
 
         # password + toggle
-        ctk.CTkLabel(login_scroll, text="ðŸ”’ Password", text_color=C["text"],
+        ctk.CTkLabel(login_scroll, text="\U0001F512 Password", text_color=C["text"],
                      font=ctk.CTkFont(family="Segoe UI", size=12)).pack(anchor="w", padx=20, pady=(6, 2))
         pw_frame_l = ctk.CTkFrame(login_scroll, fg_color="transparent")
         pw_frame_l.pack(padx=20, pady=(0, 4), fill="x")
@@ -316,7 +315,7 @@ class App(ctk.CTk):
             pass_entry_login.configure(show="" if show_pass_login.get() else "*")
             show_pass_login.set(not show_pass_login.get())
 
-        ctk.CTkButton(pw_frame_l, text="ðŸ‘ ", width=36, height=28, corner_radius=8,
+        ctk.CTkButton(pw_frame_l, text="\U0001F441", width=36, height=28, corner_radius=8,
                       fg_color=C["surface2"], hover_color=C["border"],
                       command=_toggle_pw_login).pack(side="left", padx=(4, 0))
 
@@ -333,7 +332,7 @@ class App(ctk.CTk):
                                          font=ctk.CTkFont(family="Segoe UI", size=11))
         status_lbl_login.pack(pady=(2, 4))
 
-        btn_login = ctk.CTkButton(login_scroll, text="ðŸš€ Masuk ke Aplikasi", width=FW,
+        btn_login = ctk.CTkButton(login_scroll, text="\U0001F680 Masuk ke Aplikasi", width=FW,
                       fg_color=C["accent"], hover_color=C["accent_h"],
                       font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
                       height=38, corner_radius=8)
@@ -342,9 +341,9 @@ class App(ctk.CTk):
             u = user_var_login.get().strip()
             p = pass_var_login.get().strip()
             if not u or not p:
-                status_lbl_login.configure(text="âš ï¸  Isi username/email dan password", text_color=C["error"])
+                status_lbl_login.configure(text="\u26A0\uFE0F Isi username/email dan password", text_color=C["error"])
                 return
-            status_lbl_login.configure(text="âŒ› Memverifikasi kredensial...", text_color=C["text3"])
+            status_lbl_login.configure(text="\u231B Memverifikasi kredensial...", text_color=C["text3"])
             btn_login.configure(state="disabled", text="Memproses...")
             modal.update()
 
@@ -356,7 +355,7 @@ class App(ctk.CTk):
             threading.Thread(target=_bg, daemon=True).start()
 
         def _login_done(res, u):
-            btn_login.configure(state="normal", text="ðŸš€ Masuk ke Aplikasi")
+            btn_login.configure(state="normal", text="\U0001F680 Masuk ke Aplikasi")
             if res.get("status") == "SUCCESS":
                 actual_user = res.get("username", u)
                 if remember_var.get():
@@ -370,7 +369,7 @@ class App(ctk.CTk):
                     save_config(self.config)
                     save_config(self.auth.config)
                     
-                status_lbl_login.configure(text="âœ… Login berhasil!", text_color=C["success"])
+                status_lbl_login.configure(text="\u2705 Login berhasil!", text_color=C["success"])
                 modal.update()
                 
                 # Smooth fade out
@@ -386,7 +385,7 @@ class App(ctk.CTk):
                 
                 self.after(500, lambda: self.log(f"Login sukses sebagai {actual_user}", "success"))
             else:
-                status_lbl_login.configure(text=f"â Œ {res.get('message', 'Error login')}", text_color=C["error"])
+                status_lbl_login.configure(text=f"\u274C {res.get('message', 'Error login')}", text_color=C["error"])
 
         btn_login.configure(command=_do_login)
         btn_login.pack(padx=20, pady=(8, 12))
@@ -404,19 +403,19 @@ class App(ctk.CTk):
         pass2_var_reg = ctk.StringVar()
         show_pass_reg = ctk.BooleanVar(value=False)
 
-        _field(reg_scroll, "Nama Lengkap", fullname_var, icon="ðŸ’³")
-        _field(reg_scroll, "Username", user_var_reg, icon="ðŸ‘¤")
-        _field(reg_scroll, "Email Aktif", email_var_reg, icon="âœ‰ï¸ ")
+        _field(reg_scroll, "Nama Lengkap", fullname_var, icon="\U0001F4B3")
+        _field(reg_scroll, "Username", user_var_reg, icon="\U0001F464")
+        _field(reg_scroll, "Email Aktif", email_var_reg, icon="\u2709\uFE0F")
         
         # WA Banner
         wa_banner = ctk.CTkFrame(reg_scroll, fg_color=C["surface2"], corner_radius=6)
         wa_banner.pack(fill="x", padx=20, pady=(8, 0))
-        ctk.CTkLabel(wa_banner, text="ðŸ’¡ Info: Untuk undangan grup update & rilis fitur.",
+        ctk.CTkLabel(wa_banner, text="\U0001F4A1 Info: Untuk undangan grup update & rilis fitur.",
                      text_color=C["text3"], font=ctk.CTkFont(family="Segoe UI", size=10, slant="italic")).pack(pady=4)
-        _field(reg_scroll, "No. WhatsApp", wa_var_reg, icon="ðŸ“±")
+        _field(reg_scroll, "No. WhatsApp", wa_var_reg, icon="\U0001F4F1")
 
         # password + toggle
-        ctk.CTkLabel(reg_scroll, text="ðŸ”’ Password", text_color=C["text"],
+        ctk.CTkLabel(reg_scroll, text="\U0001F512 Password", text_color=C["text"],
                      font=ctk.CTkFont(family="Segoe UI", size=12)).pack(anchor="w", padx=20, pady=(6, 2))
         pw_frame_r = ctk.CTkFrame(reg_scroll, fg_color="transparent")
         pw_frame_r.pack(padx=20, pady=(0, 4), fill="x")
@@ -432,18 +431,18 @@ class App(ctk.CTk):
             pass_entry_reg.configure(show=ch)
             show_pass_reg.set(not show_pass_reg.get())
 
-        ctk.CTkButton(pw_frame_r, text="ðŸ‘ ", width=36, height=28, corner_radius=8,
+        ctk.CTkButton(pw_frame_r, text="\U0001F441", width=36, height=28, corner_radius=8,
                       fg_color=C["surface2"], hover_color=C["border"],
                       command=_toggle_pw_reg).pack(side="left", padx=(4, 0))
 
-        _field(reg_scroll, "ðŸ”’ Konfirmasi Password", pass2_var_reg, show="*")
+        _field(reg_scroll, "\U0001F512 Konfirmasi Password", pass2_var_reg, show="*")
 
         status_lbl_reg = ctk.CTkLabel(reg_scroll, text="", text_color=C["error"],
                                        font=ctk.CTkFont(family="Segoe UI", size=11),
                                        wraplength=FW - 10)
         status_lbl_reg.pack(pady=(2, 4))
 
-        btn_reg = ctk.CTkButton(reg_scroll, text="âœ¨ Buat Akun & Gabung Komunitas", width=FW,
+        btn_reg = ctk.CTkButton(reg_scroll, text="\u2728 Buat Akun & Gabung Komunitas", width=FW,
                       fg_color=C["accent"], hover_color=C["accent_h"],
                       font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
                       height=38, corner_radius=8)
@@ -473,9 +472,9 @@ class App(ctk.CTk):
         def _do_register():
             data, err = _validate_register()
             if err:
-                status_lbl_reg.configure(text=f"âš ï¸  {err}", text_color=C["error"])
+                status_lbl_reg.configure(text=f"\u26A0\uFE0F {err}", text_color=C["error"])
                 return
-            status_lbl_reg.configure(text="âŒ› Mendaftarkan perangkat...", text_color=C["text3"])
+            status_lbl_reg.configure(text="\u231B Mendaftarkan perangkat...", text_color=C["text3"])
             btn_reg.configure(state="disabled", text="Memproses...")
             modal.update()
 
@@ -489,13 +488,13 @@ class App(ctk.CTk):
             threading.Thread(target=_bg, daemon=True).start()
 
         def _reg_done(res, u):
-            btn_reg.configure(state="normal", text="âœ¨ Buat Akun & Gabung Komunitas")
+            btn_reg.configure(state="normal", text="\u2728 Buat Akun & Gabung Komunitas")
             if res.get("status") == "SUCCESS":
-                status_lbl_reg.configure(text="âœ… Registrasi sukses! Silakan login.", text_color=C["success"])
+                status_lbl_reg.configure(text="\u2705 Registrasi sukses! Silakan login.", text_color=C["success"])
                 user_var_login.set(u)
                 tabview.set(" Masuk ")
             else:
-                status_lbl_reg.configure(text=f"â Œ {res.get('message', 'Error registrasi')}", text_color=C["error"])
+                status_lbl_reg.configure(text=f"\u274C {res.get('message', 'Error registrasi')}", text_color=C["error"])
 
         btn_reg.configure(command=_do_register)
         btn_reg.pack(padx=20, pady=(8, 12))
