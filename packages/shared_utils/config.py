@@ -59,10 +59,27 @@ def load_config() -> dict:
                 enc_data = f.read()
             dec_data = _dpapi_decrypt(enc_data)
             data = json.loads(dec_data.decode('utf-8'))
-            return data if isinstance(data, dict) else {}
+            if not isinstance(data, dict):
+                data = {}
         except Exception:
-            return {}
-    return {}
+            data = {}
+    else:
+        data = {}
+
+    # Sanitize 9router and invalid providers
+    valid_providers = ["Gemini", "Mistral", "Groq", "OpenAI"]
+    provider = data.get("provider")
+    if not provider or provider not in valid_providers or provider == "9router":
+        data["provider"] = "Gemini"
+        data["model"] = "gemini-2.5-flash"
+    
+    # Sanitize api_keys dictionary
+    api_keys = data.get("api_keys", {})
+    if isinstance(api_keys, dict) and "9router" in api_keys:
+        api_keys.pop("9router")
+    data["api_keys"] = api_keys
+    
+    return data
 
 def save_config(config: dict):
     try:

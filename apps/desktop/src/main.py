@@ -685,17 +685,26 @@ class App(ctk.CTk):
         _label(sidebar, "Provider").pack(fill="x", anchor="w", **LPAD)
         self.provider_cb = _combo(sidebar, ["Gemini", "OpenAI", "Mistral", "Groq"],
                                   command=self._on_provider_change)
-        self.provider_cb.set(self.config.get("provider", "Gemini"))
+        
+        provider = self.config.get("provider", "Gemini")
+        if provider not in ["Gemini", "OpenAI", "Mistral", "Groq"]:
+            provider = "Gemini"
+            
+        self.provider_cb.set(provider)
         self.provider_cb.pack(fill="x", **PAD)
 
         _label(sidebar, "Model").pack(fill="x", anchor="w", **LPAD)
-        provider = self.config.get("provider", "Gemini")
-        self.model_cb = _combo(sidebar, self.MODEL_MAP.get(provider, []), command=lambda _: self._save_current_config())
+        # Initialize with the clean values for this provider to avoid CTkComboBox placeholder text
+        model_list = self.MODEL_MAP.get(provider, [])
+        self.model_cb = _combo(sidebar, model_list, command=lambda _: self._save_current_config())
         saved_model = self.config.get("model", "")
-        if saved_model and saved_model in self.MODEL_MAP.get(provider, []):
+        
+        if saved_model and saved_model in model_list:
             self.model_cb.set(saved_model)
-        elif self.MODEL_MAP.get(provider):
-            self.model_cb.set(self.MODEL_MAP[provider][0])
+        elif model_list:
+            self.model_cb.set(model_list[0])
+            self.config["model"] = model_list[0]
+            
         self.model_cb.pack(fill="x", **PAD)
 
         _label(sidebar, "API Key").pack(fill="x", anchor="w", **LPAD)
