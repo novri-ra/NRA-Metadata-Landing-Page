@@ -613,7 +613,7 @@ class App(ctk.CTk):
 
         _label(sidebar, "Model").pack(fill="x", anchor="w", **LPAD)
         provider = self.config.get("provider", "Gemini")
-        self.model_cb = _combo(sidebar, self.MODEL_MAP.get(provider, []))
+        self.model_cb = _combo(sidebar, self.MODEL_MAP.get(provider, []), command=lambda _: self._save_current_config())
         saved_model = self.config.get("model", "")
         if saved_model and saved_model in self.MODEL_MAP.get(provider, []):
             self.model_cb.set(saved_model)
@@ -636,6 +636,7 @@ class App(ctk.CTk):
         current_provider = self.config.get("provider", "Gemini")
         self.api_key_entry.insert(0, self.config["api_keys"].get(current_provider, ""))
         self.api_key_entry.pack(fill="x", **PAD)
+        self.api_key_entry.bind("<FocusOut>", lambda e: self._save_current_config())
         
         # Fetch Models Button
         self.fetch_models_btn = ctk.CTkButton(
@@ -663,6 +664,7 @@ class App(ctk.CTk):
                                    command=update_temp_lbl, progress_color=C["warn"])
         self.temp_slider.set(self.config.get("temperature", 0.3))
         self.temp_slider.pack(fill="x", **PAD)
+        self.temp_slider.bind("<ButtonRelease-1>", lambda e: self._save_current_config())
         update_temp_lbl(self.config.get("temperature", 0.3))
 
         # ── Section: Keywords & Style ──
@@ -670,7 +672,7 @@ class App(ctk.CTk):
 
         _label(sidebar, "Asset Style").pack(fill="x", anchor="w", **LPAD)
         self.style_cb = _combo(sidebar, ["General Commercial", "Icons & Clipart",
-                                         "Backgrounds & Patterns", "Characters & Mascot", "Photo Realistic", "Vector Clipart"])
+                                         "Backgrounds & Patterns", "Characters & Mascot", "Photo Realistic", "Vector Clipart"], command=lambda _: self._save_current_config())
         self.style_cb.set(self.config.get("style_preset", "General Commercial"))
         self.style_cb.pack(fill="x", **PAD)
 
@@ -685,6 +687,7 @@ class App(ctk.CTk):
         self.min_kw_entry = _entry(lf, width=60)
         self.min_kw_entry.insert(0, str(self.config.get("min_kw", 10)))
         self.min_kw_entry.pack(fill="x")
+        self.min_kw_entry.bind("<FocusOut>", lambda e: self._save_current_config())
 
         rf = ctk.CTkFrame(kw_row, fg_color=C["surface"])
         rf.grid(row=0, column=1, sticky="ew", padx=(4, 0))
@@ -692,16 +695,19 @@ class App(ctk.CTk):
         self.max_kw_entry = _entry(rf, width=60)
         self.max_kw_entry.insert(0, str(self.config.get("max_kw", 49)))
         self.max_kw_entry.pack(fill="x")
+        self.max_kw_entry.bind("<FocusOut>", lambda e: self._save_current_config())
 
         _label(sidebar, "Mandatory Keywords").pack(fill="x", anchor="w", **LPAD)
         self.custom_kw_entry = _entry(sidebar, placeholder_text="e.g. 3d, isolated")
         self.custom_kw_entry.insert(0, self.config.get("custom_kw", ""))
         self.custom_kw_entry.pack(fill="x", **PAD)
+        self.custom_kw_entry.bind("<FocusOut>", lambda e: self._save_current_config())
         
         _label(sidebar, "Extra AI Context / Focus").pack(fill="x", anchor="w", **LPAD)
         self.extra_prompt_entry = _entry(sidebar, placeholder_text="e.g. Isolated on white background")
         self.extra_prompt_entry.insert(0, self.config.get("extra_prompt", ""))
         self.extra_prompt_entry.pack(fill="x", **PAD)
+        self.extra_prompt_entry.bind("<FocusOut>", lambda e: self._save_current_config())
 
         inj_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         inj_row.pack(fill="x", **LPAD)
@@ -727,6 +733,7 @@ class App(ctk.CTk):
                                       command=update_worker_lbl, progress_color=C["accent"])
         self.workers_slider.set(self.config.get("workers", 2))
         self.workers_slider.pack(fill="x", **PAD)
+        self.workers_slider.bind("<ButtonRelease-1>", lambda e: self._save_current_config())
 
         # Format chips
         _label(sidebar, "Formats").pack(fill="x", anchor="w", **LPAD)
@@ -770,11 +777,13 @@ class App(ctk.CTk):
         self.author_entry = _entry(sidebar)
         self.author_entry.insert(0, self.config.get("author", ""))
         self.author_entry.pack(fill="x", **PAD)
+        self.author_entry.bind("<FocusOut>", lambda e: self._save_current_config())
 
         _label(sidebar, "Copyright").pack(fill="x", anchor="w", **LPAD)
         self.copyright_entry = _entry(sidebar)
         self.copyright_entry.insert(0, self.config.get("copyright", ""))
         self.copyright_entry.pack(fill="x", **PAD)
+        self.copyright_entry.bind("<FocusOut>", lambda e: self._save_current_config())
 
         _label(sidebar, "Generate CSVs").pack(fill="x", anchor="w", **LPAD)
         csv_frame = ctk.CTkFrame(sidebar, fg_color=C["surface"])
@@ -1728,14 +1737,29 @@ class App(ctk.CTk):
             pass
 
     def _save_current_config(self):
-        """Collect all widget values and persist to config.json."""
+        """Collect all widget values and persist to config.enc."""
         try:
+            if not hasattr(self, "provider_cb"):
+                return
+            
+            provider = self.provider_cb.get()
+            
+            # Ensure api_keys dict exists
+            if "api_keys" not in self.config:
+                self.config["api_keys"] = {}
+                
+            # Update the key for the CURRENT provider explicitly from the entry field
+            if hasattr(self, "api_key_entry"):
+                self.config["api_keys"][provider] = self.api_key_entry.get()
+
+            # Clean old legacy key
+            self.config.pop("api_key", None)
+
             self.config.update({
-                "provider": self.provider_cb.get(),
+                "provider": provider,
                 "model": self.model_cb.get(),
                 "temperature": round(float(self.temp_slider.get()), 1),
                 "style_preset": self.style_cb.get(),
-                "api_key": self.api_key_entry.get(),
                 "min_kw": self._safe_int(self.min_kw_entry.get(), 10),
                 "max_kw": self._safe_int(self.max_kw_entry.get(), 49),
                 "custom_kw": self.custom_kw_entry.get(),
@@ -1760,6 +1784,7 @@ class App(ctk.CTk):
             self.config["window_geometry"] = self.geometry()
         except Exception:
             pass
+        from packages.shared_utils.config import save_config
         save_config(self.config)
 
     def _on_close(self):
