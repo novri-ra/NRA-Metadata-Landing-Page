@@ -1,5 +1,6 @@
 import os
 import shutil
+import sys
 import threading
 import time
 import tkinter as tk
@@ -157,26 +158,31 @@ class App(ctk.CTk):
         self.log_lock = threading.Lock()
         
         self.MODEL_MAP = {
-            "Gemini": ["gemini-1.5-flash", "gemini-1.5-pro"],
-            "OpenAI": ["gpt-4o-mini", "gpt-4o"],
-            "Mistral": ["mistral-small-latest", "mistral-large-latest"],
-            "Groq": ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"],
-            "9router": [
-                "9router/auto", 
-                "claude-3-5-sonnet", 
-                "gpt-4o", 
-                "gpt-4o-mini", 
-                "gemini-1.5-pro", 
-                "gemini-1.5-flash", 
-                "mistral-large", 
-                "deepseek-coder", 
-                "custom-model"
+            "Gemini": [
+                "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", 
+                "gemini-3.1-pro-preview", "gemini-3.1-flash-lite-preview", 
+                "gemini-3-flash-preview", "gemini-2.5-pro", "gemini-2.5-flash", 
+                "gemini-2.5-flash-lite", "gemma-4-31b-it"
             ],
+            "Groq": [
+                "llama-3.3-70b-versatile", "meta-llama/llama-4-maverick-17b-128e-instruct", 
+                "qwen/qwen3-32b", "openai/gpt-oss-120b", "llama-3.2-11b-vision-preview"
+            ],
+            "Mistral": [
+                "mistral-large-latest", "codestral-latest", "mistral-medium-latest", 
+                "mistral-small-latest", "pixtral-12b-2409"
+            ],
+            "OpenAI": [
+                "gpt-4o-mini", "gpt-4o", "chatgpt-4o-latest"
+            ]
         }
 
         self._restore_geometry()
         self.build_ui()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+        
+        # Update initial key counter
+        self.after(10, lambda: self._update_keys_counter(self.config.get("provider", "Gemini")))
         
         # Initial Auth Check
         self.after(100, self._check_initial_auth)
@@ -207,65 +213,104 @@ class App(ctk.CTk):
         self.withdraw()
 
         modal = ctk.CTkToplevel(self)
-        modal.title("NRA Metadata — Autentikasi")
-        modal.geometry("460x620")
+        modal.title("NRA Metadata - Autentikasi")
+        modal.geometry("480x640")
         modal.resizable(False, False)
         modal.configure(fg_color=C["bg"])
         modal.protocol("WM_DELETE_WINDOW", lambda: sys.exit(0))
         modal.attributes("-topmost", True)
-        # center on screen
         modal.update_idletasks()
-        w, h = 460, 620
+        
+        # Center Screen
+        w, h = 480, 640
         sx = (modal.winfo_screenwidth() - w) // 2
         sy = (modal.winfo_screenheight() - h) // 2
         modal.geometry(f"{w}x{h}+{sx}+{sy}")
 
-        title_lbl = ctk.CTkLabel(modal, text="NRA METADATA",
-                                  font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
-                                  text_color=C["text"])
-        title_lbl.pack(pady=(24, 12))
+        # Fade in effect
+        modal.attributes("-alpha", 0.0)
+        def fade_in(alpha=0.0):
+            if alpha < 1.0:
+                alpha += 0.05
+                modal.attributes("-alpha", alpha)
+                modal.after(15, lambda: fade_in(alpha))
+        fade_in()
 
+        # Header
+        header_frame = ctk.CTkFrame(modal, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(24, 12))
+        
+        ctk.CTkLabel(header_frame, text="NRA METADATA",
+                     font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold"),
+                     text_color=C["text"]).pack()
+        ctk.CTkLabel(header_frame, text="v0.1.0-alpha - AI Auto Tagger",
+                     font=ctk.CTkFont(family="Segoe UI", size=11),
+                     text_color=C["text3"]).pack()
+
+        # Tabs
         tabview = ctk.CTkTabview(modal, fg_color=C["surface"],
                                   segmented_button_fg_color=C["surface"],
                                   segmented_button_selected_color=C["accent"],
                                   segmented_button_selected_hover_color=C["accent_h"])
         tabview.pack(padx=24, pady=(0, 16), fill="both", expand=True)
 
-        tab_login = tabview.add("Login")
-        tab_register = tabview.add("Buat Akun")
+        tab_login = tabview.add(" Masuk ")
+        tab_register = tabview.add(" Buat Akun ")
 
-        # ── helper: labelled entry row ──
+        # â”€â”€ helper: labelled entry row â”€â”€
         FW = 360  # field width
 
-        def _field(parent, label, var, show="", **kw):
-            ctk.CTkLabel(parent, text=label, text_color=C["text"],
+        def _field(parent, label, var, show="", icon="", **kw):
+            lbl_text = f"{icon} {label}" if icon else label
+            ctk.CTkLabel(parent, text=lbl_text, text_color=C["text"],
                          font=ctk.CTkFont(family="Segoe UI", size=12)).pack(anchor="w", padx=20, pady=(6, 2))
             e = ctk.CTkEntry(parent, textvariable=var, width=FW, show=show,
                              fg_color=C["surface2"], border_color=C["border"],
-                             corner_radius=CR, text_color=C["text"],
+                             corner_radius=8, text_color=C["text"],
                              font=ctk.CTkFont(family="Segoe UI", size=12), **kw)
             e.pack(padx=20, pady=(0, 4))
             return e
 
-        # ═══════════════════ LOGIN TAB ═══════════════════
-        login_scroll = ctk.CTkScrollableFrame(tab_login, fg_color=C["surface"],
+        # â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  LOGIN TAB â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
+        login_scroll = ctk.CTkScrollableFrame(tab_login, fg_color="transparent",
                                                scrollbar_button_color=C["surface2"])
         login_scroll.pack(fill="both", expand=True, padx=0, pady=0)
 
-        user_var_login = ctk.StringVar(value=self.auth.username)
+        # Remember account logic
+        last_auth_user = self.config.get("last_auth_user", self.auth.username)
+        user_var_login = ctk.StringVar(value=last_auth_user)
         pass_var_login = ctk.StringVar()
         show_pass_login = ctk.BooleanVar(value=False)
+        
+        if last_auth_user:
+            welcome_frame = ctk.CTkFrame(login_scroll, fg_color=C["surface2"], corner_radius=8)
+            welcome_frame.pack(fill="x", padx=20, pady=(0, 10))
+            ctk.CTkLabel(welcome_frame, text=f"\U0001F44B Selamat datang kembali,\n{last_auth_user}", 
+                         text_color=C["text"], font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+                         justify="left").pack(side="left", padx=12, pady=8)
+                         
+            def clear_user():
+                user_var_login.set("")
+                self.config["last_auth_user"] = ""
+                from packages.shared_utils.config import save_config
+                save_config(self.config)
+                welcome_frame.pack_forget()
+                user_entry.focus()
+                
+            ctk.CTkButton(welcome_frame, text="Ganti Akun", width=60, height=24,
+                          fg_color="transparent", text_color=C["accent"], hover_color=C["surface"],
+                          command=clear_user).pack(side="right", padx=12)
 
-        _field(login_scroll, "Username atau Email", user_var_login)
+        user_entry = _field(login_scroll, "Username atau Email", user_var_login, icon="\U0001F464")
 
         # password + toggle
-        ctk.CTkLabel(login_scroll, text="Password", text_color=C["text"],
+        ctk.CTkLabel(login_scroll, text="\U0001F512 Password", text_color=C["text"],
                      font=ctk.CTkFont(family="Segoe UI", size=12)).pack(anchor="w", padx=20, pady=(6, 2))
         pw_frame_l = ctk.CTkFrame(login_scroll, fg_color="transparent")
         pw_frame_l.pack(padx=20, pady=(0, 4), fill="x")
         pass_entry_login = ctk.CTkEntry(pw_frame_l, textvariable=pass_var_login, show="*",
                                          width=FW - 40, fg_color=C["surface2"],
-                                         border_color=C["border"], corner_radius=CR,
+                                         border_color=C["border"], corner_radius=8,
                                          text_color=C["text"],
                                          font=ctk.CTkFont(family="Segoe UI", size=12))
         pass_entry_login.pack(side="left")
@@ -274,57 +319,83 @@ class App(ctk.CTk):
             pass_entry_login.configure(show="" if show_pass_login.get() else "*")
             show_pass_login.set(not show_pass_login.get())
 
-        ctk.CTkButton(pw_frame_l, text="\U0001F441", width=36, height=28,
+        ctk.CTkButton(pw_frame_l, text="\U0001F441", width=36, height=28, corner_radius=8,
                       fg_color=C["surface2"], hover_color=C["border"],
                       command=_toggle_pw_login).pack(side="left", padx=(4, 0))
 
-        remember_var = ctk.BooleanVar(value=bool(self.auth.username))
+        if last_auth_user:
+            pass_entry_login.focus()
+
+        remember_var = ctk.BooleanVar(value=True)
         ctk.CTkCheckBox(login_scroll, text="Ingat Saya", variable=remember_var,
                         fg_color=C["accent"], hover_color=C["accent_h"],
-                        text_color=C["text2"],
-                        font=ctk.CTkFont(family="Segoe UI", size=11)).pack(anchor="w", padx=20, pady=(6, 4))
+                        text_color=C["text2"], corner_radius=4,
+                        font=ctk.CTkFont(family="Segoe UI", size=11)).pack(anchor="w", padx=20, pady=(8, 4))
 
         status_lbl_login = ctk.CTkLabel(login_scroll, text="", text_color=C["error"],
                                          font=ctk.CTkFont(family="Segoe UI", size=11))
         status_lbl_login.pack(pady=(2, 4))
 
+        btn_login = ctk.CTkButton(login_scroll, text="\U0001F680 Masuk ke Aplikasi", width=FW,
+                      fg_color=C["accent"], hover_color=C["accent_h"],
+                      font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+                      height=38, corner_radius=8)
+        
         def _do_login():
             u = user_var_login.get().strip()
             p = pass_var_login.get().strip()
             if not u or not p:
-                status_lbl_login.configure(text="Isi username/email dan password", text_color=C["error"])
+                status_lbl_login.configure(text="\u26A0\uFE0F Isi username/email dan password", text_color=C["error"])
                 return
-            status_lbl_login.configure(text="Memverifikasi akun...", text_color=C["text3"])
+            status_lbl_login.configure(text="\u231B Memverifikasi kredensial...", text_color=C["text3"])
+            btn_login.configure(state="disabled", text="Memproses...")
             modal.update()
 
             def _bg():
                 res = self.auth.login(u, p)
                 modal.after(0, lambda: _login_done(res, u))
 
+            import threading
             threading.Thread(target=_bg, daemon=True).start()
 
         def _login_done(res, u):
+            btn_login.configure(state="normal", text="\U0001F680 Masuk ke Aplikasi")
             if res.get("status") == "SUCCESS":
-                if not remember_var.get():
-                    self.auth.config["auth_user"] = ""
-                    from packages.shared_utils.config import save_config
-                    save_config(self.auth.config)
-                status_lbl_login.configure(text="Login berhasil!", text_color=C["success"])
-                modal.update()
-                modal.after(400, lambda: (modal.destroy(), self.deiconify()))
                 actual_user = res.get("username", u)
+                if remember_var.get():
+                    self.config["last_auth_user"] = actual_user
+                    from packages.shared_utils.config import save_config
+                    save_config(self.config)
+                else:
+                    self.auth.config["auth_user"] = ""
+                    self.config["last_auth_user"] = ""
+                    from packages.shared_utils.config import save_config
+                    save_config(self.config)
+                    save_config(self.auth.config)
+                    
+                status_lbl_login.configure(text="\u2705 Login berhasil!", text_color=C["success"])
+                modal.update()
+                
+                # Smooth fade out
+                def fade_out(alpha=1.0):
+                    if alpha > 0.0:
+                        alpha -= 0.1
+                        modal.attributes("-alpha", alpha)
+                        modal.after(15, lambda: fade_out(alpha))
+                    else:
+                        modal.destroy()
+                        self.deiconify()
+                fade_out()
+                
                 self.after(500, lambda: self.log(f"Login sukses sebagai {actual_user}", "success"))
             else:
-                status_lbl_login.configure(text=res.get("message", "Error login"), text_color=C["error"])
+                status_lbl_login.configure(text=f"\u274C {res.get('message', 'Error login')}", text_color=C["error"])
 
-        ctk.CTkButton(login_scroll, text="Masuk ke Aplikasi", width=FW,
-                      fg_color=C["accent"], hover_color=C["accent_h"],
-                      font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
-                      height=36, corner_radius=CR,
-                      command=_do_login).pack(padx=20, pady=(8, 12))
+        btn_login.configure(command=_do_login)
+        btn_login.pack(padx=20, pady=(8, 12))
 
-        # ═══════════════════ REGISTER TAB ═══════════════════
-        reg_scroll = ctk.CTkScrollableFrame(tab_register, fg_color=C["surface"],
+        # â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  REGISTER TAB â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
+        reg_scroll = ctk.CTkScrollableFrame(tab_register, fg_color="transparent",
                                              scrollbar_button_color=C["surface2"])
         reg_scroll.pack(fill="both", expand=True, padx=0, pady=0)
 
@@ -336,19 +407,25 @@ class App(ctk.CTk):
         pass2_var_reg = ctk.StringVar()
         show_pass_reg = ctk.BooleanVar(value=False)
 
-        _field(reg_scroll, "Nama Lengkap", fullname_var)
-        _field(reg_scroll, "Username", user_var_reg)
-        _field(reg_scroll, "Email Aktif", email_var_reg)
-        _field(reg_scroll, "No. WhatsApp (untuk grup update & komunitas)", wa_var_reg)
+        _field(reg_scroll, "Nama Lengkap", fullname_var, icon="\U0001F4B3")
+        _field(reg_scroll, "Username", user_var_reg, icon="\U0001F464")
+        _field(reg_scroll, "Email Aktif", email_var_reg, icon="\u2709\uFE0F")
+        
+        # WA Banner
+        wa_banner = ctk.CTkFrame(reg_scroll, fg_color=C["surface2"], corner_radius=6)
+        wa_banner.pack(fill="x", padx=20, pady=(8, 0))
+        ctk.CTkLabel(wa_banner, text="\U0001F4A1 Info: Untuk undangan grup update & rilis fitur.",
+                     text_color=C["text3"], font=ctk.CTkFont(family="Segoe UI", size=10, slant="italic")).pack(pady=4)
+        _field(reg_scroll, "No. WhatsApp", wa_var_reg, icon="\U0001F4F1")
 
         # password + toggle
-        ctk.CTkLabel(reg_scroll, text="Password", text_color=C["text"],
+        ctk.CTkLabel(reg_scroll, text="\U0001F512 Password", text_color=C["text"],
                      font=ctk.CTkFont(family="Segoe UI", size=12)).pack(anchor="w", padx=20, pady=(6, 2))
         pw_frame_r = ctk.CTkFrame(reg_scroll, fg_color="transparent")
         pw_frame_r.pack(padx=20, pady=(0, 4), fill="x")
         pass_entry_reg = ctk.CTkEntry(pw_frame_r, textvariable=pass_var_reg, show="*",
                                        width=FW - 40, fg_color=C["surface2"],
-                                       border_color=C["border"], corner_radius=CR,
+                                       border_color=C["border"], corner_radius=8,
                                        text_color=C["text"],
                                        font=ctk.CTkFont(family="Segoe UI", size=12))
         pass_entry_reg.pack(side="left")
@@ -358,16 +435,21 @@ class App(ctk.CTk):
             pass_entry_reg.configure(show=ch)
             show_pass_reg.set(not show_pass_reg.get())
 
-        ctk.CTkButton(pw_frame_r, text="\U0001F441", width=36, height=28,
+        ctk.CTkButton(pw_frame_r, text="\U0001F441", width=36, height=28, corner_radius=8,
                       fg_color=C["surface2"], hover_color=C["border"],
                       command=_toggle_pw_reg).pack(side="left", padx=(4, 0))
 
-        _field(reg_scroll, "Konfirmasi Password", pass2_var_reg, show="*")
+        _field(reg_scroll, "\U0001F512 Konfirmasi Password", pass2_var_reg, show="*")
 
         status_lbl_reg = ctk.CTkLabel(reg_scroll, text="", text_color=C["error"],
                                        font=ctk.CTkFont(family="Segoe UI", size=11),
                                        wraplength=FW - 10)
         status_lbl_reg.pack(pady=(2, 4))
+
+        btn_reg = ctk.CTkButton(reg_scroll, text="\u2728 Buat Akun & Gabung Komunitas", width=FW,
+                      fg_color=C["accent"], hover_color=C["accent_h"],
+                      font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+                      height=38, corner_radius=8)
 
         def _validate_register():
             fn = fullname_var.get().strip()
@@ -394,9 +476,10 @@ class App(ctk.CTk):
         def _do_register():
             data, err = _validate_register()
             if err:
-                status_lbl_reg.configure(text=err, text_color=C["error"])
+                status_lbl_reg.configure(text=f"\u26A0\uFE0F {err}", text_color=C["error"])
                 return
-            status_lbl_reg.configure(text="Mendaftarkan perangkat...", text_color=C["text3"])
+            status_lbl_reg.configure(text="\u231B Mendaftarkan perangkat...", text_color=C["text3"])
+            btn_reg.configure(state="disabled", text="Memproses...")
             modal.update()
 
             def _bg():
@@ -405,25 +488,25 @@ class App(ctk.CTk):
                                           fullname=data["fullname"])
                 modal.after(0, lambda: _reg_done(res, data["username"]))
 
+            import threading
             threading.Thread(target=_bg, daemon=True).start()
 
         def _reg_done(res, u):
+            btn_reg.configure(state="normal", text="\u2728 Buat Akun & Gabung Komunitas")
             if res.get("status") == "SUCCESS":
-                status_lbl_reg.configure(text="Registrasi sukses! Silakan login.", text_color=C["success"])
+                status_lbl_reg.configure(text="\u2705 Registrasi sukses! Silakan login.", text_color=C["success"])
                 user_var_login.set(u)
-                tabview.set("Login")
+                tabview.set(" Masuk ")
             else:
-                status_lbl_reg.configure(text=res.get("message", "Error registrasi"), text_color=C["error"])
+                status_lbl_reg.configure(text=f"\u274C {res.get('message', 'Error registrasi')}", text_color=C["error"])
 
-        ctk.CTkButton(reg_scroll, text="Buat Akun & Gabung Komunitas", width=FW,
-                      fg_color=C["accent"], hover_color=C["accent_h"],
-                      font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
-                      height=36, corner_radius=CR,
-                      command=_do_register).pack(padx=20, pady=(8, 12))
+        btn_reg.configure(command=_do_register)
+        btn_reg.pack(padx=20, pady=(8, 12))
 
         modal.grab_set()
         # Defer sash restore until window is rendered
         self.after(100, self._restore_sash_positions)
+        import threading
         threading.Thread(target=self._watcher_loop, daemon=True).start()
 
         self.bind("<Control-z>", lambda e: self.undo_metadata())
@@ -606,23 +689,61 @@ class App(ctk.CTk):
         _label(sidebar, "Provider").pack(fill="x", anchor="w", **LPAD)
         self.provider_cb = _combo(sidebar, ["Gemini", "OpenAI", "Mistral", "Groq"],
                                   command=self._on_provider_change)
-        self.provider_cb.set(self.config.get("provider", "Gemini"))
+        
+        provider = self.config.get("provider", "Gemini")
+        if provider not in ["Gemini", "OpenAI", "Mistral", "Groq"]:
+            provider = "Gemini"
+            
+        self.provider_cb.set(provider)
         self.provider_cb.pack(fill="x", **PAD)
 
         _label(sidebar, "Model").pack(fill="x", anchor="w", **LPAD)
-        provider = self.config.get("provider", "Gemini")
-        self.model_cb = _combo(sidebar, self.MODEL_MAP.get(provider, []))
+        # Initialize with the clean values for this provider to avoid CTkComboBox placeholder text
+        model_list = self.MODEL_MAP.get(provider, [])
+        self.model_cb = _combo(sidebar, model_list, command=lambda _: self._save_current_config())
         saved_model = self.config.get("model", "")
-        if saved_model and saved_model in self.MODEL_MAP.get(provider, []):
+        
+        if saved_model and saved_model in model_list:
             self.model_cb.set(saved_model)
-        elif self.MODEL_MAP.get(provider):
-            self.model_cb.set(self.MODEL_MAP[provider][0])
+        elif model_list:
+            self.model_cb.set(model_list[0])
+            self.config["model"] = model_list[0]
+            
         self.model_cb.pack(fill="x", **PAD)
 
         _label(sidebar, "API Key").pack(fill="x", anchor="w", **LPAD)
         self.api_key_entry = _entry(sidebar, show="*")
-        self.api_key_entry.insert(0, self.config.get("api_key", ""))
+        
+        # Load API keys dict, handle migration from old single API key
+        if "api_keys" not in self.config:
+            self.config["api_keys"] = {}
+            if "api_key" in self.config:
+                old_key = self.config.pop("api_key")
+                old_provider = self.config.get("provider", "Gemini")
+                if old_key:
+                    self.config["api_keys"][old_provider] = old_key
+
+        current_provider = self.config.get("provider", "Gemini")
+        self.api_key_entry.insert(0, self.config["api_keys"].get(current_provider, ""))
         self.api_key_entry.pack(fill="x", **PAD)
+        def _on_key_type(event=None):
+            active_prov = self.provider_cb.get()
+            if "api_keys" not in self.config:
+                self.config["api_keys"] = {}
+            self.config["api_keys"][active_prov] = self.api_key_entry.get().strip()
+            self._save_current_config()
+            
+        self.api_key_entry.bind("<KeyRelease>", _on_key_type)
+        self.api_key_entry.bind("<FocusOut>", _on_key_type)
+        
+        # Fetch Models Button
+        self.fetch_models_btn = ctk.CTkButton(
+            sidebar, text="🔄 Fetch Models", fg_color=C["surface2"],
+            hover_color=C["border"], text_color=C["text2"], height=28,
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            command=self._fetch_models
+        )
+        self.fetch_models_btn.pack(fill="x", padx=16, pady=(0, 16))
 
         # Temperature
         temp_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
@@ -641,6 +762,7 @@ class App(ctk.CTk):
                                    command=update_temp_lbl, progress_color=C["warn"])
         self.temp_slider.set(self.config.get("temperature", 0.3))
         self.temp_slider.pack(fill="x", **PAD)
+        self.temp_slider.bind("<ButtonRelease-1>", lambda e: self._save_current_config())
         update_temp_lbl(self.config.get("temperature", 0.3))
 
         # ── Section: Keywords & Style ──
@@ -648,7 +770,7 @@ class App(ctk.CTk):
 
         _label(sidebar, "Asset Style").pack(fill="x", anchor="w", **LPAD)
         self.style_cb = _combo(sidebar, ["General Commercial", "Icons & Clipart",
-                                         "Backgrounds & Patterns", "Characters & Mascot", "Photo Realistic", "Vector Clipart"])
+                                         "Backgrounds & Patterns", "Characters & Mascot", "Photo Realistic", "Vector Clipart"], command=lambda _: self._save_current_config())
         self.style_cb.set(self.config.get("style_preset", "General Commercial"))
         self.style_cb.pack(fill="x", **PAD)
 
@@ -663,6 +785,7 @@ class App(ctk.CTk):
         self.min_kw_entry = _entry(lf, width=60)
         self.min_kw_entry.insert(0, str(self.config.get("min_kw", 10)))
         self.min_kw_entry.pack(fill="x")
+        self.min_kw_entry.bind("<FocusOut>", lambda e: self._save_current_config())
 
         rf = ctk.CTkFrame(kw_row, fg_color=C["surface"])
         rf.grid(row=0, column=1, sticky="ew", padx=(4, 0))
@@ -670,21 +793,24 @@ class App(ctk.CTk):
         self.max_kw_entry = _entry(rf, width=60)
         self.max_kw_entry.insert(0, str(self.config.get("max_kw", 49)))
         self.max_kw_entry.pack(fill="x")
+        self.max_kw_entry.bind("<FocusOut>", lambda e: self._save_current_config())
 
         _label(sidebar, "Mandatory Keywords").pack(fill="x", anchor="w", **LPAD)
         self.custom_kw_entry = _entry(sidebar, placeholder_text="e.g. 3d, isolated")
         self.custom_kw_entry.insert(0, self.config.get("custom_kw", ""))
         self.custom_kw_entry.pack(fill="x", **PAD)
+        self.custom_kw_entry.bind("<FocusOut>", lambda e: self._save_current_config())
         
         _label(sidebar, "Extra AI Context / Focus").pack(fill="x", anchor="w", **LPAD)
         self.extra_prompt_entry = _entry(sidebar, placeholder_text="e.g. Isolated on white background")
         self.extra_prompt_entry.insert(0, self.config.get("extra_prompt", ""))
         self.extra_prompt_entry.pack(fill="x", **PAD)
+        self.extra_prompt_entry.bind("<FocusOut>", lambda e: self._save_current_config())
 
         inj_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         inj_row.pack(fill="x", **LPAD)
         _label(inj_row, "Inject at:").pack(side="left", padx=(0, 4))
-        self.custom_kw_pos = _combo(inj_row, ["Start (Priority)", "End"])
+        self.custom_kw_pos = _combo(inj_row, ["Start (Priority)", "End"], command=lambda _: self._save_current_config())
         self.custom_kw_pos.set(self.config.get("custom_kw_pos", "Start (Priority)"))
         self.custom_kw_pos.pack(side="left", expand=True, fill="x")
 
@@ -705,6 +831,7 @@ class App(ctk.CTk):
                                       command=update_worker_lbl, progress_color=C["accent"])
         self.workers_slider.set(self.config.get("workers", 2))
         self.workers_slider.pack(fill="x", **PAD)
+        self.workers_slider.bind("<ButtonRelease-1>", lambda e: self._save_current_config())
 
         # Format chips
         _label(sidebar, "Formats").pack(fill="x", anchor="w", **LPAD)
@@ -748,11 +875,13 @@ class App(ctk.CTk):
         self.author_entry = _entry(sidebar)
         self.author_entry.insert(0, self.config.get("author", ""))
         self.author_entry.pack(fill="x", **PAD)
+        self.author_entry.bind("<FocusOut>", lambda e: self._save_current_config())
 
         _label(sidebar, "Copyright").pack(fill="x", anchor="w", **LPAD)
         self.copyright_entry = _entry(sidebar)
         self.copyright_entry.insert(0, self.config.get("copyright", ""))
         self.copyright_entry.pack(fill="x", **PAD)
+        self.copyright_entry.bind("<FocusOut>", lambda e: self._save_current_config())
 
         _label(sidebar, "Generate CSVs").pack(fill="x", anchor="w", **LPAD)
         csv_frame = ctk.CTkFrame(sidebar, fg_color=C["surface"])
@@ -1706,14 +1835,29 @@ class App(ctk.CTk):
             pass
 
     def _save_current_config(self):
-        """Collect all widget values and persist to config.json."""
+        """Collect all widget values and persist to config.enc."""
         try:
+            if not hasattr(self, "provider_cb"):
+                return
+            
+            provider = self.provider_cb.get()
+            
+            # Ensure api_keys dict exists
+            if "api_keys" not in self.config:
+                self.config["api_keys"] = {}
+                
+            # Update the key for the CURRENT provider explicitly from the entry field
+            if hasattr(self, "api_key_entry"):
+                self.config["api_keys"][provider] = self.api_key_entry.get()
+
+            # Clean old legacy key
+            self.config.pop("api_key", None)
+
             self.config.update({
-                "provider": self.provider_cb.get(),
+                "provider": provider,
                 "model": self.model_cb.get(),
                 "temperature": round(float(self.temp_slider.get()), 1),
                 "style_preset": self.style_cb.get(),
-                "api_key": self.api_key_entry.get(),
                 "min_kw": self._safe_int(self.min_kw_entry.get(), 10),
                 "max_kw": self._safe_int(self.max_kw_entry.get(), 49),
                 "custom_kw": self.custom_kw_entry.get(),
@@ -1738,6 +1882,7 @@ class App(ctk.CTk):
             self.config["window_geometry"] = self.geometry()
         except Exception:
             pass
+        from packages.shared_utils.config import save_config
         save_config(self.config)
 
     def _on_close(self):
@@ -1747,41 +1892,128 @@ class App(ctk.CTk):
         import os
         os._exit(0)
 
+    def _load_keys_from_file(self):
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
+        if not path:
+            return
+            
+        provider = self.provider_cb.get()
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+                
+            keys = []
+            for line in lines:
+                k = line.strip()
+                if k and k not in keys:
+                    keys.append(k)
+                    
+            if keys:
+                if "api_keys_pool" not in self.config:
+                    self.config["api_keys_pool"] = {}
+                self.config["api_keys_pool"][provider] = keys
+                
+                # Update current entry to first key
+                self.api_key_entry.delete(0, "end")
+                self.api_key_entry.insert(0, keys[0])
+                self._on_key_type() # Save to old api_keys dict for backward compatibility
+                
+                self.keys_counter_lbl.configure(text=f"({len(keys)} keys loaded)")
+                self._save_current_config()
+                self.log(f"Loaded {len(keys)} API keys for {provider}", "success")
+            else:
+                self.log("File is empty or contains no valid keys.", "error")
+        except Exception as e:
+            self.log(f"Failed to read file: {e}", "error")
+
+    def _update_keys_counter(self, provider):
+        if hasattr(self, "keys_counter_lbl"):
+            pool = self.config.get("api_keys_pool", {}).get(provider, [])
+            # Also check old api_keys dict if pool is empty
+            if not pool and self.config.get("api_keys", {}).get(provider):
+                pool = [self.config["api_keys"][provider]]
+            self.keys_counter_lbl.configure(text=f"({len(pool)} keys loaded)")
+
+    def _fetch_models(self):
+        provider = self.provider_cb.get()
+        api_key = self.api_key_entry.get().strip()
+        
+        if not api_key:
+            self.log(f"Please enter an API Key for {provider} first.", "error")
+            return
+            
+        self.fetch_models_btn.configure(text="[ Mengambil... ]", state="disabled")
+        self.update_idletasks()
+        
+        def _bg_fetch():
+            from packages.ai_engine.service import AIService
+            ai = AIService(provider, api_key)
+            models = ai.fetch_available_models()
+            self.after(0, lambda: self._fetch_models_done(provider, models))
+            
+        import threading
+        threading.Thread(target=_bg_fetch, daemon=True).start()
+
+    def _fetch_models_done(self, provider, models):
+        self.fetch_models_btn.configure(text="🔄 Fetch Models", state="normal")
+        if not models:
+            self.log(f"Failed to fetch models for {provider} or API Key invalid.", "error")
+            return
+            
+        # Update MAP and UI
+        self.MODEL_MAP[provider] = models
+        current_provider = self.provider_cb.get()
+        
+        if current_provider == provider:
+            self.model_cb.configure(values=models)
+            if models:
+                self.model_cb.set(models[0])
+            self.log(f"Successfully updated models for {provider}.", "success")
+
     def _update_model_list(self, choice):
         models = self.MODEL_MAP.get(choice, [])
-        self.model_cb.configure(values=models)
+        self.model_cb.configure(values=models, state="readonly")
         if models:
             self.model_cb.set(models[0])
-
-        if choice.lower().strip() == "9router":
-            if hasattr(self, "api_key_entry"):
-                self.api_key_entry.configure(placeholder_text="API Key (Optional / if enabled in 9Router)")
-            self.model_cb.configure(state="normal")
-            self.model_cb.configure(values=["9router/auto", "claude-3-5-sonnet", "gpt-4o", "gpt-4o-mini", "gemini-1.5-flash", "gemini-1.5-pro", "custom-model"])
-            self.model_cb.set("9router/auto")
+            self.config["model"] = models[0]
         else:
-            if hasattr(self, "api_key_entry"):
-                self.api_key_entry.configure(placeholder_text="API Key")
-            self.model_cb.configure(state="readonly")
+            self.model_cb.set("")
+            self.config["model"] = ""
 
     def _on_provider_change(self, choice):
-        if not hasattr(self, "base_url_lbl") or not hasattr(self, "base_url_entry"):
-            return
-        if self.base_url_lbl is None or self.base_url_entry is None:
-            return
+        if hasattr(self, "api_key_entry"):
+            # 1. Simpan API Key yang sedang diketik ke provider sebelumnya
+            current_key_input = self.api_key_entry.get().strip()
+            prev_provider = getattr(self, "current_provider", self.config.get("provider", "Gemini"))
+            
+            if "api_keys" not in self.config:
+                self.config["api_keys"] = {}
+            if current_key_input:
+                self.config["api_keys"][prev_provider] = current_key_input
+                
+            # 2. Update status provider aktif
+            self.current_provider = choice
+            self.config["provider"] = choice
+            
+            # 3. Muat API Key milik provider yang baru dipilih
+            target_key = self.config["api_keys"].get(choice, "")
+            self.api_key_entry.delete(0, "end")
+            if target_key:
+                self.api_key_entry.insert(0, target_key)
+                
+            self.api_key_entry.configure(placeholder_text="API Key")
 
-        provider_key = choice.lower().strip()
-        if provider_key in ["openrouter", "custom", "local gateway", "openai-compatible"]:
-            self.base_url_lbl.configure(text="Local Endpoint URL:")
-            self.base_url_entry.configure(placeholder_text="http://localhost:20128/v1")
-            self.base_url_lbl.pack(anchor="w", padx=12, pady=(10, 2))
-            self.base_url_entry.pack(fill="x", padx=12, pady=(0, 10))
-        else:
-            self.base_url_lbl.pack_forget()
-            self.base_url_entry.pack_forget()
+        # Update counter
+        if hasattr(self, "_update_keys_counter"):
+            self._update_keys_counter(choice)
 
+        # 4. Sinkronkan daftar Model di dropdown ComboBox
         if hasattr(self, "_update_model_list"):
             self._update_model_list(choice)
+            
+        # 5. Simpan state konfigurasi ke storage
+        self._save_current_config()
 
     def _get_selected_csv_platforms(self) -> set:
         return {plat for plat, var in self.csv_vars.items() if var.get()}
