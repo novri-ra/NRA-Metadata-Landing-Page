@@ -722,7 +722,15 @@ class App(ctk.CTk):
         current_provider = self.config.get("provider", "Gemini")
         self.api_key_entry.insert(0, self.config["api_keys"].get(current_provider, ""))
         self.api_key_entry.pack(fill="x", **PAD)
-        self.api_key_entry.bind("<FocusOut>", lambda e: self._save_current_config())
+        def _on_key_type(event=None):
+            active_prov = self.provider_cb.get()
+            if "api_keys" not in self.config:
+                self.config["api_keys"] = {}
+            self.config["api_keys"][active_prov] = self.api_key_entry.get().strip()
+            self._save_current_config()
+            
+        self.api_key_entry.bind("<KeyRelease>", _on_key_type)
+        self.api_key_entry.bind("<FocusOut>", _on_key_type)
         
         # Fetch Models Button
         self.fetch_models_btn = ctk.CTkButton(
@@ -1918,39 +1926,43 @@ class App(ctk.CTk):
 
     def _update_model_list(self, choice):
         models = self.MODEL_MAP.get(choice, [])
-        self.model_cb.configure(values=models)
+        self.model_cb.configure(values=models, state="readonly")
         if models:
             self.model_cb.set(models[0])
-
-        if choice.lower().strip() == "9router":
-            if hasattr(self, "api_key_entry"):
-                self.api_key_entry.configure(placeholder_text="API Key (Optional / if enabled in 9Router)")
-            self.model_cb.configure(state="normal")
-            self.model_cb.configure(values=["9router/auto", "claude-3-5-sonnet", "gpt-4o", "gpt-4o-mini", "gemini-1.5-flash", "gemini-1.5-pro", "custom-model"])
-            self.model_cb.set("9router/auto")
+            self.config["model"] = models[0]
         else:
-            if hasattr(self, "api_key_entry"):
-                self.api_key_entry.configure(placeholder_text="API Key")
-            self.model_cb.configure(state="readonly")
+            self.model_cb.set("")
+            self.config["model"] = ""
 
     def _on_provider_change(self, choice):
-        if not hasattr(self, "base_url_lbl") or not hasattr(self, "base_url_entry"):
-            return
-        if self.base_url_lbl is None or self.base_url_entry is None:
-            return
+        if hasattr(self, "api_key_entry"):
+            # 1. Simpan API Key yang sedang diketik ke provider sebelumnya
+            current_key_input = self.api_key_entry.get().strip()
+            prev_provider = getattr(self, "current_provider", self.config.get("provider", "Gemini"))
+            
+            if "api_keys" not in self.config:
+                self.config["api_keys"] = {}
+            if current_key_input:
+                self.config["api_keys"][prev_provider] = current_key_input
+                
+            # 2. Update status provider aktif
+            self.current_provider = choice
+            self.config["provider"] = choice
+            
+            # 3. Muat API Key milik provider yang baru dipilih
+            target_key = self.config["api_keys"].get(choice, "")
+            self.api_key_entry.delete(0, "end")
+            if target_key:
+                self.api_key_entry.insert(0, target_key)
+                
+            self.api_key_entry.configure(placeholder_text="API Key")
 
-        provider_key = choice.lower().strip()
-        if provider_key in ["openrouter", "custom", "local gateway", "openai-compatible"]:
-            self.base_url_lbl.configure(text="Local Endpoint URL:")
-            self.base_url_entry.configure(placeholder_text="http://localhost:20128/v1")
-            self.base_url_lbl.pack(anchor="w", padx=12, pady=(10, 2))
-            self.base_url_entry.pack(fill="x", padx=12, pady=(0, 10))
-        else:
-            self.base_url_lbl.pack_forget()
-            self.base_url_entry.pack_forget()
-
+        # 4. Sinkronkan daftar Model di dropdown ComboBox
         if hasattr(self, "_update_model_list"):
             self._update_model_list(choice)
+            
+        # 5. Simpan state konfigurasi ke storage
+        self._save_current_config()
 
     def _get_selected_csv_platforms(self) -> set:
         return {plat for plat, var in self.csv_vars.items() if var.get()}
