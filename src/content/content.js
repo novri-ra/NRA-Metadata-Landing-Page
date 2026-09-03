@@ -361,7 +361,7 @@ function handleAutomationError(err) {
 
   if (errMessage === "USER_STOPPED") {
     console.info("[NRA DreamLab] Process stopped manually.");
-    chrome.storage.local.set({ isAutomating: false, step: "IDLE", step: "IDLE" }, () => {
+    chrome.storage.local.set({ isAutomating: false, step: "IDLE" }, () => {
       sendStatusUpdate("Automation stopped by user.");
     });
     return;
@@ -374,7 +374,7 @@ function handleAutomationError(err) {
     console.error(
       "[NRA DreamLab] Monthly AI limit reached. Stopping permanently.",
     );
-    chrome.storage.local.set({ isAutomating: false, step: "IDLE", step: "ERROR" }, () => {
+    chrome.storage.local.set({ isAutomating: false, step: "ERROR" }, () => {
       sendStatusUpdate("Monthly Limit Reached. Stopped.");
       chrome.runtime.sendMessage({
         action: "SHOW_NOTIFICATION",
@@ -387,7 +387,7 @@ function handleAutomationError(err) {
   }
 
   const errMsg = errMessage || "Unknown error occurred.";
-  chrome.storage.local.set({ isAutomating: false, step: "IDLE", step: "ERROR" }, () => {
+  chrome.storage.local.set({ isAutomating: false, step: "ERROR" }, () => {
     chrome.runtime.sendMessage({
       action: "STATUS_UPDATE",
       status: "Error: " + errMsg,
