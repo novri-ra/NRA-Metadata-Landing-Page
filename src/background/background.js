@@ -27,8 +27,16 @@ try {
   console.warn("[Background] Failed to set panel behavior:", e.message);
 }
 
+// In-memory mutex to prevent KEEP_AWAKE race condition between concurrent tab requests
+let isAwakeMutexLocked = false;
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "KEEP_AWAKE") {
+    if (isAwakeMutexLocked) {
+      sendResponse({ success: false, error: "Mutex locked by pending request" });
+      return true;
+    }
+    isAwakeMutexLocked = true;
     (async () => {
       try {
         const tabId = sender.tab.id;
@@ -43,6 +51,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       } catch (e) {
         await chrome.storage.local.remove(["activeAutomationTab"]);
         sendResponse({ success: false, error: e.message });
+      } finally {
+        isAwakeMutexLocked = false;
       }
     })();
     return true;

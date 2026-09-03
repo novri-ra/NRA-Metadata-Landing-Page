@@ -95,7 +95,7 @@ let isRunning = false;
 // Mutex guard: prevents concurrent startMainLoop() invocations (KRITIS-2)
 let isLoopActive = false;
 // Session Statistics Telemetry
-let prompts = [];
+let promptsGlobal = [];
 let sessionStats = {
   startTime: null,
   successCount: 0,
@@ -160,15 +160,6 @@ function formatTime(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
   const s = (totalSeconds % 60).toString().padStart(2, "0");
   return `${m}:${s}`;
-}
-
-/**
- * Helper to check if automation has been stopped by the user.
- * @returns {Promise<boolean>}
- */
-async function checkIfStopped() {
-  const res = await chrome.storage.local.get(["isAutomating"]);
-  return res && res.isAutomating === false;
 }
 
 /**
@@ -383,6 +374,7 @@ function handleAutomationError(err) {
           "You've hit your plan's monthly AI limit! Automation has been permanently stopped.",
       }).catch(() => { });
     });
+    chrome.runtime.sendMessage({ action: "RELEASE_AWAKE" }).catch(() => ({}));
     return;
   }
 
@@ -578,10 +570,6 @@ async function injectPrompt(currentPrompt) {
 async function submitAndWaitForImages(currentIndex, totalPrompts) {
   console.info("[NRA DreamLab] Mencari tombol Generate...");
   const generateBtn = await waitForElement(CANVA_SELECTORS.SUBMIT_BUTTON, 15000);
-
-  // Hitung jumlah kontainer sebelum generate untuk deteksi node baru
-  const containersBefore = getRenderContainers().length;
-
   console.info("[NRA DreamLab] Menekan tombol Generate...");
 
   // Implement DOM Tagging (Marking): Prevent bot from reading previous generated images
