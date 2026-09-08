@@ -19,12 +19,10 @@ from packages.shared_utils.cache import get_file_hash, get_cached_metadata, set_
 from packages.shared_utils.filter import (clean_metadata, sanitize_keywords, get_blacklist,
     add_to_blacklist, remove_from_blacklist, validate_compliance, autofix_compliance,
     to_title_case, to_sentence_case, to_uppercase, to_lowercase,
-    lowercase_keywords, trim_spacing, trim_keywords, detect_redundant_keywords, remove_redundant_keywords,
+    lowercase_keywords, trim_keywords, detect_redundant_keywords, remove_redundant_keywords,
     calculate_quality_score)
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
-from packages.shared_utils.cost_tracker import CostTracker
-from packages.shared_utils.updater import check_github_release, APP_VERSION
-from packages.shared_utils.tracker import tracker
+from packages.shared_utils.updater import check_github_release
 from packages.shared_utils.cache import get_cache_hits
 from packages.shared_utils.ftp_uploader import FTPClient
 from packages.shared_utils.env_check import run_environment_checks
@@ -475,7 +473,7 @@ class App(ctk.CTk):
 
         def _do_register():
             data, err = _validate_register()
-            if err:
+            if err or data is None:
                 status_lbl_reg.configure(text=f"\u26A0\uFE0F {err}", text_color=C["error"])
                 return
             status_lbl_reg.configure(text="\u231B Mendaftarkan perangkat...", text_color=C["text3"])
@@ -713,6 +711,8 @@ class App(ctk.CTk):
 
         _label(sidebar, "API Key").pack(fill="x", anchor="w", **LPAD)
         self.api_key_entry = _entry(sidebar, show="*")
+        self.keys_counter_lbl = _label(sidebar, "(0 keys loaded)")
+        self.keys_counter_lbl.pack(fill="x", anchor="w", padx=16, pady=2)
         
         # Load API keys dict, handle migration from old single API key
         if "api_keys" not in self.config:
@@ -1034,26 +1034,6 @@ class App(ctk.CTk):
         self.log_search_var = ctk.StringVar()
         self.log_search_var.trace_add("write", lambda *_: self._refresh_log())
         _entry(log_ctrl, text_var=self.log_search_var, placeholder_text="Search...", width=120, height=24).pack(side="left", padx=(12, 4))
-    def _flush_cache(self):
-        import sqlite3, json
-        from tkinter import messagebox
-        db_path = os.path.join(os.getcwd(), "cache.db")
-        if not os.path.exists(db_path):
-            self.log_msg("Cache DB not found.")
-            return
-        if not messagebox.askyesno("Confirm", "Are you sure you want to completely clear the metadata cache? This will force AI regeneration for all files."):
-            return
-        try:
-            conn = sqlite3.connect(db_path)
-            conn.execute("DELETE FROM metadata_cache")
-            conn.commit()
-            conn.close()
-            self.log_msg("Local cache completely cleared.")
-            messagebox.showinfo("Success", "Cache cleared successfully.")
-        except Exception as e:
-            self.log_msg(f"Failed to clear cache: {str(e)}", level="Error")
-
-        
         self.log_level_var = ctk.StringVar(value="All")
         _combo(log_ctrl, ["All", "Info", "Processing", "Success", "Warn", "Error", "Cache"], variable=self.log_level_var,
                command=self._refresh_log, width=80, height=24).pack(side="left", padx=4)
@@ -1231,6 +1211,7 @@ class App(ctk.CTk):
              height=22, width=80, font=ctk.CTkFont(family="Segoe UI", size=9),
              command=self._trim_all_keywords).pack(side="left")
 
+
         # ── Keyword Presets ──
         preset_kw_row = ctk.CTkFrame(inspector, fg_color=C["surface"])
         preset_kw_row.pack(fill="x", padx=12, pady=(4, 2))
@@ -1274,6 +1255,25 @@ class App(ctk.CTk):
         _btn(btn_row2, "Apply to Batch...", C["violet"], C["violet_h"],
              height=28, command=self._open_batch_apply,
              font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold")).pack(fill="x")
+
+    def _flush_cache(self):
+        import sqlite3
+        from tkinter import messagebox
+        db_path = os.path.join(os.getcwd(), "cache.db")
+        if not os.path.exists(db_path):
+            self.log("Cache DB not found.")
+            return
+        if not messagebox.askyesno("Confirm", "Are you sure you want to completely clear the metadata cache? This will force AI regeneration for all files."):
+            return
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.execute("DELETE FROM metadata_cache")
+            conn.commit()
+            conn.close()
+            self.log("Local cache completely cleared.")
+            messagebox.showinfo("Success", "Cache cleared successfully.")
+        except Exception as e:
+            self.log(f"Failed to clear cache: {str(e)}", "error")
 
     # ── Keyword Presets ──────────────────────────────────────────────────
     def _open_keyword_presets(self):
@@ -1656,7 +1656,8 @@ class App(ctk.CTk):
                                     tw = csv.writer(tf)
                                     tw.writerow(["Filename","Title","Description","Keywords"])
                                     tw.writerow([fname, meta["title"], meta["description"], ",".join(meta["keywords"])])
-                            except: pass
+                            except Exception:
+                                pass
             
             generate_microstock_csvs(target_dir)
             
@@ -1827,7 +1828,8 @@ class App(ctk.CTk):
                 self.redo_stack.clear()
                 self._update_variant_badge()
                 self._update_quality_score()
-            except: pass
+            except Exception:
+                pass
         self.after(0, _draw)
 
     # ── Geometry & Sash Persistence ────────────────────────────────────
@@ -1938,7 +1940,7 @@ class App(ctk.CTk):
                 # Update current entry to first key
                 self.api_key_entry.delete(0, "end")
                 self.api_key_entry.insert(0, keys[0])
-                self._on_key_type() # Save to old api_keys dict for backward compatibility
+                self._save_current_config() # Save to old api_keys dict for backward compatibility
                 
                 self.keys_counter_lbl.configure(text=f"({len(keys)} keys loaded)")
                 self._save_current_config()
@@ -2304,7 +2306,8 @@ class App(ctk.CTk):
         name = os.path.basename(self.current_edit_file)
         if self.processor.embed_metadata(self.current_edit_file, title, desc, kws, self._get_copyright_text(), self.author_entry.get().strip()):
             meta = {"title": title, "description": desc, "keywords": kws}
-            set_cached_metadata(self.current_edit_hash, meta)
+            if self.current_edit_hash:
+                set_cached_metadata(self.current_edit_hash, meta)
             self.log(f"{name} (Manual save OK)", "success")
 
             # Sync companion files if enabled
@@ -2518,7 +2521,8 @@ class App(ctk.CTk):
                 self.update_stats("error")
                 # Clean up preview since we're aborting
                 try: os.remove(preview)
-                except: pass
+                except Exception:
+                    pass
                 return
                 
             set_cached_metadata(file_hash, meta)
@@ -2542,11 +2546,12 @@ class App(ctk.CTk):
             with Image.open(preview) as opened_img:
                 img = opened_img.copy()
                 img.thumbnail((300, 300), Image.Resampling.LANCZOS)
-        except:
+        except Exception:
             img = None
 
         try: os.remove(preview)
-        except: pass
+        except Exception:
+            pass
 
         meta = clean_metadata(meta, max_kw)
 
@@ -2574,13 +2579,15 @@ class App(ctk.CTk):
                 jpg_path = os.path.join(out_dir, base_name + ".jpg")
                 if img:
                     try: img.convert("RGB").save(jpg_path, "JPEG", quality=95)
-                    except: pass
+                    except Exception:
+                        pass
                 zip_path = os.path.join(out_dir, base_name + ".zip")
                 try:
                     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
                         zf.write(final_path, arcname=name)
                         if os.path.exists(jpg_path): zf.write(jpg_path, arcname=base_name + ".jpg")
-                except: pass
+                except Exception:
+                    pass
 
             self.update_stats("success")
         else:
@@ -2728,7 +2735,7 @@ class App(ctk.CTk):
         api_key = api_keys_dict.get(provider, "")
         # Build failover dict from other configured providers
         failover_providers = {p: k for p, k in api_keys_dict.items() if p != provider and k}
-        ai = AIService(provider, api_key, self.config.get("model"), self.config.get("temperature", 0.3), failover_providers=failover_providers)
+        ai = AIService(provider, api_key, (self.config.get("model") or "Gemini"), self.config.get("temperature", 0.3), failover_providers=failover_providers)
         
         processed_dir = os.path.join(out_dir, "Processed Assets")
         csv_dir = os.path.join(out_dir, "Metadata CSV")
