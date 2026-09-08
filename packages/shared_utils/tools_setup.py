@@ -4,92 +4,116 @@ import zipfile
 import urllib.request
 import tempfile
 import threading
+from pathlib import Path
 
-def get_base_path() -> str:
+
+def get_tools_directory() -> Path:
     if getattr(sys, "frozen", False):
-        return sys._MEIPASS
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        base_dir = Path(sys.executable).resolve().parent
+    else:
+        base_dir = Path(__file__).resolve().parent.parent.parent
+    tools_dir = base_dir / "tools"
+    tools_dir.mkdir(parents=True, exist_ok=True)
+    return tools_dir
+
+
+_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+
+
+def _download(url: str, dest: str):
+    req = urllib.request.Request(url, headers=_HEADERS)
+    with urllib.request.urlopen(req, timeout=120) as resp, open(dest, "wb") as out:
+        while True:
+            chunk = resp.read(65536)
+            if not chunk:
+                break
+            out.write(chunk)
+
 
 def ensure_tools_installed(tools_dir=None, progress_callback=None):
-    if not tools_dir:
-        tools_dir = os.path.join(get_base_path(), "tools")
-    
-    os.makedirs(tools_dir, exist_ok=True)
-    
-    # We define the expected binary relative to tools_dir and the download URL.
-    # We use reliable portable zip distributions.
-    tools_config = {
-        "exiftool": {
-            "exe": os.path.join("exiftool", "exiftool.exe"),
-            "url": "https://github.com/exiftool/exiftool/releases/download/12.98/exiftool-12.98_win.zip",
-            "extract_folder": "exiftool"
-        },
-        "ghostscript": {
-            "exe": os.path.join("ghostscript", "bin", "gswin64c.exe"),
-            "url": "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10031/ghostscript-10.03.1-win64.zip",
-            "extract_folder": "ghostscript"
-        },
-        "ffmpeg": {
-            "exe": os.path.join("ffmpeg", "bin", "ffmpeg.exe"),
-            "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip",
-            "extract_folder": "ffmpeg"
-        }
-    }
-
     if sys.platform != "win32":
-        return # Auto-downloader logic currently tailored for Windows portable ZIPs
+        return
 
-    def download_and_extract(tool_name, config):
-        exe_path = os.path.join(tools_dir, config["exe"])
-        alt_exe_path = os.path.join(tools_dir, f"{tool_name}.exe")
-        
-        # Check if already installed
-        if os.path.exists(exe_path) or os.path.exists(alt_exe_path):
-            return
+    td = Path(tools_dir) if tools_dir else get_tools_directory()
+    td.mkdir(parents=True, exist_ok=True)
 
+    def _log(msg):
         if progress_callback:
-            progress_callback(f"[INFO] Downloading {tool_name}...")
+            progress_callback(msg)
         else:
-            print(f"[INFO] Downloading {tool_name}...")
+            print(msg)
 
+    def _setup_exiftool():
+        candidates = [td / "exiftool" / "exiftool.exe", td / "exiftool.exe"]
+        if any(c.exists() for c in candidates):
+            return
+        _log("[INFO] Downloading ExifTool...")
         try:
+            url = "https://exiftool.org/exiftool-13.10.zip"
             with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
-                temp_zip_path = tmp.name
-                urllib.request.urlretrieve(config["url"], temp_zip_path)
-
-            target_extract = os.path.join(tools_dir, config["extract_folder"])
-            os.makedirs(target_extract, exist_ok=True)
-
-            with zipfile.ZipFile(temp_zip_path, 'r') as zip_ref:
-                # We extract everything into target_extract.
-                # Note: Some zip files contain a root folder. The user might need to rename,
-                # but we'll extract as-is and let `MediaProcessor` search a bit if needed, 
-                # or we just rely on standard paths.
-                zip_ref.extractall(target_extract)
-                
-            os.remove(temp_zip_path)
-            
-            # Post-processing: Exiftool zip renames itself inside, FFmpeg has a root folder.
-            # To keep it robust without overcomplicating, we'll let the embedder logic scan 
-            # for the exe inside the extract_folder.
-            
-            if progress_callback:
-                progress_callback(f"[SUCCESS] {tool_name} installed.")
-            else:
-                print(f"[SUCCESS] {tool_name} installed.")
-
+                tmp_path = tmp.name
+            _download(url, tmp_path)
+            extract_dir = td / "exiftool"
+            extract_dir.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(tmp_path, "r") as zf:
+                zf.extractall(extract_dir)
+            os.remove(tmp_path)
+            # Rename exiftool(-k).exe to exiftool.exe if needed
+            for f in extract_dir.rglob("exiftool(-k).exe"):
+                f.rename(extract_dir / "exiftool.exe")
+                break
+            # Also check for exiftool.exe directly extracted
+            _log("[SUCCESS] ExifTool installed.")
         except Exception as e:
-            msg = f"[WARN] Failed to download {tool_name}: {e}"
-            if progress_callback:
-                progress_callback(msg)
-            else:
-                print(msg)
+            _log(f"[WARN] Failed to download ExifTool: {e}")
 
-    threads = []
-    for t_name, t_config in tools_config.items():
-        t = threading.Thread(target=download_and_extract, args=(t_name, t_config))
+    def _setup_ghostscript():
+        candidates = [
+            td / "ghostscript" / "bin" / "gswin64c.exe",
+            td / "gswin64c.exe",
+        ]
+        if any(c.exists() for c in candidates):
+            return
+        _log("[INFO] Downloading Ghostscript...")
+        try:
+            url = "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10040/gs10040w64.exe"
+            dest = td / "gswin64c.exe"
+            _download(url, str(dest))
+            _log("[SUCCESS] Ghostscript installed.")
+        except Exception as e:
+            _log(f"[WARN] Failed to download Ghostscript: {e}")
+
+    def _setup_ffmpeg():
+        candidates = [
+            td / "ffmpeg" / "bin" / "ffmpeg.exe",
+            td / "ffmpeg.exe",
+        ]
+        if any(c.exists() for c in candidates):
+            return
+        _log("[INFO] Downloading FFmpeg...")
+        try:
+            url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
+                tmp_path = tmp.name
+            _download(url, tmp_path)
+            with zipfile.ZipFile(tmp_path, "r") as zf:
+                # Extract only ffmpeg.exe from the archive to save space
+                for info in zf.infolist():
+                    if info.filename.endswith("bin/ffmpeg.exe"):
+                        info.filename = "ffmpeg.exe"
+                        zf.extract(info, str(td))
+                        break
+            os.remove(tmp_path)
+            _log("[SUCCESS] FFmpeg installed.")
+        except Exception as e:
+            _log(f"[WARN] Failed to download FFmpeg: {e}")
+
+    threads = [
+        threading.Thread(target=_setup_exiftool, daemon=True),
+        threading.Thread(target=_setup_ghostscript, daemon=True),
+        threading.Thread(target=_setup_ffmpeg, daemon=True),
+    ]
+    for t in threads:
         t.start()
-        threads.append(t)
-
     for t in threads:
         t.join()
