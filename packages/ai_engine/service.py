@@ -1,4 +1,5 @@
 import base64
+import os
 import json
 import time
 
@@ -100,9 +101,17 @@ class AIService:
         max_kw: int = 49,
         style_preset: str = "Standard",
         extra_prompt: str = "",
+        log_callback=None,
         **kwargs,
     ) -> dict:
         tracker.add_call()
+        filename = os.path.basename(image_path) if image_path else "unknown"
+
+        def _log(msg, level="info"):
+            if log_callback:
+                log_callback(msg, level)
+            else:
+                print(f"[{level.upper()}] {msg}")
 
         style_prompts = {
             "General Commercial": "Balanced visual description for general stock assets.",
@@ -138,6 +147,8 @@ class AIService:
 
         max_retries = 3
         backoff_times = [2, 4, 8]
+
+        _log(f"[{filename}] Sending vision prompt to {self.provider} | Model: {self.model or 'default'}...", "info")
 
         for attempt in range(max_retries + 1):
             try:
@@ -296,6 +307,7 @@ class AIService:
                     return self._parse_json(response.choices[0].message.content)
             except (OSError, ValueError, KeyError, RuntimeError) as e:
                 err_str = str(e)
+                _log(f"[{filename}] {self.provider} error: {err_str}", "error")
                 if (
                     "ConnectionRefused" in err_str
                     or "ConnectError" in err_str
@@ -329,8 +341,8 @@ class AIService:
                     or "403" in err_str
                 ):
                     if len(self.api_keys) > 1:
-                        print(
-                            f"[WARNING] API Key #{self.current_key_idx + 1} limit/exhausted on {self.provider}. Rotating to key #{(self.current_key_idx + 1) % len(self.api_keys) + 1}..."
+                        _log(
+                            f"[{filename}] API Key #{self.current_key_idx + 1} exhausted on {self.provider}. Rotating to next key...", "warn"
                         )
                         self.current_key_idx = (self.current_key_idx + 1) % len(
                             self.api_keys
@@ -352,7 +364,7 @@ class AIService:
                             ) in self.failover_providers.items():
                                 if alt_key and alt_provider != self.provider:
                                     print(
-                                        f"[FAILOVER] {self.provider} exhausted. Switching to {alt_provider}..."
+                                        f"[FAILOVER] {self.provider} auth failed. Switching to {alt_provider}..."
                                     )
                                     self._failover_attempted = True
                                     self.provider = alt_provider
@@ -365,20 +377,20 @@ class AIService:
                                     self._init_clients()
                                     break
                             else:
-                                print(
-                                    f"AI Service Error ({self.provider}): All keys exhausted. No failover provider available."
+                                _log(
+                                    f"[{filename}] All API keys exhausted. No failover provider available.", "error"
                                 )
                                 return self._fallback_metadata(error_details="All keys exhausted. No failover available.")
                             continue  # retry with new provider
                         print(
-                            f"AI Service Error ({self.provider}): All keys exhausted or Authentication Failed. Check API Key."
+                            f"[{filename}] {self.provider}: Authentication failed. Check API Key."
                         )
                         return self._fallback_metadata(error_details="Authentication failed. Check API Key.")
 
                 if is_retryable and attempt < max_retries:
                     wait_time = backoff_times[attempt]
                     print(
-                        f"AI Service retry {attempt + 1}/{max_retries} for {self.provider} after {wait_time}s due to: {err_str}"
+                        f"[{filename}] Retry {attempt + 1}/{max_retries} for {self.provider} after {wait_time}s..."
                     )
                     time.sleep(wait_time)
                     continue
@@ -409,7 +421,7 @@ class AIService:
                                     extra_prompt,
                                     **kwargs,
                                 )
-                    print(f"AI Service Error ({self.provider}): {e}")
+                    _log(f"[{filename}] {self.provider}: {e}", "error")
                     return self._fallback_metadata(error_details=str(e))
 
         return self._fallback_metadata(error_details="Max retries exhausted")
