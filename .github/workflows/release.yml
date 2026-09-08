@@ -13,6 +13,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+      actions: write
 
     steps:
       - name: Checkout Code
@@ -52,6 +53,19 @@ jobs:
               Copy-Item -Path "tools/*" -Destination "dist/NRA-Metadata/tools/" -Recurse -Force
           }
           Compress-Archive -Path "dist/NRA-Metadata" -DestinationPath "NRA-Metadata-Portable.zip" -CompressionLevel Optimal
+
+      - name: Prune Old Releases and Tags
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          Write-Host "Checking and deleting older releases..."
+          $releases = gh release list --limit 30 --json tagName -q '.[].tagName' | Out-String
+          $releaseList = $releases.Trim() -split "\r?\n" | Where-Object { $_ -ne "" }
+          foreach ($rel in $releaseList) {
+              Write-Host "Deleting old release: $rel"
+              gh release delete $rel --yes --cleanup-tag
+          }
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
