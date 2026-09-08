@@ -37,12 +37,14 @@ jobs:
           Move-Item -Path "upx_dir/upx-*" -Destination "upx"
 
       - name: Build Executable with PyInstaller
-        run: |
           pyinstaller --noconfirm --onedir --windowed `
             --name "NRA-Metadata" `
+            --paths "." `
+            --collect-all "packages" `
+            --collect-all "customtkinter" `
             --upx-dir "upx" `
             --add-data "tools;tools" `
-            --collect-all "customtkinter" `
+            apps/desktop/src/main.py
             apps/desktop/src/main.py
 
       - name: Ensure tools directory and instructions exist in dist package
