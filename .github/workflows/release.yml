@@ -30,35 +30,30 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Download UPX for Maximum Binary Compression
+      - name: Download UPX for Compression
+        shell: pwsh
         run: |
           Invoke-WebRequest -Uri "https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-win64.zip" -OutFile "upx.zip"
           Expand-Archive -Path "upx.zip" -DestinationPath "upx_dir"
           Move-Item -Path "upx_dir/upx-*" -Destination "upx"
 
       - name: Build Executable with PyInstaller
-          pyinstaller --noconfirm --onedir --windowed `
-            --name "NRA-Metadata" `
-            --paths "." `
-            --collect-all "packages" `
-            --collect-all "customtkinter" `
-            --upx-dir "upx" `
-            --add-data "tools;tools" `
-            apps/desktop/src/main.py
-            apps/desktop/src/main.py
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --onedir --windowed --name "NRA-Metadata" --paths "." --collect-all "packages" --collect-all "customtkinter" --upx-dir "upx" --add-data "tools;tools" apps/desktop/src/main.py
 
-      - name: Ensure tools directory and instructions exist in dist package
+      - name: Prepare Distribution Package
+        shell: pwsh
         run: |
           if (!(Test-Path "dist/NRA-Metadata/tools")) {
               New-Item -ItemType Directory -Force -Path "dist/NRA-Metadata/tools"
           }
-          Copy-Item -Path "tools/*" -Destination "dist/NRA-Metadata/tools/" -Recurse -Force
-
-      - name: Compress Release Artifact (ZIP ultra compression)
-        run: |
+          if (Test-Path "tools") {
+              Copy-Item -Path "tools/*" -Destination "dist/NRA-Metadata/tools/" -Recurse -Force
+          }
           Compress-Archive -Path "dist/NRA-Metadata" -DestinationPath "NRA-Metadata-Portable.zip" -CompressionLevel Optimal
 
-      - name: Generate Release Tag & Create GitHub Release
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
