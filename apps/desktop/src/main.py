@@ -21,6 +21,7 @@ from packages.shared_utils.cache import (
 )
 from packages.shared_utils.config import load_config, save_config
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
+from packages.shared_utils.tools_setup import ensure_tools_installed
 from packages.shared_utils.env_check import run_environment_checks
 from packages.shared_utils.filter import (
     add_to_blacklist,
@@ -268,6 +269,13 @@ class App(ctk.CTk):
         for name, ok, msg in env_results:
             if not ok:
                 self.log(f"Diag Warning: {name} - {msg}", "error")
+
+        def setup_tools():
+            self.log("[INFO] Checking external media tools...", "info")
+            ensure_tools_installed(progress_callback=lambda m: self.log(m, "info" if "SUCCESS" in m or "INFO" in m else "warn"))
+
+        # Run tool downloader in background
+        threading.Thread(target=setup_tools, daemon=True).start()
 
         is_valid, msg = self.auth.validate_session()
         if not is_valid:

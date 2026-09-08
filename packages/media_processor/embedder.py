@@ -25,12 +25,29 @@ class MediaProcessor:
     def get_tool_path(self, tool_name: str) -> str:
         base = self.get_base_path()
         if sys.platform == "win32":
-            if tool_name == "exiftool":
-                return os.path.join(base, "tools", "exiftool", "exiftool.exe")
-            if tool_name == "ghostscript":
-                return os.path.join(base, "tools", "ghostscript", "bin", "gswin64c.exe")
-            if tool_name == "ffmpeg":
-                return os.path.join(base, "tools", "ffmpeg", "ffmpeg.exe")
+            exe_map = {
+                "exiftool": "exiftool.exe",
+                "ghostscript": "gswin64c.exe",
+                "ffmpeg": "ffmpeg.exe",
+            }
+            exe_name = exe_map.get(tool_name, f"{tool_name}.exe")
+            tools_root = os.path.join(base, "tools")
+            tool_subdir = os.path.join(tools_root, tool_name)
+            if os.path.isdir(tool_subdir):
+                for dirpath, _dirs, files in os.walk(tool_subdir):
+                    if exe_name in files:
+                        return os.path.join(dirpath, exe_name)
+            flat = os.path.join(tools_root, exe_name)
+            if os.path.exists(flat):
+                return flat
+            if getattr(sys, "frozen", False):
+                meipass = os.path.join(sys._MEIPASS, "tools", exe_name)
+                if os.path.exists(meipass):
+                    return meipass
+            from shutil import which
+            found = which(exe_name) or which(tool_name)
+            if found:
+                return found
         return tool_name
 
     def sanitize_ai_metadata(self, file_path: str) -> bool:
