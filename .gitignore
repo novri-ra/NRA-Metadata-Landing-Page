@@ -9,12 +9,20 @@ config.enc
 *.db
 cache.db
 .cache/
+.ruff_cache/
+cache/
+output/
 
 # Test outputs & logs
-metadata_output.csv
 *_export.csv
 failed_files.log
 *.log
+
+# Temporary diagnostic/dump files
+out.txt
+result*.txt
+token_result.txt
+*_result.txt
 
 # Binaries & Builds
 tools/exiftool/
