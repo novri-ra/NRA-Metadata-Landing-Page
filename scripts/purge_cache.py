@@ -1,12 +1,16 @@
 """One-shot script to purge corrupted/fallback records from cache.db."""
-import sqlite3, os, json
+
+import json
+import os
+import sqlite3
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache.db")
+
 
 def _is_invalid(metadata_json: str) -> bool:
     try:
         d = json.loads(metadata_json)
-    except Exception:
+    except (OSError, ValueError):
         return True
     if d.get("is_fallback"):
         return True
@@ -16,11 +20,12 @@ def _is_invalid(metadata_json: str) -> bool:
     if "Metadata generation failed" in desc:
         return True
     kw = d.get("keywords", [])
-    if isinstance(kw, list) and (len(kw) < 5 or any("fallback" in k.lower() for k in kw)):
+    if isinstance(kw, list) and (
+        len(kw) < 5 or any("fallback" in k.lower() for k in kw)
+    ):
         return True
-    if isinstance(kw, str) and ("fallback" in kw.lower()):
-        return True
-    return False
+    return bool(isinstance(kw, str) and "fallback" in kw.lower())
+
 
 def main():
     conn = sqlite3.connect(DB_PATH)
@@ -34,6 +39,7 @@ def main():
     remaining = conn.execute("SELECT COUNT(*) FROM metadata_cache").fetchone()[0]
     conn.close()
     print(f"Purged {deleted} invalid record(s). Remaining: {remaining}")
+
 
 if __name__ == "__main__":
     main()

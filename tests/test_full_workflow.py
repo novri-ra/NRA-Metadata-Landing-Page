@@ -1,11 +1,13 @@
-import unittest
-import os
 import csv
-from packages.shared_utils.taxonomy import get_adobe_category_code, ADOBE_CATEGORY_MAP
-from packages.shared_utils.csv_exporter import generate_microstock_csvs
+import os
+import unittest
+
 from packages.ai_engine.service import normalize_base_url
 from packages.shared_utils.cost_tracker import CostTracker
+from packages.shared_utils.csv_exporter import generate_microstock_csvs
+from packages.shared_utils.taxonomy import ADOBE_CATEGORY_MAP, get_adobe_category_code
 from packages.shared_utils.updater import APP_VERSION
+
 
 class TestCostTracker(unittest.TestCase):
     def test_cost_calculation(self):
@@ -13,14 +15,15 @@ class TestCostTracker(unittest.TestCase):
         cost = tracker.calculate("OpenAI", "gpt-4o-mini", 4000, 400)
         self.assertTrue(cost > 0)
         self.assertEqual(tracker.estimated_cost_usd, cost)
-        
+
         cost2 = tracker.calculate("9router", "9router/auto", 100, 100)
         self.assertEqual(cost2, 0.0)
+
 
 class TestVersionCompare(unittest.TestCase):
     def test_app_version_exists(self):
         self.assertTrue(isinstance(APP_VERSION, str))
-        self.assertTrue(len(APP_VERSION.split('.')) >= 2)
+        self.assertTrue(len(APP_VERSION.split(".")) >= 2)
 
 
 class TestTaxonomy(unittest.TestCase):
@@ -39,39 +42,63 @@ class TestTaxonomy(unittest.TestCase):
         self.assertEqual(len(ADOBE_CATEGORY_MAP), 21)
         self.assertEqual(set(ADOBE_CATEGORY_MAP.values()), set(range(1, 22)))
 
+
 class TestNormalizeBaseUrl(unittest.TestCase):
     def test_append_v1(self):
-        self.assertEqual(normalize_base_url("http://127.0.0.1:20128"), "http://127.0.0.1:20128/v1")
+        self.assertEqual(
+            normalize_base_url("http://127.0.0.1:20128"), "http://127.0.0.1:20128/v1"
+        )
 
     def test_strip_trailing_slash(self):
-        self.assertEqual(normalize_base_url("http://localhost:8080/v1/"), "http://localhost:8080/v1")
+        self.assertEqual(
+            normalize_base_url("http://localhost:8080/v1/"), "http://localhost:8080/v1"
+        )
 
     def test_double_trailing_slash(self):
-        self.assertEqual(normalize_base_url("http://localhost:8080/v1//"), "http://localhost:8080/v1")
+        self.assertEqual(
+            normalize_base_url("http://localhost:8080/v1//"), "http://localhost:8080/v1"
+        )
 
     def test_already_correct(self):
-        self.assertEqual(normalize_base_url("https://api.9router.com/v1"), "https://api.9router.com/v1")
+        self.assertEqual(
+            normalize_base_url("https://api.9router.com/v1"),
+            "https://api.9router.com/v1",
+        )
 
     def test_whitespace(self):
-        self.assertEqual(normalize_base_url("  http://test.com  "), "http://test.com/v1")
+        self.assertEqual(
+            normalize_base_url("  http://test.com  "), "http://test.com/v1"
+        )
 
     def test_empty_fallback(self):
         self.assertEqual(normalize_base_url(""), "https://api.9router.com/v1")
         self.assertEqual(normalize_base_url(None), "https://api.9router.com/v1")
 
+
 class TestAdobeStockCsvExport(unittest.TestCase):
     def setUp(self):
         self.out_dir = "."
         with open("metadata_output.csv", "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=["Filename", "Title", "Description", "Keywords", "PrimaryCategory"])
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "Filename",
+                    "Title",
+                    "Description",
+                    "Keywords",
+                    "PrimaryCategory",
+                ],
+            )
             writer.writeheader()
-            writer.writerow({
-                "Filename": "test_image.jpg",
-                "Title": "A " * 120,
-                "Description": "Desc",
-                "Keywords": ",".join([f"kw{i}" for i in range(60)]),
-                "PrimaryCategory": "Animals"
-            })
+            writer.writerow(
+                {
+                    "Filename": "test_image.jpg",
+                    "Title": "A " * 120,
+                    "Description": "Desc",
+                    "Keywords": ",".join([f"kw{i}" for i in range(60)]),
+                    "PrimaryCategory": "Animals",
+                }
+            )
 
     def tearDown(self):
         for f in ["metadata_output.csv", "adobe_stock_export.csv"]:
@@ -82,7 +109,9 @@ class TestAdobeStockCsvExport(unittest.TestCase):
         generate_microstock_csvs(self.out_dir, platforms={"Adobe Stock"})
         with open("adobe_stock_export.csv", "r", encoding="utf-8") as f:
             reader = list(csv.reader(f))
-            self.assertEqual(reader[0], ["Filename", "Title", "Keywords", "Category", "Releases"])
+            self.assertEqual(
+                reader[0], ["Filename", "Title", "Keywords", "Category", "Releases"]
+            )
 
     def test_category_is_numeric(self):
         generate_microstock_csvs(self.out_dir, platforms={"Adobe Stock"})
@@ -104,24 +133,40 @@ class TestAdobeStockCsvExport(unittest.TestCase):
             keywords = [k.strip() for k in reader[1][2].split(",") if k.strip()]
             self.assertLessEqual(len(keywords), 49)
 
+
 class TestConfigPersistence(unittest.TestCase):
     def test_save_and_load_config(self):
-        from packages.shared_utils.config import save_config, load_config
-        payload = { "provider": "OpenAI", "model": "gpt-4o", "api_keys": {"OpenAI": "sk-test"}, "temperature": 0.7, "min_kw": 15, "max_kw": 40, "extra_prompt": "Test mode", "csv_platforms": ["Adobe Stock", "Vecteezy"] }
+        from packages.shared_utils.config import load_config, save_config
+
+        payload = {
+            "provider": "OpenAI",
+            "model": "gpt-4o",
+            "api_keys": {"OpenAI": "sk-test"},
+            "temperature": 0.7,
+            "min_kw": 15,
+            "max_kw": 40,
+            "extra_prompt": "Test mode",
+            "csv_platforms": ["Adobe Stock", "Vecteezy"],
+        }
         save_config(payload)
         loaded = load_config()
         for k, v in payload.items():
-            self.assertEqual(loaded.get(k), v, f"Config {k} mismatch: {loaded.get(k)} != {v}")
+            self.assertEqual(
+                loaded.get(k), v, f"Config {k} mismatch: {loaded.get(k)} != {v}"
+            )
 
 
 # ── Auth Tests ────────────────────────────────────────────────────────────
+
 
 class TestAuthClientRegisterPayload(unittest.TestCase):
     """Verify AuthClient.register sends email/wa/fullname fields."""
 
     def test_register_accepts_extra_fields(self):
-        from packages.shared_utils.license_manager import AuthClient
         import inspect
+
+        from packages.shared_utils.license_manager import AuthClient
+
         sig = inspect.signature(AuthClient.register)
         params = list(sig.parameters.keys())
         self.assertIn("email", params, "register() must accept 'email' kwarg")
@@ -131,11 +176,21 @@ class TestAuthClientRegisterPayload(unittest.TestCase):
     def test_register_builds_correct_payload(self):
         """Monkey-patch _post to capture payload."""
         from packages.shared_utils.license_manager import AuthClient
+
         client = AuthClient()
         captured = {}
-        client._post = lambda payload: (captured.update(payload), {"status": "SUCCESS"})[1]
+        client._post = lambda payload: (
+            captured.update(payload),
+            {"status": "SUCCESS"},
+        )[1]
 
-        client.register("testuser", "pass123", email="a@b.com", wa="6281234567890", fullname="Test User")
+        client.register(
+            "testuser",
+            "pass123",
+            email="a@b.com",
+            wa="6281234567890",
+            fullname="Test User",
+        )
         self.assertEqual(captured["action"], "REGISTER")
         self.assertEqual(captured["username"], "testuser")
         self.assertEqual(captured["email"], "a@b.com")
@@ -148,9 +203,13 @@ class TestAuthLoginViaEmailOrUsername(unittest.TestCase):
 
     def test_login_sends_identifier_as_username_field(self):
         from packages.shared_utils.license_manager import AuthClient
+
         client = AuthClient()
         captured = {}
-        client._post = lambda payload: (captured.update(payload), {"status": "SUCCESS", "session_token": "tok"})[1]
+        client._post = lambda payload: (
+            captured.update(payload),
+            {"status": "SUCCESS", "session_token": "tok"},
+        )[1]
 
         # Login with email
         client.login("user@example.com", "pass123")
@@ -195,43 +254,63 @@ class TestWANumberValidation(unittest.TestCase):
 
 class TestBatchOutputStructure(unittest.TestCase):
     def test_no_individual_subfolders_in_csv_exporter(self):
-        # We verify that generate_microstock_csvs processes from a single master csv 
+        # We verify that generate_microstock_csvs processes from a single master csv
         # and doesn't create individual directories.
         self.out_dir = "test_csv_dir"
         os.makedirs(self.out_dir, exist_ok=True)
-        with open(os.path.join(self.out_dir, "metadata_output.csv"), "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=["Filename", "Title", "Description", "Keywords", "PrimaryCategory"])
+        with open(
+            os.path.join(self.out_dir, "metadata_output.csv"),
+            "w",
+            newline="",
+            encoding="utf-8",
+        ) as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "Filename",
+                    "Title",
+                    "Description",
+                    "Keywords",
+                    "PrimaryCategory",
+                ],
+            )
             writer.writeheader()
-            writer.writerow({
-                "Filename": "file1.jpg",
-                "Title": "Test 1",
-                "Description": "Desc 1",
-                "Keywords": "kw1,kw2",
-                "PrimaryCategory": "Animals"
-            })
-            writer.writerow({
-                "Filename": "file2.jpg",
-                "Title": "Test 2",
-                "Description": "Desc 2",
-                "Keywords": "kw3,kw4",
-                "PrimaryCategory": "Technology"
-            })
+            writer.writerow(
+                {
+                    "Filename": "file1.jpg",
+                    "Title": "Test 1",
+                    "Description": "Desc 1",
+                    "Keywords": "kw1,kw2",
+                    "PrimaryCategory": "Animals",
+                }
+            )
+            writer.writerow(
+                {
+                    "Filename": "file2.jpg",
+                    "Title": "Test 2",
+                    "Description": "Desc 2",
+                    "Keywords": "kw3,kw4",
+                    "PrimaryCategory": "Technology",
+                }
+            )
 
-        generate_microstock_csvs(self.out_dir, platforms={"Adobe Stock", "Shutterstock"})
-        
+        generate_microstock_csvs(
+            self.out_dir, platforms={"Adobe Stock", "Shutterstock"}
+        )
+
         # Ensure outputs are in the same dir and contain all rows
         adobe_csv = os.path.join(self.out_dir, "adobe_stock_export.csv")
         self.assertTrue(os.path.exists(adobe_csv))
-        
+
         with open(adobe_csv, "r", encoding="utf-8") as f:
             lines = f.readlines()
-            self.assertEqual(len(lines), 3) # Header + 2 rows
-            
+            self.assertEqual(len(lines), 3)  # Header + 2 rows
+
         shutterstock_csv = os.path.join(self.out_dir, "shutterstock_export.csv")
         self.assertTrue(os.path.exists(shutterstock_csv))
         with open(shutterstock_csv, "r", encoding="utf-8") as f:
             lines = f.readlines()
-            self.assertEqual(len(lines), 3) # Header + 2 rows
+            self.assertEqual(len(lines), 3)  # Header + 2 rows
 
         # Cleanup
         for root, dirs, files in os.walk(self.out_dir, topdown=False):
@@ -241,21 +320,25 @@ class TestBatchOutputStructure(unittest.TestCase):
                 os.rmdir(os.path.join(root, name))
         os.rmdir(self.out_dir)
 
+
 class TestSanitizer(unittest.TestCase):
     def test_sanitize_ai_metadata(self):
-        from packages.media_processor.embedder import MediaProcessor
         import subprocess
+
+        from packages.media_processor.embedder import MediaProcessor
+
         processor = MediaProcessor()
-        
+
         # Monkey patch subprocess.run to verify arguments
         captured_cmd = []
+
         def fake_run(cmd, *args, **kwargs):
             captured_cmd.extend(cmd)
             return subprocess.CompletedProcess(cmd, 0)
-            
+
         original_run = subprocess.run
         subprocess.run = fake_run
-        
+
         try:
             processor.sanitize_ai_metadata("test_image.png")
             # Verify specific AI tags are targeted
@@ -266,5 +349,6 @@ class TestSanitizer(unittest.TestCase):
         finally:
             subprocess.run = original_run
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

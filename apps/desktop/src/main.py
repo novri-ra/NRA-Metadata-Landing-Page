@@ -358,7 +358,7 @@ class App(ctk.CTk):
             e.pack(padx=20, pady=(0, 4))
             return e
 
-        # â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  LOGIN TAB â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•
+        # â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  LOGIN TAB â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  # noqa: E501
         login_scroll = ctk.CTkScrollableFrame(
             tab_login, fg_color="transparent", scrollbar_button_color=C["surface2"]
         )
@@ -548,7 +548,7 @@ class App(ctk.CTk):
         btn_login.configure(command=_do_login)
         btn_login.pack(padx=20, pady=(8, 12))
 
-        # â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  REGISTER TAB â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•
+        # â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  REGISTER TAB â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  # noqa: E501
         reg_scroll = ctk.CTkScrollableFrame(
             tab_register, fg_color="transparent", scrollbar_button_color=C["surface2"]
         )
@@ -1997,7 +1997,7 @@ class App(ctk.CTk):
             return
         if not messagebox.askyesno(
             "Confirm",
-            "Are you sure you want to completely clear the metadata cache? This will force AI regeneration for all files.",
+            "Are you sure you want to completely clear the metadata cache? This will force AI regeneration for all files.",  # noqa: E501
         ):
             return
         try:
@@ -2259,9 +2259,11 @@ class App(ctk.CTk):
                     meta = get_cached_metadata(fhash) or {}
 
                     # Skip files that already have metadata
-                    if scope == "Files without metadata only" and (meta.get("title") or meta.get("keywords")):
-                            skipped += 1
-                            continue
+                    if scope == "Files without metadata only" and (
+                        meta.get("title") or meta.get("keywords")
+                    ):
+                        skipped += 1
+                        continue
 
                     new_title = src_title if ct else meta.get("title", "")
                     new_desc = src_desc if cd else meta.get("description", "")
@@ -2729,10 +2731,10 @@ class App(ctk.CTk):
         def _update():
             self.stats[key] += 1
             self.stats_lbl.configure(
-                text=f"Total: {self.stats['total']}  ·  Success: {self.stats['success']}  ·  Error: {self.stats['error']}"
+                text=f"Total: {self.stats['total']}  ·  Success: {self.stats['success']}  ·  Error: {self.stats['error']}"  # noqa: E501
             )
             self.cost_lbl.configure(
-                text=f"Tokens: ~{self.batch_session_stats.get('tokens_est', 0) // 1000}k | Est. Cost: ${self.batch_session_stats.get('cost', 0):.3f}  ·  Cache: {get_cache_hits()}"
+                text=f"Tokens: ~{self.batch_session_stats.get('tokens_est', 0) // 1000}k | Est. Cost: ${self.batch_session_stats.get('cost', 0):.3f}  ·  Cache: {get_cache_hits()}"  # noqa: E501
             )
 
             # Update header status
@@ -3033,7 +3035,9 @@ class App(ctk.CTk):
         if author:
             from datetime import UTC
 
-            return f"Copyright (c) {datetime.now(UTC).year} {author}. All rights reserved."
+            return (
+                f"Copyright (c) {datetime.now(UTC).year} {author}. All rights reserved."
+            )
         return ""
 
     def _safe_int(self, val, default=0):
