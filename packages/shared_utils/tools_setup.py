@@ -1,5 +1,6 @@
 import os
 import sys
+import subprocess
 import zipfile
 import urllib.request
 import tempfile
@@ -17,17 +18,34 @@ def get_tools_directory() -> Path:
     return tools_dir
 
 
-_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+}
 
 
 def _download(url: str, dest: str):
+    """Download url to dest, following redirects."""
     req = urllib.request.Request(url, headers=_HEADERS)
-    with urllib.request.urlopen(req, timeout=120) as resp, open(dest, "wb") as out:
-        while True:
-            chunk = resp.read(65536)
-            if not chunk:
-                break
-            out.write(chunk)
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        # Reject HTML responses (CDN challenge pages)
+        ct = resp.headers.get("Content-Type", "").lower()
+        if "html" in ct:
+            raise ValueError(f"Server returned HTML instead of binary (Content-Type: {ct})")
+        with open(dest, "wb") as out:
+            while True:
+                chunk = resp.read(65536)
+                if not chunk:
+                    break
+                out.write(chunk)
+
+
+def _is_valid_zip(path: str) -> bool:
+    """Check ZIP magic bytes PK\\x03\\x04."""
+    try:
+        with open(path, "rb") as f:
+            return f.read(4) == b"PK\x03\x04"
+    except OSError:
+        return False
 
 
 def ensure_tools_installed(tools_dir=None, progress_callback=None):
@@ -44,55 +62,75 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
             print(msg)
 
     def _setup_exiftool():
-        candidates = [td / "exiftool" / "exiftool.exe", td / "exiftool.exe"]
-        if any(c.exists() for c in candidates):
+        exe_in_subdir = td / "exiftool" / "exiftool.exe"
+        exe_flat = td / "exiftool.exe"
+        if exe_in_subdir.exists() or exe_flat.exists():
             return
         _log("[INFO] Downloading ExifTool...")
-        try:
-            url = "https://sourceforge.net/projects/exiftool/files/exiftool-13.59_64.zip/download"
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
-                tmp_path = tmp.name
-            _download(url, tmp_path)
-            extract_dir = td / "exiftool"
-            extract_dir.mkdir(parents=True, exist_ok=True)
-            with zipfile.ZipFile(tmp_path, "r") as zf:
-                zf.extractall(extract_dir)
-            os.remove(tmp_path)
-            # Rename exiftool(-k).exe to exiftool.exe if needed
-            for f in extract_dir.rglob("exiftool(-k).exe"):
-                f.rename(extract_dir / "exiftool.exe")
-                break
-            # Also check for exiftool.exe directly extracted
-            _log("[SUCCESS] ExifTool installed.")
-        except Exception as e:
-            _log(f"[WARN] Failed to download ExifTool: {e}")
+        urls = [
+            "https://oliverbetz.de/cms/files/Artikel/ExifTool-for-Windows/exiftool-13.59_64.zip",
+            "https://sourceforge.net/projects/exiftool/files/exiftool-13.59_64.zip/download",
+        ]
+        for url in urls:
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
+                    tmp_path = tmp.name
+                _download(url, tmp_path)
+                if not _is_valid_zip(tmp_path):
+                    os.remove(tmp_path)
+                    _log(f"[WARN] ExifTool mirror returned non-zip payload, trying next...")
+                    continue
+                extract_dir = td / "exiftool"
+                extract_dir.mkdir(parents=True, exist_ok=True)
+                with zipfile.ZipFile(tmp_path, "r") as zf:
+                    zf.extractall(extract_dir)
+                os.remove(tmp_path)
+                # Oliver Betz package contains exiftool.exe directly
+                # Phil Harvey package contains exiftool(-k).exe
+                for f in extract_dir.rglob("exiftool(-k).exe"):
+                    f.rename(extract_dir / "exiftool.exe")
+                    break
+                if (extract_dir / "exiftool.exe").exists():
+                    _log("[SUCCESS] ExifTool installed.")
+                    return
+                # Search nested folders
+                for f in extract_dir.rglob("exiftool.exe"):
+                    _log("[SUCCESS] ExifTool installed.")
+                    return
+                _log("[WARN] ExifTool zip extracted but exiftool.exe not found inside.")
+                return
+            except Exception as e:
+                _log(f"[WARN] ExifTool mirror failed ({e}), trying next...")
+                continue
+        _log("[WARN] All ExifTool download mirrors failed.")
 
     def _setup_ghostscript():
         gs_dir = td / "ghostscript"
         gs_bin = gs_dir / "bin" / "gswin64c.exe"
-        candidates = [gs_bin, td / "gswin64c.exe"]
-        if any(c.exists() for c in candidates):
+        if gs_bin.exists() or (td / "gswin64c.exe").exists():
             return
         _log("[INFO] Downloading Ghostscript...")
         try:
             url = "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10040/gs10040w64.exe"
-            installer_dest = td / "gs_installer.exe"
-            _download(url, str(installer_dest))
-            _log("[INFO] Extracting/Installing Ghostscript locally...")
-            import subprocess
-            subprocess.run([str(installer_dest), "/S", f"/D={str(gs_dir)}"], check=False)
-            if installer_dest.exists():
-                os.remove(str(installer_dest))
-            _log("[SUCCESS] Ghostscript installed.")
+            installer = td / "gs_installer.exe"
+            _download(url, str(installer))
+            _log("[INFO] Installing Ghostscript silently...")
+            subprocess.run(
+                [str(installer), "/S", f"/D={str(gs_dir)}"],
+                check=False,
+                timeout=120,
+            )
+            if installer.exists():
+                os.remove(str(installer))
+            if gs_bin.exists():
+                _log("[SUCCESS] Ghostscript installed.")
+            else:
+                _log("[WARN] Ghostscript installer ran but gswin64c.exe not found. Install manually or add to PATH.")
         except Exception as e:
-            _log(f"[WARN] Failed to download Ghostscript: {e}")
+            _log(f"[WARN] Failed to download Ghostscript: {e}. Vector preview will use system PATH fallback.")
 
     def _setup_ffmpeg():
-        candidates = [
-            td / "ffmpeg" / "bin" / "ffmpeg.exe",
-            td / "ffmpeg.exe",
-        ]
-        if any(c.exists() for c in candidates):
+        if (td / "ffmpeg.exe").exists() or (td / "ffmpeg" / "bin" / "ffmpeg.exe").exists():
             return
         _log("[INFO] Downloading FFmpeg...")
         try:
@@ -100,17 +138,23 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
                 tmp_path = tmp.name
             _download(url, tmp_path)
+            if not _is_valid_zip(tmp_path):
+                os.remove(tmp_path)
+                _log("[WARN] FFmpeg download returned non-zip payload.")
+                return
             with zipfile.ZipFile(tmp_path, "r") as zf:
-                # Extract only ffmpeg.exe from the archive to save space
                 for info in zf.infolist():
                     if info.filename.endswith("bin/ffmpeg.exe"):
                         info.filename = "ffmpeg.exe"
                         zf.extract(info, str(td))
                         break
             os.remove(tmp_path)
-            _log("[SUCCESS] FFmpeg installed.")
+            if (td / "ffmpeg.exe").exists():
+                _log("[SUCCESS] FFmpeg installed.")
+            else:
+                _log("[WARN] FFmpeg zip extracted but ffmpeg.exe not found.")
         except Exception as e:
-            _log(f"[WARN] Failed to download FFmpeg: {e}")
+            _log(f"[WARN] Failed to download FFmpeg: {e}. Video frame extraction will use system PATH fallback.")
 
     threads = [
         threading.Thread(target=_setup_exiftool, daemon=True),
