@@ -3596,8 +3596,9 @@ class App(ctk.CTk):
             )
 
             if meta.get("is_fallback") or meta.get("error"):
+                err_detail = meta.get("error_details", "fallback rejected")
                 self.log(
-                    f"[ERROR] {name} (AI generation failed - fallback rejected)",
+                    f"[ERROR] {name} (AI generation failed: {err_detail})",
                     "error",
                 )
                 self.update_stats("error")

@@ -368,12 +368,12 @@ class AIService:
                                 print(
                                     f"AI Service Error ({self.provider}): All keys exhausted. No failover provider available."
                                 )
-                                return self._fallback_metadata()
+                                return self._fallback_metadata(error_details="All keys exhausted. No failover available.")
                             continue  # retry with new provider
                         print(
                             f"AI Service Error ({self.provider}): All keys exhausted or Authentication Failed. Check API Key."
                         )
-                        return self._fallback_metadata()
+                        return self._fallback_metadata(error_details="Authentication failed. Check API Key.")
 
                 if is_retryable and attempt < max_retries:
                     wait_time = backoff_times[attempt]
@@ -410,9 +410,9 @@ class AIService:
                                     **kwargs,
                                 )
                     print(f"AI Service Error ({self.provider}): {e}")
-                    return self._fallback_metadata()
+                    return self._fallback_metadata(error_details=str(e))
 
-        return self._fallback_metadata()
+        return self._fallback_metadata(error_details="Max retries exhausted")
 
     def _parse_json(self, text: str) -> dict:
         import json
@@ -460,7 +460,7 @@ class AIService:
             )
         return parsed
 
-    def _fallback_metadata(self) -> dict:
+    def _fallback_metadata(self, error_details: str = "Unknown error") -> dict:
         return {
             "title": "Unknown Title",
             "description": "Metadata generation failed.",
@@ -468,8 +468,8 @@ class AIService:
             "primary_category": "Miscellaneous",
             "secondary_category": "",
             "keywords": ["error", "fallback"],
-            "is_fallback": True,
             "error": True,
+            "error_details": error_details,
         }
 
     def fetch_available_models(self) -> list[str]:
