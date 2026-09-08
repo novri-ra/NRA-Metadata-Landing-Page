@@ -36,7 +36,21 @@ def extract_preview_image(file_path: str, processor) -> str | None:
         cmd = [gs_path, "-dSAFER", "-dBATCH", "-dNOPAUSE", "-sDEVICE=jpeg", "-r150", f"-sOutputFile={out_path}", file_path]
         try:
             subprocess.run(cmd, check=True, capture_output=True)
-            return out_path
+            # Validate output
+            if os.path.exists(out_path) and os.path.getsize(out_path) > 1024:
+                try:
+                    with Image.open(out_path) as verify_img:
+                        verify_img.verify()
+                    return out_path
+                except Exception as e:
+                    err = f"FFmpeg produced invalid image: {e}"
+                    print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+                    log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
+            else:
+                err = "Ghostscript produced empty or missing file"
+                print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+                log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
+            return None
         except subprocess.CalledProcessError as e:
             err = f"Ghostscript error: {e.stderr}"
             print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
@@ -47,7 +61,21 @@ def extract_preview_image(file_path: str, processor) -> str | None:
         cmd = [ffmpeg_path, "-y", "-i", file_path, "-ss", "00:00:01", "-vframes", "1", out_path]
         try:
             subprocess.run(cmd, check=True, capture_output=True)
-            return out_path
+            # Validate output
+            if os.path.exists(out_path) and os.path.getsize(out_path) > 1024:
+                try:
+                    with Image.open(out_path) as verify_img:
+                        verify_img.verify()
+                    return out_path
+                except Exception as e:
+                    err = f"FFmpeg produced invalid image: {e}"
+                    print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+                    log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
+            else:
+                err = "FFmpeg produced empty or missing file"
+                print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+                log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
+            return None
         except subprocess.CalledProcessError as e:
             err = f"FFmpeg error: {e.stderr}"
             print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")

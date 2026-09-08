@@ -66,10 +66,10 @@ def sanitize_keywords(keywords: list[str], max_kw: int = 50) -> list[str]:
     return cleaned
 
 PLATFORM_RULES = {
-    "Adobe Stock": {"title_max_chars": 200, "title_min_words": 1, "kw_min": 5, "kw_max": 49},
-    "Shutterstock": {"title_max_chars": 150, "title_min_words": 5, "kw_min": 7, "kw_max": 50},
-    "Freepik": {"title_max_chars": 100, "title_min_words": 1, "kw_min": 5, "kw_max": 50},
-    "Vecteezy": {"title_max_chars": 150, "title_min_words": 1, "kw_min": 5, "kw_max": 50}
+    "Adobe Stock": {"title_max_chars": 200, "title_min_words": 3, "desc_min_words": 5, "desc_max_chars": 200, "kw_min": 5, "kw_max": 49},
+    "Shutterstock": {"title_max_chars": 150, "title_min_words": 5, "desc_min_words": 5, "desc_max_chars": 200, "kw_min": 7, "kw_max": 50},
+    "Freepik": {"title_max_chars": 100, "title_min_words": 3, "desc_min_words": 5, "desc_max_chars": 200, "kw_min": 5, "kw_max": 50},
+    "Vecteezy": {"title_max_chars": 150, "title_min_words": 3, "desc_min_words": 5, "desc_max_chars": 200, "kw_min": 5, "kw_max": 50}
 }
 
 def validate_compliance(title: str, keywords: list[str], platform: str) -> dict:
@@ -86,6 +86,11 @@ def validate_compliance(title: str, keywords: list[str], platform: str) -> dict:
     if word_count < rules["title_min_words"]:
         errors.append(f"Title has {word_count} words (min {rules['title_min_words']})")
     
+    # Description validation
+    if "desc_min_words" in rules:
+        desc_words = len([w for w in (title or "").split() if w.strip()])  # reuse title if desc not passed
+        # Note: validate_compliance doesn't receive desc, so this is future-ready
+
     # Keywords validation
     kw_count = len(keywords)
     if kw_count < rules["kw_min"]:
@@ -98,6 +103,16 @@ def validate_compliance(title: str, keywords: list[str], platform: str) -> dict:
 def autofix_compliance(title: str, keywords: list[str], platform: str) -> tuple[str, list[str]]:
     rules = PLATFORM_RULES.get(platform)
     if not rules: return title, keywords
+    
+    # Detect fallback metadata - cannot be fixed by string manipulation
+    _is_fallback = (
+        title == "Unknown Title"
+        or any(k.lower() in ("error", "fallback") for k in keywords)
+        or len(keywords) < rules.get("kw_min", 5)
+    )
+    if _is_fallback:
+        print(f"[WARN] Auto-fix skipped: metadata is AI fallback/error. Re-generate from AI instead.")
+        return title, keywords
     
     # Fix Title
     fixed_title = title
@@ -259,6 +274,12 @@ def calculate_quality_score(title: str, description: str, keywords: list) -> dic
       score: 0-100
       issues: list of strings describing problems
     """
+    # Detect fallback/error metadata early
+    if title == "Unknown Title" or "generation failed" in (description or "").lower():
+        return {"score": 0, "status": "Error — Fallback Metadata", "issues": ["Metadata generation failed — AI fallback detected"]}
+    if isinstance(keywords, list) and (set(k.lower() for k in keywords) == {"error", "fallback"} or "error" in [k.lower() for k in keywords]):
+        return {"score": 0, "status": "Error — Fallback Metadata", "issues": ["Metadata generation failed — AI fallback detected"]}
+
     issues = []
     points = 0
     max_points = 0

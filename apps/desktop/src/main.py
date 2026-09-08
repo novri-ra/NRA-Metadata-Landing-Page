@@ -2491,6 +2491,15 @@ class App(ctk.CTk):
             status, color = "CACHE", C["violet"]
         else:
             meta = ai.generate_metadata(preview, min_kw, max_kw, style_preset, extra_prompt)
+            
+            if meta.get("is_fallback") or meta.get("error"):
+                self.log(f"[ERROR] {name} (AI generation failed - fallback rejected)", "error")
+                self.update_stats("error")
+                # Clean up preview since we're aborting
+                try: os.remove(preview)
+                except: pass
+                return
+                
             set_cached_metadata(file_hash, meta)
             status, color = "API", C["warn"]
             
@@ -2622,7 +2631,8 @@ class App(ctk.CTk):
             if self.processor.embed_metadata(asset_path, title, desc, keywords, self._get_copyright_text(), self.author_entry.get().strip()):
                 file_hash = get_file_hash(asset_path)
                 meta = {"title": title, "description": desc, "keywords": keywords}
-                set_cached_metadata(file_hash, meta)
+                if not meta.get("is_fallback"):
+                    set_cached_metadata(file_hash, meta)
                 self.log(f"[OFFLINE SUCCESS] {filename}", "success")
                 success += 1
                 
@@ -2692,7 +2702,12 @@ class App(ctk.CTk):
         threading.Thread(target=self._run_batch, args=(paths, out_dir), daemon=True).start()
 
     def _run_batch(self, paths, out_dir):
-        ai = AIService(self.config["provider"], self.config["api_key"], self.config.get("model"), self.config.get("temperature", 0.3))
+        provider = self.config.get("provider", "Gemini")
+        api_keys_dict = self.config.get("api_keys", {})
+        api_key = api_keys_dict.get(provider, "")
+        # Build failover dict from other configured providers
+        failover_providers = {p: k for p, k in api_keys_dict.items() if p != provider and k}
+        ai = AIService(provider, api_key, self.config.get("model"), self.config.get("temperature", 0.3), failover_providers=failover_providers)
         
         processed_dir = os.path.join(out_dir, "Processed Assets")
         csv_dir = os.path.join(out_dir, "Metadata CSV")
@@ -2751,7 +2766,7 @@ class App(ctk.CTk):
         rows = [
             ("Files Processed", str(s.get("processed", 0)), C["success"]),
             ("Files Skipped (Excluded)", str(s.get("skipped", 0)), C["text3"]),
-            ("Errors", str(s.get("errors", 0)), C["error"]),
+            ("Errors (Embed or Fallback)", str(s.get("errors", 0)), C["error"]),
             ("Estimated Tokens Used", f"~{s.get('tokens_est', 0):,}", C["warn"]),
             ("Estimated API Cost", f"${s.get('cost', 0):.4f}", C["warn"]),
         ]

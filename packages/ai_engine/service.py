@@ -30,8 +30,10 @@ def normalize_base_url(url: str) -> str:
     return url
 
 class AIService:
-    def __init__(self, provider: str, api_keys, model: str = None, temperature: float = 0.3):
+    def __init__(self, provider: str, api_keys, model: str = None, temperature: float = 0.3, failover_providers: dict = None):
         self.provider = provider
+        self.failover_providers = failover_providers or {}  # {"Gemini": "key", "Groq": "key"}
+        self._failover_attempted = False
         # Normalize to list
         if isinstance(api_keys, str):
             self.api_keys = [k.strip() for k in api_keys.splitlines() if k.strip()]
@@ -132,10 +134,15 @@ class AIService:
                     if is_text_fallback:
                         with open(image_path, 'r', encoding='utf-8') as f:
                             svg_content = f.read()[:20000]
-                        msgs = [{"role": "user", "content": f"{prompt}\\n\\nSVG Content:\\n{svg_content}"}]
+                        msgs = [
+                            {"role": "system", "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords."},
+                            {"role": "user", "content": f"{prompt}\\n\\nSVG Content:\\n{svg_content}"}
+                        ]
                     else:
                         base64_image = self._encode_image(image_path)
-                        msgs = [{"role": "user", "content": [
+                        msgs = [
+                            {"role": "system", "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords."},
+                            {"role": "user", "content": [
                             {"type": "text", "text": prompt},
                             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                         ]}]
@@ -163,7 +170,10 @@ class AIService:
                     headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
                     data = {
                         "model": self.model or "mistral-small-latest",
-                        "messages": [{"role": "user", "content": content}],
+                        "messages": [
+                            {"role": "system", "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords."},
+                            {"role": "user", "content": content}
+                        ],
                         "temperature": self.temperature,
                         "response_format": {"type": "json_object"}
                     }
@@ -175,10 +185,15 @@ class AIService:
                     if is_text_fallback:
                         with open(image_path, 'r', encoding='utf-8') as f:
                             svg_content = f.read()[:20000]
-                        msgs = [{"role": "user", "content": f"{prompt}\\n\\nSVG Content:\\n{svg_content}"}]
+                        msgs = [
+                            {"role": "system", "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords."},
+                            {"role": "user", "content": f"{prompt}\\n\\nSVG Content:\\n{svg_content}"}
+                        ]
                     else:
                         base64_image = self._encode_image(image_path)
-                        msgs = [{"role": "user", "content": [
+                        msgs = [
+                            {"role": "system", "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords."},
+                            {"role": "user", "content": [
                             {"type": "text", "text": prompt},
                             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                         ]}]
@@ -196,7 +211,7 @@ class AIService:
                     print(f"[ERROR] Connection refused to endpoint {self.base_url or 'API'}. Ensure server/proxy is active.")
                     is_retryable = True
                 else:
-                    is_retryable = "429" in err_str or "500" in err_str or "502" in err_str or "503" in err_str or "504" in err_str or "timeout" in err_str.lower() or "connection" in err_str.lower()
+                    is_retryable = "429" in err_str or "500" in err_str or "502" in err_str or "503" in err_str or "504" in err_str or "timeout" in err_str.lower() or "connection" in err_str.lower() or "JSON Parse Error" in err_str
                 
                 # Check for Rate Limit / Quota / Invalid Key -> Rotate Key
                 if "429" in err_str or "quota" in err_str.lower() or "exhausted" in err_str.lower() or "401" in err_str or "invalid_api_key" in err_str.lower() or "authentication" in err_str.lower() or "403" in err_str:
@@ -209,6 +224,21 @@ class AIService:
                     
                     if "401" in err_str or "invalid_api_key" in err_str.lower() or "authentication" in err_str.lower():
                         if len(self.api_keys) <= 1 or attempt >= max_retries:
+                            # Try failover to another provider
+                            if not self._failover_attempted and self.failover_providers:
+                                for alt_provider, alt_key in self.failover_providers.items():
+                                    if alt_key and alt_provider != self.provider:
+                                        print(f"[FAILOVER] {self.provider} exhausted. Switching to {alt_provider}...")
+                                        self._failover_attempted = True
+                                        self.provider = alt_provider
+                                        self.api_keys = [alt_key] if isinstance(alt_key, str) else alt_key
+                                        self.current_key_idx = 0
+                                        self._init_clients()
+                                        break
+                                else:
+                                    print(f"AI Service Error ({self.provider}): All keys exhausted. No failover provider available.")
+                                    return self._fallback_metadata()
+                                continue  # retry with new provider
                             print(f"AI Service Error ({self.provider}): All keys exhausted or Authentication Failed. Check API Key.")
                             return self._fallback_metadata()
 
@@ -218,20 +248,56 @@ class AIService:
                     time.sleep(wait_time)
                     continue
                 else:
+                    # Last chance: try provider failover if 429 exhausted all retries
+                    if "429" in err_str and not self._failover_attempted and self.failover_providers:
+                        for alt_provider, alt_key in self.failover_providers.items():
+                            if alt_key and alt_provider != self.provider:
+                                print(f"[FAILOVER] {self.provider} rate-limited (429). Switching to {alt_provider}...")
+                                self._failover_attempted = True
+                                self.provider = alt_provider
+                                self.api_keys = [alt_key] if isinstance(alt_key, str) else alt_key
+                                self.current_key_idx = 0
+                                self._init_clients()
+                                return self.generate_metadata(image_path, min_kw, max_kw, style_preset, extra_prompt, **kwargs)
                     print(f"AI Service Error ({self.provider}): {e}")
                     return self._fallback_metadata()
 
         return self._fallback_metadata()
 
     def _parse_json(self, text: str) -> dict:
+        import json
+        import re
+        parsed = None
         try:
             start = text.find('{')
             end = text.rfind('}')
             if start != -1 and end != -1:
-                return json.loads(text[start:end+1])
-            return json.loads(text)
-        except json.JSONDecodeError:
-            return self._fallback_metadata()
+                parsed = json.loads(text[start:end+1])
+            else:
+                parsed = json.loads(text)
+        except json.JSONDecodeError as e:
+            print(f"[WARN] JSONDecodeError: {e}. Raw response: {text[:200]}...")
+            # Try regex extraction
+            title_match = re.search(r'"title"\s*:\s*"([^"]+)"', text, re.IGNORECASE)
+            desc_match = re.search(r'"description"\s*:\s*"([^"]+)"', text, re.IGNORECASE)
+            kw_match = re.search(r'"keywords"\s*:\s*\[(.*?)\]', text, re.DOTALL | re.IGNORECASE)
+            
+            if title_match and desc_match and kw_match:
+                title = title_match.group(1)
+                desc = desc_match.group(1)
+                kw_raw = kw_match.group(1)
+                # Parse keywords string
+                keywords = [k.strip(' "') for k in kw_raw.split(',') if k.strip(' "')]
+                parsed = {"title": title, "description": desc, "keywords": keywords}
+            else:
+                raise Exception(f"JSON Parse Error: Failed to extract fallback via regex. Raw response: {text[:200]}...")
+                
+        required = {"title", "description", "keywords"}
+        if not isinstance(parsed, dict) or not required.issubset(parsed.keys()):
+            raise Exception(f"JSON Parse Error: Missing required fields. Raw response: {text[:200]}...")
+        if not isinstance(parsed.get("keywords"), list) or len(parsed["keywords"]) < 5:
+            raise Exception(f"JSON Parse Error: Invalid keywords format or < 5 keywords. Raw response: {text[:200]}...")
+        return parsed
 
     def _fallback_metadata(self) -> dict:
         return {
@@ -240,7 +306,9 @@ class AIService:
             "category": "Unknown",
             "primary_category": "Miscellaneous",
             "secondary_category": "",
-            "keywords": ["error", "fallback"]
+            "keywords": ["error", "fallback"],
+            "is_fallback": True,
+            "error": True
         }
 
     def fetch_available_models(self) -> list[str]:
