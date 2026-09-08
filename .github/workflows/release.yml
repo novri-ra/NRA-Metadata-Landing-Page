@@ -45,9 +45,12 @@ jobs:
             --collect-all "customtkinter" `
             apps/desktop/src/main.py
 
-      - name: Ensure tools instructions exist in dist package
+      - name: Ensure tools directory and instructions exist in dist package
         run: |
-          Copy-Item -Path "tools/README.txt" -Destination "dist/NRA-Metadata/tools/README.txt" -Force
+          if (!(Test-Path "dist/NRA-Metadata/tools")) {
+              New-Item -ItemType Directory -Force -Path "dist/NRA-Metadata/tools"
+          }
+          Copy-Item -Path "tools/*" -Destination "dist/NRA-Metadata/tools/" -Recurse -Force
 
       - name: Compress Release Artifact (ZIP ultra compression)
         run: |
