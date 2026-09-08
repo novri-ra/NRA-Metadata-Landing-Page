@@ -91,8 +91,16 @@ class AIService:
                 self.groq_client = None
 
     def _encode_image(self, image_path: str) -> str:
-        with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode("utf-8")
+        import io
+        from PIL import Image
+        with Image.open(image_path) as img:
+            img = img.convert("RGB")
+            # Token-saver pipeline: limit to 1024x1024
+            img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+            buffer = io.BytesIO()
+            # Quality 85 for AI vision, saves massive payload size
+            img.save(buffer, format="JPEG", quality=85)
+            return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
     def generate_metadata(
         self,
@@ -145,8 +153,8 @@ class AIService:
             ".jpg"
         )
 
-        max_retries = 3
-        backoff_times = [2, 4, 8]
+        max_retries = 5
+        backoff_times = [2, 4, 8, 16, 32]
 
         _log(f"[{filename}] Sending vision prompt to {self.provider} | Model: {self.model or 'default'}...", "info")
 
@@ -340,6 +348,11 @@ class AIService:
                     or "authentication" in err_str.lower()
                     or "403" in err_str
                 ):
+                    if "429" in err_str:
+                        delay = backoff_times[attempt] if attempt < len(backoff_times) else 30
+                        _log(f"[{filename}] Rate limit (429) on {self.provider}/{self.model or 'default'}. Delaying {delay}s (Attempt {attempt+1}/{max_retries})...", "warn")
+                        time.sleep(delay)
+
                     if len(self.api_keys) > 1:
                         _log(
                             f"[{filename}] API Key #{self.current_key_idx + 1} exhausted on {self.provider}. Rotating to next key...", "warn"
