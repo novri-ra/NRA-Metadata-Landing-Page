@@ -18,13 +18,34 @@ def get_file_hash(filepath: str) -> str:
             h.update(chunk)
     return h.hexdigest()
 
+def _is_invalid_cache_entry(data: dict) -> bool:
+    """Return True if cached metadata is fallback/corrupted and should be evicted."""
+    if data.get("is_fallback"):
+        return True
+    if data.get("title") == "Unknown Title":
+        return True
+    desc = data.get("description", "")
+    if "Metadata generation failed" in desc:
+        return True
+    kw = data.get("keywords", [])
+    if isinstance(kw, list):
+        if len(kw) < 5:
+            return True
+        if any("fallback" in k.lower() for k in kw):
+            return True
+    return False
+
 def get_cached_metadata(file_hash: str) -> dict | None:
     global cache_hits
     with _get_conn() as conn:
         row = conn.execute("SELECT metadata FROM metadata_cache WHERE hash = ?", (file_hash,)).fetchone()
         if row:
+            data = json.loads(row[0])
+            if _is_invalid_cache_entry(data):
+                conn.execute("DELETE FROM metadata_cache WHERE hash = ?", (file_hash,))
+                return None
             cache_hits += 1
-            return json.loads(row[0])
+            return data
         return None
 
 def set_cached_metadata(file_hash: str, metadata: dict):

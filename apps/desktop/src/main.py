@@ -1034,6 +1034,25 @@ class App(ctk.CTk):
         self.log_search_var = ctk.StringVar()
         self.log_search_var.trace_add("write", lambda *_: self._refresh_log())
         _entry(log_ctrl, text_var=self.log_search_var, placeholder_text="Search...", width=120, height=24).pack(side="left", padx=(12, 4))
+    def _flush_cache(self):
+        import sqlite3, json
+        from tkinter import messagebox
+        db_path = os.path.join(os.getcwd(), "cache.db")
+        if not os.path.exists(db_path):
+            self.log_msg("Cache DB not found.")
+            return
+        if not messagebox.askyesno("Confirm", "Are you sure you want to completely clear the metadata cache? This will force AI regeneration for all files."):
+            return
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.execute("DELETE FROM metadata_cache")
+            conn.commit()
+            conn.close()
+            self.log_msg("Local cache completely cleared.")
+            messagebox.showinfo("Success", "Cache cleared successfully.")
+        except Exception as e:
+            self.log_msg(f"Failed to clear cache: {str(e)}", level="Error")
+
         
         self.log_level_var = ctk.StringVar(value="All")
         _combo(log_ctrl, ["All", "Info", "Processing", "Success", "Warn", "Error", "Cache"], variable=self.log_level_var,
@@ -1043,6 +1062,8 @@ class App(ctk.CTk):
              command=self._clear_log).pack(side="right", padx=(4, 0))
         _btn(log_ctrl, "Export", C["surface2"], C["border"], height=24, width=50, font=ctk.CTkFont(size=10),
              command=self._export_log).pack(side="right")
+        _btn(log_ctrl, "🗑️ Clear Cache", C["surface2"], C["border"], height=24, width=80, font=ctk.CTkFont(size=10),
+             command=self._flush_cache).pack(side="right", padx=(4, 4))
 
         self.console = ctk.CTkTextbox(log_frame, fg_color=C["surface"], corner_radius=0,
                                       border_width=0,
