@@ -49,7 +49,7 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
             return
         _log("[INFO] Downloading ExifTool...")
         try:
-            url = "https://exiftool.org/exiftool-13.10.zip"
+            url = "https://sourceforge.net/projects/exiftool/files/exiftool-13.59_64.zip/download"
             with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
                 tmp_path = tmp.name
             _download(url, tmp_path)
@@ -68,17 +68,21 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
             _log(f"[WARN] Failed to download ExifTool: {e}")
 
     def _setup_ghostscript():
-        candidates = [
-            td / "ghostscript" / "bin" / "gswin64c.exe",
-            td / "gswin64c.exe",
-        ]
+        gs_dir = td / "ghostscript"
+        gs_bin = gs_dir / "bin" / "gswin64c.exe"
+        candidates = [gs_bin, td / "gswin64c.exe"]
         if any(c.exists() for c in candidates):
             return
         _log("[INFO] Downloading Ghostscript...")
         try:
             url = "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10040/gs10040w64.exe"
-            dest = td / "gswin64c.exe"
-            _download(url, str(dest))
+            installer_dest = td / "gs_installer.exe"
+            _download(url, str(installer_dest))
+            _log("[INFO] Extracting/Installing Ghostscript locally...")
+            import subprocess
+            subprocess.run([str(installer_dest), "/S", f"/D={str(gs_dir)}"], check=False)
+            if installer_dest.exists():
+                os.remove(str(installer_dest))
             _log("[SUCCESS] Ghostscript installed.")
         except Exception as e:
             _log(f"[WARN] Failed to download Ghostscript: {e}")
