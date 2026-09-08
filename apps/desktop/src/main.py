@@ -1590,8 +1590,9 @@ class App(ctk.CTk):
         tb = self.console._textbox
         tb.tag_config("success", foreground=C["success"])
         tb.tag_config("processing", foreground=C["warn"])
+        tb.tag_config("processing", foreground=C["warn"])
+        tb.tag_config("warn", foreground=C["warn"])
         tb.tag_config("error", foreground=C["error"])
-        tb.tag_config("info", foreground=C["text2"])
         tb.tag_config("cache", foreground=C["violet"])
         tb.tag_config("timestamp", foreground=C["text3"])
         self.console.configure(state="disabled")
@@ -3575,11 +3576,14 @@ class App(ctk.CTk):
             return
 
         name = os.path.basename(file_path)
-        self.log(f"{name}", "processing")
+        name = os.path.basename(file_path)
+        self.log(f"[{name}] Starting processing pipeline...", "processing")
 
-        preview = extract_preview_image(file_path, self.processor)
+        def log_cb(msg, lvl="info"):
+            self.log(msg, lvl)
+
+        preview = extract_preview_image(file_path, self.processor, progress_callback=log_cb)
         if not preview:
-            self.log(f"{name} (No preview)", "error")
             self.update_stats("error")
             return
 
@@ -3587,18 +3591,23 @@ class App(ctk.CTk):
         cached = get_cached_metadata(file_hash)
 
         if cached:
-            self.log(f"{name} [CACHE HIT]", "cache")
+            self.log(f"[{name}] [CACHE HIT] Metadata loaded from cache.", "cache")
             meta = cached
             status, color = "CACHE", C["violet"]
         else:
             meta = ai.generate_metadata(
-                preview, min_kw, max_kw, style_preset, extra_prompt
+                preview,
+                min_kw,
+                max_kw,
+                style_preset,
+                extra_prompt,
+                log_callback=log_cb
             )
 
             if meta.get("is_fallback") or meta.get("error"):
                 err_detail = meta.get("error_details", "fallback rejected")
                 self.log(
-                    f"[ERROR] {name} (AI generation failed: {err_detail})",
+                    f"[{name}] AI generation failed: {err_detail}",
                     "error",
                 )
                 self.update_stats("error")
@@ -3610,6 +3619,7 @@ class App(ctk.CTk):
                 return
 
             set_cached_metadata(file_hash, meta)
+            self.log(f"[{name}] Generated: Title='{meta.get('title', '')[:30]}...' | {len(meta.get('keywords', []))} Keywords", "success")
             status, color = "API", C["warn"]
 
             # Inject mandatory custom keywords on first API generation
@@ -3665,7 +3675,8 @@ class App(ctk.CTk):
             self._get_copyright_text(),
             self.author_entry.get().strip(),
         ):
-            self.log(f"{name} ({len(keywords)} kw)", "success")
+            self.log(f"[{name}] File completed and saved. ({len(keywords)} kw)", "success")
+
 
             if self.sync_companions.get():
                 synced = self._sync_to_companions(final_path, title, desc, keywords)
@@ -3698,9 +3709,8 @@ class App(ctk.CTk):
                 except OSError:
                     pass
 
-            self.update_stats("success")
         else:
-            self.log(f"{name} (Embed failed)", "error")
+            self.log(f"[{name}] ExifTool metadata embedding failed.", "error")
             self.update_stats("error")
 
     def start_offline_retag(self):

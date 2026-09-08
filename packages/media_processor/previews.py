@@ -19,26 +19,35 @@ def get_msedge_path():
 from packages.media_processor.embedder import log_failed_file
 
 
-def extract_preview_image(file_path: str, processor) -> str | None:
+def extract_preview_image(file_path: str, processor, progress_callback=None) -> str | None:
     file_path = os.path.abspath(file_path)
     ext = file_path.lower().split(".")[-1]
     temp_dir = tempfile.gettempdir()
     out_path = os.path.join(temp_dir, f"preview_{os.path.basename(file_path)}.jpg")
+    filename = os.path.basename(file_path)
+
+    def _log(msg, level="info"):
+        if progress_callback:
+            progress_callback(msg, level)
+        else:
+            print(f"[{level.upper()}] {msg}")
 
     if ext in ["jpg", "jpeg", "png", "webp", "bmp", "tif", "tiff"]:
         try:
             img = Image.open(file_path).convert("RGB")
             img.thumbnail((1024, 1024))
             img.save(out_path, "JPEG")
+            _log(f"[{filename}] Image preview generated.", "success")
             return out_path
         except (OSError, ValueError) as e:
-            err = f"Image extract error: {e}"
-            print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+            err = f"Image preview generation failed: {e}"
+            _log(f"[{filename}] {err}", "error")
             log_failed_file(
-                os.path.dirname(file_path), os.path.basename(file_path), err
+                os.path.dirname(file_path), filename, err
             )
             return None
     elif ext in ["eps", "ai"]:
+        _log(f"[{filename}] Format: {ext.upper()}. Rendering raster preview using Ghostscript...", "info")
         gs_path = processor.get_tool_path("ghostscript")
         cmd = [
             gs_path,
@@ -57,28 +66,30 @@ def extract_preview_image(file_path: str, processor) -> str | None:
                 try:
                     with Image.open(out_path) as verify_img:
                         verify_img.verify()
+                    _log(f"[{filename}] Preview rendered successfully.", "success")
                     return out_path
                 except (OSError, ValueError) as e:
                     err = f"FFmpeg produced invalid image: {e}"
-                    print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+                    _log(f"[{filename}] {err}", "error")
                     log_failed_file(
                         os.path.dirname(file_path), os.path.basename(file_path), err
                     )
             else:
                 err = "Ghostscript produced empty or missing file"
-                print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+                _log(f"[{filename}] {err}", "error")
                 log_failed_file(
                     os.path.dirname(file_path), os.path.basename(file_path), err
                 )
             return None
         except subprocess.CalledProcessError as e:
             err = f"Ghostscript error: {e.stderr}"
-            print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+            _log(f"[{filename}] {err}. Fallback triggered.", "warn")
             log_failed_file(
                 os.path.dirname(file_path), os.path.basename(file_path), err
             )
             return None
     elif ext in ["mp4", "mov", "avi", "mkv"]:
+        _log(f"[{filename}] Format: Video. Extracting frame using FFmpeg...", "info")
         ffmpeg_path = processor.get_tool_path("ffmpeg")
         cmd = [
             ffmpeg_path,
@@ -98,28 +109,30 @@ def extract_preview_image(file_path: str, processor) -> str | None:
                 try:
                     with Image.open(out_path) as verify_img:
                         verify_img.verify()
+                    _log(f"[{filename}] Frame extracted successfully.", "success")
                     return out_path
                 except (OSError, ValueError) as e:
                     err = f"FFmpeg produced invalid image: {e}"
-                    print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+                    _log(f"[{filename}] {err}", "error")
                     log_failed_file(
                         os.path.dirname(file_path), os.path.basename(file_path), err
                     )
             else:
                 err = "FFmpeg produced empty or missing file"
-                print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+                _log(f"[{filename}] {err}", "error")
                 log_failed_file(
                     os.path.dirname(file_path), os.path.basename(file_path), err
                 )
             return None
         except subprocess.CalledProcessError as e:
             err = f"FFmpeg error: {e.stderr}"
-            print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+            _log(f"[{filename}] {err}", "error")
             log_failed_file(
                 os.path.dirname(file_path), os.path.basename(file_path), err
             )
             return None
     elif ext == "svg":
+        _log(f"[{filename}] Format: SVG. Extracting preview...", "info")
         edge_path = get_msedge_path()
         if edge_path:
             png_path = out_path.replace(".jpg", ".png")
@@ -138,10 +151,11 @@ def extract_preview_image(file_path: str, processor) -> str | None:
                     img.thumbnail((1024, 1024))
                     img.save(out_path, "JPEG")
                     os.remove(png_path)
+                    _log(f"[{filename}] Preview extracted (Edge).", "success")
                     return out_path
             except (OSError, ValueError) as e:
                 err = f"Edge SVG extract error: {e}"
-                print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+                _log(f"[{filename}] {err}", "warn")
                 log_failed_file(
                     os.path.dirname(file_path), os.path.basename(file_path), err
                 )
@@ -159,14 +173,16 @@ def extract_preview_image(file_path: str, processor) -> str | None:
                 img.thumbnail((1024, 1024))
                 img.save(out_path, "JPEG")
                 os.remove(png_path)
+                _log(f"[{filename}] Preview extracted (svglib).", "success")
                 return out_path
         except (OSError, ValueError) as e:
             err = f"svglib extract error: {e}"
-            print(f"[SKIP ERROR] {os.path.basename(file_path)}: {err}")
+            _log(f"[{filename}] {err}", "error")
             log_failed_file(
                 os.path.dirname(file_path), os.path.basename(file_path), err
             )
 
         # Fallback 2: Raw text inspection wrapper for LLM
+        _log(f"[{filename}] No rasterizer found. Using raw SVG text fallback.", "warn")
         return file_path
     return None
