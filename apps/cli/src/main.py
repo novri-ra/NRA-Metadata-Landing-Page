@@ -1,12 +1,13 @@
-import os
 import argparse
+import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 
+from packages.ai_engine.service import AIService
 from packages.media_processor.embedder import MediaProcessor
 from packages.media_processor.previews import extract_preview_image
-from packages.ai_engine.service import AIService
-from packages.shared_utils.logger import logger, CSVLogger
+from packages.shared_utils.logger import CSVLogger, logger
+
 
 def process_file(file_path, out_dir, ai, processor, min_kw, max_kw, csv_logger):
     logger.info(f"Processing {os.path.basename(file_path)}")
@@ -16,8 +17,10 @@ def process_file(file_path, out_dir, ai, processor, min_kw, max_kw, csv_logger):
         return
 
     meta = ai.generate_metadata(preview, min_kw, max_kw)
-    try: os.remove(preview)
-    except: pass
+    try:
+        os.remove(preview)
+    except OSError:
+        pass
 
     out_path = os.path.join(out_dir, os.path.basename(file_path))
     shutil.copy2(file_path, out_path)
@@ -32,11 +35,14 @@ def process_file(file_path, out_dir, ai, processor, min_kw, max_kw, csv_logger):
     else:
         logger.error(f"Failed {os.path.basename(file_path)}")
 
+
 def main():
     parser = argparse.ArgumentParser(description="Headless Batch Runner")
     parser.add_argument("--input", required=True, help="Input directory")
     parser.add_argument("--output", required=True, help="Output directory")
-    parser.add_argument("--provider", required=True, choices=["Gemini", "OpenAI", "Mistral"])
+    parser.add_argument(
+        "--provider", required=True, choices=["Gemini", "OpenAI", "Mistral"]
+    )
     parser.add_argument("--api-key", required=True)
     parser.add_argument("--min-kw", type=int, default=5)
     parser.add_argument("--max-kw", type=int, default=20)
@@ -44,7 +50,11 @@ def main():
 
     args = parser.parse_args()
 
-    files = [os.path.join(args.input, f) for f in os.listdir(args.input) if os.path.isfile(os.path.join(args.input, f))]
+    files = [
+        os.path.join(args.input, f)
+        for f in os.listdir(args.input)
+        if os.path.isfile(os.path.join(args.input, f))
+    ]
     if not files:
         logger.error("No files found.")
         return
@@ -55,7 +65,17 @@ def main():
 
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
         for file in files:
-            executor.submit(process_file, file, args.output, ai, processor, args.min_kw, args.max_kw, csv_logger)
+            executor.submit(
+                process_file,
+                file,
+                args.output,
+                ai,
+                processor,
+                args.min_kw,
+                args.max_kw,
+                csv_logger,
+            )
+
 
 if __name__ == "__main__":
     main()
