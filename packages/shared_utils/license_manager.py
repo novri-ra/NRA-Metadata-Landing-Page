@@ -9,7 +9,7 @@ from packages.shared_utils.config import load_config, save_config
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-AUTH_API_URL = "https://script.google.com/macros/s/AKfycbw3Gqwu5Q31OJpr_Vyzq_8V5SaRsXR1RGeKXs-VI1M2MFeWIFTCoAk0P8RExl70S32G/exec"  # noqa: E501
+AUTH_API_URL = "https://script.google.com/macros/s/AKfycbw3Gqwu5Q31OJpr_Vyzq_8V5SaRsXR1RGeKXs-VI1M2MFeWIFTCoAk0P8RExl70S32G/exec"
 
 
 def get_machine_hwid() -> str:

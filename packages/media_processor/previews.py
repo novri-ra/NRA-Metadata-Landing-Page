@@ -16,7 +16,7 @@ def get_msedge_path():
     return None
 
 
-from packages.media_processor.embedder import log_failed_file  # noqa: E402
+from packages.media_processor.embedder import log_failed_file
 
 
 def extract_preview_image(file_path: str, processor) -> str | None:

@@ -8,11 +8,11 @@ from packages.shared_utils.cost_tracker import CostTracker
 
 cost_tracker_inst = CostTracker()
 CostTracker_instance = CostTracker()
-from google import genai  # noqa: E402
-from openai import OpenAI  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
+from google import genai
+from openai import OpenAI
+from pydantic import BaseModel, Field
 
-from packages.shared_utils.tracker import tracker  # noqa: E402
+from packages.shared_utils.tracker import tracker
 
 
 class MetadataModel(BaseModel):
@@ -106,7 +106,7 @@ class AIService:
 
         style_prompts = {
             "General Commercial": "Balanced visual description for general stock assets.",
-            "Icons & Clipart": "Focus on style (flat, line, glyph), UI/UX functionality, and simple search intent keywords.",  # noqa: E501
+            "Icons & Clipart": "Focus on style (flat, line, glyph), UI/UX functionality, and simple search intent keywords.",
             "Backgrounds & Patterns": "Focus on texture, copy space, backdrop, seamless, and wallpaper attributes.",
             "Characters & Mascot": "Focus on pose, expression, emotional theme, and persona.",
         }
@@ -119,7 +119,7 @@ class AIService:
         "title": a concise, SEO-optimized title (max 180 chars),
         "description": a detailed description for microstock search (max 200 chars),
         "category": a broad category,
-        "primary_category": primary Shutterstock category from Abstract, Animals/Wildlife, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and Drink, Healthcare/Medical, Holidays, Illustrations/Clip-Art, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, The Arts, Transportation, Vintage,  # noqa: E501
+        "primary_category": primary Shutterstock category from Abstract, Animals/Wildlife, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and Drink, Healthcare/Medical, Holidays, Illustrations/Clip-Art, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, The Arts, Transportation, Vintage,
         "secondary_category": optional secondary Shutterstock category,
         "keywords": an array of {min_kw} to {max_kw} descriptive keywords.
 
@@ -170,7 +170,7 @@ class AIService:
                         msgs = [
                             {
                                 "role": "system",
-                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",  # noqa: E501
+                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",
                             },
                             {
                                 "role": "user",
@@ -182,7 +182,7 @@ class AIService:
                         msgs = [
                             {
                                 "role": "system",
-                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",  # noqa: E501
+                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",
                             },
                             {
                                 "role": "user",
@@ -234,7 +234,7 @@ class AIService:
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",  # noqa: E501
+                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",
                             },
                             {"role": "user", "content": content},
                         ],
@@ -259,7 +259,7 @@ class AIService:
                         msgs = [
                             {
                                 "role": "system",
-                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",  # noqa: E501
+                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",
                             },
                             {
                                 "role": "user",
@@ -271,7 +271,7 @@ class AIService:
                         msgs = [
                             {
                                 "role": "system",
-                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",  # noqa: E501
+                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",
                             },
                             {
                                 "role": "user",
@@ -303,7 +303,7 @@ class AIService:
                     or "ECONNREFUSED" in err_str
                 ):
                     print(
-                        f"[ERROR] Connection refused to endpoint {self.base_url or 'API'}. Ensure server/proxy is active."  # noqa: E501
+                        f"[ERROR] Connection refused to endpoint {self.base_url or 'API'}. Ensure server/proxy is active."
                     )
                     is_retryable = True
                 else:
@@ -330,7 +330,7 @@ class AIService:
                 ):
                     if len(self.api_keys) > 1:
                         print(
-                            f"[WARNING] API Key #{self.current_key_idx + 1} limit/exhausted on {self.provider}. Rotating to key #{(self.current_key_idx + 1) % len(self.api_keys) + 1}..."  # noqa: E501
+                            f"[WARNING] API Key #{self.current_key_idx + 1} limit/exhausted on {self.provider}. Rotating to key #{(self.current_key_idx + 1) % len(self.api_keys) + 1}..."
                         )
                         self.current_key_idx = (self.current_key_idx + 1) % len(
                             self.api_keys
@@ -366,19 +366,19 @@ class AIService:
                                     break
                             else:
                                 print(
-                                    f"AI Service Error ({self.provider}): All keys exhausted. No failover provider available."  # noqa: E501
+                                    f"AI Service Error ({self.provider}): All keys exhausted. No failover provider available."
                                 )
                                 return self._fallback_metadata()
                             continue  # retry with new provider
                         print(
-                            f"AI Service Error ({self.provider}): All keys exhausted or Authentication Failed. Check API Key."  # noqa: E501
+                            f"AI Service Error ({self.provider}): All keys exhausted or Authentication Failed. Check API Key."
                         )
                         return self._fallback_metadata()
 
                 if is_retryable and attempt < max_retries:
                     wait_time = backoff_times[attempt]
                     print(
-                        f"AI Service retry {attempt + 1}/{max_retries} for {self.provider} after {wait_time}s due to: {err_str}"  # noqa: E501
+                        f"AI Service retry {attempt + 1}/{max_retries} for {self.provider} after {wait_time}s due to: {err_str}"
                     )
                     time.sleep(wait_time)
                     continue
@@ -423,7 +423,7 @@ class AIService:
             start = text.find("{")
             end = text.rfind("}")
             if start != -1 and end != -1:
-                parsed = json.loads(text[start : end + 1])  # noqa: E203
+                parsed = json.loads(text[start : end + 1])
             else:
                 parsed = json.loads(text)
         except json.JSONDecodeError as e:
