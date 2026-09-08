@@ -4,7 +4,7 @@ import sys
 import threading
 import time
 import tkinter as tk
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 
 import customtkinter as ctk
@@ -201,6 +201,7 @@ class App(ctk.CTk):
 
         self.log_buffer = []
         self.log_lock = threading.Lock()
+        self.tools_ready = False
 
         self.MODEL_MAP = {
             "Gemini": [
@@ -268,8 +269,9 @@ class App(ctk.CTk):
         def setup_tools():
             self.log("[INFO] Checking external media tools...", "info")
             ensure_tools_installed(progress_callback=lambda m: self.log(m, "info" if "SUCCESS" in m or "INFO" in m else "warn"))
+            self.tools_ready = True
+            self.log("[INFO] External tools ready.", "info")
 
-        # Run tool downloader in background
         threading.Thread(target=setup_tools, daemon=True).start()
 
         is_valid, msg = self.auth.validate_session()
@@ -3815,6 +3817,10 @@ class App(ctk.CTk):
         if self.is_running:
             return
 
+        if not self.tools_ready:
+            self.log("[WARN] External tools are still downloading, please wait...", "warn")
+            return
+
         # Security: Background Auth Check
         is_valid, msg = self.auth.validate_session()
         if not is_valid and msg == "KICKED":
@@ -3909,8 +3915,10 @@ class App(ctk.CTk):
 
         csv_logger = CSVLogger(os.path.join(csv_dir, "metadata_output.csv"))
 
-        with ThreadPoolExecutor(max_workers=self.config["workers"]) as executor:
-            futures = [
+        max_w = max(1, int(self.workers_slider.get()))
+        total = len(paths)
+        with ThreadPoolExecutor(max_workers=max_w) as executor:
+            futures = {
                 executor.submit(
                     self.process_file,
                     f,
@@ -3921,13 +3929,13 @@ class App(ctk.CTk):
                     self.config["style_preset"],
                     self.config.get("extra_prompt", ""),
                     csv_logger,
-                )
+                ): f
                 for f in paths
-            ]
-            for i, f in enumerate(futures):
-                f.result()
+            }
+            for i, future in enumerate(as_completed(futures), 1):
+                future.result()
                 if not self.cancel_flag:
-                    self.after(0, self.progress_bar.set, (i + 1) / len(paths))
+                    self.after(0, self.progress_bar.set, i / total)
 
         if self.cancel_flag:
             self.log("Batch CANCELED.", "error")

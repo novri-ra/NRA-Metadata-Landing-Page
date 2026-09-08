@@ -56,11 +56,13 @@ def extract_preview_image(file_path: str, processor, progress_callback=None) -> 
             "-dNOPAUSE",
             "-sDEVICE=jpeg",
             "-r150",
+            "-dTextAlphaBits=4",
+            "-dGraphicsAlphaBits=4",
             f"-sOutputFile={out_path}",
             file_path,
         ]
         try:
-            subprocess.run(cmd, check=True, capture_output=True)
+            subprocess.run(cmd, check=True, capture_output=True, timeout=15)
             # Validate output
             if os.path.exists(out_path) and os.path.getsize(out_path) > 1024:
                 try:
@@ -80,6 +82,13 @@ def extract_preview_image(file_path: str, processor, progress_callback=None) -> 
                 log_failed_file(
                     os.path.dirname(file_path), os.path.basename(file_path), err
                 )
+            return None
+        except subprocess.TimeoutExpired:
+            err_msg = f"Ghostscript render exceeded 15s timeout"
+            _log(f"[{filename}] [WARN] Ghostscript timeout for {filename}, using fallback preview", "warn")
+            log_failed_file(
+                os.path.dirname(file_path), os.path.basename(file_path), err_msg
+            )
             return None
         except subprocess.CalledProcessError as e:
             err = f"Ghostscript error: {e.stderr}"
