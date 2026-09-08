@@ -484,7 +484,56 @@ class AIService:
             "error_details": error_details,
         }
 
+    # --- Vision capability registry (research-backed, Sep 2026) ---
+    # Models confirmed to accept image input for metadata generation.
+    # ponytail: hardcoded whitelist; upgrade to API introspection when providers stabilize schema
+    VISION_WHITELIST = {
+        "Gemini": {
+            "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro",
+            "gemini-3.1-flash-lite", "gemini-3.5-flash-lite",
+            "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash",
+            "gemini-3.1-pro-preview",
+        },
+        "OpenAI": {"gpt-4o-mini", "gpt-4o", "chatgpt-4o-latest"},
+        "Mistral": {
+            "pixtral-12b-2409", "pixtral-large-2411",
+            "mistral-large-latest", "ministral-3-8b",
+            "ministral-3-14b", "ministral-3-3b",
+            "mistral-medium-latest",
+        },
+        "Groq": {
+            "llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview",
+        },
+    }
+
+    NON_VISION_PATTERNS = [
+        "embed", "tts", "whisper", "moderation", "transcrib", "codestral",
+        "text-embedding", "davinci", "babbage", "ada", "curie",
+        "gpt-3.5", "audio", "realtime", "image-gen", "dall-e",
+        "mistral-small", "magistral", "leanstral", "voxtral",
+        "shieldstral", "nano-banana", "lyria", "veo", "imagen",
+        "gemini-embedding", "gemini-robotics", "deep-research",
+        "antigravity", "omni-flash",
+    ]
+
+    def _is_vision_capable(self, model_id: str) -> bool:
+        mid = model_id.lower()
+        for pat in self.NON_VISION_PATTERNS:
+            if pat in mid:
+                return False
+        whitelist = self.VISION_WHITELIST.get(self.provider, set())
+        if model_id in whitelist:
+            return True
+        if "vision" in mid or "pixtral" in mid:
+            return True
+        if self.provider == "Gemini" and ("flash" in mid or "pro" in mid):
+            return True
+        if self.provider == "OpenAI" and "gpt-4o" in mid:
+            return True
+        return False
+
     def fetch_available_models(self) -> list[str]:
+        """Fetch models from API and filter to vision-capable only."""
         try:
             if self.provider == "OpenAI":
                 response = requests.get(
@@ -494,15 +543,11 @@ class AIService:
                 )
                 if response.status_code == 200:
                     data = response.json()
-                    models = [
-                        m["id"]
-                        for m in data.get("data", [])
-                        if "gpt" in m["id"]
-                        and "vision" not in m["id"]
-                        and "instruct" not in m["id"]
-                    ]
-                    models.sort(reverse=True)
-                    return models[:20] if models else ["gpt-4o", "gpt-4o-mini"]
+                    all_models = [m["id"] for m in data.get("data", [])]
+                    models = [m for m in all_models if self._is_vision_capable(m)]
+                    models.sort()
+                    return models[:20] if models else ["gpt-4o-mini (Optimal)", "gpt-4o"]
+
             elif self.provider == "Mistral":
                 response = requests.get(
                     "https://api.mistral.ai/v1/models",
@@ -514,20 +559,10 @@ class AIService:
                 )
                 if response.status_code == 200:
                     data = response.json()
-                    models = [
-                        m["id"]
-                        for m in data.get("data", [])
-                        if m["id"].startswith(("mistral", "pixtral", "open-"))
-                    ]
-                    return (
-                        models
-                        if models
-                        else [
-                            "mistral-small-latest",
-                            "mistral-large-latest",
-                            "pixtral-12b-2409",
-                        ]
-                    )
+                    all_models = [m["id"] for m in data.get("data", [])]
+                    models = [m for m in all_models if self._is_vision_capable(m)]
+                    return models if models else ["pixtral-12b-2409 (Cost Efficient)", "mistral-large-latest"]
+
             elif self.provider == "Groq":
                 response = requests.get(
                     "https://api.groq.com/openai/v1/models",
@@ -536,21 +571,10 @@ class AIService:
                 )
                 if response.status_code == 200:
                     data = response.json()
-                    models = [
-                        m["id"]
-                        for m in data.get("data", [])
-                        if "vision" in m["id"]
-                        or "llama" in m["id"]
-                        or "mixtral" in m["id"]
-                    ]
-                    return (
-                        models
-                        if models
-                        else [
-                            "llama-3.2-11b-vision-preview",
-                            "llama-3.2-90b-vision-preview",
-                        ]
-                    )
+                    all_models = [m["id"] for m in data.get("data", [])]
+                    models = [m for m in all_models if self._is_vision_capable(m)]
+                    return models if models else ["llama-3.2-11b-vision-preview (Recommended)", "llama-3.2-90b-vision-preview"]
+
             elif self.provider == "Gemini":
                 response = requests.get(
                     f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}",
@@ -558,23 +582,15 @@ class AIService:
                 )
                 if response.status_code == 200:
                     data = response.json()
-                    models = [
+                    all_models = [
                         m["name"].replace("models/", "")
                         for m in data.get("models", [])
-                        if "gemini" in m["name"]
-                        and "generateContent" in m.get("supportedGenerationMethods", [])
+                        if "generateContent" in m.get("supportedGenerationMethods", [])
                     ]
-                    models = [
-                        m
-                        for m in models
-                        if "vision" not in m or "1.5" in m or "2.0" in m
-                    ]
+                    models = [m for m in all_models if self._is_vision_capable(m)]
                     models.sort(reverse=True)
-                    return (
-                        models
-                        if models
-                        else ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
-                    )
+                    return models if models else ["gemini-2.5-flash-lite (Recommended)", "gemini-2.5-flash"]
+
         except (OSError, ValueError, KeyError, RuntimeError) as e:
             print(f"Fetch models failed for {self.provider}: {e}")
         return []
