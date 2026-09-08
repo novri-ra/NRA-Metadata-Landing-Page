@@ -17,7 +17,13 @@ failed_files.log
 *.log
 
 # Binaries & Builds
-tools/
+tools/exiftool/
+tools/ffmpeg/
+tools/ghostscript/
+tools/*.exe
+tools/*.zip
+!tools/.gitkeep
+!tools/README.txt
 dist/
 build/
 *.exe
