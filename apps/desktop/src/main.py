@@ -204,32 +204,27 @@ class App(ctk.CTk):
 
         self.MODEL_MAP = {
             "Gemini": [
-                "gemini-3.7-flash",
-                "gemini-3.6-flash",
-                "gemini-3.5-flash-lite",
-                "gemini-3.1-pro-preview",
-                "gemini-3.1-flash-lite-preview",
-                "gemini-3-flash-preview",
-                "gemini-2.5-pro",
+                "gemini-2.5-flash-lite (Recommended)",
                 "gemini-2.5-flash",
-                "gemini-2.5-flash-lite",
-                "gemma-4-31b-it",
+                "gemini-3.5-flash-lite",
+                "gemini-3.6-flash",
+                "gemini-3.7-flash",
+                "gemini-3.8-flash",
+                "gemini-3.1-flash-lite",
+                "gemini-2.5-pro",
+                "gemini-3.1-pro-preview",
             ],
             "Groq": [
-                "llama-3.3-70b-versatile",
-                "meta-llama/llama-4-maverick-17b-128e-instruct",
-                "qwen/qwen3-32b",
-                "openai/gpt-oss-120b",
-                "llama-3.2-11b-vision-preview",
+                "llama-3.2-11b-vision-preview (Recommended)",
+                "llama-3.2-90b-vision-preview",
             ],
             "Mistral": [
+                "pixtral-12b-2409 (Cost Efficient)",
+                "ministral-3-8b",
+                "pixtral-large-2411",
                 "mistral-large-latest",
-                "codestral-latest",
-                "mistral-medium-latest",
-                "mistral-small-latest",
-                "pixtral-12b-2409",
             ],
-            "OpenAI": ["gpt-4o-mini", "gpt-4o", "chatgpt-4o-latest"],
+            "OpenAI": ["gpt-4o-mini (Optimal)", "gpt-4o", "chatgpt-4o-latest"],
         }
 
         self._restore_geometry()
@@ -3899,14 +3894,14 @@ class App(ctk.CTk):
         failover_providers = {
             p: k for p, k in api_keys_dict.items() if p != provider and k
         }
+        raw_model = self.config.get("model") or "Gemini"
         ai = AIService(
             provider,
             api_key,
-            (self.config.get("model") or "Gemini"),
+            raw_model.split(" ")[0],
             self.config.get("temperature", 0.3),
             failover_providers=failover_providers,
         )
-
         processed_dir = os.path.join(out_dir, "Processed Assets")
         csv_dir = os.path.join(out_dir, "Metadata CSV")
         os.makedirs(processed_dir, exist_ok=True)
