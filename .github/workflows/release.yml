@@ -1,0 +1,66 @@
+name: Build & Publish Release
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+jobs:
+  build-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Download UPX for Maximum Binary Compression
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-win64.zip" -OutFile "upx.zip"
+          Expand-Archive -Path "upx.zip" -DestinationPath "upx_dir"
+          Move-Item -Path "upx_dir/upx-*" -Destination "upx"
+
+      - name: Build Executable with PyInstaller
+        run: |
+          pyinstaller --noconfirm --onedir --windowed `
+            --name "NRA-Metadata" `
+            --upx-dir "upx" `
+            --add-data "tools;tools" `
+            --collect-all "customtkinter" `
+            apps/desktop/src/main.py
+
+      - name: Ensure tools instructions exist in dist package
+        run: |
+          Copy-Item -Path "tools/README.txt" -Destination "dist/NRA-Metadata/tools/README.txt" -Force
+
+      - name: Compress Release Artifact (ZIP ultra compression)
+        run: |
+          Compress-Archive -Path "dist/NRA-Metadata" -DestinationPath "NRA-Metadata-Portable.zip" -CompressionLevel Optimal
+
+      - name: Generate Release Tag & Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: NRA-Metadata v1.0.${{ github.run_number }} (Portable)
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: NRA-Metadata-Portable.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
