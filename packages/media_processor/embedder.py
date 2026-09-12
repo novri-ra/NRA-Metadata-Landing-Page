@@ -35,8 +35,10 @@ class MediaProcessor:
             tool_subdir = os.path.join(tools_root, tool_name)
             if os.path.isdir(tool_subdir):
                 for dirpath, _dirs, files in os.walk(tool_subdir):
-                    if exe_name in files:
-                        return os.path.join(dirpath, exe_name)
+                    lower_files = [f.lower() for f in files]
+                    if exe_name.lower() in lower_files:
+                        idx = lower_files.index(exe_name.lower())
+                        return os.path.join(dirpath, files[idx])
             flat = os.path.join(tools_root, exe_name)
             if os.path.exists(flat):
                 return flat
