@@ -169,10 +169,15 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
             
             target_dir = str((td / "ghostscript").resolve())
             cmd = [str(installer), "/S", f"/D={target_dir}"]
+            
+            env = os.environ.copy()
+            env["__COMPAT_LAYER"] = "RunAsInvoker"
+            
             subprocess.run(
                 cmd,
-                check=True,
-                timeout=120
+                check=False,
+                timeout=120,
+                env=env
             )
             
             if installer.exists():
