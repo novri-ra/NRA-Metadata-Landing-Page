@@ -53,8 +53,9 @@ class KeyRing:
     """Thread-safe pool of API keys for the active provider."""
 
     def __init__(self, api_keys):
-        self._lock_lock = threading.Lock()
+        self._lock = threading.Lock()
         self._keys = self._normalize(api_keys)
+        self._index = 0
 
     @staticmethod
     def _normalize(api_keys) -> list[str]:
