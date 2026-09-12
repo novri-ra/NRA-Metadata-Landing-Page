@@ -9,7 +9,7 @@ from backend.core.config_manager import load_config, save_config
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-AUTH_API_URL = "https://script.google.com/macros/s/AKfycbx53YwYauTCoda5MrigOUyP9vsDBmw2VOOR3-dz1H7vdfG4JAM_3Zo_AOLe9UbZdJ8/exec"
+AUTH_API_URL = "https://script.google.com/macros/s/AKfycbyCQ_YsbTnjwgr1nBzPlOzyaiYv5BpfT6HDG72D9RsZRTAvK3axT5fagSV2we7Mkju9/exec"
 
 
 def get_machine_hwid() -> str:
