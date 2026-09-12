@@ -66,11 +66,13 @@ class AuthClient:
     def get_client_ip(self) -> str:
         return get_public_ip()
 
-    def _save_session(self, username, token):
+    def _save_session(self, username, token, user_id=None):
         self.username = username
         self.session_token = token
         self.config["auth_user"] = username
         self.config["auth_session"] = token
+        if user_id:
+            self.config["auth_user_id"] = str(user_id)
         save_config(self.config)
 
     def _clear_session(self):
@@ -138,36 +140,39 @@ class AuthClient:
         save_config(self.config)
 
     def register(self, username, password):
+        clean_user = str(username).strip().lower()
         return self._post(
             {
                 "action": "REGISTER",
-                "username": username.strip().lower(),
-                "password": password,
+                "identifier": clean_user,
+                "username": clean_user,
+                "password": str(password),
                 "hwid": self.get_hwid(),
                 "ip": self.get_client_ip(),
             }
         )
 
-    def login(self, username, password):
+    def login(self, identifier, password):
         """Login via username — backend handles lookup."""
-        identifier = username.strip().lower()
+        clean_user = str(identifier).strip().lower()
         res = self._post(
             {
                 "action": "LOGIN",
-                "identifier": identifier,
-                "password": password,
+                "identifier": clean_user,
+                "username": clean_user,
+                "password": str(password),
                 "hwid": self.get_hwid(),
                 "ip": self.get_client_ip(),
             }
         )
         if res.get("status") == "SUCCESS":
-            actual_user = res.get("username", identifier)
-            self._save_session(actual_user, res.get("session_token"))
+            actual_user = res.get("username", clean_user)
+            self._save_session(actual_user, res.get("session_token"), res.get("user_id"))
         elif (
             res.get("status") == "ERROR"
             and res.get("network")
             and self.session_token
-            and (self.username == identifier or self.config.get("auth_email") == identifier)
+            and (self.username == clean_user or self.config.get("auth_email") == clean_user)
         ):
             # Offline tolerance if credentials already match the saved session
             return {"status": "SUCCESS", "username": self.username, "session_token": self.session_token, "message": "Offline mode"}
@@ -183,6 +188,7 @@ class AuthClient:
             {
                 "action": "VALIDATE_SESSION",
                 "identifier": self.username.strip().lower(),
+                "username": self.username.strip().lower(),
                 "session_token": self.session_token,
                 "hwid": self.get_hwid(),
             }
