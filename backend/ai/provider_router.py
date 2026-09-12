@@ -67,6 +67,7 @@ class AIService:
         model: str | None = None,
         temperature: float = 0.3,
         failover_providers: dict | None = None,
+        custom_base_url: str | None = None,
     ):
         self.provider = provider
         self.failover = FailoverHandler(
@@ -77,6 +78,10 @@ class AIService:
         self.model = model
         self.temperature = temperature
         self.base_url = None
+        if custom_base_url:
+            self.base_url = normalize_base_url(custom_base_url)
+        elif self.provider in ("9router", "Custom"):
+            self.base_url = normalize_base_url(None)
         self._init_clients()
 
     @property
@@ -86,8 +91,11 @@ class AIService:
     def _init_clients(self):
         if self.provider == "Gemini":
             self.gemini_client = genai.Client(api_key=self.api_key)
-        elif self.provider == "OpenAI":
-            self.openai_client = OpenAI(api_key=self.api_key)
+        elif self.provider in ("OpenAI", "9router", "Custom"):
+            kwargs = {}
+            if self.base_url:
+                kwargs["base_url"] = self.base_url
+            self.openai_client = OpenAI(api_key=self.api_key, **kwargs)
         elif self.provider == "Groq":
             try:
                 import groq
@@ -174,7 +182,7 @@ class AIService:
                     )
                     return json.loads(response.text)
 
-                elif self.provider in ["OpenAI", "9router"]:
+                elif self.provider in ["OpenAI", "9router", "Custom"]:
                     if is_text_fallback:
                         msgs = [
                             {

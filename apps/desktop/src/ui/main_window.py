@@ -145,6 +145,7 @@ class AppWindow(ctk.CTk):
                 "mistral-large-latest",
             ],
             "OpenAI": ["gpt-4o-mini (Optimal)", "gpt-4o", "chatgpt-4o-latest"],
+            "Custom": ["9router/auto"],
         }
 
         self._restore_geometry()
@@ -1359,6 +1360,16 @@ class AppWindow(ctk.CTk):
                     "custom_kw_pos": self.custom_kw_pos.get(),
                     "extra_prompt": self.extra_prompt_entry.get(),
                     "workers": int(self.workers_slider.get()),
+                    "delay": (
+                        int(self.delay_slider.get())
+                        if hasattr(self, "delay_slider")
+                        else 0
+                    ),
+                    "custom_base_url": (
+                        self.base_url_entry.get().strip()
+                        if hasattr(self, "base_url_entry")
+                        else ""
+                    ),
                     "formats": {ext: var.get() for ext, var in self.fmt_vars.items()},
                     "author": self.author_entry.get().strip(),
                     "copyright": self.copyright_entry.get().strip(),
@@ -2227,6 +2238,8 @@ class AppWindow(ctk.CTk):
             ),
             "csv_platforms": self._get_selected_csv_platforms(),
             "workers": max(1, int(self.workers_slider.get())),
+            "custom_base_url": self.config.get("custom_base_url", ""),
+            "delay": float(self.config.get("delay", 0)),
             "skipped_count": skipped_count,
         }
         paths = [os.path.join(in_dir, f) for f in files]

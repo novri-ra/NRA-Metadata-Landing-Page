@@ -9,6 +9,7 @@ callers must marshal any Tk widget access onto the main thread via ``after``.
 import os
 import shutil
 import threading
+import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -137,6 +138,7 @@ class FileWorkerPool:
             raw_model.split(" ")[0],
             options.get("temperature", 0.3),
             failover_providers=failover_providers,
+            custom_base_url=options.get("custom_base_url", ""),
         )
         processed_dir = os.path.join(out_dir, "Processed Assets")
         csv_dir = os.path.join(out_dir, "Metadata CSV")
@@ -345,6 +347,15 @@ class FileWorkerPool:
                             zf.write(jpg_path, arcname=base_name + ".jpg")
                 except OSError:
                     pass
+
+            delay = float(options.get("delay") or 0)
+            if delay > 0:
+                self._emit(
+                    "log",
+                    f"[{name}] Cooldown {delay:.0f}s before next file...",
+                    "info",
+                )
+                time.sleep(min(delay, 5))
 
         else:
             self._emit("log", f"[{name}] ExifTool metadata embedding failed.", "error")

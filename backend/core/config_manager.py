@@ -142,7 +142,7 @@ def load_config() -> dict:
         data = {}
 
     # Sanitize 9router and invalid providers
-    valid_providers = ["Gemini", "Mistral", "Groq", "OpenAI"]
+    valid_providers = ["Gemini", "Mistral", "Groq", "OpenAI", "Custom"]
     provider = data.get("provider")
     if not provider or provider not in valid_providers or provider == "9router":
         data["provider"] = "Gemini"
