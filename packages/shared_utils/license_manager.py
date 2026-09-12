@@ -51,6 +51,21 @@ class AuthClient:
         self.offline_mode = bool(self.config.get("auth_offline"))
         self.hwid = get_machine_hwid()
 
+        self.session = requests.Session()
+        self.session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+        )
+
+    def get_hwid(self) -> str:
+        return self.hwid
+
+    def get_client_ip(self) -> str:
+        return get_public_ip()
+
     def _save_session(self, username, token):
         self.username = username
         self.session_token = token
@@ -67,11 +82,11 @@ class AuthClient:
 
     def _post(self, payload: dict) -> dict:
         try:
-            res = requests.post(
+            res = self.session.post(
                 self.endpoint,
                 json=payload,
                 verify=True,
-                timeout=10,
+                timeout=(15.0, 30.0),
                 allow_redirects=True,
             )
             try:
@@ -82,9 +97,12 @@ class AuthClient:
                     file=sys.stderr,
                 )
                 return {"status": "ERROR", "message": "Respon server tidak valid."}
-        except requests.exceptions.Timeout as e:
-            print(f"[AUTH] Network timeout: {e!r}", file=sys.stderr)
-            return {"status": "ERROR", "message": "Network timeout. Koneksi lambat.", "network": True}
+        except requests.exceptions.ConnectTimeout as e:
+            print(f"[AUTH] Connect timeout: {e!r}", file=sys.stderr)
+            return {"status": "ERROR", "message": "Connect timeout. GAS redirect lambat.", "network": True}
+        except requests.exceptions.ReadTimeout as e:
+            print(f"[AUTH] Read timeout: {e!r}", file=sys.stderr)
+            return {"status": "ERROR", "message": "Read timeout. Server tidak merespons.", "network": True}
         except requests.exceptions.SSLError as e:
             print(f"[AUTH] SSL error: {e!r}", file=sys.stderr)
             return {"status": "ERROR", "message": "SSL error: sertifikat tidak valid.", "network": True}
@@ -119,39 +137,37 @@ class AuthClient:
         self.config["auth_offline"] = True
         save_config(self.config)
 
-    def register(self, username, password, email="", wa="", fullname=""):
+    def register(self, username, password):
         return self._post(
             {
                 "action": "REGISTER",
-                "full_name": fullname,
-                "username": username,
-                "email": email,
-                "whatsapp": wa,
+                "username": username.strip().lower(),
                 "password": password,
-                "hwid": self.hwid,
-                "ip": get_public_ip(),
+                "hwid": self.get_hwid(),
+                "ip": self.get_client_ip(),
             }
         )
 
     def login(self, username, password):
-        """Login via username OR email — backend handles lookup."""
+        """Login via username — backend handles lookup."""
+        identifier = username.strip().lower()
         res = self._post(
             {
                 "action": "LOGIN",
-                "identifier": username,
+                "identifier": identifier,
                 "password": password,
-                "hwid": self.hwid,
-                "ip": get_public_ip(),
+                "hwid": self.get_hwid(),
+                "ip": self.get_client_ip(),
             }
         )
         if res.get("status") == "SUCCESS":
-            actual_user = res.get("username", username)
+            actual_user = res.get("username", identifier)
             self._save_session(actual_user, res.get("session_token"))
         elif (
             res.get("status") == "ERROR"
             and res.get("network")
             and self.session_token
-            and (self.username == username or self.config.get("auth_email") == username)
+            and (self.username == identifier or self.config.get("auth_email") == identifier)
         ):
             # Offline tolerance if credentials already match the saved session
             return {"status": "SUCCESS", "username": self.username, "session_token": self.session_token, "message": "Offline mode"}
@@ -166,9 +182,9 @@ class AuthClient:
         res = self._post(
             {
                 "action": "VALIDATE_SESSION",
-                "identifier": self.username,
+                "identifier": self.username.strip().lower(),
                 "session_token": self.session_token,
-                "hwid": self.hwid,
+                "hwid": self.get_hwid(),
             }
         )
 

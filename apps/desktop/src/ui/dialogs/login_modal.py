@@ -141,7 +141,7 @@ def show_login_modal(app):
         ).pack(side="right", padx=12)
 
     user_entry = _field(
-        login_scroll, "Username atau Email", user_var_login, icon="\U0001f464"
+        login_scroll, "Username", user_var_login, icon="\U0001f464"
     )
 
     # password + toggle
@@ -315,28 +315,12 @@ def show_login_modal(app):
     )
     reg_scroll.pack(fill="both", expand=True, padx=0, pady=0)
 
-    fullname_var = ctk.StringVar()
     user_var_reg = ctk.StringVar()
-    email_var_reg = ctk.StringVar()
-    wa_var_reg = ctk.StringVar()
     pass_var_reg = ctk.StringVar()
     pass2_var_reg = ctk.StringVar()
     show_pass_reg = ctk.BooleanVar(value=False)
 
-    _field(reg_scroll, "Nama Lengkap", fullname_var, icon="\U0001f4b3")
     _field(reg_scroll, "Username", user_var_reg, icon="\U0001f464")
-    _field(reg_scroll, "Email Aktif", email_var_reg, icon="\u2709\ufe0f")
-
-    # WA Banner
-    wa_banner = ctk.CTkFrame(reg_scroll, fg_color=C["surface2"], corner_radius=6)
-    wa_banner.pack(fill="x", padx=20, pady=(8, 0))
-    ctk.CTkLabel(
-        wa_banner,
-        text="\U0001f4a1 Info: Untuk undangan grup update & rilis fitur.",
-        text_color=C["text3"],
-        font=ctk.CTkFont(family="Segoe UI", size=10, slant="italic"),
-    ).pack(pady=4)
-    _field(reg_scroll, "No. WhatsApp", wa_var_reg, icon="\U0001f4f1")
 
     # password + toggle
     ctk.CTkLabel(
@@ -399,30 +383,15 @@ def show_login_modal(app):
     )
 
     def _validate_register():
-        fn = fullname_var.get().strip()
         u = user_var_reg.get().strip()
-        em = email_var_reg.get().strip()
-        wa = wa_var_reg.get().strip()
         pw = pass_var_reg.get().strip()
         pw2 = pass2_var_reg.get().strip()
-        if not fn or not u or not em or not wa or not pw:
-            return None, "Isi semua data"
-        if "@" not in em or "." not in em.split("@")[-1]:
-            return None, "Format email tidak valid"
-        wa_clean = wa.replace("+", "").replace("-", "").replace(" ", "")
-        if not wa_clean.isdigit() or len(wa_clean) < 10:
-            return None, "Nomor WA minimal 10 digit angka"
-        if wa_clean.startswith("08"):
-            wa_clean = "62" + wa_clean[1:]
-        elif not wa_clean.startswith("62"):
-            wa_clean = "62" + wa_clean
+        if not u or not pw:
+            return None, "Isi username dan password"
         if pw != pw2:
             return None, "Password dan konfirmasi tidak cocok"
         return {
-            "fullname": fn,
             "username": u,
-            "email": em,
-            "wa": wa_clean,
             "password": pw,
         }, ""
 
@@ -444,9 +413,6 @@ def show_login_modal(app):
                 res = app.auth.register(
                     data["username"],
                     data["password"],
-                    email=data["email"],
-                    wa=data["wa"],
-                    fullname=data["fullname"],
                 )
             except Exception as e:
                 modal.after(0, lambda: _reg_done({"status": "ERROR", "message": f"Registrasi error: {e!s}"}, data["username"]))
