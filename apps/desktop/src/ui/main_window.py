@@ -2060,6 +2060,9 @@ class AppWindow(ctk.CTk):
         return ext in self._get_allowed_extensions()
 
     def _watcher_loop(self):
+        if getattr(self, "_watcher_started", False):
+            return
+        self._watcher_started = True
         while True:
             time.sleep(3)
             if not self.pool.is_running:
