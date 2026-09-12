@@ -29,7 +29,6 @@ from packages.shared_utils.filter import (
     add_to_blacklist,
     autofix_compliance,
     calculate_quality_score,
-    clean_metadata,
     detect_redundant_keywords,
     get_blacklist,
     lowercase_keywords,
