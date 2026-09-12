@@ -104,6 +104,18 @@ class AIService:
             except ImportError:
                 self.groq_client = None
 
+    def _gemini_generation_config(self):
+        kwargs = dict(
+            temperature=self.temperature,
+            response_mime_type="application/json",
+            response_schema=MetadataModel,
+        )
+        if hasattr(genai.types, "AutomaticFunctionCallingConfig"):
+            kwargs["automatic_function_calling"] = (
+                genai.types.AutomaticFunctionCallingConfig(disable=True)
+            )
+        return genai.types.GenerateContentConfig(**kwargs)
+
     def generate_metadata(
         self,
         image_path: str,
@@ -174,11 +186,7 @@ class AIService:
                     response = self.gemini_client.models.generate_content(
                         model=self.model or "gemini-1.5-flash",
                         contents=contents,
-                        config=genai.types.GenerateContentConfig(
-                            temperature=self.temperature,
-                            response_mime_type="application/json",
-                            response_schema=MetadataModel,
-                        ),
+                        config=self._gemini_generation_config(),
                     )
                     return json.loads(response.text)
 
