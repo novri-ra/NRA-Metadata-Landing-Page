@@ -5,7 +5,7 @@ import uuid
 import requests
 import urllib3
 
-from packages.shared_utils.config import load_config, save_config
+from backend.core.config_manager import load_config, save_config
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
