@@ -1435,7 +1435,7 @@ class AppWindow(ctk.CTk):
         self.update_idletasks()
 
         def _bg_fetch():
-            from packages.ai_engine.service import AIService
+            from backend.ai.provider_router import AIService
 
             ai = AIService(provider, api_key)
             models = ai.fetch_available_models()
