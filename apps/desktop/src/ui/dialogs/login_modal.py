@@ -222,9 +222,9 @@ def show_login_modal(app):
             )
             return
         status_lbl_login.configure(
-            text="\u231b Memeriksa sesi...", text_color=C["text3"]
+            text="\u231b Menghubungkan...", text_color=C["text3"]
         )
-        btn_login.configure(state="disabled", text="Memeriksa sesi...")
+        btn_login.configure(state="disabled", text="Menghubungkan...")
         modal.update()
 
         def _bg():
@@ -281,6 +281,24 @@ def show_login_modal(app):
 
     btn_login.configure(command=_do_login)
     btn_login.pack(padx=20, pady=(8, 12))
+
+    def _go_offline():
+        app.auth.enable_offline_mode()
+        app.deiconify()
+        modal.destroy()
+        app.log("Mode Offline aktif: autentikasi server dilewati.", "warn")
+
+    ctk.CTkButton(
+        login_scroll,
+        text="\U0001f6e1\ufe0f Lanjut Mode Offline / Pengembang",
+        width=FW,
+        fg_color=C["surface2"],
+        hover_color=C["border"],
+        font=ctk.CTkFont(family="Segoe UI", size=12),
+        height=34,
+        corner_radius=8,
+        command=_go_offline,
+    ).pack(padx=20, pady=(0, 16))
 
     # ───────────────────────────── REGISTER TAB ──────────────────────────
     reg_scroll = ctk.CTkScrollableFrame(
@@ -407,9 +425,9 @@ def show_login_modal(app):
             )
             return
         status_lbl_reg.configure(
-            text="\u231b Mendaftarkan perangkat...", text_color=C["text3"]
+            text="\u231b Menghubungkan...", text_color=C["text3"]
         )
-        btn_reg.configure(state="disabled", text="Memeriksa sesi...")
+        btn_reg.configure(state="disabled", text="Menghubungkan...")
         modal.update()
 
         def _bg():

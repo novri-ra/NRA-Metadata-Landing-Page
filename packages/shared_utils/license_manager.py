@@ -48,6 +48,7 @@ class AuthClient:
         self.endpoint = AUTH_API_URL
         self.username = self.config.get("auth_user", "")
         self.session_token = self.config.get("auth_session", "")
+        self.offline_mode = bool(self.config.get("auth_offline"))
         self.hwid = get_machine_hwid()
 
     def _save_session(self, username, token):
@@ -73,13 +74,38 @@ class AuthClient:
                 timeout=5,
                 allow_redirects=True,
             )
-            return res.json()
-        except requests.exceptions.Timeout:
-            return {"status": "ERROR", "message": "Network timeout. Try again."}
-        except requests.exceptions.ConnectionError:
+            try:
+                return res.json()
+            except ValueError as e:
+                print(
+                    f"[AUTH] Non-JSON response (HTTP {res.status_code}): {res.text[:200]}",
+                    file=sys.stderr,
+                )
+                return {"status": "ERROR", "message": "Respon server tidak valid."}
+        except requests.exceptions.Timeout as e:
+            print(f"[AUTH] Network timeout: {e!r}", file=sys.stderr)
+            return {"status": "ERROR", "message": "Network timeout. Koneksi lambat."}
+        except requests.exceptions.SSLError as e:
+            print(f"[AUTH] SSL error: {e!r}", file=sys.stderr)
+            return {"status": "ERROR", "message": "SSL error: sertifikat tidak valid."}
+        except requests.exceptions.ConnectionError as e:
+            cause = e.__cause__ or e
+            print(
+                f"[AUTH] Connection error: {type(cause).__name__}: {cause}",
+                file=sys.stderr,
+            )
             return {"status": "ERROR", "message": "Connection error."}
         except OSError as e:
+            print(
+                f"[AUTH] Network error: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
             return {"status": "ERROR", "message": f"Network error: {e!s}"}
+
+    def enable_offline_mode(self):
+        self.offline_mode = True
+        self.config["auth_offline"] = True
+        save_config(self.config)
 
     def register(self, username, password, email="", wa="", fullname=""):
         return self._post(
@@ -114,6 +140,8 @@ class AuthClient:
         return res
 
     def validate_session(self) -> tuple[bool, str]:
+        if self.offline_mode:
+            return True, "Offline mode"
         if not self.username or not self.session_token:
             return False, "No active session"
 
