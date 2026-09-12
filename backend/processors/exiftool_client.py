@@ -6,11 +6,21 @@ Extracted from ``packages/media_processor/embedder.py``; the class was renamed
 """
 
 import os
+import shutil
 import stat
 import subprocess
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
-from backend.processors._tools import get_tool_path, log_failed_file
+from backend.processors._tools import log_failed_file
+
+
+def get_exiftool_path() -> str:
+    base_dir = Path(__file__).resolve().parents[2]
+    bundled_exiftool = base_dir / "tools" / "exiftool" / "exiftool.exe"
+    if bundled_exiftool.is_file():
+        return str(bundled_exiftool)
+    return shutil.which("exiftool") or "exiftool"
 
 
 def _prepare_target(file_path: str) -> None:
@@ -41,7 +51,7 @@ class ExifToolClient:
         file_path = os.path.normpath(os.path.abspath(file_path))
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         _prepare_target(file_path)
-        exiftool_path = get_tool_path("exiftool")
+        exiftool_path = get_exiftool_path()
         is_png = os.path.splitext(file_path)[1].lower() == ".png"
         cmd = [
             exiftool_path,
@@ -69,7 +79,8 @@ class ExifToolClient:
             ]
         )
         try:
-            subprocess.run(cmd, check=True, capture_output=True, timeout=30)
+            cwd = os.path.dirname(exiftool_path) if os.path.isabs(exiftool_path) else None
+            subprocess.run(cmd, check=True, capture_output=True, timeout=30, cwd=cwd)
             return True
         except subprocess.TimeoutExpired:
             print(f"[WARN] Sanitizer timeout on {os.path.basename(file_path)}")
@@ -80,7 +91,12 @@ class ExifToolClient:
                 if isinstance(e.stderr, bytes)
                 else str(e.stderr)
             )
-            print(f"[WARN] Sanitizer error on {os.path.basename(file_path)}: {err_msg}")
+            out_msg = (
+                e.stdout.decode(errors="replace")
+                if isinstance(e.stdout, bytes)
+                else str(e.stdout)
+            )
+            print(f"[WARN] Sanitizer error on {os.path.basename(file_path)}: {err_msg} | Stdout: {out_msg}")
             return False
         except (OSError, ValueError) as e:
             # We don't hard fail if sanitization fails (e.g. exiftool error on a specific file type)
@@ -120,7 +136,7 @@ class ExifToolClient:
         self.sanitize_ai_metadata(file_path)
 
         # 2. Embed new metadata
-        exiftool_path = get_tool_path("exiftool")
+        exiftool_path = get_exiftool_path()
         cmd = [
             exiftool_path,
             "-overwrite_original",
@@ -149,7 +165,8 @@ class ExifToolClient:
         cmd.append(file_path)
 
         try:
-            subprocess.run(cmd, check=True, capture_output=True, timeout=60)
+            cwd = os.path.dirname(exiftool_path) if os.path.isabs(exiftool_path) else None
+            subprocess.run(cmd, check=True, capture_output=True, timeout=60, cwd=cwd)
             return True
         except subprocess.TimeoutExpired:
             print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool Timeout")
@@ -165,11 +182,16 @@ class ExifToolClient:
                 if isinstance(e.stderr, bytes)
                 else str(e.stderr)
             )
-            print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool - {err_msg}")
+            out_msg = (
+                e.stdout.decode(errors="replace")
+                if isinstance(e.stdout, bytes)
+                else str(e.stdout)
+            )
+            print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool - {err_msg} | Stdout: {out_msg}")
             log_failed_file(
                 os.path.dirname(file_path),
                 os.path.basename(file_path),
-                f"ExifTool: {err_msg}",
+                f"ExifTool: {err_msg} | Stdout: {out_msg}",
             )
             return False
         except (OSError, ValueError) as e:
