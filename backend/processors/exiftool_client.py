@@ -6,10 +6,33 @@ Extracted from ``packages/media_processor/embedder.py``; the class was renamed
 """
 
 import os
+import stat
 import subprocess
 import xml.etree.ElementTree as ET
 
 from backend.processors._tools import get_tool_path, log_failed_file
+
+
+def _prepare_target(file_path: str) -> None:
+    """Make the target writable and free it from stale ExifTool temp files.
+
+    Stock-downloaded files often carry a read-only attribute that survives
+    ``shutil.move``; ``-overwrite_original`` then fails to rename the temp
+    file over the original on Windows. A failed rename also leaves a stale
+    ``<file>_exiftool_tmp`` behind, and ExifTool refuses to proceed while it
+    exists -- so both must be cleared before every run.
+    """
+    try:
+        os.chmod(file_path, stat.S_IREAD | stat.S_IWRITE)
+    except OSError:
+        pass
+    try:
+        stale = file_path + "_exiftool_tmp"
+        if os.path.exists(stale):
+            os.chmod(stale, stat.S_IREAD | stat.S_IWRITE)
+            os.remove(stale)
+    except OSError:
+        pass
 
 
 class ExifToolClient:
@@ -22,6 +45,7 @@ class ExifToolClient:
                 f"[WARN] Sanitizer skipped: target file does not exist: {os.path.basename(file_path)}"
             )
             return False
+        _prepare_target(file_path)
         exiftool_path = get_tool_path("exiftool")
         is_png = os.path.splitext(file_path)[1].lower() == ".png"
         cmd = [
@@ -95,6 +119,7 @@ class ExifToolClient:
                 "ExifTool: target file missing",
             )
             return False
+        _prepare_target(file_path)
 
         # 1. Sanitize AI metadata first
         self.sanitize_ai_metadata(file_path)
