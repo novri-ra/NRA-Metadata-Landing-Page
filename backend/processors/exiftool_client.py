@@ -37,7 +37,6 @@ class ExifToolClient:
             [
                 "-XMP-c2pa:all=",
                 "-XMP-xmpGImg:all=",
-                "-XMP:AIContentGenerator=",
                 "-XMP:DigitalSourceType=",
                 file_path,
             ]
@@ -72,11 +71,23 @@ class ExifToolClient:
         author: str = "",
     ) -> bool:
         file_path = os.path.abspath(file_path)
+        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
         ext = file_path.lower().split(".")[-1]
         if ext == "svg":
             return self._embed_svg_metadata(
                 file_path, title, description, keywords, copyright_text, author
             )
+
+        if not os.path.exists(file_path):
+            print(
+                f"[SKIP ERROR] {os.path.basename(file_path)}: target file does not exist"
+            )
+            log_failed_file(
+                os.path.dirname(file_path),
+                os.path.basename(file_path),
+                "ExifTool: target file missing",
+            )
+            return False
 
         # 1. Sanitize AI metadata first
         self.sanitize_ai_metadata(file_path)
@@ -86,6 +97,7 @@ class ExifToolClient:
         cmd = [
             exiftool_path,
             "-overwrite_original",
+            "-m",
             f"-Title={title}",
             f"-ObjectName={title}",
             f"-Description={description}",
