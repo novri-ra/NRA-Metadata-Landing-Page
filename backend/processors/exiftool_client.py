@@ -52,6 +52,9 @@ class ExifToolClient:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         _prepare_target(file_path)
         exiftool_path = get_exiftool_path()
+        if not exiftool_path or not os.path.isfile(exiftool_path):
+            print(f"[EXIFTOOL ERROR] Binary tidak ditemukan di: {exiftool_path}")
+            return False
         is_png = os.path.splitext(file_path)[1].lower() == ".png"
         cmd = [
             exiftool_path,
@@ -137,6 +140,15 @@ class ExifToolClient:
 
         # 2. Embed new metadata
         exiftool_path = get_exiftool_path()
+        if not exiftool_path or not os.path.isfile(exiftool_path):
+            err_msg = f"[EXIFTOOL ERROR] Binary tidak ditemukan di: {exiftool_path}"
+            print(err_msg)
+            log_failed_file(
+                os.path.dirname(file_path),
+                os.path.basename(file_path),
+                err_msg,
+            )
+            return False
         cmd = [
             exiftool_path,
             "-overwrite_original",

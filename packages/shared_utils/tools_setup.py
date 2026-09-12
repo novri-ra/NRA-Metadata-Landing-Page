@@ -114,8 +114,14 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
     def _setup_exiftool():
         exe_in_subdir = td / "exiftool" / "exiftool.exe"
         exe_flat = td / "exiftool.exe"
-        if exe_in_subdir.exists() or exe_flat.exists():
+        if exe_in_subdir.exists():
+            _log(f"[SUCCESS] ExifTool found at: {exe_in_subdir.resolve()}")
             return
+        elif exe_flat.exists():
+            _log(f"[SUCCESS] ExifTool found at: {exe_flat.resolve()}")
+            return
+
+        _log(f"[ERROR] ExifTool NOT found at: {exe_in_subdir.resolve()}")
         _log("[INFO] Downloading ExifTool...")
         urls = [
             "https://oliverbetz.de/cms/files/Artikel/ExifTool-for-Windows/exiftool-13.59_64.zip",
