@@ -194,14 +194,16 @@ class TestAuthClientRegisterPayload(unittest.TestCase):
         self.assertEqual(captured["action"], "REGISTER")
         self.assertEqual(captured["username"], "testuser")
         self.assertEqual(captured["email"], "a@b.com")
-        self.assertEqual(captured["wa"], "6281234567890")
-        self.assertEqual(captured["fullname"], "Test User")
+        self.assertEqual(captured["whatsapp"], "6281234567890")
+        self.assertEqual(captured["full_name"], "Test User")
+        self.assertTrue(captured["hwid"], "register payload must include hwid")
+        self.assertTrue(captured["ip"], "register payload must include ip")
 
 
 class TestAuthLoginViaEmailOrUsername(unittest.TestCase):
     """Verify login payload sends identifier that could be email or username."""
 
-    def test_login_sends_identifier_as_username_field(self):
+    def test_login_sends_identifier_field(self):
         from packages.shared_utils.license_manager import AuthClient
 
         client = AuthClient()
@@ -213,11 +215,31 @@ class TestAuthLoginViaEmailOrUsername(unittest.TestCase):
 
         # Login with email
         client.login("user@example.com", "pass123")
-        self.assertEqual(captured["username"], "user@example.com")
+        self.assertEqual(captured["identifier"], "user@example.com")
+        self.assertNotIn("username", captured, "login must use 'identifier' key")
 
         # Login with username
         client.login("myuser", "pass456")
-        self.assertEqual(captured["username"], "myuser")
+        self.assertEqual(captured["identifier"], "myuser")
+
+    def test_validate_session_sends_identifier_field(self):
+        from packages.shared_utils.license_manager import AuthClient
+
+        client = AuthClient()
+        captured = {}
+        client._post = lambda payload: (
+            captured.update(payload),
+            {"status": "VALID", "message": "Session valid"},
+        )[1]
+        client.username = "myuser"
+        client.session_token = "tok123"
+
+        valid, _msg = client.validate_session()
+        self.assertTrue(valid)
+        self.assertEqual(captured["action"], "VALIDATE_SESSION")
+        self.assertEqual(captured["identifier"], "myuser")
+        self.assertEqual(captured["session_token"], "tok123")
+        self.assertEqual(captured["hwid"], client.hwid)
 
 
 class TestWANumberValidation(unittest.TestCase):

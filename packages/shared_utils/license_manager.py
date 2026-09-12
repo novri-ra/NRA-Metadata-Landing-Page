@@ -123,11 +123,13 @@ class AuthClient:
         return self._post(
             {
                 "action": "REGISTER",
+                "full_name": fullname,
                 "username": username,
-                "password": password,
                 "email": email,
-                "wa": wa,
-                "fullname": fullname,
+                "whatsapp": wa,
+                "password": password,
+                "hwid": self.hwid,
+                "ip": get_public_ip(),
             }
         )
 
@@ -136,7 +138,7 @@ class AuthClient:
         res = self._post(
             {
                 "action": "LOGIN",
-                "username": username,
+                "identifier": username,
                 "password": password,
                 "hwid": self.hwid,
                 "ip": get_public_ip(),
@@ -164,7 +166,7 @@ class AuthClient:
         res = self._post(
             {
                 "action": "VALIDATE_SESSION",
-                "username": self.username,
+                "identifier": self.username,
                 "session_token": self.session_token,
                 "hwid": self.hwid,
             }
