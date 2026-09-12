@@ -2,7 +2,7 @@ import csv
 import os
 import unittest
 
-from packages.ai_engine.service import normalize_base_url
+from backend.ai.provider_router import normalize_base_url
 from packages.shared_utils.cost_tracker import CostTracker
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.shared_utils.taxonomy import ADOBE_CATEGORY_MAP, get_adobe_category_code
@@ -136,7 +136,7 @@ class TestAdobeStockCsvExport(unittest.TestCase):
 
 class TestConfigPersistence(unittest.TestCase):
     def test_save_and_load_config(self):
-        from packages.shared_utils.config import load_config, save_config
+        from backend.core.config_manager import load_config, save_config
 
         payload = {
             "provider": "OpenAI",
@@ -325,9 +325,9 @@ class TestSanitizer(unittest.TestCase):
     def test_sanitize_ai_metadata(self):
         import subprocess
 
-        from packages.media_processor.embedder import MediaProcessor
+        from backend.processors.exiftool_client import ExifToolClient
 
-        processor = MediaProcessor()
+        processor = ExifToolClient()
 
         # Monkey patch subprocess.run to verify arguments
         captured_cmd = []

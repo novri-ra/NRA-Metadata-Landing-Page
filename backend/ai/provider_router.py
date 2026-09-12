@@ -1,17 +1,36 @@
-import base64
-import os
+"""Multi-provider AI routing for metadata generation.
+
+Extracted from ``packages/ai_engine/service.py``. Decoupled concerns:
+
+- ``provider_router``        — provider dispatch (Gemini/OpenAI/Mistral/Groq),
+  prompt construction, JSON parsing, fallback metadata, vision registry.
+- ``failover_handler``       — HTTP 429 detection, exponential backoff,
+  thread-safe key rotation & provider failover decisions.
+- ``token_optimizer``        — image resizing (max 1024px) & SVG text fallback.
+"""
+
 import json
+import os
+import re
 import time
 
 import requests
+from google import genai
+from openai import OpenAI
+from pydantic import BaseModel, Field
 
+from backend.ai.failover_handler import (
+    FailoverHandler,
+    detect_auth_failure,
+    detect_connection_refused,
+    detect_rate_limit,
+    detect_retryable,
+)
+from backend.ai.token_optimizer import encode_image, read_text_asset
 from packages.shared_utils.cost_tracker import CostTracker
 
 cost_tracker_inst = CostTracker()
 CostTracker_instance = CostTracker()
-from google import genai
-from openai import OpenAI
-from pydantic import BaseModel, Field
 
 from packages.shared_utils.tracker import tracker
 
@@ -50,24 +69,11 @@ class AIService:
         failover_providers: dict | None = None,
     ):
         self.provider = provider
-        self.failover_providers = (
-            failover_providers or {}
-        )  # {"Gemini": "key", "Groq": "key"}
-        self._failover_attempted = False
-        # Normalize to list
-        if isinstance(api_keys, str):
-            self.api_keys = [k.strip() for k in api_keys.splitlines() if k.strip()]
-            if not self.api_keys:
-                self.api_keys = [api_keys]
-        elif isinstance(api_keys, list):
-            self.api_keys = [k for k in api_keys if k and isinstance(k, str)]
-        else:
-            self.api_keys = []
-
-        if not self.api_keys:
-            self.api_keys = [""]
-
-        self.current_key_idx = 0
+        self.failover = FailoverHandler(
+            api_keys,
+            failover_providers=failover_providers,
+        )
+        self.failover.bind_provider(provider)
         self.model = model
         self.temperature = temperature
         self.base_url = None
@@ -75,7 +81,7 @@ class AIService:
 
     @property
     def api_key(self):
-        return self.api_keys[self.current_key_idx]
+        return self.failover.api_key()
 
     def _init_clients(self):
         if self.provider == "Gemini":
@@ -89,18 +95,6 @@ class AIService:
                 self.groq_client = groq.Groq(api_key=self.api_key)
             except ImportError:
                 self.groq_client = None
-
-    def _encode_image(self, image_path: str) -> str:
-        import io
-        from PIL import Image
-        with Image.open(image_path) as img:
-            img = img.convert("RGB")
-            # Token-saver pipeline: limit to 1024x1024
-            img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
-            buffer = io.BytesIO()
-            # Quality 85 for AI vision, saves massive payload size
-            img.save(buffer, format="JPEG", quality=85)
-            return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
     def generate_metadata(
         self,
@@ -153,8 +147,8 @@ class AIService:
             ".jpg"
         )
 
-        max_retries = 5
-        backoff_times = [2, 4, 8, 16, 32]
+        max_retries = self.failover.max_retries
+        backoff_times = self.failover.backoff_times
 
         _log(f"[{filename}] Sending vision prompt to {self.provider} | Model: {self.model or 'default'}...", "info")
 
@@ -162,9 +156,7 @@ class AIService:
             try:
                 if self.provider == "Gemini":
                     if is_text_fallback:
-                        with open(image_path, "r", encoding="utf-8") as f:
-                            svg_content = f.read()[:20000]
-                        contents = [prompt, f"SVG Content:\\n{svg_content}"]
+                        contents = [prompt, f"SVG Content:\\n{read_text_asset(image_path)}"]
                     else:
                         import PIL.Image
 
@@ -184,8 +176,6 @@ class AIService:
 
                 elif self.provider in ["OpenAI", "9router"]:
                     if is_text_fallback:
-                        with open(image_path, "r", encoding="utf-8") as f:
-                            svg_content = f.read()[:20000]
                         msgs = [
                             {
                                 "role": "system",
@@ -193,11 +183,11 @@ class AIService:
                             },
                             {
                                 "role": "user",
-                                "content": f"{prompt}\\n\\nSVG Content:\\n{svg_content}",
+                                "content": f"{prompt}\\n\\nSVG Content:\\n{read_text_asset(image_path)}",
                             },
                         ]
                     else:
-                        base64_image = self._encode_image(image_path)
+                        base64_image = encode_image(image_path)
                         msgs = [
                             {
                                 "role": "system",
@@ -230,11 +220,9 @@ class AIService:
 
                 elif self.provider == "Mistral":
                     if is_text_fallback:
-                        with open(image_path, "r", encoding="utf-8") as f:
-                            svg_content = f.read()[:20000]
-                        content = f"{prompt}\\n\\nSVG Content:\\n{svg_content}"
+                        content = f"{prompt}\\n\\nSVG Content:\\n{read_text_asset(image_path)}"
                     else:
-                        base64_image = self._encode_image(image_path)
+                        base64_image = encode_image(image_path)
                         content = [
                             {"type": "text", "text": prompt},
                             {
@@ -273,8 +261,6 @@ class AIService:
 
                 elif self.provider == "Groq":
                     if is_text_fallback:
-                        with open(image_path, "r", encoding="utf-8") as f:
-                            svg_content = f.read()[:20000]
                         msgs = [
                             {
                                 "role": "system",
@@ -282,11 +268,11 @@ class AIService:
                             },
                             {
                                 "role": "user",
-                                "content": f"{prompt}\\n\\nSVG Content:\\n{svg_content}",
+                                "content": f"{prompt}\\n\\nSVG Content:\\n{read_text_asset(image_path)}",
                             },
                         ]
                     else:
-                        base64_image = self._encode_image(image_path)
+                        base64_image = encode_image(image_path)
                         msgs = [
                             {
                                 "role": "system",
@@ -316,77 +302,47 @@ class AIService:
             except (OSError, ValueError, KeyError, RuntimeError) as e:
                 err_str = str(e)
                 _log(f"[{filename}] {self.provider} error: {err_str}", "error")
-                if (
-                    "ConnectionRefused" in err_str
-                    or "ConnectError" in err_str
-                    or "Failed to connect" in err_str
-                    or "ECONNREFUSED" in err_str
-                ):
+                if detect_connection_refused(err_str):
                     print(
                         f"[ERROR] Connection refused to endpoint {self.base_url or 'API'}. Ensure server/proxy is active."
                     )
                     is_retryable = True
                 else:
-                    is_retryable = (
-                        "429" in err_str
-                        or "500" in err_str
-                        or "502" in err_str
-                        or "503" in err_str
-                        or "504" in err_str
-                        or "timeout" in err_str.lower()
-                        or "connection" in err_str.lower()
-                        or "JSON Parse Error" in err_str
-                    )
+                    is_retryable = detect_retryable(err_str)
 
                 # Check for Rate Limit / Quota / Invalid Key -> Rotate Key
-                if (
-                    "429" in err_str
-                    or "quota" in err_str.lower()
-                    or "exhausted" in err_str.lower()
-                    or "401" in err_str
-                    or "invalid_api_key" in err_str.lower()
-                    or "authentication" in err_str.lower()
-                    or "403" in err_str
-                ):
+                if detect_rate_limit(err_str) or detect_auth_failure(err_str):
                     if "429" in err_str:
                         delay = backoff_times[attempt] if attempt < len(backoff_times) else 30
                         _log(f"[{filename}] Rate limit (429) on {self.provider}/{self.model or 'default'}. Delaying {delay}s (Attempt {attempt+1}/{max_retries})...", "warn")
                         time.sleep(delay)
 
-                    if len(self.api_keys) > 1:
+                    if self.failover.keyring.size() > 1:
                         _log(
-                            f"[{filename}] API Key #{self.current_key_idx + 1} exhausted on {self.provider}. Rotating to next key...", "warn"
+                            f"[{filename}] API Key #{self.failover.keyring.index() + 1} exhausted on {self.provider}. Rotating to next key...", "warn"
                         )
-                        self.current_key_idx = (self.current_key_idx + 1) % len(
-                            self.api_keys
-                        )
+                        self.failover.rotate_key()
                         self._init_clients()  # re-init clients with new key
                         if attempt < max_retries:
                             continue  # retry immediately with new key
 
-                    if (
-                        "401" in err_str
-                        or "invalid_api_key" in err_str.lower()
-                        or "authentication" in err_str.lower()
-                    ) and (len(self.api_keys) <= 1 or attempt >= max_retries):
+                    if detect_auth_failure(err_str) and (
+                        self.failover.keyring.size() <= 1 or attempt >= max_retries
+                    ):
                         # Try failover to another provider
-                        if not self._failover_attempted and self.failover_providers:
+                        if not self.failover.failover_attempted and self.failover.has_failovers():
                             for (
                                 alt_provider,
                                 alt_key,
-                            ) in self.failover_providers.items():
+                            ) in self.failover.failover_providers.items():
                                 if alt_key and alt_provider != self.provider:
                                     print(
                                         f"[FAILOVER] {self.provider} auth failed. Switching to {alt_provider}..."
                                     )
-                                    self._failover_attempted = True
+                                    self.failover.mark_failover_attempted()
                                     self.provider = alt_provider
-                                    self.api_keys = (
-                                        [alt_key]
-                                        if isinstance(alt_key, str)
-                                        else alt_key
-                                    )
-                                    self.current_key_idx = 0
+                                    self.failover.bind_provider(alt_provider)
+                                    self.failover.replace_keys(alt_key)
                                     self._init_clients()
                                     break
                             else:
@@ -410,21 +366,19 @@ class AIService:
                 else:
                     # Last chance: try provider failover if 429 exhausted all retries
                     if (
-                        "429" in err_str
-                        and not self._failover_attempted
-                        and self.failover_providers
+                        detect_rate_limit(err_str)
+                        and not self.failover.failover_attempted
+                        and self.failover.has_failovers()
                     ):
-                        for alt_provider, alt_key in self.failover_providers.items():
+                        for alt_provider, alt_key in self.failover.failover_providers.items():
                             if alt_key and alt_provider != self.provider:
                                 print(
                                     f"[FAILOVER] {self.provider} rate-limited (429). Switching to {alt_provider}..."
                                 )
-                                self._failover_attempted = True
+                                self.failover.mark_failover_attempted()
                                 self.provider = alt_provider
-                                self.api_keys = (
-                                    [alt_key] if isinstance(alt_key, str) else alt_key
-                                )
-                                self.current_key_idx = 0
+                                self.failover.bind_provider(alt_provider)
+                                self.failover.replace_keys(alt_key)
                                 self._init_clients()
                                 return self.generate_metadata(
                                     image_path,
@@ -440,9 +394,6 @@ class AIService:
         return self._fallback_metadata(error_details="Max retries exhausted")
 
     def _parse_json(self, text: str) -> dict:
-        import json
-        import re
-
         parsed = None
         try:
             start = text.find("{")

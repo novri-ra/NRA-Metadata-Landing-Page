@@ -1,25 +1,27 @@
 import os
-import shutil
 import sys
 import threading
 import time
 import tkinter as tk
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 
 import customtkinter as ctk
-from PIL import Image
 
-from packages.ai_engine.service import AIService
-from packages.media_processor.embedder import MediaProcessor
-from packages.media_processor.previews import extract_preview_image
-from packages.shared_utils.cache import (
+from backend.core.config_manager import (
     get_cache_hits,
     get_cached_metadata,
     get_file_hash,
+    load_config,
+    save_config,
     set_cached_metadata,
 )
-from packages.shared_utils.config import load_config, save_config
+from backend.core.worker_pool import (
+    FileWorkerPool,
+    find_companion_files,
+    sync_companion_metadata,
+)
+from backend.processors.exiftool_client import ExifToolClient
+from backend.processors.media_converter import extract_preview_image
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.shared_utils.tools_setup import ensure_tools_installed
 from packages.shared_utils.env_check import run_environment_checks
@@ -27,7 +29,6 @@ from packages.shared_utils.filter import (
     add_to_blacklist,
     autofix_compliance,
     calculate_quality_score,
-    clean_metadata,
     detect_redundant_keywords,
     get_blacklist,
     lowercase_keywords,
@@ -43,7 +44,6 @@ from packages.shared_utils.filter import (
 )
 from packages.shared_utils.ftp_uploader import FTPClient
 from packages.shared_utils.license_manager import AuthClient
-from packages.shared_utils.logger import CSVLogger
 from packages.shared_utils.presets import delete_preset as delete_kw_preset
 from packages.shared_utils.presets import (
     export_presets,
@@ -88,7 +88,17 @@ class AppWindow(ctk.CTk):
         )
         self.output_dir = ctk.StringVar()
 
-        self.processor = MediaProcessor()
+        self.processor = ExifToolClient()
+        self.pool = FileWorkerPool(
+            {
+                "log": self.log,
+                "stats": self._on_pool_stats,
+                "progress": lambda v: self.after(0, self.progress_bar.set, v),
+                "preview": self._on_pool_preview,
+                "batch_complete": self._on_batch_complete,
+                "finished": self._on_pool_finished,
+            }
+        )
         self.stats = {"total": 0, "success": 0, "error": 0}
         self.current_preview_img = None
         self.processed_files = set()
@@ -100,10 +110,6 @@ class AppWindow(ctk.CTk):
             "csvs": [],
             "tokens_est": 0,
         }
-        self.is_running = False
-        self.pause_event = threading.Event()
-        self.pause_event.set()
-        self.cancel_flag = False
 
         self.current_edit_file = None
         self.current_edit_hash = None
@@ -1234,9 +1240,9 @@ class AppWindow(ctk.CTk):
             self._load_custom_presets()
             self.preset_cb.set("Default")
 
-    def update_stats(self, key):
+    def _on_pool_stats(self, stats, running):
         def _update():
-            self.stats[key] += 1
+            self.stats = dict(stats)
             self.stats_lbl.configure(
                 text=f"Total: {self.stats['total']}  ·  Success: {self.stats['success']}  ·  Error: {self.stats['error']}"
             )
@@ -1245,7 +1251,7 @@ class AppWindow(ctk.CTk):
             )
 
             # Update header status
-            if self.is_running:
+            if running:
                 done = self.stats["success"] + self.stats["error"]
                 self.header_status.configure(
                     text=f"Processing {done}/{self.stats['total']}",
@@ -1255,6 +1261,13 @@ class AppWindow(ctk.CTk):
                 self.header_status.configure(text="Ready", text_color=C["text3"])
 
         self.after(0, _update)
+
+    def _on_pool_preview(self, img, status_text, status_tag, meta, out_path, file_hash):
+        color_map = {"cache": C["violet"], "api": C["warn"], "success": C["success"]}
+        status_color = color_map.get(status_tag, C["warn"])
+        self.update_preview(
+            img, status_text, status_color, meta, out_path, file_hash
+        )
 
     def update_preview(
         self,
@@ -1364,12 +1377,12 @@ class AppWindow(ctk.CTk):
             self.config["window_geometry"] = self.geometry()
         except (tk.TclError, ValueError):
             pass
-        from packages.shared_utils.config import save_config
+        from backend.core.config_manager import save_config
 
         save_config(self.config)
 
     def _on_close(self):
-        self.cancel_flag = True
+        self.pool.cancel()
         self._save_current_config()
         self.destroy()
         import os
@@ -1432,7 +1445,7 @@ class AppWindow(ctk.CTk):
         self.update_idletasks()
 
         def _bg_fetch():
-            from packages.ai_engine.service import AIService
+            from backend.ai.provider_router import AIService
 
             ai = AIService(provider, api_key)
             models = ai.fetch_available_models()
@@ -1750,44 +1763,24 @@ class AppWindow(ctk.CTk):
                 text="\u2713 All checks passed", text_color=C["success"]
             )
 
-    def _get_companion_files(self, file_path):
-        """Find files with same base name but different extensions in the same folder."""
-        if not file_path or not os.path.exists(file_path):
-            return []
-        folder = os.path.dirname(file_path)
-        base = os.path.splitext(os.path.basename(file_path))[0]
-        companions = []
-        for f in os.listdir(folder):
-            f_base = os.path.splitext(f)[0]
-            f_path = os.path.join(folder, f)
-            if f_base == base and f_path != file_path and os.path.isfile(f_path):
-                companions.append(f_path)
-        return companions
-
     def _sync_to_companions(self, file_path, title, desc, kws):
         """Embed metadata to all companion files with the same base name."""
-        companions = self._get_companion_files(file_path)
-        if not companions:
-            return 0
-        count = 0
-        copyright_text = self._get_copyright_text()
-        author = self.author_entry.get().strip()
-        for comp in companions:
-            comp_hash = get_file_hash(comp)
-            meta = {"title": title, "description": desc, "keywords": kws}
-            set_cached_metadata(comp_hash, meta)
-            if self.processor.embed_metadata(
-                comp, title, desc, kws, copyright_text, author
-            ):
-                count += 1
-        return count
+        return sync_companion_metadata(
+            file_path,
+            title,
+            desc,
+            kws,
+            self.processor,
+            self._get_copyright_text(),
+            self.author_entry.get().strip(),
+        )
 
     def _update_variant_badge(self):
         """Update the variant badge showing companion file count."""
         if not self.current_edit_file:
             self.variant_badge.configure(text="")
             return
-        companions = self._get_companion_files(self.current_edit_file)
+        companions = find_companion_files(self.current_edit_file)
         if companions:
             exts = [
                 os.path.splitext(os.path.basename(c))[1].upper().lstrip(".")
@@ -2024,7 +2017,7 @@ class AppWindow(ctk.CTk):
     def _watcher_loop(self):
         while True:
             time.sleep(3)
-            if self.auto_watch.get() and not self.is_running:
+            if self.auto_watch.get() and not self.pool.is_running:
                 in_dir = self.input_dir.get()
                 if in_dir and os.path.isdir(in_dir):
                     files = [
@@ -2037,179 +2030,23 @@ class AppWindow(ctk.CTk):
                         self.after(0, lambda: self.start_processing(new_only=True))
 
     def toggle_pause(self):
-        if self.pause_event.is_set():
-            self.pause_event.clear()
+        if self.pool.toggle_pause():
             self.pause_btn.configure(
                 text="Resume", fg_color=C["success"], hover_color=C["success_h"]
             )
             self.log("Batch PAUSED.", "info")
         else:
-            self.pause_event.set()
             self.pause_btn.configure(
                 text="Pause", fg_color=C["warn"], hover_color=C["warn_h"]
             )
             self.log("Batch RESUMED.", "info")
 
     def cancel_batch(self):
-        if self.is_running:
-            self.cancel_flag = True
-            self.pause_event.set()
+        if self.pool.is_running:
+            self.pool.cancel()
             self.log("Canceling batch... finishing current active files.", "error")
             self.pause_btn.configure(state="disabled")
             self.cancel_btn.configure(state="disabled")
-
-    def process_file(
-        self,
-        file_path,
-        out_dir,
-        ai,
-        min_kw,
-        max_kw,
-        style_preset,
-        extra_prompt,
-        csv_logger,
-    ):
-        self.pause_event.wait()
-        if self.cancel_flag:
-            return
-
-        name = os.path.basename(file_path)
-        name = os.path.basename(file_path)
-        self.log(f"[{name}] Starting processing pipeline...", "processing")
-
-        def log_cb(msg, lvl="info"):
-            self.log(msg, lvl)
-
-        preview = extract_preview_image(file_path, self.processor, progress_callback=log_cb)
-        if not preview:
-            self.update_stats("error")
-            return
-
-        file_hash = get_file_hash(preview)
-        cached = get_cached_metadata(file_hash)
-
-        if cached:
-            self.log(f"[{name}] [CACHE HIT] Metadata loaded from cache.", "cache")
-            meta = cached
-            status, color = "CACHE", C["violet"]
-        else:
-            meta = ai.generate_metadata(
-                preview,
-                min_kw,
-                max_kw,
-                style_preset,
-                extra_prompt,
-                log_callback=log_cb
-            )
-
-            if meta.get("is_fallback") or meta.get("error"):
-                err_detail = meta.get("error_details", "fallback rejected")
-                self.log(
-                    f"[{name}] AI generation failed: {err_detail}",
-                    "error",
-                )
-                self.update_stats("error")
-                # Clean up preview since we're aborting
-                try:
-                    os.remove(preview)
-                except OSError:
-                    pass
-                return
-
-            set_cached_metadata(file_hash, meta)
-            self.log(f"[{name}] Generated: Title='{meta.get('title', '')[:30]}...' | {len(meta.get('keywords', []))} Keywords", "success")
-            status, color = "API", C["warn"]
-
-            # Inject mandatory custom keywords on first API generation
-            custom_kws_raw = self.config.get("custom_kw", "")
-            if custom_kws_raw.strip():
-                custom_kws = [k.strip() for k in custom_kws_raw.split(",") if k.strip()]
-                # remove any exact overlaps in AI response
-                ai_kws = [
-                    k
-                    for k in meta.get("keywords", [])
-                    if k.lower() not in [ck.lower() for ck in custom_kws]
-                ]
-
-                pos = self.config.get("custom_kw_pos", "Start (Priority)")
-                if pos == "Start (Priority)":
-                    merged_kws = custom_kws + ai_kws
-                else:
-                    merged_kws = ai_kws + custom_kws
-                meta["keywords"] = merged_kws
-
-        try:
-            with Image.open(preview) as opened_img:
-                img = opened_img.copy()
-                img.thumbnail((300, 300), Image.Resampling.LANCZOS)
-        except (OSError, ValueError):
-            img = None
-
-        try:
-            os.remove(preview)
-        except OSError:
-            pass
-
-        meta = clean_metadata(meta, max_kw)
-
-        base_name = os.path.splitext(name)[0]
-        final_path = os.path.join(out_dir, name)
-        shutil.move(file_path, final_path)
-
-        title, desc, keywords = (
-            meta.get("title", ""),
-            meta.get("description", ""),
-            meta.get("keywords", []),
-        )
-
-        if img:
-            self.update_preview(img, status, color, meta, final_path, file_hash)
-
-        if self.processor.embed_metadata(
-            final_path,
-            title,
-            desc,
-            keywords,
-            self._get_copyright_text(),
-            self.author_entry.get().strip(),
-        ):
-            self.log(f"[{name}] File completed and saved. ({len(keywords)} kw)", "success")
-
-
-            if self.sync_companions.get():
-                synced = self._sync_to_companions(final_path, title, desc, keywords)
-                if synced > 0:
-                    self.log(
-                        f"  └─ Synced metadata to {synced} companion file(s)", "info"
-                    )
-
-            csv_logger.log(name, title, desc, keywords)
-
-            if (
-                getattr(self, "auto_zip", None)
-                and self.auto_zip.get()
-                and name.lower().endswith((".svg", ".eps"))
-            ):
-                import zipfile
-
-                jpg_path = os.path.join(out_dir, base_name + ".jpg")
-                if img:
-                    try:
-                        img.convert("RGB").save(jpg_path, "JPEG", quality=95)
-                    except OSError:
-                        pass
-                zip_path = os.path.join(out_dir, base_name + ".zip")
-                try:
-                    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-                        zf.write(final_path, arcname=name)
-                        if os.path.exists(jpg_path):
-                            zf.write(jpg_path, arcname=base_name + ".jpg")
-                except OSError:
-                    pass
-
-        else:
-            self.log(f"[{name}] ExifTool metadata embedding failed.", "error")
-            self.update_stats("error")
 
     def start_offline_retag(self):
         csv_path = ctk.filedialog.askopenfilename(
@@ -2295,7 +2132,7 @@ class AppWindow(ctk.CTk):
                 success += 1
 
                 # Sync UI with the imported metadata for the inspector
-                preview_img = extract_preview_image(asset_path, self.processor)
+                preview_img = extract_preview_image(asset_path)
                 if preview_img:
                     self.update_preview(
                         preview_img,
@@ -2315,7 +2152,7 @@ class AppWindow(ctk.CTk):
         self.after(0, lambda: self.start_btn.configure(state="normal"))
 
     def start_processing(self, new_only=False):
-        if self.is_running:
+        if self.pool.is_running:
             return
 
         if not self.tools_ready:
@@ -2363,110 +2200,45 @@ class AppWindow(ctk.CTk):
             return self.log("No new files." if new_only else "No files.", "error")
         self.processed_files.update(files)
 
-        self.is_running = True
-        self.batch_session_stats = {
-            "processed": 0,
-            "skipped": skipped_count,
-            "cost": self.batch_session_stats.get("cost", 0),
-            "tokens_est": 0,
-            "csvs": [],
-        }
-        self.cancel_flag = False
-        self.pause_event.set()
         self.pause_btn.configure(
             text="Pause", fg_color=C["warn"], hover_color=C["warn_h"], state="normal"
         )
         self.cancel_btn.configure(state="normal")
-
         self.start_btn.configure(state="disabled")
         self.progress_bar.set(0)
-        self.stats = {"total": len(files), "success": 0, "error": 0}
-        self.update_stats("total")
-        self.stats["total"] = len(files)
 
-        self.header_status.configure(
-            text=f"Processing 0/{len(files)}", text_color=C["warn"]
-        )
-
-        paths = [os.path.join(in_dir, f) for f in files]
-        threading.Thread(
-            target=self._run_batch, args=(paths, out_dir), daemon=True
-        ).start()
-
-    def _run_batch(self, paths, out_dir):
-        provider = self.config.get("provider", "Gemini")
-        api_keys_dict = self.config.get("api_keys", {})
-        api_key = api_keys_dict.get(provider, "")
-        # Build failover dict from other configured providers
-        failover_providers = {
-            p: k for p, k in api_keys_dict.items() if p != provider and k
+        options = {
+            "provider": self.config.get("provider", "Gemini"),
+            "api_keys": self.config.get("api_keys", {}),
+            "model": self.config.get("model", "") or "Gemini",
+            "temperature": self.config.get("temperature", 0.3),
+            "min_kw": self.config["min_kw"],
+            "max_kw": self.config["max_kw"],
+            "style_preset": self.config["style_preset"],
+            "extra_prompt": self.config.get("extra_prompt", ""),
+            "custom_kw": self.config.get("custom_kw", ""),
+            "custom_kw_pos": self.config.get("custom_kw_pos", "Start (Priority)"),
+            "copyright": self._get_copyright_text(),
+            "author": self.author_entry.get().strip(),
+            "sync_companions": self.sync_companions.get(),
+            "auto_zip": bool(
+                getattr(self, "auto_zip", None) and self.auto_zip.get()
+            ),
+            "csv_platforms": self._get_selected_csv_platforms(),
+            "workers": max(1, int(self.workers_slider.get())),
+            "skipped_count": skipped_count,
         }
-        raw_model = self.config.get("model") or "Gemini"
-        ai = AIService(
-            provider,
-            api_key,
-            raw_model.split(" ")[0],
-            self.config.get("temperature", 0.3),
-            failover_providers=failover_providers,
-        )
-        processed_dir = os.path.join(out_dir, "Processed Assets")
-        csv_dir = os.path.join(out_dir, "Metadata CSV")
-        os.makedirs(processed_dir, exist_ok=True)
-        os.makedirs(csv_dir, exist_ok=True)
+        paths = [os.path.join(in_dir, f) for f in files]
+        self.pool.start(paths, out_dir, options)
 
-        csv_logger = CSVLogger(os.path.join(csv_dir, "metadata_output.csv"))
+    def _on_batch_complete(self, summary):
+        self.batch_session_stats.update(summary)
+        self.after(0, lambda: self._show_batch_summary())
 
-        max_w = max(1, int(self.workers_slider.get()))
-        total = len(paths)
-        with ThreadPoolExecutor(max_workers=max_w) as executor:
-            futures = {
-                executor.submit(
-                    self.process_file,
-                    f,
-                    processed_dir,
-                    ai,
-                    self.config["min_kw"],
-                    self.config["max_kw"],
-                    self.config["style_preset"],
-                    self.config.get("extra_prompt", ""),
-                    csv_logger,
-                ): f
-                for f in paths
-            }
-            for i, future in enumerate(as_completed(futures), 1):
-                future.result()
-                if not self.cancel_flag:
-                    self.after(0, self.progress_bar.set, i / total)
-
-        if self.cancel_flag:
-            self.log("Batch CANCELED.", "error")
-        else:
-            self.log("Batch complete. Generating exports...", "info")
-            generate_microstock_csvs(csv_dir, self._get_selected_csv_platforms())
-
-            # Collect generated CSV list
-            csv_files = [
-                f
-                for f in os.listdir(csv_dir)
-                if f.endswith("_export.csv") or f == "metadata_output.csv"
-            ]
-            cost_delta = (
-                self.batch_session_stats.get("cost", 0)
-                - self.batch_session_stats["cost"]
-            )
-            self.batch_session_stats.update(
-                {
-                    "processed": self.stats["success"],
-                    "errors": self.stats["error"],
-                    "cost": cost_delta,
-                    "tokens_est": int(cost_delta / 0.002 * 1000)
-                    if cost_delta > 0
-                    else 0,
-                    "csvs": csv_files,
-                    "out_dir": csv_dir,
-                }
-            )
-            self.after(0, lambda: self._show_batch_summary())
+    def _on_pool_finished(self):
+        self.start_btn.configure(state="normal")
+        self.pause_btn.configure(state="normal")
+        self.cancel_btn.configure(state="normal")
 
     def _show_batch_summary(self):
         """Show batch processing summary dialog."""

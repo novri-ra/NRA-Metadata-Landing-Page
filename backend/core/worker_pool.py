@@ -1,0 +1,351 @@
+"""File worker pool: queue management, concurrency control, and batch state.
+
+Extracted from ``apps/desktop/src/ui/main_window.py`` so the UI layer no
+longer owns threading. The pool communicates with the UI exclusively through
+thread-safe callbacks (log/progress/stats/preview/batch-complete/finished);
+callers must marshal any Tk widget access onto the main thread via ``after``.
+"""
+
+import os
+import shutil
+import threading
+import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from PIL import Image
+
+from backend.ai.provider_router import AIService
+from backend.core.config_manager import (
+    get_cached_metadata,
+    get_file_hash,
+    set_cached_metadata,
+)
+from backend.processors.exiftool_client import ExifToolClient
+from backend.processors.media_converter import extract_preview_image
+from packages.shared_utils.csv_exporter import generate_microstock_csvs
+from packages.shared_utils.filter import clean_metadata
+from packages.shared_utils.logger import CSVLogger
+
+
+def find_companion_files(file_path):
+    """Find files with same base name but different extensions in the same folder."""
+    if not file_path or not os.path.exists(file_path):
+        return []
+    folder = os.path.dirname(file_path)
+    base = os.path.splitext(os.path.basename(file_path))[0]
+    companions = []
+    for f in os.listdir(folder):
+        f_base = os.path.splitext(f)[0]
+        f_path = os.path.join(folder, f)
+        if f_base == base and f_path != file_path and os.path.isfile(f_path):
+            companions.append(f_path)
+    return companions
+
+
+def sync_companion_metadata(file_path, title, desc, kws, processor, copyright_text, author):
+    """Embed metadata to all companion files with the same base name. Returns count."""
+    companions = find_companion_files(file_path)
+    if not companions:
+        return 0
+    count = 0
+    for comp in companions:
+        comp_hash = get_file_hash(comp)
+        meta = {"title": title, "description": desc, "keywords": kws}
+        set_cached_metadata(comp_hash, meta)
+        if processor.embed_metadata(comp, title, desc, kws, copyright_text, author):
+            count += 1
+    return count
+
+
+class FileWorkerPool:
+    def __init__(self, callbacks: dict | None = None):
+        self.callbacks = callbacks or {}
+        self.is_running = False
+        self.pause_event = threading.Event()
+        self.pause_event.set()
+        self.cancel_flag = False
+        self.stats = {"total": 0, "success": 0, "error": 0}
+        self.session_stats = {
+            "processed": 0,
+            "skipped": 0,
+            "cost": 0.0,
+            "csvs": [],
+            "tokens_est": 0,
+        }
+        self.processor = ExifToolClient()
+        self._lock = threading.Lock()
+        self._executor = None
+
+    def _emit(self, name: str, *args):
+        cb = self.callbacks.get(name)
+        if cb:
+            cb(*args)
+
+    def _inc_stat(self, key: str):
+        with self._lock:
+            self.stats[key] += 1
+        self._emit("stats", self.stats_snapshot(), self.is_running)
+
+    def stats_snapshot(self) -> dict:
+        return dict(self.stats)
+
+    def start(self, paths, in_dir, options) -> bool:
+        """Begin the batch in a background thread. Returns False if already running."""
+        if self.is_running:
+            return False
+        self.is_running = True
+        self.cancel_flag = False
+        self.pause_event.set()
+        self.stats = {"total": len(paths), "success": 0, "error": 0}
+        self.session_stats = {
+            "processed": 0,
+            "skipped": options.get("skipped_count", 0),
+            "cost": self.session_stats.get("cost", 0),
+            "tokens_est": 0,
+            "csvs": [],
+        }
+        self._emit("stats", self.stats_snapshot(), True)
+        threading.Thread(
+            target=self._run_batch, args=(paths, in_dir, options), daemon=True
+        ).start()
+        return True
+
+    def toggle_pause(self) -> bool:
+        """Return True if the pool is now paused."""
+        if self.pause_event.is_set():
+            self.pause_event.clear()
+            return True
+        self.pause_event.set()
+        return False
+
+    def cancel(self):
+        self.cancel_flag = True
+        self.pause_event.set()
+
+    def _run_batch(self, paths, out_dir, options):
+        provider = options.get("provider", "Gemini")
+        api_keys_dict = options.get("api_keys", {})
+        api_key = api_keys_dict.get(provider, "")
+        # Build failover dict from other configured providers
+        failover_providers = {
+            p: k for p, k in api_keys_dict.items() if p != provider and k
+        }
+        raw_model = options.get("model") or "Gemini"
+        ai = AIService(
+            provider,
+            api_key,
+            raw_model.split(" ")[0],
+            options.get("temperature", 0.3),
+            failover_providers=failover_providers,
+        )
+        processed_dir = os.path.join(out_dir, "Processed Assets")
+        csv_dir = os.path.join(out_dir, "Metadata CSV")
+        os.makedirs(processed_dir, exist_ok=True)
+        os.makedirs(csv_dir, exist_ok=True)
+
+        csv_logger = CSVLogger(os.path.join(csv_dir, "metadata_output.csv"))
+
+        max_w = max(1, int(options.get("workers", 2)))
+        total = len(paths)
+
+        def submit(f):
+            return self._executor.submit(
+                self._process_file, f, processed_dir, ai, options, csv_logger
+            )
+
+        with ThreadPoolExecutor(max_workers=max_w) as executor:
+            self._executor = executor
+            futures = {submit(f): f for f in paths}
+            for i, future in enumerate(as_completed(futures), 1):
+                future.result()
+                if not self.cancel_flag:
+                    self._emit("progress", i / total)
+            self._executor = None
+
+        if self.cancel_flag:
+            self._emit("log", "Batch CANCELED.", "error")
+        else:
+            self._emit("log", "Batch complete. Generating exports...", "info")
+            generate_microstock_csvs(csv_dir, options.get("csv_platforms", set()))
+
+            # Collect generated CSV list
+            csv_files = [
+                f
+                for f in os.listdir(csv_dir)
+                if f.endswith("_export.csv") or f == "metadata_output.csv"
+            ]
+            cost_delta = self.session_stats.get("cost", 0) - self.session_stats["cost"]
+            summary = {
+                "processed": self.stats["success"],
+                "errors": self.stats["error"],
+                "cost": cost_delta,
+                "tokens_est": int(cost_delta / 0.002 * 1000)
+                if cost_delta > 0
+                else 0,
+                "csvs": csv_files,
+                "out_dir": csv_dir,
+                "skipped": self.session_stats.get("skipped", 0),
+            }
+            self.session_stats.update(summary)
+            self._emit("batch_complete", summary)
+
+        self.is_running = False
+        self._emit("stats", self.stats_snapshot(), False)
+        self._emit("finished")
+
+    def _process_file(self, file_path, out_dir, ai, options, csv_logger):
+        self.pause_event.wait()
+        if self.cancel_flag:
+            return
+
+        name = os.path.basename(file_path)
+        self._emit("log", f"[{name}] Starting processing pipeline...", "processing")
+
+        def log_cb(msg, lvl="info"):
+            self._emit("log", msg, lvl)
+
+        preview = extract_preview_image(file_path, progress_callback=log_cb)
+        if not preview:
+            self._inc_stat("error")
+            return
+
+        file_hash = get_file_hash(preview)
+        cached = get_cached_metadata(file_hash)
+
+        if cached:
+            self._emit("log", f"[{name}] [CACHE HIT] Metadata loaded from cache.", "cache")
+            meta = cached
+            status, tag = "CACHE", "cache"
+        else:
+            meta = ai.generate_metadata(
+                preview,
+                options["min_kw"],
+                options["max_kw"],
+                options["style_preset"],
+                options.get("extra_prompt", ""),
+                log_callback=log_cb,
+            )
+
+            if meta.get("is_fallback") or meta.get("error"):
+                err_detail = meta.get("error_details", "fallback rejected")
+                self._emit(
+                    "log",
+                    f"[{name}] AI generation failed: {err_detail}",
+                    "error",
+                )
+                self._inc_stat("error")
+                # Clean up preview since we're aborting
+                try:
+                    os.remove(preview)
+                except OSError:
+                    pass
+                return
+
+            set_cached_metadata(file_hash, meta)
+            self._emit(
+                "log",
+                f"[{name}] Generated: Title='{meta.get('title', '')[:30]}...' | {len(meta.get('keywords', []))} Keywords",
+                "success",
+            )
+            status, tag = "API", "api"
+
+            # Inject mandatory custom keywords on first API generation
+            custom_kws_raw = options.get("custom_kw", "")
+            if custom_kws_raw.strip():
+                custom_kws = [k.strip() for k in custom_kws_raw.split(",") if k.strip()]
+                # remove any exact overlaps in AI response
+                ai_kws = [
+                    k
+                    for k in meta.get("keywords", [])
+                    if k.lower() not in [ck.lower() for ck in custom_kws]
+                ]
+
+                pos = options.get("custom_kw_pos", "Start (Priority)")
+                if pos == "Start (Priority)":
+                    merged_kws = custom_kws + ai_kws
+                else:
+                    merged_kws = ai_kws + custom_kws
+                meta["keywords"] = merged_kws
+
+        try:
+            with Image.open(preview) as opened_img:
+                img = opened_img.copy()
+                img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+        except (OSError, ValueError):
+            img = None
+
+        try:
+            os.remove(preview)
+        except OSError:
+            pass
+
+        max_kw = options["max_kw"]
+        meta = clean_metadata(meta, max_kw)
+
+        base_name = os.path.splitext(name)[0]
+        final_path = os.path.join(out_dir, name)
+        shutil.move(file_path, final_path)
+
+        title, desc, keywords = (
+            meta.get("title", ""),
+            meta.get("description", ""),
+            meta.get("keywords", []),
+        )
+
+        if img:
+            self._emit(
+                "preview", img, status, tag, meta, final_path, file_hash
+            )
+
+        if self.processor.embed_metadata(
+            final_path,
+            title,
+            desc,
+            keywords,
+            options.get("copyright", ""),
+            options.get("author", ""),
+        ):
+            self._emit("log", f"[{name}] File completed and saved. ({len(keywords)} kw)", "success")
+            self._inc_stat("success")
+
+            if options.get("sync_companions"):
+                synced = sync_companion_metadata(
+                    final_path,
+                    title,
+                    desc,
+                    keywords,
+                    self.processor,
+                    options.get("copyright", ""),
+                    options.get("author", ""),
+                )
+                if synced > 0:
+                    self._emit(
+                        "log",
+                        f"  └─ Synced metadata to {synced} companion file(s)",
+                        "info",
+                    )
+
+            csv_logger.log(name, title, desc, keywords)
+
+            if (
+                options.get("auto_zip")
+                and name.lower().endswith((".svg", ".eps"))
+            ):
+                jpg_path = os.path.join(out_dir, base_name + ".jpg")
+                if img:
+                    try:
+                        img.convert("RGB").save(jpg_path, "JPEG", quality=95)
+                    except OSError:
+                        pass
+                zip_path = os.path.join(out_dir, base_name + ".zip")
+                try:
+                    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                        zf.write(final_path, arcname=name)
+                        if os.path.exists(jpg_path):
+                            zf.write(jpg_path, arcname=base_name + ".jpg")
+                except OSError:
+                    pass
+
+        else:
+            self._emit("log", f"[{name}] ExifTool metadata embedding failed.", "error")
+            self._inc_stat("error")

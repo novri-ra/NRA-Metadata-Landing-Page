@@ -4,7 +4,7 @@ import sys
 # Ensure packages can be found
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from packages.shared_utils.config import (
+from backend.core.config_manager import (
     CONFIG_FILE,
     CONFIG_FILE_ENC,
     load_config,

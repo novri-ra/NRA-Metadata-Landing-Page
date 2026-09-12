@@ -1,60 +1,21 @@
+"""ExifTool client for embedding IPTC/XMP metadata and stripping AI provenance.
+
+Extracted from ``packages/media_processor/embedder.py``; the class was renamed
+``MediaProcessor`` -> ``ExifToolClient``. Tool resolution lives in
+``backend.processors._tools``.
+"""
+
 import os
 import subprocess
-import sys
-import threading
 import xml.etree.ElementTree as ET
-from datetime import UTC, datetime
 
-_fail_log_lock = threading.Lock()
-
-
-def log_failed_file(working_dir: str, filename: str, reason: str):
-    with _fail_log_lock:
-        log_path = os.path.join(working_dir, "failed_files.log")
-        ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
-        with open(log_path, "a", encoding="utf-8") as f:
-            f.write(f"[{ts}] {filename}: {reason}\n")
+from backend.processors._tools import get_tool_path, log_failed_file
 
 
-class MediaProcessor:
-    def get_base_path(self) -> str:
-        if getattr(sys, "frozen", False):
-            return sys._MEIPASS
-        return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-
-    def get_tool_path(self, tool_name: str) -> str:
-        base = self.get_base_path()
-        if sys.platform == "win32":
-            exe_map = {
-                "exiftool": "exiftool.exe",
-                "ghostscript": "gswin64c.exe",
-                "ffmpeg": "ffmpeg.exe",
-            }
-            exe_name = exe_map.get(tool_name, f"{tool_name}.exe")
-            tools_root = os.path.join(base, "tools")
-            tool_subdir = os.path.join(tools_root, tool_name)
-            if os.path.isdir(tool_subdir):
-                for dirpath, _dirs, files in os.walk(tool_subdir):
-                    lower_files = [f.lower() for f in files]
-                    if exe_name.lower() in lower_files:
-                        idx = lower_files.index(exe_name.lower())
-                        return os.path.join(dirpath, files[idx])
-            flat = os.path.join(tools_root, exe_name)
-            if os.path.exists(flat):
-                return flat
-            if getattr(sys, "frozen", False):
-                meipass = os.path.join(sys._MEIPASS, "tools", exe_name)
-                if os.path.exists(meipass):
-                    return meipass
-            from shutil import which
-            found = which(exe_name) or which(tool_name)
-            if found:
-                return found
-        return tool_name
-
+class ExifToolClient:
     def sanitize_ai_metadata(self, file_path: str) -> bool:
         """Strip AI provenance and generation tags while preserving Adobe/creative app metadata."""
-        exiftool_path = self.get_tool_path("exiftool")
+        exiftool_path = get_tool_path("exiftool")
         cmd = [
             exiftool_path,
             "-overwrite_original",
@@ -100,7 +61,7 @@ class MediaProcessor:
         self.sanitize_ai_metadata(file_path)
 
         # 2. Embed new metadata
-        exiftool_path = self.get_tool_path("exiftool")
+        exiftool_path = get_tool_path("exiftool")
         cmd = [
             exiftool_path,
             "-overwrite_original",
