@@ -227,7 +227,7 @@ def show_login_modal(app):
         status_lbl_login.configure(
             text="\u231b Menghubungkan...", text_color=C["text3"]
         )
-        btn_login.configure(state="disabled", text="Menghubungkan...")
+        btn_login.configure(state="disabled", text="Memverifikasi...")
         modal.update()
 
         def _bg():

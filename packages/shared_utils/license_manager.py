@@ -88,7 +88,7 @@ class AuthClient:
                 self.endpoint,
                 json=payload,
                 verify=True,
-                timeout=(15.0, 30.0),
+                timeout=(15.0, 45.0),
                 allow_redirects=True,
             )
             try:
