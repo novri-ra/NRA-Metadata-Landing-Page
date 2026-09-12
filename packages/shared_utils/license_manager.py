@@ -130,6 +130,8 @@ class AuthClient:
         elif status == "INVALID_SESSION" or status == "KICKED":
             self._clear_session()
             return False, "KICKED"
+        elif status == "ERROR" and ("Network" in msg or "Connection" in msg):
+            return True, "Offline mode"
         return False, msg
 
     def logout(self):

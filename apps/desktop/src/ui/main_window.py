@@ -134,8 +134,8 @@ class AppWindow(ctk.CTk):
                 "gemini-3.7-flash",
                 "gemini-3.8-flash",
                 "gemini-3.1-flash-lite",
-                "gemini-2.5-pro",
                 "gemini-3.1-pro-preview",
+                "gemini-2.0-flash",
             ],
             "Groq": [
                 "llama-3.2-11b-vision-preview (Recommended)",
@@ -2211,12 +2211,20 @@ class AppWindow(ctk.CTk):
             self.log("[WARN] External tools are still downloading, please wait...", "warn")
             return
 
-        # Security: Background Auth Check
-        is_valid, msg = self.auth.validate_session()
+        self.start_btn.configure(state="disabled")
+
+        def _auth_check():
+            is_valid, msg = self.auth.validate_session()
+            self.after(0, lambda: self._on_auth_checked(is_valid, msg, new_only))
+            
+        import threading
+        threading.Thread(target=_auth_check, daemon=True).start()
+
+    def _on_auth_checked(self, is_valid, msg, new_only):
         if not is_valid and msg == "KICKED":
+            self.start_btn.configure(state="normal")
             self.log("Sesi berakhir: Akun digunakan di perangkat lain.", "error")
             import tkinter.messagebox
-
             tkinter.messagebox.showerror(
                 "Akses Ditolak",
                 "Sesi Berakhir: Akun Anda telah login di perangkat lain",
@@ -2224,6 +2232,7 @@ class AppWindow(ctk.CTk):
             self.show_login_modal()
             return
         elif not is_valid:
+            self.start_btn.configure(state="normal")
             self.show_login_modal()
             return
 
@@ -2232,6 +2241,7 @@ class AppWindow(ctk.CTk):
         in_dir = self.input_dir.get()
         out_dir = in_dir
         if not in_dir:
+            self.start_btn.configure(state="normal")
             return self.log("Path missing.", "error")
 
         all_files = [
@@ -2249,6 +2259,7 @@ class AppWindow(ctk.CTk):
             files = [f for f in files if f not in self.processed_files]
 
         if not files:
+            self.start_btn.configure(state="normal")
             return self.log("No new files." if new_only else "No files.", "error")
         self.processed_files.update(files)
 
