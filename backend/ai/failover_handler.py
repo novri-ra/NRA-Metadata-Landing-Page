@@ -70,23 +70,20 @@ class KeyRing:
         return keys or [""]
 
     def current(self) -> str:
-        with self._lock_lock:
+        with self._lock:
             return self._keys[self._index]
-
-    def _iter_index(self) -> int:
-        return getattr(self, "_index", 0)
 
     def position(self) -> tuple[int, int]:
         """Return (current_index, total_keys) for log messages."""
-        with self._lock_lock:
+        with self._lock:
             return self._index, len(self._keys)
 
     def size(self) -> int:
-        with self._lock_lock:
+        with self._lock:
             return len(self._keys)
 
     def index(self) -> int:
-        with self._lock_lock:
+        with self._lock:
             return self._index
 
     def rotate(self) -> str:
