@@ -9,6 +9,7 @@ is surfaced to the log on failure so rendering problems stay diagnosable.
 import glob
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 from PIL import Image
@@ -17,6 +18,16 @@ from backend.processors._tools import get_base_path, get_tool_path, log_failed_f
 from packages.shared_utils.tools_setup import find_ghostscript_binary
 
 RENDER_TIMEOUT = 15  # seconds
+
+
+def _preview_cache_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        base_dir = Path(sys.executable).resolve().parent
+    else:
+        base_dir = Path(__file__).resolve().parent.parent.parent
+    preview_dir = base_dir / "cache" / "previews"
+    preview_dir.mkdir(parents=True, exist_ok=True)
+    return preview_dir
 
 
 def render_vector_preview(file_path: str, out_path: str, _log) -> str | None:
@@ -34,10 +45,13 @@ def render_vector_preview(file_path: str, out_path: str, _log) -> str | None:
             f"[{filename}] Format: {ext.upper()}. Rendering raster preview using Ghostscript...",
             "info",
         )
-        # Ghostscript renders into a temp PNG (EPS has no MediaBox, so the page
-        # geometry must be forced via -dEPSFitPage); we then convert to the
-        # requested JPEG out_path so the AI pipeline always sees a bitmap.
-        png_preview = os.path.splitext(out_path)[0] + ".png"
+        # Ghostscript 10.x -dSAFER only permits writes inside the current app
+        # directory. Write the PNG preview to a local cache directory and pass
+        # --permit-file-write so the sandbox grants explicit access.
+        preview_dir = _preview_cache_dir()
+        temp_png = preview_dir / f"preview_{Path(file_path).stem}.png"
+        input_abs = str(Path(file_path).resolve()).replace("\\", "/")
+        out_png_str = str(temp_png).replace("\\", "/")
         cmd = [
             gs_path,
             "-dSAFER",
@@ -48,8 +62,10 @@ def render_vector_preview(file_path: str, out_path: str, _log) -> str | None:
             "-r150",
             "-dTextAlphaBits=4",
             "-dGraphicsAlphaBits=4",
-            f"-sOutputFile={png_preview}",
-            str(Path(file_path).resolve()),
+            f"--permit-file-write={str(preview_dir).replace(chr(92), '/')}/",
+            f"--permit-file-read={str(Path(file_path).resolve().parent).replace(chr(92), '/')}/",
+            f"-sOutputFile={out_png_str}",
+            input_abs,
         ]
         try:
             result = subprocess.run(cmd, capture_output=True, timeout=RENDER_TIMEOUT)
@@ -58,13 +74,13 @@ def render_vector_preview(file_path: str, out_path: str, _log) -> str | None:
                     f"[ERROR] Ghostscript STDERR: {result.stderr.decode('utf-8', errors='ignore')}",
                     "error",
                 )
-            elif os.path.exists(png_preview) and os.path.getsize(png_preview) > 1024:
+            elif temp_png.exists() and temp_png.stat().st_size > 1024:
                 try:
-                    with Image.open(png_preview) as verify_img:
+                    with Image.open(temp_png) as verify_img:
                         verify_img.verify()
-                    with Image.open(png_preview) as img:
+                    with Image.open(temp_png) as img:
                         img.convert("RGB").save(out_path, "JPEG")
-                    os.remove(png_preview)
+                    temp_png.unlink()
                     log(f"[{filename}] Preview rendered successfully.", "success")
                     return out_path
                 except (OSError, ValueError) as e:
