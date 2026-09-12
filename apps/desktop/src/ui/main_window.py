@@ -1782,28 +1782,22 @@ class AppWindow(ctk.CTk):
 
     def _sync_to_companions(self, file_path, title, desc, kws):
         """Embed metadata to all companion files with the same base name."""
-        companions = self._get_companion_files(file_path)
-        if not companions:
-            return 0
-        count = 0
-        copyright_text = self._get_copyright_text()
-        author = self.author_entry.get().strip()
-        for comp in companions:
-            comp_hash = get_file_hash(comp)
-            meta = {"title": title, "description": desc, "keywords": kws}
-            set_cached_metadata(comp_hash, meta)
-            if self.processor.embed_metadata(
-                comp, title, desc, kws, copyright_text, author
-            ):
-                count += 1
-        return count
+        return sync_companion_metadata(
+            file_path,
+            title,
+            desc,
+            kws,
+            self.processor,
+            self._get_copyright_text(),
+            self.author_entry.get().strip(),
+        )
 
     def _update_variant_badge(self):
         """Update the variant badge showing companion file count."""
         if not self.current_edit_file:
             self.variant_badge.configure(text="")
             return
-        companions = self._get_companion_files(self.current_edit_file)
+        companions = find_companion_files(self.current_edit_file)
         if companions:
             exts = [
                 os.path.splitext(os.path.basename(c))[1].upper().lstrip(".")
