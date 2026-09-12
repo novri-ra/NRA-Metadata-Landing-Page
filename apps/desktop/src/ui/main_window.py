@@ -4,22 +4,26 @@ import sys
 import threading
 import time
 import tkinter as tk
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 
 import customtkinter as ctk
-from PIL import Image
 
-from packages.ai_engine.service import AIService
-from packages.media_processor.embedder import MediaProcessor
-from packages.media_processor.previews import extract_preview_image
-from packages.shared_utils.cache import (
+from backend.ai.provider_router import AIService
+from backend.core.config_manager import (
     get_cache_hits,
     get_cached_metadata,
     get_file_hash,
+    load_config,
+    save_config,
     set_cached_metadata,
 )
-from packages.shared_utils.config import load_config, save_config
+from backend.core.worker_pool import (
+    FileWorkerPool,
+    find_companion_files,
+    sync_companion_metadata,
+)
+from backend.processors.exiftool_client import ExifToolClient
+from backend.processors.media_converter import extract_preview_image
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.shared_utils.tools_setup import ensure_tools_installed
 from packages.shared_utils.env_check import run_environment_checks
