@@ -61,7 +61,7 @@ def extract_video_frame(file_path: str, out_path: str, filename: str, _log) -> s
         out_path,
     ]
     try:
-        subprocess.run(cmd, check=True, capture_output=True)
+        subprocess.run(cmd, check=True, capture_output=True, timeout=60)
         # Validate output
         if os.path.exists(out_path) and os.path.getsize(out_path) > 1024:
             try:
@@ -83,6 +83,16 @@ def extract_video_frame(file_path: str, out_path: str, filename: str, _log) -> s
         _log(f"[{filename}] {err}", "error")
         log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
         return None
+    except subprocess.TimeoutExpired:
+        err = "FFmpeg timed out"
+        _log(f"[{filename}] {err}", "error")
+        log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
+        return None
+    except (OSError, ValueError) as e:
+        err = f"FFmpeg error: {e}"
+        _log(f"[{filename}] {err}", "error")
+        log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
+        return None
 
 
 def extract_svg_preview(file_path: str, out_path: str, filename: str, _log) -> str | None:
@@ -98,7 +108,7 @@ def extract_svg_preview(file_path: str, out_path: str, filename: str, _log) -> s
             f"file:///{os.path.abspath(file_path)}",
         ]
         try:
-            subprocess.run(cmd, check=True, capture_output=True)
+            subprocess.run(cmd, check=True, capture_output=True, timeout=30)
             if os.path.exists(png_path):
                 img = Image.open(png_path).convert("RGB")
                 img.thumbnail((1024, 1024))
@@ -106,7 +116,7 @@ def extract_svg_preview(file_path: str, out_path: str, filename: str, _log) -> s
                 os.remove(png_path)
                 _log(f"[{filename}] Preview extracted (Edge).", "success")
                 return out_path
-        except (OSError, ValueError) as e:
+        except (OSError, ValueError, subprocess.TimeoutExpired) as e:
             err = f"Edge SVG extract error: {e}"
             _log(f"[{filename}] {err}", "warn")
             log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)

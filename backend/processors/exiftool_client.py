@@ -8,6 +8,7 @@ Extracted from ``packages/media_processor/embedder.py``; the class was renamed
 import os
 import subprocess
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 from backend.processors._tools import get_tool_path, log_failed_file
 
@@ -16,25 +17,45 @@ class ExifToolClient:
     def sanitize_ai_metadata(self, file_path: str) -> bool:
         """Strip AI provenance and generation tags while preserving Adobe/creative app metadata."""
         exiftool_path = get_tool_path("exiftool")
+        is_png = os.path.splitext(file_path)[1].lower() == ".png"
         cmd = [
             exiftool_path,
             "-overwrite_original",
-            "-PNG:parameters=",
-            "-PNG:prompt=",
-            "-PNG:workflow=",
-            "-PNG:negative_prompt=",
-            "-PNG:Generation time=",
-            "-XMP-c2pa:all=",
-            "-XMP-xmpGImg:all=",
-            "-XMP:AIContentGenerator=",
-            "-XMP:DigitalSourceType=",
-            file_path,
+            "-m",
         ]
+        if is_png:
+            cmd.extend(
+                [
+                    "-PNG:parameters=",
+                    "-PNG:prompt=",
+                    "-PNG:workflow=",
+                    "-PNG:negative_prompt=",
+                    "-PNG:Generation time=",
+                ]
+            )
+        cmd.extend(
+            [
+                "-XMP-c2pa:all=",
+                "-XMP-xmpGImg:all=",
+                "-XMP:AIContentGenerator=",
+                "-XMP:DigitalSourceType=",
+                file_path,
+            ]
+        )
         try:
+            Path(file_path).parent.mkdir(parents=True, exist_ok=True)
             subprocess.run(cmd, check=True, capture_output=True, timeout=30)
             return True
         except subprocess.TimeoutExpired:
             print(f"[WARN] Sanitizer timeout on {os.path.basename(file_path)}")
+            return False
+        except subprocess.CalledProcessError as e:
+            err_msg = (
+                e.stderr.decode(errors="replace")
+                if isinstance(e.stderr, bytes)
+                else str(e.stderr)
+            )
+            print(f"[WARN] Sanitizer error on {os.path.basename(file_path)}: {err_msg}")
             return False
         except (OSError, ValueError) as e:
             # We don't hard fail if sanitization fails (e.g. exiftool error on a specific file type)

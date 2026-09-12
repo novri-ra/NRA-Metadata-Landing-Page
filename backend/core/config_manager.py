@@ -148,6 +148,10 @@ def load_config() -> dict:
         data["provider"] = "Gemini"
         data["model"] = "gemini-2.5-flash"
 
+    # Deprecated model normalisation
+    if data.get("provider") == "Gemini" and data.get("model") == "gemini-2.5-pro":
+        data["model"] = "gemini-2.5-flash"
+
     # Sanitize api_keys dictionary
     api_keys = data.get("api_keys", {})
     if isinstance(api_keys, dict) and "9router" in api_keys:

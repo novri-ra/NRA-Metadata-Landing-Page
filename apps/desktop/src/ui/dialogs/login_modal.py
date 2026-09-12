@@ -1,7 +1,5 @@
 """Login / register modal dialog. Extracted from App.show_login_modal."""
 
-import sys
-
 import customtkinter as ctk
 
 from ui.theme import C
@@ -15,9 +13,14 @@ def show_login_modal(app):
     modal.geometry("480x640")
     modal.resizable(False, False)
     modal.configure(fg_color=C["bg"])
-    modal.protocol("WM_DELETE_WINDOW", lambda: sys.exit(0))
+    modal.protocol("WM_DELETE_WINDOW", lambda: _close_modal())
     modal.attributes("-topmost", True)
     modal.update_idletasks()
+
+    def _close_modal():
+        app._auth_modal_open = False
+        modal.destroy()
+        app.deiconify()
 
     # Center Screen
     w, h = 480, 640
@@ -222,13 +225,17 @@ def show_login_modal(app):
             )
             return
         status_lbl_login.configure(
-            text="\u231b Memverifikasi kredensial...", text_color=C["text3"]
+            text="\u231b Menghubungkan...", text_color=C["text3"]
         )
-        btn_login.configure(state="disabled", text="Memproses...")
+        btn_login.configure(state="disabled", text="Menghubungkan...")
         modal.update()
 
         def _bg():
-            res = app.auth.login(u, p)
+            try:
+                res = app.auth.login(u, p)
+            except Exception as e:
+                modal.after(0, lambda: _login_done({"status": "ERROR", "message": f"Login error: {e!s}"}, u))
+                return
             modal.after(0, lambda: _login_done(res, u))
 
         import threading
@@ -264,6 +271,7 @@ def show_login_modal(app):
                     modal.attributes("-alpha", alpha)
                     modal.after(15, lambda: fade_out(alpha))
                 else:
+                    app._auth_modal_open = False
                     modal.destroy()
                     app.deiconify()
 
@@ -281,6 +289,25 @@ def show_login_modal(app):
 
     btn_login.configure(command=_do_login)
     btn_login.pack(padx=20, pady=(8, 12))
+
+    def _go_offline():
+        app._auth_modal_open = False
+        app.auth.enable_offline_mode()
+        app.deiconify()
+        modal.destroy()
+        app.log("Mode Offline aktif: autentikasi server dilewati.", "warn")
+
+    ctk.CTkButton(
+        login_scroll,
+        text="\U0001f6e1\ufe0f Lanjut Mode Offline / Pengembang",
+        width=FW,
+        fg_color=C["surface2"],
+        hover_color=C["border"],
+        font=ctk.CTkFont(family="Segoe UI", size=12),
+        height=34,
+        corner_radius=8,
+        command=_go_offline,
+    ).pack(padx=20, pady=(0, 16))
 
     # ───────────────────────────── REGISTER TAB ──────────────────────────
     reg_scroll = ctk.CTkScrollableFrame(
@@ -407,19 +434,23 @@ def show_login_modal(app):
             )
             return
         status_lbl_reg.configure(
-            text="\u231b Mendaftarkan perangkat...", text_color=C["text3"]
+            text="\u231b Menghubungkan...", text_color=C["text3"]
         )
-        btn_reg.configure(state="disabled", text="Memproses...")
+        btn_reg.configure(state="disabled", text="Menghubungkan...")
         modal.update()
 
         def _bg():
-            res = app.auth.register(
-                data["username"],
-                data["password"],
-                email=data["email"],
-                wa=data["wa"],
-                fullname=data["fullname"],
-            )
+            try:
+                res = app.auth.register(
+                    data["username"],
+                    data["password"],
+                    email=data["email"],
+                    wa=data["wa"],
+                    fullname=data["fullname"],
+                )
+            except Exception as e:
+                modal.after(0, lambda: _reg_done({"status": "ERROR", "message": f"Registrasi error: {e!s}"}, data["username"]))
+                return
             modal.after(0, lambda: _reg_done(res, data["username"]))
 
         import threading

@@ -37,7 +37,7 @@ def get_public_ip() -> str:
         res = requests.get("https://api.ipify.org", timeout=3)
         if res.status_code == 200:
             return res.text.strip()
-    except OSError:
+    except (requests.exceptions.RequestException, OSError):
         pass
     return "Unknown"
 
@@ -48,6 +48,7 @@ class AuthClient:
         self.endpoint = AUTH_API_URL
         self.username = self.config.get("auth_user", "")
         self.session_token = self.config.get("auth_session", "")
+        self.offline_mode = bool(self.config.get("auth_offline"))
         self.hwid = get_machine_hwid()
 
     def _save_session(self, username, token):
@@ -73,23 +74,62 @@ class AuthClient:
                 timeout=10,
                 allow_redirects=True,
             )
-            return res.json()
-        except requests.exceptions.Timeout:
-            return {"status": "ERROR", "message": "Network timeout. Try again."}
-        except requests.exceptions.ConnectionError:
-            return {"status": "ERROR", "message": "Connection error."}
+            try:
+                return res.json()
+            except ValueError as e:
+                print(
+                    f"[AUTH] Non-JSON response (HTTP {res.status_code}): {res.text[:200]}",
+                    file=sys.stderr,
+                )
+                return {"status": "ERROR", "message": "Respon server tidak valid."}
+        except requests.exceptions.Timeout as e:
+            print(f"[AUTH] Network timeout: {e!r}", file=sys.stderr)
+            return {"status": "ERROR", "message": "Network timeout. Koneksi lambat.", "network": True}
+        except requests.exceptions.SSLError as e:
+            print(f"[AUTH] SSL error: {e!r}", file=sys.stderr)
+            return {"status": "ERROR", "message": "SSL error: sertifikat tidak valid.", "network": True}
+        except requests.exceptions.ConnectionError as e:
+            cause = e.__cause__ or e
+            print(
+                f"[AUTH] Connection error: {type(cause).__name__}: {cause}",
+                file=sys.stderr,
+            )
+            return {"status": "ERROR", "message": "Connection error.", "network": True}
+        except requests.exceptions.RequestException as e:
+            print(
+                f"[AUTH] HTTP request error: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
+            return {"status": "ERROR", "message": f"Request error: {type(e).__name__}", "network": True}
         except OSError as e:
-            return {"status": "ERROR", "message": f"Network error: {e!s}"}
+            print(
+                f"[AUTH] Network error: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
+            return {"status": "ERROR", "message": f"Network error: {e!s}", "network": True}
+        except Exception as e:
+            print(
+                f"[AUTH] Unexpected error: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
+            return {"status": "ERROR", "message": f"Unexpected error: {e!s}", "network": True}
+
+    def enable_offline_mode(self):
+        self.offline_mode = True
+        self.config["auth_offline"] = True
+        save_config(self.config)
 
     def register(self, username, password, email="", wa="", fullname=""):
         return self._post(
             {
                 "action": "REGISTER",
+                "full_name": fullname,
                 "username": username,
-                "password": password,
                 "email": email,
-                "wa": wa,
-                "fullname": fullname,
+                "whatsapp": wa,
+                "password": password,
+                "hwid": self.hwid,
+                "ip": get_public_ip(),
             }
         )
 
@@ -98,7 +138,7 @@ class AuthClient:
         res = self._post(
             {
                 "action": "LOGIN",
-                "username": username,
+                "identifier": username,
                 "password": password,
                 "hwid": self.hwid,
                 "ip": get_public_ip(),
@@ -107,16 +147,26 @@ class AuthClient:
         if res.get("status") == "SUCCESS":
             actual_user = res.get("username", username)
             self._save_session(actual_user, res.get("session_token"))
+        elif (
+            res.get("status") == "ERROR"
+            and res.get("network")
+            and self.session_token
+            and (self.username == username or self.config.get("auth_email") == username)
+        ):
+            # Offline tolerance if credentials already match the saved session
+            return {"status": "SUCCESS", "username": self.username, "session_token": self.session_token, "message": "Offline mode"}
         return res
 
     def validate_session(self) -> tuple[bool, str]:
+        if self.offline_mode:
+            return True, "Offline mode"
         if not self.username or not self.session_token:
             return False, "No active session"
 
         res = self._post(
             {
                 "action": "VALIDATE_SESSION",
-                "username": self.username,
+                "identifier": self.username,
                 "session_token": self.session_token,
                 "hwid": self.hwid,
             }
@@ -130,6 +180,8 @@ class AuthClient:
         elif status == "INVALID_SESSION" or status == "KICKED":
             self._clear_session()
             return False, "KICKED"
+        elif status == "ERROR" and res.get("network"):
+            return True, "Offline mode"
         return False, msg
 
     def logout(self):

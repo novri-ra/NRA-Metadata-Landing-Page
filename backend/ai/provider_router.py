@@ -104,6 +104,18 @@ class AIService:
             except ImportError:
                 self.groq_client = None
 
+    def _gemini_generation_config(self):
+        kwargs = dict(
+            temperature=self.temperature,
+            response_mime_type="application/json",
+            response_schema=MetadataModel,
+        )
+        if hasattr(genai.types, "AutomaticFunctionCallingConfig"):
+            kwargs["automatic_function_calling"] = (
+                genai.types.AutomaticFunctionCallingConfig(disable=True)
+            )
+        return genai.types.GenerateContentConfig(**kwargs)
+
     def generate_metadata(
         self,
         image_path: str,
@@ -174,11 +186,7 @@ class AIService:
                     response = self.gemini_client.models.generate_content(
                         model=self.model or "gemini-1.5-flash",
                         contents=contents,
-                        config=genai.types.GenerateContentConfig(
-                            temperature=self.temperature,
-                            response_mime_type="application/json",
-                            response_schema=MetadataModel,
-                        ),
+                        config=self._gemini_generation_config(),
                     )
                     return json.loads(response.text)
 
@@ -307,7 +315,7 @@ class AIService:
                         response_format={"type": "json_object"},
                     )
                     return self._parse_json(response.choices[0].message.content)
-            except (OSError, ValueError, KeyError, RuntimeError) as e:
+            except Exception as e:
                 err_str = str(e)
                 _log(f"[{filename}] {self.provider} error: {err_str}", "error")
                 if detect_connection_refused(err_str):
@@ -461,7 +469,7 @@ class AIService:
     # ponytail: hardcoded whitelist; upgrade to API introspection when providers stabilize schema
     VISION_WHITELIST = {
         "Gemini": {
-            "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro",
+            "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash",
             "gemini-3.1-flash-lite", "gemini-3.5-flash-lite",
             "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash",
             "gemini-3.1-pro-preview",
