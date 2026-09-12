@@ -325,9 +325,9 @@ class TestSanitizer(unittest.TestCase):
     def test_sanitize_ai_metadata(self):
         import subprocess
 
-        from packages.media_processor.embedder import MediaProcessor
+        from backend.processors.exiftool_client import ExifToolClient
 
-        processor = MediaProcessor()
+        processor = ExifToolClient()
 
         # Monkey patch subprocess.run to verify arguments
         captured_cmd = []
