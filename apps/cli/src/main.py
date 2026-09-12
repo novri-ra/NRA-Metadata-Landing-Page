@@ -4,6 +4,7 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor
 
 from backend.ai.provider_router import AIService
+from backend.core.config_manager import import_rj_config, set_config_dir
 from backend.processors.exiftool_client import ExifToolClient
 from backend.processors.media_converter import extract_preview_image
 from packages.shared_utils.logger import CSVLogger, logger
@@ -47,8 +48,28 @@ def main():
     parser.add_argument("--min-kw", type=int, default=5)
     parser.add_argument("--max-kw", type=int, default=20)
     parser.add_argument("--workers", type=int, default=2)
+    parser.add_argument(
+        "--config-dir",
+        default=None,
+        help="Directory for config.enc / cache.db (default: %%USERPROFILE%%\\Documents\\NRA Metadata on Windows)",
+    )
+    parser.add_argument(
+        "--import-rj",
+        metavar="PATH",
+        nargs="?",
+        const="",
+        default=None,
+        help="Import API keys from RJ Auto Metadata config.json before running",
+    )
 
     args = parser.parse_args()
+
+    set_config_dir(args.config_dir)
+    if args.import_rj is not None:
+        summary = import_rj_config(args.import_rj or None)
+        print(
+            f"[import-rj] {summary.get('providers_added', {}) or summary.get('reason')}"
+        )
 
     files = [
         os.path.join(args.input, f)
