@@ -2155,7 +2155,7 @@ class AppWindow(ctk.CTk):
         self.after(0, lambda: self.start_btn.configure(state="normal"))
 
     def start_processing(self, new_only=False):
-        if self.is_running:
+        if self.pool.is_running:
             return
 
         if not self.tools_ready:
@@ -2203,110 +2203,45 @@ class AppWindow(ctk.CTk):
             return self.log("No new files." if new_only else "No files.", "error")
         self.processed_files.update(files)
 
-        self.is_running = True
-        self.batch_session_stats = {
-            "processed": 0,
-            "skipped": skipped_count,
-            "cost": self.batch_session_stats.get("cost", 0),
-            "tokens_est": 0,
-            "csvs": [],
-        }
-        self.cancel_flag = False
-        self.pause_event.set()
         self.pause_btn.configure(
             text="Pause", fg_color=C["warn"], hover_color=C["warn_h"], state="normal"
         )
         self.cancel_btn.configure(state="normal")
-
         self.start_btn.configure(state="disabled")
         self.progress_bar.set(0)
-        self.stats = {"total": len(files), "success": 0, "error": 0}
-        self.update_stats("total")
-        self.stats["total"] = len(files)
 
-        self.header_status.configure(
-            text=f"Processing 0/{len(files)}", text_color=C["warn"]
-        )
-
-        paths = [os.path.join(in_dir, f) for f in files]
-        threading.Thread(
-            target=self._run_batch, args=(paths, out_dir), daemon=True
-        ).start()
-
-    def _run_batch(self, paths, out_dir):
-        provider = self.config.get("provider", "Gemini")
-        api_keys_dict = self.config.get("api_keys", {})
-        api_key = api_keys_dict.get(provider, "")
-        # Build failover dict from other configured providers
-        failover_providers = {
-            p: k for p, k in api_keys_dict.items() if p != provider and k
+        options = {
+            "provider": self.config.get("provider", "Gemini"),
+            "api_keys": self.config.get("api_keys", {}),
+            "model": self.config.get("model", "") or "Gemini",
+            "temperature": self.config.get("temperature", 0.3),
+            "min_kw": self.config["min_kw"],
+            "max_kw": self.config["max_kw"],
+            "style_preset": self.config["style_preset"],
+            "extra_prompt": self.config.get("extra_prompt", ""),
+            "custom_kw": self.config.get("custom_kw", ""),
+            "custom_kw_pos": self.config.get("custom_kw_pos", "Start (Priority)"),
+            "copyright": self._get_copyright_text(),
+            "author": self.author_entry.get().strip(),
+            "sync_companions": self.sync_companions.get(),
+            "auto_zip": bool(
+                getattr(self, "auto_zip", None) and self.auto_zip.get()
+            ),
+            "csv_platforms": self._get_selected_csv_platforms(),
+            "workers": max(1, int(self.workers_slider.get())),
+            "skipped_count": skipped_count,
         }
-        raw_model = self.config.get("model") or "Gemini"
-        ai = AIService(
-            provider,
-            api_key,
-            raw_model.split(" ")[0],
-            self.config.get("temperature", 0.3),
-            failover_providers=failover_providers,
-        )
-        processed_dir = os.path.join(out_dir, "Processed Assets")
-        csv_dir = os.path.join(out_dir, "Metadata CSV")
-        os.makedirs(processed_dir, exist_ok=True)
-        os.makedirs(csv_dir, exist_ok=True)
+        paths = [os.path.join(in_dir, f) for f in files]
+        self.pool.start(paths, out_dir, options)
 
-        csv_logger = CSVLogger(os.path.join(csv_dir, "metadata_output.csv"))
+    def _on_batch_complete(self, summary):
+        self.batch_session_stats.update(summary)
+        self.after(0, lambda: self._show_batch_summary())
 
-        max_w = max(1, int(self.workers_slider.get()))
-        total = len(paths)
-        with ThreadPoolExecutor(max_workers=max_w) as executor:
-            futures = {
-                executor.submit(
-                    self.process_file,
-                    f,
-                    processed_dir,
-                    ai,
-                    self.config["min_kw"],
-                    self.config["max_kw"],
-                    self.config["style_preset"],
-                    self.config.get("extra_prompt", ""),
-                    csv_logger,
-                ): f
-                for f in paths
-            }
-            for i, future in enumerate(as_completed(futures), 1):
-                future.result()
-                if not self.cancel_flag:
-                    self.after(0, self.progress_bar.set, i / total)
-
-        if self.cancel_flag:
-            self.log("Batch CANCELED.", "error")
-        else:
-            self.log("Batch complete. Generating exports...", "info")
-            generate_microstock_csvs(csv_dir, self._get_selected_csv_platforms())
-
-            # Collect generated CSV list
-            csv_files = [
-                f
-                for f in os.listdir(csv_dir)
-                if f.endswith("_export.csv") or f == "metadata_output.csv"
-            ]
-            cost_delta = (
-                self.batch_session_stats.get("cost", 0)
-                - self.batch_session_stats["cost"]
-            )
-            self.batch_session_stats.update(
-                {
-                    "processed": self.stats["success"],
-                    "errors": self.stats["error"],
-                    "cost": cost_delta,
-                    "tokens_est": int(cost_delta / 0.002 * 1000)
-                    if cost_delta > 0
-                    else 0,
-                    "csvs": csv_files,
-                    "out_dir": csv_dir,
-                }
-            )
-            self.after(0, lambda: self._show_batch_summary())
+    def _on_pool_finished(self):
+        self.start_btn.configure(state="normal")
+        self.pause_btn.configure(state="normal")
+        self.cancel_btn.configure(state="normal")
 
     def _show_batch_summary(self):
         """Show batch processing summary dialog."""
