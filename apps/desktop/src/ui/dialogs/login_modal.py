@@ -120,7 +120,7 @@ def show_login_modal(app):
         def clear_user():
             user_var_login.set("")
             app.config["last_auth_user"] = ""
-            from packages.shared_utils.config import save_config
+            from backend.core.config_manager import save_config
 
             save_config(app.config)
             welcome_frame.pack_forget()
@@ -241,13 +241,13 @@ def show_login_modal(app):
             actual_user = res.get("username", u)
             if remember_var.get():
                 app.config["last_auth_user"] = actual_user
-                from packages.shared_utils.config import save_config
+                from backend.core.config_manager import save_config
 
                 save_config(app.config)
             else:
                 app.auth.config["auth_user"] = ""
                 app.config["last_auth_user"] = ""
-                from packages.shared_utils.config import save_config
+                from backend.core.config_manager import save_config
 
                 save_config(app.config)
                 save_config(app.auth.config)
