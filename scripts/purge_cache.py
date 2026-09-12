@@ -1,10 +1,9 @@
 """One-shot script to purge corrupted/fallback records from cache.db."""
 
 import json
-import os
 import sqlite3
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache.db")
+from backend.core.config_manager import DB_PATH
 
 
 def _is_invalid(metadata_json: str) -> bool:

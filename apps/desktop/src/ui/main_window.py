@@ -505,7 +505,8 @@ class AppWindow(ctk.CTk):
         import sqlite3
         from tkinter import messagebox
 
-        db_path = os.path.join(os.getcwd(), "cache.db")
+        from backend.core.config_manager import DB_PATH as db_path
+
         if not os.path.exists(db_path):
             self.log("Cache DB not found.")
             return
