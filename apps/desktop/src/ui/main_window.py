@@ -2020,7 +2020,7 @@ class AppWindow(ctk.CTk):
     def _watcher_loop(self):
         while True:
             time.sleep(3)
-            if self.auto_watch.get() and not self.is_running:
+            if self.auto_watch.get() and not self.pool.is_running:
                 in_dir = self.input_dir.get()
                 if in_dir and os.path.isdir(in_dir):
                     files = [
@@ -2033,179 +2033,23 @@ class AppWindow(ctk.CTk):
                         self.after(0, lambda: self.start_processing(new_only=True))
 
     def toggle_pause(self):
-        if self.pause_event.is_set():
-            self.pause_event.clear()
+        if self.pool.toggle_pause():
             self.pause_btn.configure(
                 text="Resume", fg_color=C["success"], hover_color=C["success_h"]
             )
             self.log("Batch PAUSED.", "info")
         else:
-            self.pause_event.set()
             self.pause_btn.configure(
                 text="Pause", fg_color=C["warn"], hover_color=C["warn_h"]
             )
             self.log("Batch RESUMED.", "info")
 
     def cancel_batch(self):
-        if self.is_running:
-            self.cancel_flag = True
-            self.pause_event.set()
+        if self.pool.is_running:
+            self.pool.cancel()
             self.log("Canceling batch... finishing current active files.", "error")
             self.pause_btn.configure(state="disabled")
             self.cancel_btn.configure(state="disabled")
-
-    def process_file(
-        self,
-        file_path,
-        out_dir,
-        ai,
-        min_kw,
-        max_kw,
-        style_preset,
-        extra_prompt,
-        csv_logger,
-    ):
-        self.pause_event.wait()
-        if self.cancel_flag:
-            return
-
-        name = os.path.basename(file_path)
-        name = os.path.basename(file_path)
-        self.log(f"[{name}] Starting processing pipeline...", "processing")
-
-        def log_cb(msg, lvl="info"):
-            self.log(msg, lvl)
-
-        preview = extract_preview_image(file_path, self.processor, progress_callback=log_cb)
-        if not preview:
-            self.update_stats("error")
-            return
-
-        file_hash = get_file_hash(preview)
-        cached = get_cached_metadata(file_hash)
-
-        if cached:
-            self.log(f"[{name}] [CACHE HIT] Metadata loaded from cache.", "cache")
-            meta = cached
-            status, color = "CACHE", C["violet"]
-        else:
-            meta = ai.generate_metadata(
-                preview,
-                min_kw,
-                max_kw,
-                style_preset,
-                extra_prompt,
-                log_callback=log_cb
-            )
-
-            if meta.get("is_fallback") or meta.get("error"):
-                err_detail = meta.get("error_details", "fallback rejected")
-                self.log(
-                    f"[{name}] AI generation failed: {err_detail}",
-                    "error",
-                )
-                self.update_stats("error")
-                # Clean up preview since we're aborting
-                try:
-                    os.remove(preview)
-                except OSError:
-                    pass
-                return
-
-            set_cached_metadata(file_hash, meta)
-            self.log(f"[{name}] Generated: Title='{meta.get('title', '')[:30]}...' | {len(meta.get('keywords', []))} Keywords", "success")
-            status, color = "API", C["warn"]
-
-            # Inject mandatory custom keywords on first API generation
-            custom_kws_raw = self.config.get("custom_kw", "")
-            if custom_kws_raw.strip():
-                custom_kws = [k.strip() for k in custom_kws_raw.split(",") if k.strip()]
-                # remove any exact overlaps in AI response
-                ai_kws = [
-                    k
-                    for k in meta.get("keywords", [])
-                    if k.lower() not in [ck.lower() for ck in custom_kws]
-                ]
-
-                pos = self.config.get("custom_kw_pos", "Start (Priority)")
-                if pos == "Start (Priority)":
-                    merged_kws = custom_kws + ai_kws
-                else:
-                    merged_kws = ai_kws + custom_kws
-                meta["keywords"] = merged_kws
-
-        try:
-            with Image.open(preview) as opened_img:
-                img = opened_img.copy()
-                img.thumbnail((300, 300), Image.Resampling.LANCZOS)
-        except (OSError, ValueError):
-            img = None
-
-        try:
-            os.remove(preview)
-        except OSError:
-            pass
-
-        meta = clean_metadata(meta, max_kw)
-
-        base_name = os.path.splitext(name)[0]
-        final_path = os.path.join(out_dir, name)
-        shutil.move(file_path, final_path)
-
-        title, desc, keywords = (
-            meta.get("title", ""),
-            meta.get("description", ""),
-            meta.get("keywords", []),
-        )
-
-        if img:
-            self.update_preview(img, status, color, meta, final_path, file_hash)
-
-        if self.processor.embed_metadata(
-            final_path,
-            title,
-            desc,
-            keywords,
-            self._get_copyright_text(),
-            self.author_entry.get().strip(),
-        ):
-            self.log(f"[{name}] File completed and saved. ({len(keywords)} kw)", "success")
-
-
-            if self.sync_companions.get():
-                synced = self._sync_to_companions(final_path, title, desc, keywords)
-                if synced > 0:
-                    self.log(
-                        f"  └─ Synced metadata to {synced} companion file(s)", "info"
-                    )
-
-            csv_logger.log(name, title, desc, keywords)
-
-            if (
-                getattr(self, "auto_zip", None)
-                and self.auto_zip.get()
-                and name.lower().endswith((".svg", ".eps"))
-            ):
-                import zipfile
-
-                jpg_path = os.path.join(out_dir, base_name + ".jpg")
-                if img:
-                    try:
-                        img.convert("RGB").save(jpg_path, "JPEG", quality=95)
-                    except OSError:
-                        pass
-                zip_path = os.path.join(out_dir, base_name + ".zip")
-                try:
-                    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-                        zf.write(final_path, arcname=name)
-                        if os.path.exists(jpg_path):
-                            zf.write(jpg_path, arcname=base_name + ".jpg")
-                except OSError:
-                    pass
-
-        else:
-            self.log(f"[{name}] ExifTool metadata embedding failed.", "error")
-            self.update_stats("error")
 
     def start_offline_retag(self):
         csv_path = ctk.filedialog.askopenfilename(
