@@ -307,7 +307,7 @@ class AIService:
                         response_format={"type": "json_object"},
                     )
                     return self._parse_json(response.choices[0].message.content)
-            except (OSError, ValueError, KeyError, RuntimeError) as e:
+            except Exception as e:
                 err_str = str(e)
                 _log(f"[{filename}] {self.provider} error: {err_str}", "error")
                 if detect_connection_refused(err_str):

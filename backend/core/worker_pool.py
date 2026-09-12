@@ -159,7 +159,15 @@ class FileWorkerPool:
             self._executor = executor
             futures = {submit(f): f for f in paths}
             for i, future in enumerate(as_completed(futures), 1):
-                future.result()
+                try:
+                    future.result()
+                except Exception as e:
+                    self._inc_stat("error")
+                    self._emit(
+                        "log",
+                        f"Worker error on {os.path.basename(futures[future])}: {e}",
+                        "error",
+                    )
                 if not self.cancel_flag:
                     self._emit("progress", i / total)
             self._executor = None
