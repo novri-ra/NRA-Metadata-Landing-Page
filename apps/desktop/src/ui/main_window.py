@@ -1243,9 +1243,9 @@ class AppWindow(ctk.CTk):
             self._load_custom_presets()
             self.preset_cb.set("Default")
 
-    def update_stats(self, key):
+    def _on_pool_stats(self, stats, running):
         def _update():
-            self.stats[key] += 1
+            self.stats = dict(stats)
             self.stats_lbl.configure(
                 text=f"Total: {self.stats['total']}  ·  Success: {self.stats['success']}  ·  Error: {self.stats['error']}"
             )
@@ -1254,7 +1254,7 @@ class AppWindow(ctk.CTk):
             )
 
             # Update header status
-            if self.is_running:
+            if running:
                 done = self.stats["success"] + self.stats["error"]
                 self.header_status.configure(
                     text=f"Processing {done}/{self.stats['total']}",
@@ -1264,6 +1264,13 @@ class AppWindow(ctk.CTk):
                 self.header_status.configure(text="Ready", text_color=C["text3"])
 
         self.after(0, _update)
+
+    def _on_pool_preview(self, img, status_text, status_tag, meta, out_path, file_hash):
+        color_map = {"cache": C["violet"], "api": C["warn"], "success": C["success"]}
+        status_color = color_map.get(status_tag, C["warn"])
+        self.update_preview(
+            img, status_text, status_color, meta, out_path, file_hash
+        )
 
     def update_preview(
         self,
