@@ -155,30 +155,11 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
         _log("[WARN] All ExifTool download mirrors failed.")
 
     def _setup_ghostscript():
-        if find_ghostscript_binary(td):
+        gs_path = find_ghostscript_binary(td)
+        if gs_path:
+            _log(f"[SUCCESS] Ghostscript found at: {gs_path}")
             return
-        _log("[INFO] Downloading Ghostscript...")
-        try:
-            url = "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10040/gs10040w64.exe"
-            installer = td / "gs_installer.exe"
-            _download(url, str(installer))
-            _log("[INFO] Installing Ghostscript silently...")
-            
-            gs_dir = td / "ghostscript"
-            subprocess.run(
-                [str(installer), "/S", f"/D={str(gs_dir)}"],
-                check=False,
-                timeout=120,
-            )
-            if installer.exists():
-                os.remove(str(installer))
-                
-            if find_ghostscript_binary(td):
-                _log("[SUCCESS] Ghostscript installed.")
-            else:
-                _log("[WARN] Ghostscript installer ran but gswin64c.exe not found. Install manually or add to PATH.")
-        except Exception as e:
-            _log(f"[WARN] Failed to download Ghostscript: {e}. Vector preview will use system PATH fallback.")
+        _log("[WARN] Ghostscript not found natively. Application will use ExifTool fallback for vector previews.")
 
     def _setup_ffmpeg():
         if (td / "ffmpeg.exe").exists() or (td / "ffmpeg" / "bin" / "ffmpeg.exe").exists():

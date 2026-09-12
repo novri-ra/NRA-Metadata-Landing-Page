@@ -48,56 +48,77 @@ def extract_preview_image(file_path: str, processor, progress_callback=None) -> 
             )
             return None
     elif ext in ["eps", "ai"]:
-        _log(f"[{filename}] Format: {ext.upper()}. Rendering raster preview using Ghostscript...", "info")
-        gs_path = find_ghostscript_binary() or "gswin64c.exe"
-        cmd = [
-            gs_path,
-            "-dSAFER",
-            "-dBATCH",
-            "-dNOPAUSE",
-            "-sDEVICE=jpeg",
-            "-r150",
-            "-dTextAlphaBits=4",
-            "-dGraphicsAlphaBits=4",
-            f"-sOutputFile={out_path}",
+        gs_path = find_ghostscript_binary()
+        if gs_path:
+            _log(f"[{filename}] Format: {ext.upper()}. Rendering raster preview using Ghostscript...", "info")
+            cmd = [
+                gs_path,
+                "-dSAFER",
+                "-dBATCH",
+                "-dNOPAUSE",
+                "-sDEVICE=jpeg",
+                "-r150",
+                "-dTextAlphaBits=4",
+                "-dGraphicsAlphaBits=4",
+                f"-sOutputFile={out_path}",
+                file_path,
+            ]
+            try:
+                subprocess.run(cmd, check=True, capture_output=True, timeout=15)
+                if os.path.exists(out_path) and os.path.getsize(out_path) > 1024:
+                    try:
+                        with Image.open(out_path) as verify_img:
+                            verify_img.verify()
+                        _log(f"[{filename}] Preview rendered successfully.", "success")
+                        return out_path
+                    except (OSError, ValueError) as e:
+                        err = f"Ghostscript produced invalid image: {e}"
+                        _log(f"[{filename}] {err}", "error")
+                else:
+                    _log(f"[{filename}] Ghostscript produced empty or missing file", "error")
+            except subprocess.TimeoutExpired:
+                _log(f"[{filename}] [WARN] Ghostscript timeout for {filename}, using fallback preview", "warn")
+            except subprocess.CalledProcessError as e:
+                _log(f"[{filename}] Ghostscript error. Fallback triggered.", "warn")
+                
+        # ExifTool Fallback
+        _log(f"[{filename}] Format: {ext.upper()}. Using ExifTool fallback...", "info")
+        exiftool_path = processor.get_tool_path("exiftool")
+        if exiftool_path == "exiftool":
+            import glob
+            candidates = glob.glob(os.path.join(processor.get_base_path(), "tools", "exiftool*", "**", "exiftool*.exe"), recursive=True)
+            if candidates:
+                exiftool_path = candidates[0]
+                
+        cmd_fallback = [
+            exiftool_path,
+            "-b",
+            "-PreviewImage",
             file_path,
         ]
         try:
-            subprocess.run(cmd, check=True, capture_output=True, timeout=15)
-            # Validate output
-            if os.path.exists(out_path) and os.path.getsize(out_path) > 1024:
+            res = subprocess.run(cmd_fallback, check=True, capture_output=True, timeout=15)
+            if res.stdout and len(res.stdout) > 1024:
+                with open(out_path, "wb") as f:
+                    f.write(res.stdout)
                 try:
                     with Image.open(out_path) as verify_img:
                         verify_img.verify()
-                    _log(f"[{filename}] Preview rendered successfully.", "success")
+                    _log(f"[{filename}] Preview extracted successfully via ExifTool.", "success")
                     return out_path
                 except (OSError, ValueError) as e:
-                    err = f"FFmpeg produced invalid image: {e}"
-                    _log(f"[{filename}] {err}", "error")
-                    log_failed_file(
-                        os.path.dirname(file_path), os.path.basename(file_path), err
-                    )
+                    _log(f"[{filename}] ExifTool produced invalid image: {e}", "error")
             else:
-                err = "Ghostscript produced empty or missing file"
-                _log(f"[{filename}] {err}", "error")
-                log_failed_file(
-                    os.path.dirname(file_path), os.path.basename(file_path), err
-                )
-            return None
+                _log(f"[{filename}] ExifTool produced empty or missing preview.", "error")
         except subprocess.TimeoutExpired:
-            err_msg = f"Ghostscript render exceeded 15s timeout"
-            _log(f"[{filename}] [WARN] Ghostscript timeout for {filename}, using fallback preview", "warn")
-            log_failed_file(
-                os.path.dirname(file_path), os.path.basename(file_path), err_msg
-            )
-            return None
+            _log(f"[{filename}] ExifTool timeout.", "warn")
         except subprocess.CalledProcessError as e:
-            err = f"Ghostscript error: {e.stderr}"
-            _log(f"[{filename}] {err}. Fallback triggered.", "warn")
-            log_failed_file(
-                os.path.dirname(file_path), os.path.basename(file_path), err
-            )
-            return None
+            _log(f"[{filename}] ExifTool error.", "warn")
+            
+        log_failed_file(
+            os.path.dirname(file_path), os.path.basename(file_path), "All vector rendering methods failed"
+        )
+        return None
     elif ext in ["mp4", "mov", "avi", "mkv"]:
         _log(f"[{filename}] Format: Video. Extracting frame using FFmpeg...", "info")
         ffmpeg_path = processor.get_tool_path("ffmpeg")
