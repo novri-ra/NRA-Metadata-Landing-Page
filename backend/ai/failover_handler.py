@@ -153,6 +153,3 @@ class FailoverHandler:
 
     def wait_backoff(self, attempt: int):
         time.sleep(self.backoff_delay(attempt))
-
-    def _init_stub(self):
-        pass
