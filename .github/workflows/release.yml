@@ -41,7 +41,7 @@ jobs:
       - name: Build Executable with PyInstaller
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --onedir --windowed --name "NRA-Metadata" --paths "." --collect-all "packages" --collect-all "customtkinter" --upx-dir "upx" --add-data "tools;tools" apps/desktop/src/main.py
+          pyinstaller --noconfirm --onedir --windowed --name "NRA-Metadata" --paths "." --collect-all "packages" --collect-all "backend" --collect-all "customtkinter" --upx-dir "upx" --add-data "tools;tools" apps/desktop/src/main.py
 
       - name: Prepare Distribution Package
         shell: pwsh
