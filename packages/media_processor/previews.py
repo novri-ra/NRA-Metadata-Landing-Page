@@ -17,6 +17,7 @@ def get_msedge_path():
 
 
 from packages.media_processor.embedder import log_failed_file
+from packages.shared_utils.tools_setup import find_ghostscript_binary
 
 
 def extract_preview_image(file_path: str, processor, progress_callback=None) -> str | None:
@@ -48,7 +49,7 @@ def extract_preview_image(file_path: str, processor, progress_callback=None) -> 
             return None
     elif ext in ["eps", "ai"]:
         _log(f"[{filename}] Format: {ext.upper()}. Rendering raster preview using Ghostscript...", "info")
-        gs_path = processor.get_tool_path("ghostscript")
+        gs_path = find_ghostscript_binary() or "gswin64c.exe"
         cmd = [
             gs_path,
             "-dSAFER",

@@ -2569,11 +2569,10 @@ class App(ctk.CTk):
                 self.log_buffer.pop(0)
 
         # Immediate append if filter matches (optimization to avoid full refresh on every log)
-        q = self.log_search_var.get().lower()
-        flt = self.log_level_var.get().lower()
-        if (flt == "all" or flt == level) and (not q or q in message.lower()):
-
-            def _append():
+        def _append():
+            q = self.log_search_var.get().lower()
+            flt = self.log_level_var.get().lower()
+            if (flt == "all" or flt == level) and (not q or q in message.lower()):
                 self.console.configure(state="normal")
                 tb = self.console._textbox
                 tb.insert("end", f"[{entry['ts']}] ", "timestamp")
@@ -2582,7 +2581,7 @@ class App(ctk.CTk):
                 self.console.see("end")
                 self.console.configure(state="disabled")
 
-            self.after(0, _append)
+        self.after(0, _append)
 
     def _refresh_log(self, *_):
         q = self.log_search_var.get().lower()
