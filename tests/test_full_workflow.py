@@ -136,7 +136,7 @@ class TestAdobeStockCsvExport(unittest.TestCase):
 
 class TestConfigPersistence(unittest.TestCase):
     def test_save_and_load_config(self):
-        from packages.shared_utils.config import load_config, save_config
+        from backend.core.config_manager import load_config, save_config
 
         payload = {
             "provider": "OpenAI",
