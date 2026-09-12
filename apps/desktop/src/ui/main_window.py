@@ -200,13 +200,24 @@ class AppWindow(ctk.CTk):
         threading.Thread(target=setup_tools, daemon=True).start()
 
         def _bg_validate():
-            is_valid, msg = self.auth.validate_session()
+            try:
+                is_valid, msg = self.auth.validate_session()
+            except Exception as e:
+                try:
+                    self.log(f"[AUTH] Session check error: {type(e).__name__}: {e}", "error")
+                except Exception:
+                    pass
+                self._call_main(self.show_login_modal)
+                return
             if not is_valid:
-                self.after(0, self.show_login_modal)
+                self._call_main(self.show_login_modal)
                 
         threading.Thread(target=_bg_validate, daemon=True).start()
 
     def show_login_modal(self):
+        if getattr(self, "_auth_modal_open", False):
+            return
+        self._auth_modal_open = True
         from ui.dialogs.login_modal import show_login_modal as _show_login_modal
 
         _show_login_modal(self)
@@ -1430,9 +1441,6 @@ class AppWindow(ctk.CTk):
         self.pool.cancel()
         self._save_current_config()
         self.destroy()
-        import os
-
-        os._exit(0)
 
     def _load_keys_from_file(self):
         from tkinter import filedialog
@@ -2220,8 +2228,16 @@ class AppWindow(ctk.CTk):
         self.start_btn.configure(state="disabled")
 
         def _auth_check():
-            is_valid, msg = self.auth.validate_session()
-            self.after(0, lambda: self._on_auth_checked(is_valid, msg, new_only))
+            try:
+                is_valid, msg = self.auth.validate_session()
+            except Exception as e:
+                try:
+                    self.log(f"[AUTH] Session check error: {type(e).__name__}: {e}", "error")
+                except Exception:
+                    pass
+                self._call_main(self._on_auth_checked, False, "ERROR", new_only)
+                return
+            self._call_main(self._on_auth_checked, is_valid, msg, new_only)
             
         import threading
         threading.Thread(target=_auth_check, daemon=True).start()

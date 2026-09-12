@@ -37,7 +37,7 @@ def get_public_ip() -> str:
         res = requests.get("https://api.ipify.org", timeout=3)
         if res.status_code == 200:
             return res.text.strip()
-    except OSError:
+    except (requests.exceptions.RequestException, OSError):
         pass
     return "Unknown"
 
@@ -71,7 +71,7 @@ class AuthClient:
                 self.endpoint,
                 json=payload,
                 verify=True,
-                timeout=5,
+                timeout=10,
                 allow_redirects=True,
             )
             try:
@@ -84,23 +84,35 @@ class AuthClient:
                 return {"status": "ERROR", "message": "Respon server tidak valid."}
         except requests.exceptions.Timeout as e:
             print(f"[AUTH] Network timeout: {e!r}", file=sys.stderr)
-            return {"status": "ERROR", "message": "Network timeout. Koneksi lambat."}
+            return {"status": "ERROR", "message": "Network timeout. Koneksi lambat.", "network": True}
         except requests.exceptions.SSLError as e:
             print(f"[AUTH] SSL error: {e!r}", file=sys.stderr)
-            return {"status": "ERROR", "message": "SSL error: sertifikat tidak valid."}
+            return {"status": "ERROR", "message": "SSL error: sertifikat tidak valid.", "network": True}
         except requests.exceptions.ConnectionError as e:
             cause = e.__cause__ or e
             print(
                 f"[AUTH] Connection error: {type(cause).__name__}: {cause}",
                 file=sys.stderr,
             )
-            return {"status": "ERROR", "message": "Connection error."}
+            return {"status": "ERROR", "message": "Connection error.", "network": True}
+        except requests.exceptions.RequestException as e:
+            print(
+                f"[AUTH] HTTP request error: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
+            return {"status": "ERROR", "message": f"Request error: {type(e).__name__}", "network": True}
         except OSError as e:
             print(
                 f"[AUTH] Network error: {type(e).__name__}: {e}",
                 file=sys.stderr,
             )
-            return {"status": "ERROR", "message": f"Network error: {e!s}"}
+            return {"status": "ERROR", "message": f"Network error: {e!s}", "network": True}
+        except Exception as e:
+            print(
+                f"[AUTH] Unexpected error: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
+            return {"status": "ERROR", "message": f"Unexpected error: {e!s}", "network": True}
 
     def enable_offline_mode(self):
         self.offline_mode = True
@@ -133,10 +145,14 @@ class AuthClient:
         if res.get("status") == "SUCCESS":
             actual_user = res.get("username", username)
             self._save_session(actual_user, res.get("session_token"))
-        elif res.get("status") == "ERROR" and ("Network" in res.get("message", "") or "Connection" in res.get("message", "")):
+        elif (
+            res.get("status") == "ERROR"
+            and res.get("network")
+            and self.session_token
+            and (self.username == username or self.config.get("auth_email") == username)
+        ):
             # Offline tolerance if credentials already match the saved session
-            if self.session_token and (self.username == username or self.config.get("auth_email") == username):
-                return {"status": "SUCCESS", "username": self.username, "session_token": self.session_token, "message": "Offline mode"}
+            return {"status": "SUCCESS", "username": self.username, "session_token": self.session_token, "message": "Offline mode"}
         return res
 
     def validate_session(self) -> tuple[bool, str]:
@@ -162,7 +178,7 @@ class AuthClient:
         elif status == "INVALID_SESSION" or status == "KICKED":
             self._clear_session()
             return False, "KICKED"
-        elif status == "ERROR" and ("Network" in msg or "Connection" in msg):
+        elif status == "ERROR" and res.get("network"):
             return True, "Offline mode"
         return False, msg
 
