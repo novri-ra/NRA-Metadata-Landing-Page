@@ -45,7 +45,6 @@ from packages.shared_utils.filter import (
 )
 from packages.shared_utils.ftp_uploader import FTPClient
 from packages.shared_utils.license_manager import AuthClient
-from packages.shared_utils.logger import CSVLogger
 from packages.shared_utils.presets import delete_preset as delete_kw_preset
 from packages.shared_utils.presets import (
     export_presets,
