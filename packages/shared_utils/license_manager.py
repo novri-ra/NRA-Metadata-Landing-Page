@@ -9,7 +9,7 @@ from backend.core.config_manager import load_config, save_config
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-AUTH_API_URL = "https://script.google.com/macros/s/AKfycbw3Gqwu5Q31OJpr_Vyzq_8V5SaRsXR1RGeKXs-VI1M2MFeWIFTCoAk0P8RExl70S32G/exec"
+AUTH_API_URL = "https://script.google.com/macros/s/AKfycbyCQ_YsbTnjwgr1nBzPlOzyaiYv5BpfT6HDG72D9RsZRTAvK3axT5fagSV2we7Mkju9/exec"
 
 
 def get_machine_hwid() -> str:
@@ -51,11 +51,28 @@ class AuthClient:
         self.offline_mode = bool(self.config.get("auth_offline"))
         self.hwid = get_machine_hwid()
 
-    def _save_session(self, username, token):
+        self.session = requests.Session()
+        self.session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+        )
+
+    def get_hwid(self) -> str:
+        return self.hwid
+
+    def get_client_ip(self) -> str:
+        return get_public_ip()
+
+    def _save_session(self, username, token, user_id=None):
         self.username = username
         self.session_token = token
         self.config["auth_user"] = username
         self.config["auth_session"] = token
+        if user_id:
+            self.config["auth_user_id"] = str(user_id)
         save_config(self.config)
 
     def _clear_session(self):
@@ -67,11 +84,11 @@ class AuthClient:
 
     def _post(self, payload: dict) -> dict:
         try:
-            res = requests.post(
+            res = self.session.post(
                 self.endpoint,
                 json=payload,
                 verify=True,
-                timeout=10,
+                timeout=(15.0, 45.0),
                 allow_redirects=True,
             )
             try:
@@ -82,9 +99,12 @@ class AuthClient:
                     file=sys.stderr,
                 )
                 return {"status": "ERROR", "message": "Respon server tidak valid."}
-        except requests.exceptions.Timeout as e:
-            print(f"[AUTH] Network timeout: {e!r}", file=sys.stderr)
-            return {"status": "ERROR", "message": "Network timeout. Koneksi lambat.", "network": True}
+        except requests.exceptions.ConnectTimeout as e:
+            print(f"[AUTH] Connect timeout: {e!r}", file=sys.stderr)
+            return {"status": "ERROR", "message": "Connect timeout. GAS redirect lambat.", "network": True}
+        except requests.exceptions.ReadTimeout as e:
+            print(f"[AUTH] Read timeout: {e!r}", file=sys.stderr)
+            return {"status": "ERROR", "message": "Read timeout. Server tidak merespons.", "network": True}
         except requests.exceptions.SSLError as e:
             print(f"[AUTH] SSL error: {e!r}", file=sys.stderr)
             return {"status": "ERROR", "message": "SSL error: sertifikat tidak valid.", "network": True}
@@ -120,38 +140,41 @@ class AuthClient:
         save_config(self.config)
 
     def register(self, username, password, email="", wa="", fullname=""):
+        clean_user = str(username).strip().lower()
         return self._post(
             {
                 "action": "REGISTER",
-                "full_name": fullname,
-                "username": username,
+                "identifier": clean_user,
+                "username": clean_user,
+                "password": str(password),
                 "email": email,
                 "whatsapp": wa,
-                "password": password,
-                "hwid": self.hwid,
-                "ip": get_public_ip(),
+                "full_name": fullname,
+                "hwid": self.get_hwid(),
+                "ip": self.get_client_ip(),
             }
         )
 
-    def login(self, username, password):
-        """Login via username OR email — backend handles lookup."""
+    def login(self, identifier, password):
+        """Login via username — backend handles lookup."""
+        clean_user = str(identifier).strip().lower()
         res = self._post(
             {
                 "action": "LOGIN",
-                "identifier": username,
-                "password": password,
-                "hwid": self.hwid,
-                "ip": get_public_ip(),
+                "identifier": clean_user,
+                "password": str(password),
+                "hwid": self.get_hwid(),
+                "ip": self.get_client_ip(),
             }
         )
         if res.get("status") == "SUCCESS":
-            actual_user = res.get("username", username)
-            self._save_session(actual_user, res.get("session_token"))
+            actual_user = res.get("username", clean_user)
+            self._save_session(actual_user, res.get("session_token"), res.get("user_id"))
         elif (
             res.get("status") == "ERROR"
             and res.get("network")
             and self.session_token
-            and (self.username == username or self.config.get("auth_email") == username)
+            and (self.username == clean_user or self.config.get("auth_email") == clean_user)
         ):
             # Offline tolerance if credentials already match the saved session
             return {"status": "SUCCESS", "username": self.username, "session_token": self.session_token, "message": "Offline mode"}
@@ -166,9 +189,10 @@ class AuthClient:
         res = self._post(
             {
                 "action": "VALIDATE_SESSION",
-                "identifier": self.username,
+                "identifier": self.username.strip().lower(),
+                "username": self.username.strip().lower(),
                 "session_token": self.session_token,
-                "hwid": self.hwid,
+                "hwid": self.get_hwid(),
             }
         )
 

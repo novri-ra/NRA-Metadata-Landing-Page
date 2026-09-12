@@ -6,22 +6,49 @@ Extracted from ``packages/media_processor/embedder.py``; the class was renamed
 """
 
 import os
+import stat
 import subprocess
 import xml.etree.ElementTree as ET
-from pathlib import Path
 
 from backend.processors._tools import get_tool_path, log_failed_file
+
+
+def _prepare_target(file_path: str) -> None:
+    """Make the target writable and free it from stale ExifTool temp files.
+
+    Stock-downloaded files often carry a read-only attribute that survives
+    ``shutil.move``; ``-overwrite_original`` then fails to rename the temp
+    file over the original on Windows. A failed rename also leaves a stale
+    ``<file>_exiftool_tmp`` behind, and ExifTool refuses to proceed while it
+    exists -- so both must be cleared before every run.
+    """
+    try:
+        os.chmod(file_path, stat.S_IREAD | stat.S_IWRITE)
+    except OSError:
+        pass
+    try:
+        stale = file_path + "_exiftool_tmp"
+        if os.path.exists(stale):
+            os.chmod(stale, stat.S_IREAD | stat.S_IWRITE)
+            os.remove(stale)
+    except OSError:
+        pass
 
 
 class ExifToolClient:
     def sanitize_ai_metadata(self, file_path: str) -> bool:
         """Strip AI provenance and generation tags while preserving Adobe/creative app metadata."""
+        file_path = os.path.normpath(os.path.abspath(file_path))
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        _prepare_target(file_path)
         exiftool_path = get_tool_path("exiftool")
         is_png = os.path.splitext(file_path)[1].lower() == ".png"
         cmd = [
             exiftool_path,
             "-overwrite_original",
             "-m",
+            "-charset",
+            "filename=utf8",
         ]
         if is_png:
             cmd.extend(
@@ -37,13 +64,11 @@ class ExifToolClient:
             [
                 "-XMP-c2pa:all=",
                 "-XMP-xmpGImg:all=",
-                "-XMP:AIContentGenerator=",
                 "-XMP:DigitalSourceType=",
                 file_path,
             ]
         )
         try:
-            Path(file_path).parent.mkdir(parents=True, exist_ok=True)
             subprocess.run(cmd, check=True, capture_output=True, timeout=30)
             return True
         except subprocess.TimeoutExpired:
@@ -71,12 +96,25 @@ class ExifToolClient:
         copyright_text: str,
         author: str = "",
     ) -> bool:
-        file_path = os.path.abspath(file_path)
+        file_path = os.path.normpath(os.path.abspath(file_path))
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
         ext = file_path.lower().split(".")[-1]
         if ext == "svg":
             return self._embed_svg_metadata(
                 file_path, title, description, keywords, copyright_text, author
             )
+
+        if not os.path.isfile(file_path):
+            print(
+                f"[SKIP ERROR] {os.path.basename(file_path)}: target file does not exist"
+            )
+            log_failed_file(
+                os.path.dirname(file_path),
+                os.path.basename(file_path),
+                "ExifTool: target file missing",
+            )
+            return False
+        _prepare_target(file_path)
 
         # 1. Sanitize AI metadata first
         self.sanitize_ai_metadata(file_path)
@@ -86,6 +124,9 @@ class ExifToolClient:
         cmd = [
             exiftool_path,
             "-overwrite_original",
+            "-m",
+            "-charset",
+            "filename=utf8",
             f"-Title={title}",
             f"-ObjectName={title}",
             f"-Description={description}",
