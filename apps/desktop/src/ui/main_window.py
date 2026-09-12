@@ -199,9 +199,12 @@ class AppWindow(ctk.CTk):
 
         threading.Thread(target=setup_tools, daemon=True).start()
 
-        is_valid, msg = self.auth.validate_session()
-        if not is_valid:
-            self.show_login_modal()
+        def _bg_validate():
+            is_valid, msg = self.auth.validate_session()
+            if not is_valid:
+                self.after(0, self.show_login_modal)
+                
+        threading.Thread(target=_bg_validate, daemon=True).start()
 
     def show_login_modal(self):
         from ui.dialogs.login_modal import show_login_modal as _show_login_modal

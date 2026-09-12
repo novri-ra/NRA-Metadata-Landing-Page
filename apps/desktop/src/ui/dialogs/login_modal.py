@@ -222,9 +222,9 @@ def show_login_modal(app):
             )
             return
         status_lbl_login.configure(
-            text="\u231b Memverifikasi kredensial...", text_color=C["text3"]
+            text="\u231b Memeriksa sesi...", text_color=C["text3"]
         )
-        btn_login.configure(state="disabled", text="Memproses...")
+        btn_login.configure(state="disabled", text="Memeriksa sesi...")
         modal.update()
 
         def _bg():
@@ -409,7 +409,7 @@ def show_login_modal(app):
         status_lbl_reg.configure(
             text="\u231b Mendaftarkan perangkat...", text_color=C["text3"]
         )
-        btn_reg.configure(state="disabled", text="Memproses...")
+        btn_reg.configure(state="disabled", text="Memeriksa sesi...")
         modal.update()
 
         def _bg():

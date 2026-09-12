@@ -70,7 +70,7 @@ class AuthClient:
                 self.endpoint,
                 json=payload,
                 verify=True,
-                timeout=10,
+                timeout=5,
                 allow_redirects=True,
             )
             return res.json()
@@ -107,6 +107,10 @@ class AuthClient:
         if res.get("status") == "SUCCESS":
             actual_user = res.get("username", username)
             self._save_session(actual_user, res.get("session_token"))
+        elif res.get("status") == "ERROR" and ("Network" in res.get("message", "") or "Connection" in res.get("message", "")):
+            # Offline tolerance if credentials already match the saved session
+            if self.session_token and (self.username == username or self.config.get("auth_email") == username):
+                return {"status": "SUCCESS", "username": self.username, "session_token": self.session_token, "message": "Offline mode"}
         return res
 
     def validate_session(self) -> tuple[bool, str]:
