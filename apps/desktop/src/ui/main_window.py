@@ -8,7 +8,6 @@ from datetime import UTC, datetime
 
 import customtkinter as ctk
 
-from backend.ai.provider_router import AIService
 from backend.core.config_manager import (
     get_cache_hits,
     get_cached_metadata,
