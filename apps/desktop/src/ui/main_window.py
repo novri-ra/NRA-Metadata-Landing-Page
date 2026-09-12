@@ -1,4 +1,5 @@
 import os
+import queue
 import sys
 import threading
 import time
@@ -93,7 +94,7 @@ class AppWindow(ctk.CTk):
             {
                 "log": self.log,
                 "stats": self._on_pool_stats,
-                "progress": lambda v: self.after(0, self.progress_bar.set, v),
+                "progress": lambda v: self._call_main(self.progress_bar.set, v),
                 "preview": self._on_pool_preview,
                 "batch_complete": self._on_batch_complete,
                 "finished": self._on_pool_finished,
@@ -120,6 +121,8 @@ class AppWindow(ctk.CTk):
 
         self.log_buffer = []
         self.log_lock = threading.Lock()
+        self._log_queue = queue.Queue()
+        self._tk_queue = queue.Queue()
         self.tools_ready = False
 
         self.MODEL_MAP = {
@@ -150,6 +153,8 @@ class AppWindow(ctk.CTk):
 
         self._restore_geometry()
         self.build_ui()
+        self.after(100, self._flush_log_queue)
+        self.after(100, self._flush_tk_queue)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # Update initial key counter
@@ -162,8 +167,8 @@ class AppWindow(ctk.CTk):
         self.after(
             2000,
             lambda: check_github_release(
-                callback=lambda info: self.after(
-                    0, lambda: self._show_update_banner(info)
+                callback=lambda info: self._call_main(
+                    self._show_update_banner, info
                 )
             ),
         )
@@ -1068,30 +1073,55 @@ class AppWindow(ctk.CTk):
         )
 
     def log(self, message: str, level="info"):
-        entry = {
-            "ts": datetime.now(UTC).strftime("%H:%M:%S"),
-            "level": level,
-            "msg": message,
-        }
-        with self.log_lock:
-            self.log_buffer.append(entry)
-            if len(self.log_buffer) > 5000:
-                self.log_buffer.pop(0)
+        self._log_queue.put((message, level))
 
-        # Immediate append if filter matches (optimization to avoid full refresh on every log)
-        def _append():
-            q = self.log_search_var.get().lower()
-            flt = self.log_level_var.get().lower()
-            if (flt == "all" or flt == level) and (not q or q in message.lower()):
-                self.console.configure(state="normal")
-                tb = self.console._textbox
-                tb.insert("end", f"[{entry['ts']}] ", "timestamp")
-                tb.insert("end", f"[{level.upper()}] ", level)
-                tb.insert("end", f"{message}\n", level)
-                self.console.see("end")
-                self.console.configure(state="disabled")
+    def _call_main(self, fn, *args, **kwargs):
+        self._tk_queue.put((fn, args, kwargs))
 
-        self.after(0, _append)
+    def _flush_log_queue(self):
+        if not hasattr(self, "console"):
+            self.after(100, self._flush_log_queue)
+            return
+        try:
+            while True:
+                message, level = self._log_queue.get_nowait()
+                entry = {
+                    "ts": datetime.now(UTC).strftime("%H:%M:%S"),
+                    "level": level,
+                    "msg": message,
+                }
+                with self.log_lock:
+                    self.log_buffer.append(entry)
+                    if len(self.log_buffer) > 5000:
+                        self.log_buffer.pop(0)
+
+                q = self.log_search_var.get().lower()
+                flt = self.log_level_var.get().lower()
+                if (flt == "all" or flt == level) and (
+                    not q or q in message.lower()
+                ):
+                    self.console.configure(state="normal")
+                    tb = self.console._textbox
+                    tb.insert("end", f"[{entry['ts']}] ", "timestamp")
+                    tb.insert("end", f"[{level.upper()}] ", level)
+                    tb.insert("end", f"{message}\n", level)
+                    self.console.see("end")
+                    self.console.configure(state="disabled")
+        except (queue.Empty, RuntimeError):
+            pass
+        self.after(100, self._flush_log_queue)
+
+    def _flush_tk_queue(self):
+        try:
+            while True:
+                fn, args, kwargs = self._tk_queue.get_nowait()
+                try:
+                    fn(*args, **kwargs)
+                except tk.TclError:
+                    pass
+        except queue.Empty:
+            pass
+        self.after(100, self._flush_tk_queue)
 
     def _refresh_log(self, *_):
         q = self.log_search_var.get().lower()
@@ -1262,7 +1292,7 @@ class AppWindow(ctk.CTk):
             else:
                 self.header_status.configure(text="Ready", text_color=C["text3"])
 
-        self.after(0, _update)
+        self._call_main(_update)
 
     def _on_pool_preview(self, img, status_text, status_tag, meta, out_path, file_hash):
         color_map = {"cache": C["violet"], "api": C["warn"], "success": C["success"]}
@@ -1302,7 +1332,7 @@ class AppWindow(ctk.CTk):
             except (tk.TclError, AttributeError):
                 pass
 
-        self.after(0, _draw)
+        self._call_main(_draw)
 
     # ── Geometry & Sash Persistence ────────────────────────────────────
     def _restore_geometry(self):
@@ -1461,7 +1491,7 @@ class AppWindow(ctk.CTk):
 
             ai = AIService(provider, api_key)
             models = ai.fetch_available_models()
-            self.after(0, lambda: self._fetch_models_done(provider, models))
+            self._call_main(self._fetch_models_done, provider, models)
 
         import threading
 
@@ -1999,7 +2029,7 @@ class AppWindow(ctk.CTk):
             return self.log("No valid files to upload via FTP.", "error")
 
         self.log(f"FTP Uploading {len(files_to_upload)} files...", "info")
-        self.progress_bar.set(0)
+        self._call_main(self.progress_bar.set, 0)
 
         success = 0
         total = len(files_to_upload)
@@ -2011,7 +2041,7 @@ class AppWindow(ctk.CTk):
                 success += 1
             else:
                 self.log(f"FTP: FAIL {fname}", "error")
-            self.after(0, self.progress_bar.set, (i + 1) / total)
+            self._call_main(self.progress_bar.set, (i + 1) / total)
 
         client.disconnect()
         self.log(f"FTP Upload Complete: {success}/{total} successful.", "info")
@@ -2029,17 +2059,21 @@ class AppWindow(ctk.CTk):
     def _watcher_loop(self):
         while True:
             time.sleep(3)
-            if self.auto_watch.get() and not self.pool.is_running:
-                in_dir = self.input_dir.get()
-                if in_dir and os.path.isdir(in_dir):
-                    files = [
-                        f
-                        for f in os.listdir(in_dir)
-                        if os.path.isfile(os.path.join(in_dir, f))
-                        and self._is_allowed_file(f)
-                    ]
-                    if any(f not in self.processed_files for f in files):
-                        self.after(0, lambda: self.start_processing(new_only=True))
+            if not self.pool.is_running:
+                self._call_main(self._watcher_tick)
+
+    def _watcher_tick(self):
+        if self.auto_watch.get() and not self.pool.is_running:
+            in_dir = self.input_dir.get()
+            if in_dir and os.path.isdir(in_dir):
+                files = [
+                    f
+                    for f in os.listdir(in_dir)
+                    if os.path.isfile(os.path.join(in_dir, f))
+                    and self._is_allowed_file(f)
+                ]
+                if any(f not in self.processed_files for f in files):
+                    self.start_processing(new_only=True)
 
     def toggle_pause(self):
         if self.pool.toggle_pause():
@@ -2074,8 +2108,13 @@ class AppWindow(ctk.CTk):
 
         self.retag_btn.configure(state="disabled")
         self.start_btn.configure(state="disabled")
+        max_kw = self._safe_int(self.max_kw_entry.get(), 50)
+        author = self.author_entry.get().strip()
+        copyright_text = self._get_copyright_text()
         threading.Thread(
-            target=self._run_offline_retag, args=(csv_path, target_dir), daemon=True
+            target=self._run_offline_retag,
+            args=(csv_path, target_dir, max_kw, author, copyright_text),
+            daemon=True,
         ).start()
 
     def _find_asset(self, target_dir: str, filename: str) -> str | None:
@@ -2084,7 +2123,9 @@ class AppWindow(ctk.CTk):
                 return os.path.join(root, filename)
         return None
 
-    def _run_offline_retag(self, csv_path: str, target_dir: str):
+    def _run_offline_retag(
+        self, csv_path: str, target_dir: str, max_kw: int, author: str, copyright_text: str
+    ):
         import csv as csv_mod
 
         try:
@@ -2092,23 +2133,22 @@ class AppWindow(ctk.CTk):
                 rows = list(csv_mod.DictReader(f))
         except (OSError, KeyError, ValueError) as e:
             self.log(f"CSV read error: {e}", "error")
-            self.after(0, lambda: self.retag_btn.configure(state="normal"))
-            self.after(0, lambda: self.start_btn.configure(state="normal"))
+            self._call_main(self.retag_btn.configure, state="normal")
+            self._call_main(self.start_btn.configure, state="normal")
             return
 
         if not rows:
             self.log("CSV empty.", "error")
-            self.after(0, lambda: self.retag_btn.configure(state="normal"))
-            self.after(0, lambda: self.start_btn.configure(state="normal"))
+            self._call_main(self.retag_btn.configure, state="normal")
+            self._call_main(self.start_btn.configure, state="normal")
             return
 
-        max_kw = self._safe_int(self.max_kw_entry.get(), 50)
         total = len(rows)
         success = 0
         self.log(
             f"Offline Re-Tag: {total} rows from {os.path.basename(csv_path)}", "info"
         )
-        self.progress_bar.set(0)
+        self._call_main(self.progress_bar.set, 0)
 
         for i, row in enumerate(rows):
             filename = row.get("Filename", "").strip()
@@ -2133,8 +2173,8 @@ class AppWindow(ctk.CTk):
                 title,
                 desc,
                 keywords,
-                self._get_copyright_text(),
-                self.author_entry.get().strip(),
+                copyright_text,
+                author,
             ):
                 file_hash = get_file_hash(asset_path)
                 meta = {"title": title, "description": desc, "keywords": keywords}
@@ -2157,11 +2197,11 @@ class AppWindow(ctk.CTk):
             else:
                 self.log(f"[OFFLINE FAIL] {filename}", "error")
 
-            self.after(0, self.progress_bar.set, (i + 1) / total)
+            self._call_main(self.progress_bar.set, (i + 1) / total)
 
         self.log(f"Successfully tagged {success}/{total} files from CSV.", "success")
-        self.after(0, lambda: self.retag_btn.configure(state="normal"))
-        self.after(0, lambda: self.start_btn.configure(state="normal"))
+        self._call_main(self.retag_btn.configure, state="normal")
+        self._call_main(self.start_btn.configure, state="normal")
 
     def start_processing(self, new_only=False):
         if self.pool.is_running:
@@ -2247,9 +2287,12 @@ class AppWindow(ctk.CTk):
 
     def _on_batch_complete(self, summary):
         self.batch_session_stats.update(summary)
-        self.after(0, lambda: self._show_batch_summary())
+        self._call_main(self._show_batch_summary)
 
     def _on_pool_finished(self):
+        self._call_main(self._on_pool_finished_main)
+
+    def _on_pool_finished_main(self):
         self.start_btn.configure(state="normal")
         self.pause_btn.configure(state="normal")
         self.cancel_btn.configure(state="normal")
