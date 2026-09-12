@@ -2,7 +2,7 @@ import csv
 import os
 import unittest
 
-from packages.ai_engine.service import normalize_base_url
+from backend.ai.provider_router import normalize_base_url
 from packages.shared_utils.cost_tracker import CostTracker
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.shared_utils.taxonomy import ADOBE_CATEGORY_MAP, get_adobe_category_code
