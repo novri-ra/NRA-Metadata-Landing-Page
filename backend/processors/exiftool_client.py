@@ -5,6 +5,7 @@ Extracted from ``packages/media_processor/embedder.py``; the class was renamed
 ``backend.processors._tools``.
 """
 
+import logging
 import os
 import shutil
 import stat
@@ -13,6 +14,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from backend.processors._tools import log_failed_file
+
+logger = logging.getLogger(__name__)
 
 
 def get_exiftool_path() -> str:
@@ -43,6 +46,44 @@ def _prepare_target(file_path: str) -> None:
             os.remove(stale)
     except OSError:
         pass
+
+
+def _run_exiftool(cmd: list, timeout: int) -> subprocess.CompletedProcess:
+    """Run ExifTool with fully visible text output.
+
+    The cwd is pinned to the ExifTool directory so the bundled Perl wrapper
+    can always find its ``exiftool_files`` support modules, and stderr is
+    decoded with ``errors="replace"`` so a non-UTF8 native message can never
+    be swallowed by a decode exception while surfacing hidden command-line
+    errors.
+    """
+    exiftool_path = cmd[0]
+    cwd = os.path.dirname(os.path.abspath(exiftool_path))
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout,
+        cwd=cwd,
+    )
+
+
+def _log_exiftool_failure(
+    file_path: str, cmd: list, result: subprocess.CompletedProcess
+) -> None:
+    """Expose the raw ExifTool failure to the console and logger.
+
+    stderr was previously swallowed by a ``CalledProcessError`` decode path,
+    so every EPS embed failed silently. Dump exit code, full command, stderr
+    and stdout verbatim.
+    """
+    print(f"\n[EXIFTOOL ERROR DETAIL] Exit Code: {result.returncode}", flush=True)
+    print(f"[EXIFTOOL CMD] {' '.join(cmd)}", flush=True)
+    print(f"[EXIFTOOL STDERR] {result.stderr}", flush=True)
+    print(f"[EXIFTOOL STDOUT] {result.stdout}\n", flush=True)
+    logger.error(f"[EXIFTOOL] Failed on {file_path}: {result.stderr.strip()}")
 
 
 class ExifToolClient:
@@ -82,29 +123,18 @@ class ExifToolClient:
             ]
         )
         try:
-            cwd = os.path.dirname(exiftool_path) if os.path.isabs(exiftool_path) else None
-            subprocess.run(cmd, check=True, capture_output=True, timeout=30, cwd=cwd)
-            return True
+            result = _run_exiftool(cmd, timeout=30)
         except subprocess.TimeoutExpired:
             print(f"[WARN] Sanitizer timeout on {os.path.basename(file_path)}")
-            return False
-        except subprocess.CalledProcessError as e:
-            err_msg = (
-                e.stderr.decode(errors="replace")
-                if isinstance(e.stderr, bytes)
-                else str(e.stderr)
-            )
-            out_msg = (
-                e.stdout.decode(errors="replace")
-                if isinstance(e.stdout, bytes)
-                else str(e.stdout)
-            )
-            print(f"[WARN] Sanitizer error on {os.path.basename(file_path)}: {err_msg} | Stdout: {out_msg}")
             return False
         except (OSError, ValueError) as e:
             # We don't hard fail if sanitization fails (e.g. exiftool error on a specific file type)
             print(f"[WARN] Sanitizer error on {os.path.basename(file_path)}: {e}")
             return False
+        if result.returncode != 0:
+            _log_exiftool_failure(file_path, cmd, result)
+            return False
+        return True
 
     def embed_metadata(
         self,
@@ -149,61 +179,67 @@ class ExifToolClient:
                 err_msg,
             )
             return False
-        cmd = [
-            exiftool_path,
-            "-overwrite_original",
-            "-m",
-            "-charset",
-            "filename=utf8",
-            f"-Title={title}",
-            f"-ObjectName={title}",
-            f"-Description={description}",
-            f"-Caption-Abstract={description}",
-            f"-ImageDescription={description}",
-            f"-Copyright={copyright_text}",
-            f"-Rights={copyright_text}",
-        ]
-        if author:
+
+        is_eps = ext == "eps"
+        # Every argument must be a separate list item; no shell=True, no
+        # hand-glued "-key=value" pairs.
+        cmd = [exiftool_path, "-overwrite_original", "-m"]
+        if is_eps:
+            cmd.extend(["-charset", "iptc=UTF8"])
+        cmd.extend(["-charset", "filename=utf8"])
+        if is_eps:
+            # EPS (PostScript) carries XMP, so write the industry-standard
+            # microstock tags (Adobe Stock / Shutterstock / Freepik) with
+            # explicit XMP:/IPTC: group prefixes.
             cmd.extend(
                 [
-                    f"-By-line={author}",
-                    f"-Creator={author}",
-                    f"-Credit={author}",
-                    f"-Artist={author}",
+                    f"-XMP:Title={title}",
+                    f"-IPTC:ObjectName={title}",
+                    f"-XMP:Description={description}",
+                    f"-IPTC:Caption-Abstract={description}",
+                    f"-XMP:Rights={copyright_text}",
+                    f"-IPTC:CopyrightNotice={copyright_text}",
                 ]
             )
+        else:
+            cmd.extend(
+                [
+                    f"-Title={title}",
+                    f"-ObjectName={title}",
+                    f"-Description={description}",
+                    f"-Caption-Abstract={description}",
+                    f"-ImageDescription={description}",
+                    f"-Copyright={copyright_text}",
+                    f"-Rights={copyright_text}",
+                ]
+            )
+        if author:
+            if is_eps:
+                cmd.extend([f"-XMP:Creator={author}", f"-IPTC:By-line={author}"])
+            else:
+                cmd.extend(
+                    [
+                        f"-By-line={author}",
+                        f"-Creator={author}",
+                        f"-Credit={author}",
+                        f"-Artist={author}",
+                    ]
+                )
         for kw in keywords:
-            cmd.extend([f"-Keywords={kw}", f"-Subject={kw}"])
+            if is_eps:
+                cmd.extend([f"-IPTC:Keywords={kw}", f"-XMP:Subject={kw}"])
+            else:
+                cmd.extend([f"-Keywords={kw}", f"-Subject={kw}"])
         cmd.append(file_path)
 
         try:
-            cwd = os.path.dirname(exiftool_path) if os.path.isabs(exiftool_path) else None
-            subprocess.run(cmd, check=True, capture_output=True, timeout=60, cwd=cwd)
-            return True
+            result = _run_exiftool(cmd, timeout=60)
         except subprocess.TimeoutExpired:
             print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool Timeout")
             log_failed_file(
                 os.path.dirname(file_path),
                 os.path.basename(file_path),
                 "ExifTool: Timeout",
-            )
-            return False
-        except subprocess.CalledProcessError as e:
-            err_msg = (
-                e.stderr.decode(errors="replace")
-                if isinstance(e.stderr, bytes)
-                else str(e.stderr)
-            )
-            out_msg = (
-                e.stdout.decode(errors="replace")
-                if isinstance(e.stdout, bytes)
-                else str(e.stdout)
-            )
-            print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool - {err_msg} | Stdout: {out_msg}")
-            log_failed_file(
-                os.path.dirname(file_path),
-                os.path.basename(file_path),
-                f"ExifTool: {err_msg} | Stdout: {out_msg}",
             )
             return False
         except (OSError, ValueError) as e:
@@ -214,6 +250,15 @@ class ExifToolClient:
                 f"ExifTool: {e}",
             )
             return False
+        if result.returncode != 0:
+            _log_exiftool_failure(file_path, cmd, result)
+            log_failed_file(
+                os.path.dirname(file_path),
+                os.path.basename(file_path),
+                f"ExifTool: {result.stderr.strip()} | Stdout: {result.stdout}",
+            )
+            return False
+        return True
 
     def _embed_svg_metadata(
         self,
