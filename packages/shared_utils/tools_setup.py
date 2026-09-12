@@ -18,6 +18,56 @@ def get_tools_directory() -> Path:
     return tools_dir
 
 
+def find_ghostscript_binary(tools_dir=None):
+    if sys.platform != "win32":
+        return "gs"
+    
+    import glob
+    import shutil
+    
+    td = Path(tools_dir) if tools_dir else get_tools_directory()
+    
+    # 1. Local tools folder
+    local_paths = [
+        td / "gswin64c.exe",
+        td / "ghostscript" / "bin" / "gswin64c.exe",
+        td / "ghostscript" / "gswin64c.exe",
+    ]
+    for p in local_paths:
+        if p.exists():
+            return str(p)
+            
+    # 2. PyInstaller MEIPASS
+    if getattr(sys, "frozen", False):
+        meipass_paths = [
+            Path(sys._MEIPASS) / "tools" / "gswin64c.exe",
+            Path(sys._MEIPASS) / "tools" / "ghostscript" / "bin" / "gswin64c.exe"
+        ]
+        for p in meipass_paths:
+            if p.exists():
+                return str(p)
+                
+    # 3. Program Files
+    pf_paths = [
+        os.environ.get("ProgramFiles", "C:\\Program Files"),
+        os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")
+    ]
+    
+    gs_exes = []
+    for pf in pf_paths:
+        if not pf:
+            continue
+        pattern = os.path.join(pf, "gs", "gs*", "bin", "gswin*c.exe")
+        gs_exes.extend(glob.glob(pattern))
+            
+    if gs_exes:
+        gs_exes.sort(reverse=True)
+        return gs_exes[0]
+        
+    # 4. System PATH
+    return shutil.which("gswin64c") or shutil.which("gswin32c") or shutil.which("gs")
+
+
 _HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
 }
@@ -105,9 +155,7 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
         _log("[WARN] All ExifTool download mirrors failed.")
 
     def _setup_ghostscript():
-        gs_dir = td / "ghostscript"
-        gs_bin = gs_dir / "bin" / "gswin64c.exe"
-        if gs_bin.exists() or (td / "gswin64c.exe").exists():
+        if find_ghostscript_binary(td):
             return
         _log("[INFO] Downloading Ghostscript...")
         try:
@@ -115,6 +163,8 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
             installer = td / "gs_installer.exe"
             _download(url, str(installer))
             _log("[INFO] Installing Ghostscript silently...")
+            
+            gs_dir = td / "ghostscript"
             subprocess.run(
                 [str(installer), "/S", f"/D={str(gs_dir)}"],
                 check=False,
@@ -122,7 +172,8 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
             )
             if installer.exists():
                 os.remove(str(installer))
-            if gs_bin.exists():
+                
+            if find_ghostscript_binary(td):
                 _log("[SUCCESS] Ghostscript installed.")
             else:
                 _log("[WARN] Ghostscript installer ran but gswin64c.exe not found. Install manually or add to PATH.")
