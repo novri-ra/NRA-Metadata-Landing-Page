@@ -2135,7 +2135,7 @@ class AppWindow(ctk.CTk):
                 success += 1
 
                 # Sync UI with the imported metadata for the inspector
-                preview_img = extract_preview_image(asset_path, self.processor)
+                preview_img = extract_preview_image(asset_path)
                 if preview_img:
                     self.update_preview(
                         preview_img,
