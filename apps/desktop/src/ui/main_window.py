@@ -1766,20 +1766,6 @@ class AppWindow(ctk.CTk):
                 text="\u2713 All checks passed", text_color=C["success"]
             )
 
-    def _get_companion_files(self, file_path):
-        """Find files with same base name but different extensions in the same folder."""
-        if not file_path or not os.path.exists(file_path):
-            return []
-        folder = os.path.dirname(file_path)
-        base = os.path.splitext(os.path.basename(file_path))[0]
-        companions = []
-        for f in os.listdir(folder):
-            f_base = os.path.splitext(f)[0]
-            f_path = os.path.join(folder, f)
-            if f_base == base and f_path != file_path and os.path.isfile(f_path):
-                companions.append(f_path)
-        return companions
-
     def _sync_to_companions(self, file_path, title, desc, kws):
         """Embed metadata to all companion files with the same base name."""
         return sync_companion_metadata(
