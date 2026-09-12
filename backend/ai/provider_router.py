@@ -20,6 +20,7 @@ from openai import OpenAI
 from pydantic import BaseModel, Field
 
 from backend.ai.failover_handler import (
+    FailoverHandler,
     detect_auth_failure,
     detect_connection_refused,
     detect_rate_limit,
