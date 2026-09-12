@@ -60,7 +60,7 @@ def main():
         return
 
     ai = AIService(args.provider, args.api_key)
-    processor = MediaProcessor()
+    processor = ExifToolClient()
     csv_logger = CSVLogger(os.path.join(args.output, "metadata_output.csv"))
 
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
