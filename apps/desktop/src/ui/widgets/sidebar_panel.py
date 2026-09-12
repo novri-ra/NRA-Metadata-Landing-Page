@@ -1,6 +1,6 @@
 import customtkinter as ctk
 
-from ui.theme import C, _btn, _combo, _entry, _label, _section_header, _slider
+from ui.theme import C, _btn, _combo, _divider, _entry, _label, _section_header, _slider
 
 
 class SidebarPanel(ctk.CTkFrame):
@@ -364,8 +364,6 @@ class SidebarPanel(ctk.CTkFrame):
                 hover_color=C["accent_h"],
                 font=ctk.CTkFont(family="Segoe UI", size=11),
             ).grid(row=i, column=0, sticky="w", pady=2)
-
-        from ui.theme import _divider
 
         _divider(sidebar).pack(fill="x", padx=12, pady=(8, 8))
 
