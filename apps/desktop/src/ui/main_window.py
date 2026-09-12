@@ -1380,12 +1380,12 @@ class AppWindow(ctk.CTk):
             self.config["window_geometry"] = self.geometry()
         except (tk.TclError, ValueError):
             pass
-        from packages.shared_utils.config import save_config
+        from backend.core.config_manager import save_config
 
         save_config(self.config)
 
     def _on_close(self):
-        self.cancel_flag = True
+        self.pool.cancel()
         self._save_current_config()
         self.destroy()
         import os
