@@ -91,7 +91,17 @@ class AppWindow(ctk.CTk):
         )
         self.output_dir = ctk.StringVar()
 
-        self.processor = MediaProcessor()
+        self.processor = ExifToolClient()
+        self.pool = FileWorkerPool(
+            {
+                "log": self.log,
+                "stats": self._on_pool_stats,
+                "progress": lambda v: self.after(0, self.progress_bar.set, v),
+                "preview": self._on_pool_preview,
+                "batch_complete": self._on_batch_complete,
+                "finished": self._on_pool_finished,
+            }
+        )
         self.stats = {"total": 0, "success": 0, "error": 0}
         self.current_preview_img = None
         self.processed_files = set()
@@ -103,10 +113,6 @@ class AppWindow(ctk.CTk):
             "csvs": [],
             "tokens_est": 0,
         }
-        self.is_running = False
-        self.pause_event = threading.Event()
-        self.pause_event.set()
-        self.cancel_flag = False
 
         self.current_edit_file = None
         self.current_edit_hash = None
