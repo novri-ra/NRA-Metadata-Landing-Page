@@ -137,7 +137,6 @@ class FailoverHandler:
         return self.backoff_times[attempt] if attempt < len(self.backoff_times) else 30
 
     def rotate_key(self) -> str:
-        self._init_stub()
         return self.keyring.rotate()
 
     def replace_keys(self, keys) -> str:
