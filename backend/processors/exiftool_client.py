@@ -40,11 +40,6 @@ class ExifToolClient:
         """Strip AI provenance and generation tags while preserving Adobe/creative app metadata."""
         file_path = os.path.normpath(os.path.abspath(file_path))
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        if not os.path.isfile(file_path):
-            print(
-                f"[WARN] Sanitizer skipped: target file does not exist: {os.path.basename(file_path)}"
-            )
-            return False
         _prepare_target(file_path)
         exiftool_path = get_tool_path("exiftool")
         is_png = os.path.splitext(file_path)[1].lower() == ".png"

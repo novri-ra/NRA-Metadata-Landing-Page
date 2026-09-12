@@ -139,7 +139,7 @@ class AuthClient:
         self.config["auth_offline"] = True
         save_config(self.config)
 
-    def register(self, username, password):
+    def register(self, username, password, email="", wa="", fullname=""):
         clean_user = str(username).strip().lower()
         return self._post(
             {
@@ -147,6 +147,9 @@ class AuthClient:
                 "identifier": clean_user,
                 "username": clean_user,
                 "password": str(password),
+                "email": email,
+                "whatsapp": wa,
+                "full_name": fullname,
                 "hwid": self.get_hwid(),
                 "ip": self.get_client_ip(),
             }
@@ -159,7 +162,6 @@ class AuthClient:
             {
                 "action": "LOGIN",
                 "identifier": clean_user,
-                "username": clean_user,
                 "password": str(password),
                 "hwid": self.get_hwid(),
                 "ip": self.get_client_ip(),
