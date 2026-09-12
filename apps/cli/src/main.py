@@ -3,15 +3,15 @@ import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 
-from packages.ai_engine.service import AIService
-from packages.media_processor.embedder import MediaProcessor
-from packages.media_processor.previews import extract_preview_image
+from backend.ai.provider_router import AIService
+from backend.processors.exiftool_client import ExifToolClient
+from backend.processors.media_converter import extract_preview_image
 from packages.shared_utils.logger import CSVLogger, logger
 
 
 def process_file(file_path, out_dir, ai, processor, min_kw, max_kw, csv_logger):
     logger.info(f"Processing {os.path.basename(file_path)}")
-    preview = extract_preview_image(file_path, processor)
+    preview = extract_preview_image(file_path)
     if not preview:
         logger.warning(f"Skipped {os.path.basename(file_path)}: no preview")
         return
