@@ -88,13 +88,13 @@ class KeyRing:
 
     def rotate(self) -> str:
         """Cycle to the next key and return it. Used on rate-limit/key exhaustion."""
-        with self._lock_lock:
+        with self._lock:
             self._index = (self._index + 1) % len(self._keys)
             return self._keys[self._index]
 
     def replace(self, keys) -> str:
         """Replace the whole pool (used on provider failover). Returns new active key."""
-        with self._lock_lock:
+        with self._lock:
             self._keys = self._normalize(keys)
             self._index = 0
             return self._keys[0]
