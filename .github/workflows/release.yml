@@ -38,6 +38,10 @@ jobs:
           Expand-Archive -Path "upx.zip" -DestinationPath "upx_dir"
           Move-Item -Path "upx_dir/upx-*" -Destination "upx"
 
+      - name: Ensure Tools Directory Exists
+        run: mkdir -p tools
+        shell: bash
+
       - name: Build Executable with PyInstaller
         shell: pwsh
         run: |
