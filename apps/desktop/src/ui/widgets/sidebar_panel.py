@@ -72,12 +72,12 @@ class SidebarPanel(ctk.CTkFrame):
         _label(sidebar, "Provider").pack(fill="x", anchor="w", **LPAD)
         self.provider_cb = _combo(
             sidebar,
-            ["Gemini", "OpenAI", "Mistral", "Groq"],
+            ["Gemini", "OpenAI", "Mistral", "Groq", "Custom"],
             command=app._on_provider_change,
         )
 
         provider = config.get("provider", "Gemini")
-        if provider not in ["Gemini", "OpenAI", "Mistral", "Groq"]:
+        if provider not in ["Gemini", "OpenAI", "Mistral", "Groq", "Custom"]:
             provider = "Gemini"
 
         self.provider_cb.set(provider)
@@ -136,6 +136,20 @@ class SidebarPanel(ctk.CTkFrame):
             command=app._fetch_models,
         )
         self.fetch_models_btn.pack(fill="x", padx=16, pady=(0, 16))
+
+        _label(sidebar, "Custom Base URL (OpenAI-compatible)").pack(
+            fill="x", anchor="w", **LPAD
+        )
+        self.base_url_entry = _entry(sidebar)
+        self.base_url_entry.insert(0, config.get("custom_base_url", ""))
+        self.base_url_entry.pack(fill="x", **PAD)
+
+        def _on_base_url_type(event=None):
+            config["custom_base_url"] = self.base_url_entry.get().strip()
+            app._save_current_config()
+
+        self.base_url_entry.bind("<KeyRelease>", _on_base_url_type)
+        self.base_url_entry.bind("<FocusOut>", _on_base_url_type)
 
         temp_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         temp_row.pack(fill="x", **LPAD)
@@ -273,6 +287,39 @@ class SidebarPanel(ctk.CTkFrame):
         self.workers_slider.bind(
             "<ButtonRelease-1>", lambda e: app._save_current_config()
         )
+
+        delay_val = config.get("delay", 0)
+        if not (0 <= delay_val <= 5):
+            delay_val = 0
+
+        delay_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
+        delay_row.pack(fill="x", **LPAD)
+        _label(delay_row, "Delay after file (s)").pack(side="left")
+        self.delay_val = ctk.StringVar(value=f"{int(delay_val)}s")
+        ctk.CTkLabel(
+            delay_row,
+            textvariable=self.delay_val,
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            text_color=C["accent"],
+        ).pack(side="right")
+
+        def update_delay_lbl(val):
+            self.delay_val.set(f"{int(round(float(val)))}s")
+
+        self.delay_slider = _slider(
+            sidebar,
+            from_=0,
+            to=5,
+            number_of_steps=5,
+            command=update_delay_lbl,
+            progress_color=C["accent"],
+        )
+        self.delay_slider.set(int(delay_val))
+        self.delay_slider.pack(fill="x", **PAD)
+        self.delay_slider.bind(
+            "<ButtonRelease-1>", lambda e: app._save_current_config()
+        )
+        update_delay_lbl(int(delay_val))
 
         _label(sidebar, "Formats").pack(fill="x", anchor="w", **LPAD)
         fmt_saved = config.get("formats", {})
@@ -437,6 +484,7 @@ class SidebarPanel(ctk.CTkFrame):
             "api_key_entry",
             "keys_counter_lbl",
             "fetch_models_btn",
+            "base_url_entry",
             "temp_val",
             "temp_slider",
             "style_cb",
@@ -447,6 +495,8 @@ class SidebarPanel(ctk.CTkFrame):
             "custom_kw_pos",
             "workers_val",
             "workers_slider",
+            "delay_val",
+            "delay_slider",
             "fmt_vars",
             "auto_watch",
             "auto_zip",
