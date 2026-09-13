@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from backend.processors import system_detector
 from backend.processors.system_detector import (
@@ -103,8 +104,22 @@ class ToolDiscoveryTest(unittest.TestCase):
             os.environ["PATH"] = original_path
 
     def test_gtk3_missing_warns(self):
-        detect_gtk3(log=self._log, tools_dir=self.tools_dir)
-        self.assertTrue(any("[WARN] GTK3 Runtime tidak terdeteksi" in m for m in self.logs))
+        real_path = os.environ.get("PATH", "")
+        try:
+            with patch.object(
+                system_detector, "_gtk_search_roots", return_value=[self.tools_dir]
+            ), patch.dict(
+                os.environ,
+                {
+                    "ProgramFiles": r"C:\NoSuchProgramFiles",
+                    "GTK_PATH": "",
+                    "PATH": "C:\\Windows\\System32",
+                },
+            ):
+                detect_gtk3(log=self._log, tools_dir=self.tools_dir)
+            self.assertTrue(any("[WARN] GTK3 Runtime tidak terdeteksi" in m for m in self.logs))
+        finally:
+            os.environ["PATH"] = real_path
 
     def test_discover_tools_schema_and_logging(self):
         reset_tool_cache()
