@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from backend.processors import exiftool_client as ec
+from backend.processors._tools import exiftool_flags
 
 
 def _make_file(path: Path, content: bytes = b"ORIG") -> None:
@@ -35,15 +36,25 @@ class PrepareTargetTest(unittest.TestCase):
             self.assertFalse(stale.exists())
 
 
-class WindowsApiFlagsTest(unittest.TestCase):
-    def test_flags_for_exe(self):
+class EssentialFlagsTest(unittest.TestCase):
+    def test_exe_carries_essential_windows_flags(self):
         self.assertEqual(
-            ec._windows_api_flags(r"C:\tools\exiftool.exe"),
-            ["-api", "WindowsLongPath=1"],
+            exiftool_flags(r"C:\tools\exiftool.exe"),
+            [
+                "-api",
+                "Windows=1",
+                "-overwrite_original",
+                "-m",
+                "-charset",
+                "filename=utf8",
+            ],
         )
 
-    def test_no_flags_for_plain_binary(self):
-        self.assertEqual(ec._windows_api_flags("exiftool"), [])
+    def test_non_exe_skips_windows_api_only(self):
+        self.assertEqual(
+            exiftool_flags("exiftool"),
+            ["-overwrite_original", "-m", "-charset", "filename=utf8"],
+        )
 
 
 class StageCopyTest(unittest.TestCase):

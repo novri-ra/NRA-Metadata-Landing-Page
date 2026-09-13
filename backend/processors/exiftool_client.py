@@ -14,17 +14,19 @@ import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from backend.processors._tools import get_base_path, log_failed_file
+from backend.processors._tools import (  # noqa: F401 (re-exported)
+    exiftool_flags,
+    get_base_path,
+    get_tool_path,
+    log_failed_file,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def get_exiftool_path() -> str:
-    base_dir = Path(__file__).resolve().parents[2]
-    bundled_exiftool = base_dir / "tools" / "exiftool" / "exiftool.exe"
-    if bundled_exiftool.is_file():
-        return str(bundled_exiftool)
-    return shutil.which("exiftool") or "exiftool"
+def get_exiftool_path() -> str | None:
+    """Resolve the ExifTool binary; ``None`` when it cannot be found."""
+    return get_tool_path("exiftool")
 
 
 def _prepare_target(file_path: str) -> None:
@@ -55,20 +57,6 @@ def _prepare_target(file_path: str) -> None:
             os.remove(stale)
     except OSError:
         pass
-
-
-def _windows_api_flags(exiftool_path: str) -> list:
-    """API options that only make sense for the bundled Windows ExifTool binary.
-
-    ``-api WindowsLongPath=1`` enables Windows wide-character / long-path file
-    I/O (it also enables ``WindowsWideFile``), which helps when ExifTool must
-    create its ``_exiftool_tmp`` file next to a long or unicode path. The
-    commonly-cited ``-api Windows=1`` is not a real ExifTool option and is
-    silently ignored, so it is deliberately not used here.
-    """
-    if str(exiftool_path).lower().endswith(".exe"):
-        return ["-api", "WindowsLongPath=1"]
-    return []
 
 
 def _staging_root() -> str | None:
@@ -242,8 +230,7 @@ class ExifToolClient:
             return False
         is_png = os.path.splitext(file_path)[1].lower() == ".png"
         cmd = [exiftool_path]
-        cmd.extend(_windows_api_flags(exiftool_path))
-        cmd.extend(["-overwrite_original", "-m", "-charset", "filename=utf8"])
+        cmd.extend(exiftool_flags(exiftool_path))
         if is_png:
             cmd.extend(
                 [
@@ -324,12 +311,9 @@ class ExifToolClient:
         # Every argument must be a separate list item; no shell=True, no
         # hand-glued "-key=value" pairs.
         cmd = [exiftool_path]
-        cmd.extend(_windows_api_flags(exiftool_path))
-        cmd.extend(["-overwrite_original", "-m"])
+        cmd.extend(exiftool_flags(exiftool_path))
         if is_eps:
             cmd.extend(["-charset", "iptc=UTF8"])
-        cmd.extend(["-charset", "filename=utf8"])
-        if is_eps:
             # EPS (PostScript) carries XMP, so write the industry-standard
             # microstock tags (Adobe Stock / Shutterstock / Freepik) with
             # explicit XMP:/IPTC: group prefixes.

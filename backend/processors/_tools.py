@@ -25,30 +25,44 @@ def get_base_path() -> str:
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
-def get_tool_path(tool_name: str) -> str:
+def get_tool_path(tool_name: str) -> str | None:
     """Resolve an external tool, delegating to the centralized discovery.
 
     Detection reuses the startup cache so workers do not rescan the filesystem
     on every media operation; a final ``shutil.which`` fallback covers tools
-    added to PATH after startup. Returns ``tool_name`` when nothing is found so
-    callers degrade to the bare command name.
+    added to PATH after startup. Returns ``None`` when nothing was found --
+    never the bare command name -- so callers fail loudly instead of silently
+    launching whatever the shell happens to resolve.
     """
-    if sys.platform == "win32":
-        from backend.processors.system_detector import get_detected_tool_path
+    from backend.processors.system_detector import get_detected_tool_path
 
-        found = get_detected_tool_path(tool_name)
-        if found:
-            return found
-        from shutil import which
+    found = get_detected_tool_path(tool_name)
+    if found:
+        return found
+    from shutil import which
 
-        candidates = {
-            "exiftool": ["exiftool.exe"],
-            "ghostscript": ["gswin64c.exe", "gswin32c.exe", "gs.exe"],
-            "ffmpeg": ["ffmpeg.exe"],
-        }.get(tool_name, [f"{tool_name}.exe"])
-        for exe_name in candidates:
-            for candidate in (exe_name, os.path.splitext(exe_name)[0]):
-                found = which(candidate)
-                if found:
-                    return found
-    return tool_name
+    candidates = {
+        "exiftool": ["exiftool.exe"],
+        "ghostscript": ["gswin64c.exe", "gswin32c.exe", "gs.exe"],
+        "ffmpeg": ["ffmpeg.exe"],
+    }.get(tool_name, [f"{tool_name}.exe"])
+    for exe_name in candidates:
+        for candidate in (exe_name, os.path.splitext(exe_name)[0]):
+            found = which(candidate)
+            if found:
+                return found
+    return None
+
+
+def exiftool_flags(exiftool_path: str) -> list:
+    """Essential flags for every ExifTool subprocess call.
+
+    Applies the Windows API mode (wide-char/long-path I/O) on the bundled .exe
+    build, in-place overwrite, tolerance of minor errors (``-m``), and UTF-8
+    filenames. ``-api Windows=1`` was validated against the bundled 13.26
+    binary; the old ``WindowsLongPath`` alias is the deprecated spelling.
+    """
+    flags = ["-overwrite_original", "-m", "-charset", "filename=utf8"]
+    if str(exiftool_path).lower().endswith(".exe"):
+        return ["-api", "Windows=1"] + flags
+    return flags

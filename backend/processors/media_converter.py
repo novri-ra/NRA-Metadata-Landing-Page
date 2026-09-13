@@ -49,6 +49,11 @@ def raster_to_preview(file_path: str, out_path: str, filename: str, _log) -> str
 def extract_video_frame(file_path: str, out_path: str, filename: str, _log) -> str | None:
     _log(f"[{filename}] Format: Video. Extracting frame using FFmpeg...", "info")
     ffmpeg_path = get_tool_path("ffmpeg")
+    if not ffmpeg_path:
+        err = "FFmpeg tidak ditemukan (jalankan setup_tools)"
+        _log(f"[{filename}] {err}", "error")
+        log_failed_file(os.path.dirname(file_path), filename, err)
+        return None
     cmd = [
         ffmpeg_path,
         "-y",

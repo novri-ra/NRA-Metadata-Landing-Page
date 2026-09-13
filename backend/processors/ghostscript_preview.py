@@ -14,7 +14,12 @@ from pathlib import Path
 
 from PIL import Image
 
-from backend.processors._tools import get_base_path, get_tool_path, log_failed_file
+from backend.processors._tools import (
+    exiftool_flags,
+    get_base_path,
+    get_tool_path,
+    log_failed_file,
+)
 from packages.shared_utils.tools_setup import find_ghostscript_binary
 
 RENDER_TIMEOUT = 15  # seconds
@@ -98,43 +103,48 @@ def render_vector_preview(file_path: str, out_path: str, _log) -> str | None:
     # ExifTool Fallback (embedded -PreviewImage)
     log(f"[{filename}] Format: {ext.upper()}. Using ExifTool fallback...", "info")
     exiftool_path = get_tool_path("exiftool")
-    if exiftool_path == "exiftool":
+    if exiftool_path is None:
         candidates = glob.glob(
             os.path.join(get_base_path(), "tools", "exiftool*", "**", "exiftool*.exe"),
             recursive=True,
         )
         if candidates:
             exiftool_path = candidates[0]
-
-    cmd_fallback = [
-        exiftool_path,
-        "-b",
-        "-PreviewImage",
-        str(Path(file_path).resolve()),
-    ]
-    try:
-        res = subprocess.run(
-            cmd_fallback, check=True, capture_output=True, timeout=RENDER_TIMEOUT
+    if exiftool_path is None:
+        log(f"[{filename}] ExifTool tidak ditemukan untuk fallback preview.", "warn")
+    else:
+        cmd_fallback = [exiftool_path]
+        cmd_fallback.extend(exiftool_flags(exiftool_path))
+        cmd_fallback.extend(
+            [
+                "-b",
+                "-PreviewImage",
+                str(Path(file_path).resolve()),
+            ]
         )
-        if res.stdout and len(res.stdout) > 1024:
-            with open(out_path, "wb") as f:
-                f.write(res.stdout)
-            try:
-                with Image.open(out_path) as verify_img:
-                    verify_img.verify()
-                log(f"[{filename}] Preview extracted successfully via ExifTool.", "success")
-                return out_path
-            except (OSError, ValueError) as e:
-                log(f"[{filename}] ExifTool produced invalid image: {e}", "error")
-        else:
-            log(f"[{filename}] ExifTool produced empty or missing preview.", "error")
-    except subprocess.TimeoutExpired:
-        log(f"[{filename}] ExifTool timeout.", "warn")
-    except subprocess.CalledProcessError as e:
-        detail = e.stderr.decode("utf-8", errors="ignore") if e.stderr else str(e)
-        log(f"[{filename}] ExifTool error: {detail}", "warn")
-    except OSError as e:
-        log(f"[{filename}] ExifTool unavailable: {e}", "warn")
+        try:
+            res = subprocess.run(
+                cmd_fallback, check=True, capture_output=True, timeout=RENDER_TIMEOUT
+            )
+            if res.stdout and len(res.stdout) > 1024:
+                with open(out_path, "wb") as f:
+                    f.write(res.stdout)
+                try:
+                    with Image.open(out_path) as verify_img:
+                        verify_img.verify()
+                    log(f"[{filename}] Preview extracted successfully via ExifTool.", "success")
+                    return out_path
+                except (OSError, ValueError) as e:
+                    log(f"[{filename}] ExifTool produced invalid image: {e}", "error")
+            else:
+                log(f"[{filename}] ExifTool produced empty or missing preview.", "error")
+        except subprocess.TimeoutExpired:
+            log(f"[{filename}] ExifTool timeout.", "warn")
+        except subprocess.CalledProcessError as e:
+            detail = e.stderr.decode("utf-8", errors="ignore") if e.stderr else str(e)
+            log(f"[{filename}] ExifTool error: {detail}", "warn")
+        except OSError as e:
+            log(f"[{filename}] ExifTool unavailable: {e}", "warn")
 
     log_failed_file(
         os.path.dirname(file_path),
