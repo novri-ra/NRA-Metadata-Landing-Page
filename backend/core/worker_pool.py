@@ -24,6 +24,7 @@ from backend.core.config_manager import (
 from backend.processors.exiftool_client import ExifToolClient
 from backend.processors.media_converter import extract_preview_image
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
+from packages.shared_utils.cost_tracker import cost_tracker
 from packages.shared_utils.filter import clean_metadata
 from packages.shared_utils.logger import CSVLogger
 
@@ -149,6 +150,8 @@ class FileWorkerPool:
 
         max_w = max(1, int(options.get("workers", 2)))
         total = len(paths)
+        cost_before = cost_tracker.estimated_cost_usd
+        tokens_before = cost_tracker.estimated_tokens
 
         def submit(f):
             return self._executor.submit(
@@ -184,14 +187,13 @@ class FileWorkerPool:
                 for f in os.listdir(csv_dir)
                 if f.endswith("_export.csv") or f == "metadata_output.csv"
             ]
-            cost_delta = self.session_stats.get("cost", 0) - self.session_stats["cost"]
+            cost_delta = cost_tracker.estimated_cost_usd - cost_before
+            tokens_delta = cost_tracker.estimated_tokens - tokens_before
             summary = {
                 "processed": self.stats["success"],
                 "errors": self.stats["error"],
-                "cost": cost_delta,
-                "tokens_est": int(cost_delta / 0.002 * 1000)
-                if cost_delta > 0
-                else 0,
+                "cost": self.session_stats.get("cost", 0) + cost_delta,
+                "tokens_est": self.session_stats.get("tokens_est", 0) + tokens_delta,
                 "csvs": csv_files,
                 "out_dir": csv_dir,
                 "skipped": self.session_stats.get("skipped", 0),

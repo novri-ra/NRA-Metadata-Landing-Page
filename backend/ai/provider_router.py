@@ -27,12 +27,7 @@ from backend.ai.failover_handler import (
     detect_retryable,
 )
 from backend.ai.token_optimizer import encode_image, read_text_asset
-from packages.shared_utils.cost_tracker import CostTracker
-
-cost_tracker_inst = CostTracker()
-CostTracker_instance = CostTracker()
-
-from packages.shared_utils.tracker import tracker
+from packages.shared_utils import cost_tracker as _cost_tracker
 
 
 class MetadataModel(BaseModel):
@@ -68,8 +63,10 @@ class AIService:
         temperature: float = 0.3,
         failover_providers: dict | None = None,
         custom_base_url: str | None = None,
+        cost_tracker=None,
     ):
         self.provider = provider
+        self.cost_tracker = cost_tracker or _cost_tracker.cost_tracker
         self.failover = FailoverHandler(
             api_keys,
             failover_providers=failover_providers,
@@ -116,6 +113,46 @@ class AIService:
             )
         return genai.types.GenerateContentConfig(**kwargs)
 
+    # ── Token usage extraction ─────────────────────────────────────────
+
+    def _extract_usage(self, response) -> tuple[int, int]:
+        """Return (prompt_tokens, completion_tokens) from any provider response.
+
+        Handles OpenAI-style ``.usage`` and Gemini-style ``usage_metadata``.
+        """
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            usage = getattr(response, "usage_metadata", None)
+        if usage is None:
+            return 0, 0
+        prompt = (
+            getattr(usage, "prompt_tokens", None)
+            or getattr(usage, "prompt_token_count", 0)
+        )
+        completion = (
+            getattr(usage, "completion_tokens", None)
+            or getattr(usage, "candidates_token_count", 0)
+        )
+        return prompt or 0, completion or 0
+
+    def _finalize(
+        self,
+        meta: dict,
+        model: str,
+        response=None,
+        prompt_tokens: int = 0,
+        completion_tokens: int = 0,
+    ) -> dict:
+        """Record token usage into the cost tracker and return the metadata dict."""
+        if response is not None:
+            prompt_tokens, completion_tokens = self._extract_usage(response)
+        self.cost_tracker.record_usage(
+            self.provider, model, prompt_tokens, completion_tokens
+        )
+        return meta
+
+    # ── Main entry point ───────────────────────────────────────────────
+
     def generate_metadata(
         self,
         image_path: str,
@@ -126,7 +163,6 @@ class AIService:
         log_callback=None,
         **kwargs,
     ) -> dict:
-        tracker.add_call()
         filename = os.path.basename(image_path) if image_path else "unknown"
 
         def _log(msg, level="info"):
@@ -188,7 +224,11 @@ class AIService:
                         contents=contents,
                         config=self._gemini_generation_config(),
                     )
-                    return json.loads(response.text)
+                    return self._finalize(
+                        json.loads(response.text),
+                        self.model or "gemini-1.5-flash",
+                        response,
+                    )
 
                 elif self.provider in ["OpenAI", "9router", "Custom"]:
                     if is_text_fallback:
@@ -232,7 +272,11 @@ class AIService:
                         temperature=self.temperature,
                         response_format={"type": "json_object"},
                     )
-                    return self._parse_json(response.choices[0].message.content)
+                    return self._finalize(
+                        self._parse_json(response.choices[0].message.content),
+                        self.model or default_model,
+                        response,
+                    )
 
                 elif self.provider == "Mistral":
                     if is_text_fallback:
@@ -271,8 +315,13 @@ class AIService:
                         timeout=30,
                     )
                     res.raise_for_status()
-                    return self._parse_json(
-                        res.json()["choices"][0]["message"]["content"]
+                    data = res.json()
+                    usage = data.get("usage") or {}
+                    return self._finalize(
+                        self._parse_json(data["choices"][0]["message"]["content"]),
+                        self.model or "mistral-small-latest",
+                        prompt_tokens=usage.get("prompt_tokens", 0),
+                        completion_tokens=usage.get("completion_tokens", 0),
                     )
 
                 elif self.provider == "Groq":
@@ -314,7 +363,11 @@ class AIService:
                         temperature=self.temperature,
                         response_format={"type": "json_object"},
                     )
-                    return self._parse_json(response.choices[0].message.content)
+                    return self._finalize(
+                        self._parse_json(response.choices[0].message.content),
+                        self.model or "llama-3.2-11b-vision-preview",
+                        response,
+                    )
             except Exception as e:
                 err_str = str(e)
                 _log(f"[{filename}] {self.provider} error: {err_str}", "error")
