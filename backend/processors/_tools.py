@@ -26,39 +26,29 @@ def get_base_path() -> str:
 
 
 def get_tool_path(tool_name: str) -> str:
-    base = get_base_path()
+    """Resolve an external tool, delegating to the centralized discovery.
+
+    Detection reuses the startup cache so workers do not rescan the filesystem
+    on every media operation; a final ``shutil.which`` fallback covers tools
+    added to PATH after startup. Returns ``tool_name`` when nothing is found so
+    callers degrade to the bare command name.
+    """
     if sys.platform == "win32":
+        from backend.processors.system_detector import get_detected_tool_path
+
+        found = get_detected_tool_path(tool_name)
+        if found:
+            return found
+        from shutil import which
+
         candidates = {
             "exiftool": ["exiftool.exe"],
             "ghostscript": ["gswin64c.exe", "gswin32c.exe", "gs.exe"],
             "ffmpeg": ["ffmpeg.exe"],
         }.get(tool_name, [f"{tool_name}.exe"])
-        tools_root = os.path.join(base, "tools")
-        tool_subdir = os.path.join(tools_root, tool_name)
-        if os.path.isdir(tool_subdir):
-            for dirpath, _dirs, files in os.walk(tool_subdir):
-                lower_files = [f.lower() for f in files]
-                for exe_name in candidates:
-                    if exe_name.lower() in lower_files:
-                        idx = lower_files.index(exe_name.lower())
-                        return os.path.join(dirpath, files[idx])
         for exe_name in candidates:
-            flat = os.path.join(tools_root, exe_name)
-            if os.path.exists(flat):
-                return flat
-        if getattr(sys, "frozen", False):
-            for exe_name in candidates:
-                meipass = os.path.join(sys._MEIPASS, "tools", exe_name)
-                if os.path.exists(meipass):
-                    return meipass
-        from shutil import which
-
-        found = which(tool_name)
-        if not found:
-            for exe_name in candidates:
-                found = which(exe_name)
+            for candidate in (exe_name, os.path.splitext(exe_name)[0]):
+                found = which(candidate)
                 if found:
-                    break
-        if found:
-            return found
+                    return found
     return tool_name
