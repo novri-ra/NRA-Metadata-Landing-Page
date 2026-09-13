@@ -7,6 +7,7 @@ from backend.ai.provider_router import AIService
 from backend.core.config_manager import import_rj_config, set_config_dir
 from backend.processors.exiftool_client import ExifToolClient
 from backend.processors.media_converter import extract_preview_image
+from packages.shared_utils.license_manager import AuthClient
 from packages.shared_utils.logger import CSVLogger, logger
 
 
@@ -70,6 +71,12 @@ def main():
         print(
             f"[import-rj] {summary.get('providers_added', {}) or summary.get('reason')}"
         )
+
+    auth = AuthClient()
+    is_valid, session_msg = auth.validate_session()
+    if not is_valid:
+        logger.error("Akses ditolak: %s. Login melalui aplikasi desktop.", session_msg)
+        raise SystemExit(1)
 
     files = [
         os.path.join(args.input, f)

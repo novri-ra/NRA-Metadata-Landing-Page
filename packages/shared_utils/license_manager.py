@@ -1,13 +1,11 @@
 import hashlib
+import hmac
 import sys
 import uuid
 
 import requests
-import urllib3
 
 from backend.core.config_manager import load_config, save_config
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 AUTH_API_URL = "https://script.google.com/macros/s/AKfycbyCQ_YsbTnjwgr1nBzPlOzyaiYv5BpfT6HDG72D9RsZRTAvK3axT5fagSV2we7Mkju9/exec"
 
@@ -65,6 +63,11 @@ class AuthClient:
 
     def get_client_ip(self) -> str:
         return get_public_ip()
+
+    def _hwid_signature(self) -> str:
+        return hmac.new(
+            self.session_token.encode(), self.hwid.encode(), hashlib.sha256
+        ).hexdigest()
 
     def _save_session(self, username, token, user_id=None):
         self.username = username
@@ -193,6 +196,7 @@ class AuthClient:
                 "username": self.username.strip().lower(),
                 "session_token": self.session_token,
                 "hwid": self.get_hwid(),
+                "hwid_sig": self._hwid_signature(),
             }
         )
 

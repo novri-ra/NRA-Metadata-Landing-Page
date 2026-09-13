@@ -7,6 +7,8 @@ import tempfile
 import threading
 from pathlib import Path
 
+from backend.processors.system_detector import discover_tools, reset_tool_cache
+
 
 def get_tools_directory() -> Path:
     if getattr(sys, "frozen", False):
@@ -21,51 +23,10 @@ def get_tools_directory() -> Path:
 def find_ghostscript_binary(tools_dir=None):
     if sys.platform != "win32":
         return "gs"
-    
-    import glob
-    import shutil
-    
-    td = Path(tools_dir) if tools_dir else get_tools_directory()
-    
-    # 1. Local tools folder
-    local_paths = [
-        td / "gswin64c.exe",
-        td / "ghostscript" / "bin" / "gswin64c.exe",
-        td / "ghostscript" / "gswin64c.exe",
-    ]
-    for p in local_paths:
-        if p.exists():
-            return str(p)
-            
-    # 2. PyInstaller MEIPASS
-    if getattr(sys, "frozen", False):
-        meipass_paths = [
-            Path(sys._MEIPASS) / "tools" / "gswin64c.exe",
-            Path(sys._MEIPASS) / "tools" / "ghostscript" / "bin" / "gswin64c.exe"
-        ]
-        for p in meipass_paths:
-            if p.exists():
-                return str(p)
-                
-    # 3. Program Files
-    pf_paths = [
-        os.environ.get("ProgramFiles", "C:\\Program Files"),
-        os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")
-    ]
-    
-    gs_exes = []
-    for pf in pf_paths:
-        if not pf:
-            continue
-        pattern = os.path.join(pf, "gs", "gs*", "bin", "gswin*c.exe")
-        gs_exes.extend(glob.glob(pattern))
-            
-    if gs_exes:
-        gs_exes.sort(reverse=True)
-        return gs_exes[0]
-        
-    # 4. System PATH
-    return shutil.which("gswin64c") or shutil.which("gswin32c") or shutil.which("gs")
+
+    from backend.processors.system_detector import detect_ghostscript
+
+    return detect_ghostscript(silent=True, tools_dir=Path(tools_dir) if tools_dir else None)
 
 
 _HEADERS = {
@@ -99,9 +60,6 @@ def _is_valid_zip(path: str) -> bool:
 
 
 def ensure_tools_installed(tools_dir=None, progress_callback=None):
-    if sys.platform != "win32":
-        return
-
     td = Path(tools_dir) if tools_dir else get_tools_directory()
     td.mkdir(parents=True, exist_ok=True)
 
@@ -111,11 +69,23 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
         else:
             print(msg)
 
+    found = discover_tools(log=_log)
+
+    if sys.platform != "win32":
+        _log("[INFO] Non-Windows platform - download skipped, detection complete.")
+        return
+
     def _setup_exiftool():
         exe_in_subdir = td / "exiftool" / "exiftool.exe"
         exe_flat = td / "exiftool.exe"
-        if exe_in_subdir.exists() or exe_flat.exists():
+        if exe_in_subdir.exists():
+            _log(f"[SUCCESS] ExifTool found at: {exe_in_subdir.resolve()}")
             return
+        elif exe_flat.exists():
+            _log(f"[SUCCESS] ExifTool found at: {exe_flat.resolve()}")
+            return
+
+        _log(f"[ERROR] ExifTool NOT found at: {exe_in_subdir.resolve()}")
         _log("[INFO] Downloading ExifTool...")
         urls = [
             "https://oliverbetz.de/cms/files/Artikel/ExifTool-for-Windows/exiftool-13.59_64.zip",
@@ -218,12 +188,22 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
         except Exception as e:
             _log(f"[WARN] Failed to download FFmpeg: {e}. Video frame extraction will use system PATH fallback.")
 
-    threads = [
-        threading.Thread(target=_setup_exiftool, daemon=True),
-        threading.Thread(target=_setup_ghostscript, daemon=True),
-        threading.Thread(target=_setup_ffmpeg, daemon=True),
-    ]
+    threads = []
+    if not found.get("exiftool"):
+        threads.append(threading.Thread(target=_setup_exiftool, daemon=True))
+    else:
+        _log("[INFO] ExifTool already detected - skipping download.")
+    if not found.get("ghostscript"):
+        threads.append(threading.Thread(target=_setup_ghostscript, daemon=True))
+    else:
+        _log("[INFO] Ghostscript already detected - skipping download.")
+    if not found.get("ffmpeg"):
+        threads.append(threading.Thread(target=_setup_ffmpeg, daemon=True))
+    else:
+        _log("[INFO] FFmpeg already detected - skipping download.")
     for t in threads:
         t.start()
     for t in threads:
         t.join()
+
+    reset_tool_cache()

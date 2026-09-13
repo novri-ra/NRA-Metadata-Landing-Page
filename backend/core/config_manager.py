@@ -12,6 +12,7 @@ Metadata``). Override with ``set_config_dir()`` or the ``NRA_CONFIG_DIR``
 environment variable; non-Windows falls back to the current directory.
 """
 
+import base64
 import ctypes
 import ctypes.wintypes
 import hashlib
@@ -21,6 +22,11 @@ import sqlite3
 import sys
 
 cache_hits = 0
+
+# Obfuscated-config fallback for platforms without DPAPI.
+_OBFUSCATION_TAG = b"NRA_OBF_1:"
+_XOR_KEY = b"NRA!meta"
+_DPAPI_HEADER = b"\x01\x00\x00\x00"
 
 # RJ Auto Metadata (reference application) keeps its plaintext config under
 # the user's Documents folder. NRA-Metadata keeps the same provider API keys
@@ -112,31 +118,60 @@ def _dpapi_decrypt(data: bytes) -> bytes:
     raise RuntimeError("CryptUnprotectData failed")
 
 
+def _obfuscate(data: bytes) -> bytes:
+    """XOR + base64 so config still persists on non-Windows hosts.
+
+    ponytail: obfuscation, not encryption — swap for a keyring integration
+    when non-Windows persistence becomes a real deployment target.
+    """
+    xored = bytes(b ^ _XOR_KEY[i % len(_XOR_KEY)] for i, b in enumerate(data))
+    return _OBFUSCATION_TAG + base64.b64encode(xored)
+
+
+def _deobfuscate(data: bytes) -> bytes:
+    xored = base64.b64decode(data[len(_OBFUSCATION_TAG):])
+    return bytes(b ^ _XOR_KEY[i % len(_XOR_KEY)] for i, b in enumerate(xored))
+
+
+def _decrypt_store(raw: bytes) -> dict:
+    """Decode config.enc regardless of how it was written.
+
+    Accepts obfuscated (non-Windows) stores, legacy plaintext JSON, and
+    real DPAPI blobs so old/misplaced plaintext configs keep loading.
+    """
+    if raw.startswith(_OBFUSCATION_TAG):
+        dec = _deobfuscate(raw)
+    elif sys.platform == "win32" and raw.startswith(_DPAPI_HEADER):
+        dec = _dpapi_decrypt(raw)
+    else:
+        dec = raw
+    data = json.loads(dec.decode("utf-8"))
+    return data if isinstance(data, dict) else {}
+
+
 def load_config() -> dict:
     # Migrate old plain config.json if exists
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            # Remove plain config and save as encrypted
-            save_config(data)
-            try:
-                os.remove(CONFIG_FILE)
-            except OSError:
-                pass
+            # Remove plain config only once encrypted save succeeded
+            if save_config(data):
+                try:
+                    os.remove(CONFIG_FILE)
+                except OSError:
+                    pass
             return data if isinstance(data, dict) else {}
-        except OSError:
+        except (OSError, json.JSONDecodeError):
             pass
 
     if os.path.exists(CONFIG_FILE_ENC):
         try:
             with open(CONFIG_FILE_ENC, "rb") as f:
                 enc_data = f.read()
-            dec_data = _dpapi_decrypt(enc_data)
-            data = json.loads(dec_data.decode("utf-8"))
-            if not isinstance(data, dict):
-                data = {}
-        except OSError:
+            data = _decrypt_store(enc_data)
+        except (OSError, RuntimeError, ValueError) as e:
+            print(f"Warning: could not read config store: {e}")
             data = {}
     else:
         data = {}
@@ -161,18 +196,25 @@ def load_config() -> dict:
     return data
 
 
-def save_config(config: dict):
+def save_config(config: dict) -> bool:
     try:
         json_data = json.dumps(config).encode("utf-8")
-        enc_data = _dpapi_encrypt(json_data)
+        if sys.platform == "win32":
+            enc_data = _dpapi_encrypt(json_data)
+        else:
+            enc_data = _obfuscate(json_data)
         with open(CONFIG_FILE_ENC, "wb") as f:
             f.write(enc_data)
+        return True
     except (OSError, RuntimeError) as e:
         print(f"Error saving encrypted config: {e}")
+        return False
 
 
 def _get_conn():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA busy_timeout=5000;")
     conn.execute(
         "CREATE TABLE IF NOT EXISTS metadata_cache (hash TEXT PRIMARY KEY, metadata TEXT)"
     )

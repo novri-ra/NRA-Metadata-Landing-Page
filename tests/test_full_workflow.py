@@ -19,6 +19,13 @@ class TestCostTracker(unittest.TestCase):
         cost2 = tracker.calculate("9router", "9router/auto", 100, 100)
         self.assertEqual(cost2, 0.0)
 
+    def test_record_usage_nonzero_cost(self):
+        tracker = CostTracker()
+        tracker.record_usage("OpenAI", "gpt-4o-mini", 4000, 400)
+        self.assertTrue(tracker.estimated_cost_usd > 0)
+        self.assertEqual(tracker.estimated_tokens, 4400)
+        self.assertEqual(tracker.last_cost, 0.0006 * 400 / 1000 + 0.00015 * 4000 / 1000)
+
 
 class TestVersionCompare(unittest.TestCase):
     def test_app_version_exists(self):
@@ -240,6 +247,7 @@ class TestAuthLoginViaEmailOrUsername(unittest.TestCase):
         self.assertEqual(captured["identifier"], "myuser")
         self.assertEqual(captured["session_token"], "tok123")
         self.assertEqual(captured["hwid"], client.hwid)
+        self.assertEqual(captured["hwid_sig"], client._hwid_signature())
 
 
 class TestWANumberValidation(unittest.TestCase):
