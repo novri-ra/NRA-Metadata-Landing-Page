@@ -48,6 +48,15 @@ def _prepare_target(file_path: str) -> None:
         pass
 
 
+def _to_cli_path(path: str, is_exe: bool) -> str:
+    """Convert WSL /mnt/<drive>/ paths to Windows format if running a Windows .exe."""
+    if is_exe and os.name != "nt" and path.startswith("/mnt/") and len(path) > 6 and path[6] == "/":
+        drive = path[5].upper()
+        rest = path[7:].replace("/", "\\")
+        return f"{drive}:\\{rest}"
+    return path
+
+
 def _run_exiftool(cmd: list, timeout: int) -> subprocess.CompletedProcess:
     """Run ExifTool with fully visible text output.
 
@@ -59,8 +68,10 @@ def _run_exiftool(cmd: list, timeout: int) -> subprocess.CompletedProcess:
     """
     exiftool_path = cmd[0]
     cwd = os.path.dirname(os.path.abspath(exiftool_path))
+    is_exe = str(exiftool_path).lower().endswith(".exe")
+    converted_cmd = [cmd[0]] + [_to_cli_path(arg, is_exe) for arg in cmd[1:]]
     return subprocess.run(
-        cmd,
+        converted_cmd,
         capture_output=True,
         text=True,
         encoding="utf-8",
