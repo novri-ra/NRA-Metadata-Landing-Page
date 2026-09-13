@@ -10,10 +10,11 @@ import os
 import shutil
 import stat
 import subprocess
+import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from backend.processors._tools import log_failed_file
+from backend.processors._tools import get_base_path, log_failed_file
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,14 @@ def _prepare_target(file_path: str) -> None:
     ``<file>_exiftool_tmp`` behind, and ExifTool refuses to proceed while it
     exists -- so both must be cleared before every run.
     """
+    # Parent directory first: a read-only parent blocks chmod on the file
+    # itself (EACCES), so it must be unlocked before touching the file.
+    parent = os.path.dirname(file_path)
+    if parent:
+        try:
+            os.chmod(parent, stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC)
+        except OSError:
+            pass
     try:
         os.chmod(file_path, stat.S_IREAD | stat.S_IWRITE)
     except OSError:
@@ -46,6 +55,130 @@ def _prepare_target(file_path: str) -> None:
             os.remove(stale)
     except OSError:
         pass
+
+
+def _windows_api_flags(exiftool_path: str) -> list:
+    """API options that only make sense for the bundled Windows ExifTool binary.
+
+    ``-api WindowsLongPath=1`` enables Windows wide-character / long-path file
+    I/O (it also enables ``WindowsWideFile``), which helps when ExifTool must
+    create its ``_exiftool_tmp`` file next to a long or unicode path. The
+    commonly-cited ``-api Windows=1`` is not a real ExifTool option and is
+    silently ignored, so it is deliberately not used here.
+    """
+    if str(exiftool_path).lower().endswith(".exe"):
+        return ["-api", "WindowsLongPath=1"]
+    return []
+
+
+def _staging_root() -> str | None:
+    """Writable root for staging copies, on the local/system drive.
+
+    Windows temp is preferred on native builds; under WSL the temp dir is not
+    reachable by the Windows exe, so the project cache (on ``/mnt/<drive>``) is
+    used instead so ``_to_cli_path`` can translate it back to a Windows path.
+    """
+    tmp = Path(tempfile.gettempdir())
+    candidates: list[Path] = []
+    if os.name == "nt" or str(tmp).startswith("/mnt/"):
+        candidates.append(tmp / "nra_exiftool_staging")
+    candidates.append(Path(get_base_path()) / "cache" / "exiftool_staging")
+    for c in candidates:
+        try:
+            c.mkdir(parents=True, exist_ok=True)
+            return str(c)
+        except OSError:
+            continue
+    return None
+
+
+def _stage_copy(file_path: str) -> str | None:
+    """Copy the target into a writable staging area so ExifTool can create its
+    ``_exiftool_tmp`` there even when the destination folder rejects writes."""
+    root = _staging_root()
+    if not root:
+        return None
+    p = Path(file_path)
+    staged = Path(root) / f"{p.stem}.{os.getpid()}{p.suffix}"
+    try:
+        if staged.exists():
+            os.chmod(staged, stat.S_IREAD | stat.S_IWRITE)
+            os.remove(staged)
+        shutil.copy2(file_path, staged)
+        os.chmod(staged, stat.S_IREAD | stat.S_IWRITE)
+        return str(staged)
+    except OSError:
+        return None
+
+
+def _replace_original(original: str, staged: str) -> None:
+    """Move the metadata-embedded staged copy back over the original."""
+    parent = os.path.dirname(original)
+    if parent:
+        try:
+            os.chmod(parent, stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC)
+        except OSError:
+            pass
+    try:
+        os.chmod(original, stat.S_IREAD | stat.S_IWRITE)
+    except OSError:
+        pass
+    stale = original + "_exiftool_tmp"
+    try:
+        if os.path.exists(stale):
+            os.chmod(stale, stat.S_IREAD | stat.S_IWRITE)
+            os.remove(stale)
+    except OSError:
+        pass
+    try:
+        os.remove(original)
+    except OSError:
+        pass
+    shutil.move(staged, original)
+
+
+def _run_with_staging_fallback(
+    file_path: str, cmd: list, timeout: int
+) -> subprocess.CompletedProcess:
+    """Run ExifTool in place, retrying through a local staging copy when the
+    target directory rejects ``_exiftool_tmp`` creation (read-only / external
+    drive permission issues). ExifTool always creates its temp file in the
+    same directory as the target, so when that fails the only reliable path is
+    to write in a writable directory and move the result back."""
+    result = _run_exiftool(cmd, timeout)
+    if result.returncode == 0:
+        return result
+    err = result.stderr or ""
+    if "Error creating file" not in err and "_exiftool_tmp" not in err:
+        return result
+    staged = _stage_copy(file_path)
+    if not staged:
+        print(
+            f"[EXIFTOOL] {os.path.basename(file_path)}: in-place temp denied "
+            "and staging fallback unavailable"
+        )
+        return result
+    print(
+        f"[EXIFTOOL] {os.path.basename(file_path)}: in-place temp denied, "
+        "embedding via local staging copy"
+    )
+    staged_cmd = cmd[:-1] + [staged]
+    staged_result = _run_exiftool(staged_cmd, timeout)
+    if staged_result.returncode != 0 or not os.path.isfile(staged):
+        return staged_result
+    try:
+        _replace_original(file_path, staged)
+        print(
+            f"[EXIFTOOL] {os.path.basename(file_path)}: "
+            "staged result moved back to original"
+        )
+    except OSError as e:
+        print(f"[EXIFTOOL] {os.path.basename(file_path)}: move-back failed: {e}")
+        try:
+            os.remove(staged)
+        except OSError:
+            pass
+    return staged_result
 
 
 def _to_cli_path(path: str, is_exe: bool) -> str:
@@ -108,13 +241,9 @@ class ExifToolClient:
             print(f"[EXIFTOOL ERROR] Binary tidak ditemukan di: {exiftool_path}")
             return False
         is_png = os.path.splitext(file_path)[1].lower() == ".png"
-        cmd = [
-            exiftool_path,
-            "-overwrite_original",
-            "-m",
-            "-charset",
-            "filename=utf8",
-        ]
+        cmd = [exiftool_path]
+        cmd.extend(_windows_api_flags(exiftool_path))
+        cmd.extend(["-overwrite_original", "-m", "-charset", "filename=utf8"])
         if is_png:
             cmd.extend(
                 [
@@ -134,7 +263,7 @@ class ExifToolClient:
             ]
         )
         try:
-            result = _run_exiftool(cmd, timeout=30)
+            result = _run_with_staging_fallback(file_path, cmd, timeout=30)
         except subprocess.TimeoutExpired:
             print(f"[WARN] Sanitizer timeout on {os.path.basename(file_path)}")
             return False
@@ -194,7 +323,9 @@ class ExifToolClient:
         is_eps = ext == "eps"
         # Every argument must be a separate list item; no shell=True, no
         # hand-glued "-key=value" pairs.
-        cmd = [exiftool_path, "-overwrite_original", "-m"]
+        cmd = [exiftool_path]
+        cmd.extend(_windows_api_flags(exiftool_path))
+        cmd.extend(["-overwrite_original", "-m"])
         if is_eps:
             cmd.extend(["-charset", "iptc=UTF8"])
         cmd.extend(["-charset", "filename=utf8"])
@@ -244,7 +375,7 @@ class ExifToolClient:
         cmd.append(file_path)
 
         try:
-            result = _run_exiftool(cmd, timeout=60)
+            result = _run_with_staging_fallback(file_path, cmd, timeout=60)
         except subprocess.TimeoutExpired:
             print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool Timeout")
             log_failed_file(
