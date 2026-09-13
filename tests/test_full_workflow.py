@@ -247,6 +247,7 @@ class TestAuthLoginViaEmailOrUsername(unittest.TestCase):
         self.assertEqual(captured["identifier"], "myuser")
         self.assertEqual(captured["session_token"], "tok123")
         self.assertEqual(captured["hwid"], client.hwid)
+        self.assertEqual(captured["hwid_sig"], client._hwid_signature())
 
 
 class TestWANumberValidation(unittest.TestCase):
