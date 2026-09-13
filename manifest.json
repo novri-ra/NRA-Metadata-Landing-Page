@@ -35,7 +35,10 @@
       ],
       "js": [
         "src/utils/utils.js",
+        "src/utils/errors.js",
         "src/content/selectors.js",
+        "src/content/dom-utils.js",
+        "src/content/automation.js",
         "src/content/content.js"
       ],
       "run_at": "document_idle"
