@@ -2,7 +2,6 @@ import os
 import queue
 import sys
 import threading
-import time
 import tkinter as tk
 from datetime import UTC, datetime
 
@@ -23,6 +22,8 @@ from backend.core.worker_pool import (
 )
 from backend.processors.exiftool_client import ExifToolClient
 from backend.processors.media_converter import extract_preview_image
+from backend.services.ftp_uploader import FTPUploader
+from backend.services.folder_watcher import FolderWatcher
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.shared_utils.tools_setup import ensure_tools_installed
 from packages.shared_utils.env_check import run_environment_checks
@@ -2022,40 +2023,13 @@ class AppWindow(ctk.CTk):
         ).pack(side="right", expand=True, padx=(4, 0))
 
     def _run_ftp_upload(self, host, port, user, passwd, folder, zip_only):
-        self.log(f"Connecting to FTP {host}...", "info")
-        client = FTPClient(host, port, user, passwd)
-        ok, msg = client.connect()
-        if not ok:
-            return self.log(f"FTP Connect Error: {msg}", "error")
-
-        files_to_upload = []
-        valid_exts = (".zip",) if zip_only else (".zip", ".eps", ".jpg", ".svg", ".csv")
-        for root, _, files in os.walk(folder):
-            for f in files:
-                if f.lower().endswith(valid_exts):
-                    files_to_upload.append(os.path.join(root, f))
-
-        if not files_to_upload:
-            client.disconnect()
-            return self.log("No valid files to upload via FTP.", "error")
-
-        self.log(f"FTP Uploading {len(files_to_upload)} files...", "info")
-        self._call_main(self.progress_bar.set, 0)
-
-        success = 0
-        total = len(files_to_upload)
-        for i, fpath in enumerate(files_to_upload):
-            fname = os.path.basename(fpath)
-            self.log(f"FTP: uploading {fname}...", "processing")
-            if client.upload_file(fpath):
-                self.log(f"FTP: OK {fname}", "success")
-                success += 1
-            else:
-                self.log(f"FTP: FAIL {fname}", "error")
-            self._call_main(self.progress_bar.set, (i + 1) / total)
-
-        client.disconnect()
-        self.log(f"FTP Upload Complete: {success}/{total} successful.", "info")
+        uploader = FTPUploader(host, port, user, passwd)
+        uploader.upload_batch(
+            folder,
+            zip_only,
+            log_cb=self.log,
+            progress_cb=lambda frac: self._call_main(self.progress_bar.set, frac),
+        )
 
     def _get_allowed_extensions(self) -> set:
         exts = {ext for ext, var in self.fmt_vars.items() if var.get()}
@@ -2071,23 +2045,18 @@ class AppWindow(ctk.CTk):
         if getattr(self, "_watcher_started", False):
             return
         self._watcher_started = True
-        while True:
-            time.sleep(3)
-            if not self.pool.is_running:
-                self._call_main(self._watcher_tick)
+        self._watcher = FolderWatcher(
+            get_directory=lambda: self.input_dir.get(),
+            is_allowed=self._is_allowed_file,
+            is_busy=lambda: self.pool.is_running,
+            on_new_files=lambda files: self._call_main(self._on_watcher_files, files),
+        )
+        self._watcher.start()
 
-    def _watcher_tick(self):
+    def _on_watcher_files(self, files):
         if self.auto_watch.get() and not self.pool.is_running:
-            in_dir = self.input_dir.get()
-            if in_dir and os.path.isdir(in_dir):
-                files = [
-                    f
-                    for f in os.listdir(in_dir)
-                    if os.path.isfile(os.path.join(in_dir, f))
-                    and self._is_allowed_file(f)
-                ]
-                if any(f not in self.processed_files for f in files):
-                    self.start_processing(new_only=True)
+            if any(f not in self.processed_files for f in files):
+                self.start_processing(new_only=True)
 
     def toggle_pause(self):
         if self.pool.toggle_pause():
