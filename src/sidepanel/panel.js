@@ -1,126 +1,62 @@
-let isRunning = false;
-let isDebugMode = false;
+// panel.js
+// Side panel orchestration: storage listeners, run/pause controls, message handling,
+// settings/presets logic, and the Canva connection check.
 
-function applyCustomUI(theme, font) {
-  document.body.className = "";
-  if (theme && font) {
-    document.body.classList.add(theme, font);
-  }
-}
+// ==========================================
+// Connection Check (Fix #2: single source of truth)
+// ==========================================
+function setConnectionStatusUI(kind) {
+  if (!statusText || !statusDot) return;
 
-function syncRunButtonUI(isAutomating) {
-  const startBtn = document.getElementById("startBtn");
-  if (!startBtn) return;
-  isRunning = isAutomating; // Keep local tracker updated
-
-  if (isAutomating) {
-    startBtn.textContent = "Stop";
-    startBtn.style.background = "#e74c3c";
-    startBtn.style.boxShadow = "0 4px 15px rgba(231, 76, 60, 0.4)";
+  if (kind === "connected") {
+    statusText.textContent = "Canva Connected";
+    statusDot.classList.add("active");
+    statusDot.style.backgroundColor = "#10b981";
+    if (startBtn && !isRunning) {
+      startBtn.disabled = false;
+      startBtn.style.opacity = "1";
+      startBtn.style.cursor = "pointer";
+    }
+  } else if (kind === "not-ready") {
+    statusText.textContent = "Error: Please refresh the Canva tab";
+    statusDot.classList.remove("active");
+    statusDot.style.backgroundColor = "#ef4444";
+    if (startBtn) {
+      startBtn.disabled = true;
+      startBtn.style.opacity = "0.5";
+      startBtn.style.cursor = "not-allowed";
+    }
   } else {
-        startBtn.textContent = "Run";
-    startBtn.style.background = "";
-    startBtn.style.boxShadow = "";
-    startBtn.disabled = false;
-    startBtn.style.opacity = "1";
-    startBtn.style.cursor = "pointer";
-
-    chrome.storage.local.set({ isPaused: false });
-    const pauseButton = document.getElementById("pauseButton");
-    if (pauseButton) {
-      pauseButton.textContent = "⏸ PAUSE";
-      pauseButton.style.background = "#f39c12";
+    statusText.textContent = "Please open Canva Dream Lab";
+    statusDot.classList.remove("active");
+    statusDot.style.backgroundColor = "#ef4444";
+    if (startBtn) {
+      startBtn.disabled = true;
+      startBtn.style.opacity = "0.5";
+      startBtn.style.cursor = "not-allowed";
     }
   }
 }
 
-function updateStatsUI(stats) {
-  if (!stats) return;
-
-  const successCount = Number(stats.successCount) || 0;
-  const downloadCount = Number(stats.downloadCount) || 0;
-  const totalPrompts = Number(stats.totalPrompts) || 0;
-
-  const elProcessed = document.getElementById("stat-processed");
-  if (elProcessed) elProcessed.textContent = successCount;
-
-  const elDownloaded = document.getElementById("stat-downloaded");
-  if (elDownloaded) elDownloaded.textContent = downloadCount;
-
-  const elRate = document.getElementById("stat-rate");
-  if (elRate) {
-    if (successCount > 0) {
-      const failedCount = Number(stats.failedCount) || 0;
-      const successfulPrompts = successCount - failedCount;
-      let rate = Math.round((successfulPrompts / successCount) * 100);
-      if (isNaN(rate) || rate < 0) rate = 0;
-      elRate.textContent = rate + "%";
-    } else {
-      elRate.textContent = "0%";
+function syncConnectionStatus(onlyIfError = false) {
+  chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
+    if (!tabs || tabs.length === 0) {
+      if (onlyIfError && statusText && !(statusText.textContent.includes("Error") || statusText.textContent.includes("Please open"))) {
+        return;
+      }
+      setConnectionStatusUI("disconnected");
+      return;
     }
-  }
 
-  let elapsedSeconds = 0;
-  const elTime = document.getElementById("stat-time");
-  if (stats.startTime) {
-    let elapsedMs = Date.now() - Number(stats.startTime);
-    if (isNaN(elapsedMs) || elapsedMs < 0) elapsedMs = 0;
-    elapsedSeconds = Math.floor(elapsedMs / 1000);
-    const minutes = Math.floor(elapsedSeconds / 60);
-    const seconds = elapsedSeconds % 60;
-    if (elTime) elTime.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-  } else {
-    if (elTime) elTime.textContent = "00:00";
-  }
-
-  // --- LOGIKA BARU: AVG SPEED & ETA ---
-  const elAvgSpeed = document.getElementById("stat-avg-speed");
-  const elEta = document.getElementById("stat-eta");
-
-  if (successCount > 0 && elapsedSeconds > 0) {
-    const avgSeconds = elapsedSeconds / successCount;
-    if (elAvgSpeed) elAvgSpeed.textContent = Math.round(avgSeconds) + "s/prompt";
-
-    const remainingPrompts = Math.max(0, totalPrompts - successCount);
-    if (remainingPrompts > 0) {
-      const etaSeconds = Math.round(remainingPrompts * avgSeconds);
-      const etaMins = Math.floor(etaSeconds / 60);
-      const etaSecs = etaSeconds % 60;
-      if (elEta) elEta.textContent = `${etaMins.toString().padStart(2, "0")}:${etaSecs.toString().padStart(2, "0")}`;
-    } else {
-      if (elEta) elEta.textContent = "00:00";
-    }
-  } else {
-    if (elAvgSpeed) elAvgSpeed.textContent = "--";
-    if (elEta) elEta.textContent = "--:--";
-  }
-}
-
-// Shared DOM Elements
-let startBtn,
-  promptInput,
-  aspectRatioSelect,
-  imageStyleSelect,
-  downloadCountSelect,
-  debugModeSelect,
-  progressText,
-  statusText,
-  statusDot,
-  failedPromptsTextarea,
-  consoleLogs;
-
-function initUIElements() {
-  startBtn = document.getElementById("startBtn");
-  promptInput = document.getElementById("promptInput");
-  aspectRatioSelect = document.getElementById("aspectRatio");
-  imageStyleSelect = document.getElementById("imageStyle");
-  downloadCountSelect = document.getElementById("downloadCount");
-  debugModeSelect = document.getElementById("debugMode");
-  progressText = document.getElementById("progressText");
-  statusText = document.getElementById("statusText");
-  statusDot = document.getElementById("statusIndicator");
-  failedPromptsTextarea = document.getElementById("failedPrompts");
-  consoleLogs = document.getElementById("consoleLogs");
+    // Tab terbuka & halaman dream-lab ada -> status CONNECTED.
+    // PING hanya sebagai readiness check saat RUN ditekan (handleStartClick).
+    chrome.tabs.sendMessage(tabs[0].id, { action: "PING" }, () => {
+      if (onlyIfError && statusText && !(statusText.textContent.includes("Error") || statusText.textContent.includes("Please open"))) {
+        return;
+      }
+      setConnectionStatusUI("connected");
+    });
+  });
 }
 
 function initStorageListeners() {
@@ -533,10 +469,12 @@ function initEventListeners() {
     });
   }
 
-  // Real-time Save (Input/Change Listeners to prevent data loss)
+  // Real-time Save (Input/Change Listeners to prevent data loss).
+  // Button enable/disable is owned by syncConnectionStatus/syncRunButtonUI only.
   let saveTimeout;
   if (promptInput) {
-    promptInput.addEventListener("input", () => { const isConnected = statusText && statusText.textContent === "Canva Connected"; if (isConnected && !isRunning && promptInput.value.trim().length > 0) { if (startBtn) { startBtn.disabled = false; startBtn.style.opacity = "1"; startBtn.style.cursor = "pointer"; } } else { if (startBtn && !isRunning) { startBtn.disabled = true; startBtn.style.opacity = "0.5"; startBtn.style.cursor = "not-allowed"; } } clearTimeout(saveTimeout);
+    promptInput.addEventListener("input", () => {
+      clearTimeout(saveTimeout);
       saveTimeout = setTimeout(() => {
         chrome.storage.local.set({ savedPromptText: promptInput.value });
       }, 500); // 500ms debounce
@@ -611,140 +549,13 @@ document.addEventListener("DOMContentLoaded", () => {
   initCollapseLogic();
   initMessageListeners();
   initExtendedFeatures();
+  syncConnectionStatus(); // Force initial connection check on panel load
 }); // End of DOMContentLoaded
 
-function initCollapseLogic() {
-  const toggleHeaders = document.querySelectorAll(".toggle-header");
-
-  toggleHeaders.forEach((header) => {
-    header.addEventListener("click", (e) => {
-      // Prevent toggling if the user clicked directly on an icon button
-      if (e.target.closest(".icon-btn")) return;
-
-      const targetId = header.getAttribute("data-target");
-      const contentDiv = document.getElementById(targetId);
-      const toggleIcon = header.querySelector(".toggle-icon");
-
-      if (contentDiv) {
-        contentDiv.classList.toggle("collapsed");
-        if (contentDiv.classList.contains("collapsed")) {
-          toggleIcon.textContent = "[+]";
-        } else {
-          toggleIcon.textContent = "[-]";
-        }
-      }
-    });
-  });
-}
-
-// Pleasant, ascending 2-tone chime: 523.25Hz (150ms), then 659.25Hz (300ms)
-let sharedAudioCtx = null;
-
-function playAlertSound() {
-  try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return;
-
-    if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
-      sharedAudioCtx = new AudioContextClass();
-    }
-
-    if (sharedAudioCtx.state === "suspended") {
-      sharedAudioCtx.resume();
-    }
-
-    const osc = sharedAudioCtx.createOscillator();
-    const gain = sharedAudioCtx.createGain();
-
-    osc.connect(gain);
-    gain.connect(sharedAudioCtx.destination);
-
-    const now = sharedAudioCtx.currentTime;
-
-    // Tone 1: 523.25Hz for 150ms
-    osc.frequency.setValueAtTime(523.25, now);
-    gain.gain.setValueAtTime(0.15, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-
-    // Tone 2: 659.25Hz for 300ms
-    osc.frequency.setValueAtTime(659.25, now + 0.15);
-    gain.gain.setValueAtTime(0.15, now + 0.15);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-
-    osc.start(now);
-    osc.stop(now + 0.45);
-  } catch (e) {
-    console.warn("[NRA DreamLab] Web Audio alert failed:", e);
-    return false;
-  }
-}
-
-// System Notification
-function showBrowserNotification() {
-  if (typeof chrome !== "undefined" && chrome.notifications) {
-    chrome.notifications.create(
-      {
-        type: "basic",
-        iconUrl: "assets/icon.png",
-        title: "NRA DreamLab",
-        message: "Success! All prompts have been processed.",
-      },
-      (id) => {
-        if (chrome.runtime.lastError) {
-          console.warn(
-            "[NRA DreamLab] Notification alert failed:",
-            chrome.runtime.lastError.message,
-          );
-        }
-      },
-    );
-  }
-}
-
 function initMessageListeners() {
-  // Helper to visually show tab status and progress on load
-  chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
-    if (tabs && tabs.length > 0) {
-      statusText.textContent = "Canva Connected";
-      statusDot.classList.add("active");
-      statusDot.style.backgroundColor = "#10b981";
-      if (startBtn && !isRunning && promptInput && promptInput.value.trim().length > 0) {
-        startBtn.disabled = false;
-        startBtn.style.opacity = "1";
-        startBtn.style.cursor = "pointer";
-      }
-    } else {
-      statusText.textContent = "Please open Canva Dream Lab";
-      statusDot.classList.remove("active");
-      statusDot.style.backgroundColor = "#ef4444";
-      if (startBtn) {
-        startBtn.disabled = true;
-        startBtn.style.opacity = "0.5";
-        startBtn.style.cursor = "not-allowed";
-      }
-    }
-  });
-
-  // Setup auto-reconnect interval to recover state if content.js resets/refreshes
+  // Auto-reconnect interval: only repaint when recovering from an error state
   setInterval(() => {
-    chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
-      if (tabs && tabs.length > 0) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: "PING" }, (pingRes) => {
-          if (!chrome.runtime.lastError && pingRes && pingRes.status === "READY") {
-            if (statusText && (statusText.textContent.includes("Error") || statusText.textContent.includes("Please open") || statusDot.style.backgroundColor === "rgb(239, 68, 68)" || statusDot.style.backgroundColor === "#ef4444")) {
-              statusText.textContent = "Canva Connected";
-              statusDot.classList.add("active");
-              statusDot.style.backgroundColor = "#10b981";
-              if (startBtn && !isRunning && promptInput && promptInput.value.trim().length > 0) {
-                startBtn.disabled = false;
-                startBtn.style.opacity = "1";
-                startBtn.style.cursor = "pointer";
-              }
-            }
-          }
-        });
-      }
-    });
+    syncConnectionStatus(true);
   }, 3000);
 
   // Listen for STATUS_UPDATE or direct status/progress/UI synchronization messages from content.js
@@ -884,6 +695,7 @@ function initMessageListeners() {
     if (statusValue) {
       console.log("[NRA DreamLab] Received status update:", statusValue);
       statusText.textContent = statusValue;
+      statusText.title = statusValue; // Hover = teks status penuh (tanpa terpotong ellipsis)
       statusText.style.whiteSpace = "nowrap";
       statusText.style.overflow = "hidden";
       statusText.style.textOverflow = "ellipsis";
@@ -895,26 +707,37 @@ function initMessageListeners() {
       if (
         statusLower.includes("error") ||
         statusLower.includes("stopped") ||
-        statusLower.includes("complete")
+        statusLower.includes("stopping")
       ) {
         syncRunButtonUI(false);
+        statusDot.style.backgroundColor = statusLower.includes("error") ? "#ef4444" : "#6b7280";
+        statusDot.classList.remove("active");
+      } else if (
+        statusLower.includes("paused") ||
+        statusLower.includes("cooldown")
+      ) {
+        // Waiting state: orange pulse
+        statusDot.style.backgroundColor = "#f59e0b";
+        statusDot.classList.add("active");
+      } else if (statusLower.includes("[dl") || statusLower.includes("downloading")) {
+        statusDot.style.backgroundColor = "#3b82f6";
+        statusDot.classList.add("active");
+      } else if (
+        statusLower.includes("complete") ||
+        statusLower.includes("successfully")
+      ) {
+        syncRunButtonUI(false);
+        statusDot.style.backgroundColor = "#10b981";
+        statusDot.classList.add("active");
 
-        if (statusLower.includes("error")) {
-          statusDot.style.backgroundColor = "#ef4444";
-          statusDot.classList.remove("active");
-        } else {
-          statusDot.style.backgroundColor = "#10b981";
-          statusDot.classList.add("active");
-
-          // Trigger alerts on clean completion
-          if (statusLower.includes("complete")) {
-            playAlertSound();
-            showBrowserNotification();
-          }
+        // Trigger alerts on clean completion
+        if (statusLower.includes("complete") || statusLower.includes("successfully")) {
+          playAlertSound();
+          showBrowserNotification();
         }
       } else {
         // Active automation pulse
-        statusDot.style.backgroundColor = "#a855f7";
+        statusDot.style.backgroundColor = "#10b981";
         statusDot.classList.add("active");
       }
 
@@ -930,23 +753,6 @@ function initMessageListeners() {
     sendResponse({ success: true });
     return true; // Keep channel open
   });
-}
-
-/**
- * Expand prompt with {i} placeholder
- * @param {string} prompt - Prompt text containing {i}
- * @param {number} iterations - Number of iterations (default: 1)
- * @returns {string[]} Array of expanded prompts
- */
-function expandPromptWithVariable(prompt, iterations) {
-  if (!prompt.includes("{i}") || iterations < 1) {
-    return [prompt];
-  }
-  const results = [];
-  for (let i = 1; i <= iterations; i++) {
-    results.push(prompt.replace(/\{i\}/g, i));
-  }
-  return results;
 }
 
 function initExtendedFeatures() {
@@ -998,66 +804,7 @@ function initExtendedFeatures() {
   // 2. Clear Prompts Trash Can
   const clearPromptsBtn = document.getElementById("clearPromptsBtn");
   if (clearPromptsBtn) {
-    // Connection handshake function
-    async function initConnection() {
-      return new Promise((resolve) => {
-        chrome.tabs.query({ url: "*://*.canva.com/dream-lab*" }, (tabs) => {
-          if (tabs.length === 0) {
-            resolve(false);
-            return;
-          }
-
-          const timeout = setTimeout(() => {
-            resolve(false);
-          }, 3000);
-
-          chrome.tabs.sendMessage(
-            tabs[0].id,
-            { action: "PING" },
-            (response) => {
-              clearTimeout(timeout);
-              if (chrome.runtime.lastError) {
-                // Jangan paksa reject permanent jika hanya tab belum fully loaded. 
-                // Kita anggap koneksi ada jika tab match query.
-                resolve(true); 
-              } else {
-                resolve(response?.status === "READY" || true);
-              }
-            },
-          );
-        });
-      });
-    }
-
-    // Modify the existing error handling logic
-    async function checkConnection() {
-      const isConnected = await initConnection();
-      
-      const startBtn = document.getElementById("startBtn");
-      
-      if (isConnected) {
-        statusText.textContent = "Canva Connected";
-        statusDot.classList.add("active");
-        statusDot.style.backgroundColor = "#10b981";
-      if (startBtn && !isRunning && promptInput && promptInput.value.trim().length > 0) {
-            startBtn.disabled = false;
-            startBtn.style.opacity = "1";
-            startBtn.style.cursor = "pointer";
-        }
-      } else {
-        statusText.textContent = "Error: Please refresh the Canva tab";
-        statusDot.classList.remove("active");
-        statusDot.style.backgroundColor = "#ef4444";
-        if (startBtn) {
-            startBtn.disabled = true;
-            startBtn.style.opacity = "0.5";
-            startBtn.style.cursor = "not-allowed";
-        }
-      }
-    }
-
-    // Call this function when the panel loads
-    checkConnection();
+    // Connection handshake removed - deduped into syncConnectionStatus (Fix #2)
 
     clearPromptsBtn.addEventListener("click", () => {
       if (confirm("Are you sure you want to clear all prompts?")) {
