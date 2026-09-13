@@ -17,7 +17,7 @@ import tempfile
 
 from PIL import Image
 
-from backend.processors._tools import get_tool_path, log_failed_file
+from backend.processors._tools import format_tool_failure, get_tool_path, log_failed_file
 from backend.processors.ghostscript_preview import render_vector_preview
 
 
@@ -84,9 +84,23 @@ def extract_video_frame(file_path: str, out_path: str, filename: str, _log) -> s
             log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
         return None
     except subprocess.CalledProcessError as e:
-        err = f"FFmpeg error: {e.stderr}"
-        _log(f"[{filename}] {err}", "error")
-        log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
+        detail = (e.stderr or b"").decode("utf-8", errors="replace")
+        _log(
+            format_tool_failure(
+                "[FFMPEG FAILURE]",
+                [
+                    ("File", os.path.basename(file_path)),
+                    ("ExitCode", str(e.returncode)),
+                    ("Error", detail.strip()),
+                ],
+            ),
+            "error",
+        )
+        log_failed_file(
+            os.path.dirname(file_path),
+            os.path.basename(file_path),
+            f"FFmpeg error: {detail[:200]}",
+        )
         return None
     except subprocess.TimeoutExpired:
         err = "FFmpeg timed out"

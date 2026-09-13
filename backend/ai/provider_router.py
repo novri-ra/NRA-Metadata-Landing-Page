@@ -45,7 +45,7 @@ class MetadataModel(BaseModel):
 
 def normalize_base_url(url: str) -> str:
     if not url:
-        return "https://api.9router.com/v1"
+        return ""
     url = url.strip()
     while url.endswith("/"):
         url = url[:-1]
@@ -77,7 +77,7 @@ class AIService:
         self.base_url = None
         if custom_base_url:
             self.base_url = normalize_base_url(custom_base_url)
-        elif self.provider in ("9router", "Custom"):
+        elif self.provider == "Custom":
             self.base_url = normalize_base_url(None)
         self._init_clients()
 
@@ -88,7 +88,7 @@ class AIService:
     def _init_clients(self):
         if self.provider == "Gemini":
             self.gemini_client = genai.Client(api_key=self.api_key)
-        elif self.provider in ("OpenAI", "9router", "Custom"):
+        elif self.provider in ("OpenAI", "Custom"):
             kwargs = {}
             if self.base_url:
                 kwargs["base_url"] = self.base_url
@@ -230,7 +230,7 @@ class AIService:
                         response,
                     )
 
-                elif self.provider in ["OpenAI", "9router", "Custom"]:
+                elif self.provider in ("OpenAI", "Custom"):
                     if is_text_fallback:
                         msgs = [
                             {
@@ -263,9 +263,7 @@ class AIService:
                             },
                         ]
 
-                    default_model = (
-                        "gpt-4o-mini" if self.provider == "OpenAI" else "9router/auto"
-                    )
+                    default_model = "gpt-4o-mini"
                     response = self.openai_client.chat.completions.create(
                         model=self.model or default_model,
                         messages=msgs,

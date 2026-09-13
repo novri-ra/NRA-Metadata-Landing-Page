@@ -141,7 +141,7 @@ class AppWindow(ctk.CTk):
                 "mistral-large-latest",
             ],
             "OpenAI": ["gpt-4o-mini (Optimal)", "gpt-4o", "chatgpt-4o-latest"],
-            "Custom": ["9router/auto"],
+            "Custom": ["gpt-4o-mini (Default)"],
         }
 
         self._restore_geometry()
@@ -579,8 +579,10 @@ class AppWindow(ctk.CTk):
         if not hasattr(self, "console"):
             self.after(100, self._flush_log_queue)
             return
+        processed = 0
+        edited = False
         try:
-            while True:
+            while processed < 300:
                 message, level = self._log_queue.get_nowait()
                 entry = {
                     "ts": datetime.now(UTC).strftime("%H:%M:%S"),
@@ -597,16 +599,23 @@ class AppWindow(ctk.CTk):
                 if (flt == "all" or flt == level) and (
                     not q or q in message.lower()
                 ):
-                    self.console.configure(state="normal")
+                    if not edited:
+                        self.console.configure(state="normal")
+                        edited = True
                     tb = self.console._textbox
                     tb.insert("end", f"[{entry['ts']}] ", "timestamp")
                     tb.insert("end", f"[{level.upper()}] ", level)
                     tb.insert("end", f"{message}\n", level)
-                    self.console.see("end")
-                    self.console.configure(state="disabled")
+                processed += 1
         except (queue.Empty, RuntimeError):
             pass
-        self.after(100, self._flush_log_queue)
+        if edited:
+            self.console.see("end")
+            self.console.configure(state="disabled")
+        # Huge batches drain in bounded slices (300/tick) so the paint loop
+        # stays responsive; scroll once per slice, not per line.
+        interval = 25 if processed >= 300 else 100
+        self.after(interval, self._flush_log_queue)
 
     def _flush_tk_queue(self):
         try:

@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 
 from backend.processors._tools import (
     exiftool_flags,
+    format_tool_failure,
     get_tool_path,
     log_failed_file,
 )
@@ -81,17 +82,23 @@ def _run_exiftool(cmd: list, timeout: int) -> subprocess.CompletedProcess:
 def _log_exiftool_failure(
     file_path: str, cmd: list, result: subprocess.CompletedProcess
 ) -> None:
-    """Expose the raw ExifTool failure to the console and logger.
+    """Print a structured, word-wrapped failure block for ExifTool.
 
-    stderr was previously swallowed by a ``CalledProcessError`` decode path,
-    so every EPS embed failed silently. Dump exit code, full command, stderr
-    and stdout verbatim.
+    The command and stderr can be very long (hundreds of keyword arguments);
+    rendering them as one giant line made real errors unreadable. Wrap output
+    into a boxed block instead.
     """
-    print(f"\n[EXIFTOOL ERROR DETAIL] Exit Code: {result.returncode}", flush=True)
-    print(f"[EXIFTOOL CMD] {' '.join(cmd)}", flush=True)
-    print(f"[EXIFTOOL STDERR] {result.stderr}", flush=True)
-    print(f"[EXIFTOOL STDOUT] {result.stdout}\n", flush=True)
-    logger.error(f"[EXIFTOOL] Failed on {file_path}: {result.stderr.strip()}")
+    rows = [
+        ("File", os.path.basename(file_path)),
+        ("ExitCode", str(result.returncode)),
+        ("Command", " ".join(cmd)),
+        ("Error", (result.stderr or "").strip()),
+    ]
+    if result.stdout and result.stdout.strip():
+        rows.append(("Stdout", result.stdout.strip()))
+    block = format_tool_failure("[EXIFTOOL FAILURE]", rows)
+    print(block, flush=True)
+    logger.error("%s failed on %s:\n%s", "ExifTool", file_path, block)
 
 
 class ExifToolClient:

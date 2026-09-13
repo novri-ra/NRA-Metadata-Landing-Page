@@ -176,22 +176,18 @@ def load_config() -> dict:
     else:
         data = {}
 
-    # Sanitize 9router and invalid providers
+    # Sanitize invalid providers
     valid_providers = ["Gemini", "Mistral", "Groq", "OpenAI", "Custom"]
     provider = data.get("provider")
-    if not provider or provider not in valid_providers or provider == "9router":
+    if not provider or provider not in valid_providers:
         data["provider"] = "Gemini"
         data["model"] = "gemini-2.5-flash"
 
     # Deprecated model normalisation
     if data.get("provider") == "Gemini" and data.get("model") == "gemini-2.5-pro":
         data["model"] = "gemini-2.5-flash"
-
-    # Sanitize api_keys dictionary
-    api_keys = data.get("api_keys", {})
-    if isinstance(api_keys, dict) and "9router" in api_keys:
-        api_keys.pop("9router")
-    data["api_keys"] = api_keys
+    if data.get("model") == "9router/auto":
+        data["model"] = "gpt-4o-mini"
 
     return data
 

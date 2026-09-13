@@ -16,6 +16,7 @@ from PIL import Image
 
 from backend.processors._tools import (
     exiftool_flags,
+    format_tool_failure,
     get_base_path,
     get_tool_path,
     log_failed_file,
@@ -76,7 +77,14 @@ def render_vector_preview(file_path: str, out_path: str, _log) -> str | None:
             result = subprocess.run(cmd, capture_output=True, timeout=RENDER_TIMEOUT)
             if result.returncode != 0:
                 log(
-                    f"[ERROR] Ghostscript STDERR: {result.stderr.decode('utf-8', errors='ignore')}",
+                    format_tool_failure(
+                        "[GHOSTSCRIPT FAILURE]",
+                        [
+                            ("File", filename),
+                            ("ExitCode", str(result.returncode)),
+                            ("Error", result.stderr.decode("utf-8", errors="ignore")),
+                        ],
+                    ),
                     "error",
                 )
             elif temp_png.exists() and temp_png.stat().st_size > 1024:

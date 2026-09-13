@@ -5,6 +5,7 @@ public surface of ``backend.processors`` stays clean.
 
 import os
 import sys
+import textwrap
 import threading
 from datetime import UTC, datetime
 
@@ -52,6 +53,47 @@ def get_tool_path(tool_name: str) -> str | None:
             if found:
                 return found
     return None
+
+
+_UTF8_BOX = ("┌", "─", "┐", "│", "└", "┘")
+_ASCII_BOX = ("+", "-", "+", "|", "+", "+")
+
+
+def _box_glyphs() -> tuple[str, str, str, str, str, str]:
+    """Unicode box-drawing when the stream can carry it, ASCII fallback so a
+    redirected/piped stdout (e.g. cp1252) never crashes with UnicodeEncodeError."""
+    enc = (getattr(sys.stdout, "encoding", "") or "").lower()
+    return _UTF8_BOX if "utf" in enc or enc == "cp65001" else _ASCII_BOX
+
+
+def format_tool_failure(
+    title: str, rows: list[tuple[str, str]], width: int = 110
+) -> str:
+    """Render a structured, boxed failure block for an external tool.
+
+    Long values (a full CLI command, verbose stderr) are word-wrapped instead
+    of flooding the terminal horizontally. Width is advisory; a value longer
+    than the box simply spills onto continuation lines.
+    """
+    tl, h, tr, v, bl, br = _box_glyphs()
+    label_w = max((len(label) for label, _ in rows), default=1)
+    value_w = max(20, width - 5 - label_w)
+    pad = " " * (label_w + 2)
+    top = f"{tl}{h} {title} " + h * max(1, width - 5 - len(title)) + tr
+    bottom = bl + h * (width - 2) + br
+    body = [top]
+    for label, value in rows:
+        chunks = textwrap.wrap(
+            (value or "").replace("\r", "").rstrip(),
+            width=value_w,
+            break_long_words=True,
+            break_on_hyphens=False,
+        ) or [""]
+        body.append(f"{v} {label:<{label_w}}: {chunks[0]}".ljust(width - 2) + v)
+        for extra in chunks[1:]:
+            body.append(f"{v} {pad}{extra}".ljust(width - 2) + v)
+    body.append(bottom)
+    return "\n".join(body)
 
 
 def exiftool_flags(exiftool_path: str) -> list:

@@ -86,13 +86,15 @@ class LogConsole(ctk.CTkFrame):
         self.console.grid(row=1, column=0, sticky="nsew", padx=0, pady=(0, 0))
 
         tb = self.console._textbox
-        tb.tag_config("success", foreground=C["success"])
-        tb.tag_config("processing", foreground=C["warn"])
-        tb.tag_config("processing", foreground=C["warn"])
-        tb.tag_config("warn", foreground=C["warn"])
-        tb.tag_config("error", foreground=C["error"])
-        tb.tag_config("cache", foreground=C["violet"])
+        tb.tag_config("info", foreground=C["info"])
+        tb.tag_config("success", foreground=C["success_soft"])
+        tb.tag_config("processing", foreground=C["cyan"])
+        tb.tag_config("warn", foreground=C["warn_soft"])
+        tb.tag_config("error", foreground=C["error_soft"])
+        tb.tag_config("cache", foreground=C["cyan"])
+        tb.tag_config("debug", foreground=C["text3"])
         tb.tag_config("timestamp", foreground=C["text3"])
+        tb.configure(spacing1=2, spacing3=3)
         self.console.configure(state="disabled")
 
     def register_mirrors(self, app):

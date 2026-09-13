@@ -16,8 +16,8 @@ class TestCostTracker(unittest.TestCase):
         self.assertTrue(cost > 0)
         self.assertEqual(tracker.estimated_cost_usd, cost)
 
-        cost2 = tracker.calculate("9router", "9router/auto", 100, 100)
-        self.assertEqual(cost2, 0.0)
+        cost2 = tracker.calculate("Unknown", "future-model", 100, 100)
+        self.assertGreater(cost2, 0.0)
 
     def test_record_usage_nonzero_cost(self):
         tracker = CostTracker()
@@ -68,8 +68,8 @@ class TestNormalizeBaseUrl(unittest.TestCase):
 
     def test_already_correct(self):
         self.assertEqual(
-            normalize_base_url("https://api.9router.com/v1"),
-            "https://api.9router.com/v1",
+            normalize_base_url("https://api.openai.com/v1"),
+            "https://api.openai.com/v1",
         )
 
     def test_whitespace(self):
@@ -77,9 +77,9 @@ class TestNormalizeBaseUrl(unittest.TestCase):
             normalize_base_url("  http://test.com  "), "http://test.com/v1"
         )
 
-    def test_empty_fallback(self):
-        self.assertEqual(normalize_base_url(""), "https://api.9router.com/v1")
-        self.assertEqual(normalize_base_url(None), "https://api.9router.com/v1")
+    def test_empty_returns_empty(self):
+        self.assertEqual(normalize_base_url(""), "")
+        self.assertEqual(normalize_base_url(None), "")
 
 
 class TestAdobeStockCsvExport(unittest.TestCase):

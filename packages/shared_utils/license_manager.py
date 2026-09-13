@@ -96,12 +96,18 @@ class AuthClient:
             )
             try:
                 return res.json()
-            except ValueError as e:
+            except ValueError:
                 print(
-                    f"[AUTH] Non-JSON response (HTTP {res.status_code}): {res.text[:200]}",
+                    f"[AUTH ERROR] (HTTP {res.status_code}) Server Apps Script "
+                    "mengembalikan format HTML (bukan JSON). Periksa pengaturan "
+                    "akses deployment Web App (harus 'Anyone').",
                     file=sys.stderr,
                 )
-                return {"status": "ERROR", "message": "Respon server tidak valid."}
+                return {
+                    "status": "ERROR",
+                    "message": "Server Apps Script mengembalikan HTML (bukan JSON). "
+                    "Periksa akses deployment Web App (harus 'Anyone').",
+                }
         except requests.exceptions.ConnectTimeout as e:
             print(f"[AUTH] Connect timeout: {e!r}", file=sys.stderr)
             return {"status": "ERROR", "message": "Connect timeout. GAS redirect lambat.", "network": True}

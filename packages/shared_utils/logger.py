@@ -1,12 +1,46 @@
 import csv
 import logging
+import sys
 import threading
 
+SUCCESS = logging.INFO + 5
+logging.addLevelName(SUCCESS, "SUCCESS")
+
+# ANSI colors for console tags; auto-disabled when stdout is not a TTY.
+_LEVEL_COLOR = {
+    "DEBUG": "\x1b[90m",  # gray
+    "INFO": "\x1b[94m",  # bright blue
+    "SUCCESS": "\x1b[92m",  # green
+    "WARNING": "\x1b[93m",  # yellow
+    "ERROR": "\x1b[91m",  # bright red
+    "CRITICAL": "\x1b[91;1m",  # bright red bold
+}
+_RESET = "\x1b[0m"
+
+
+def log_success(message: str, *args, **kwargs):
+    logger.log(SUCCESS, message, *args, **kwargs)
+
+
+class _ColorFormatter(logging.Formatter):
+    """Bracket-and-color each level tag: ``[INFO]``, ``[SUCCESS]``, ..."""
+
+    def format(self, record):
+        name = record.levelname
+        color = _LEVEL_COLOR.get(name)
+        if color and sys.stdout.isatty():
+            record.levelname = f"{color}[{name}]{_RESET}"
+        else:
+            record.levelname = f"[{name}]"
+        return super().format(record)
+
+
 logger = logging.getLogger("NRA-Metadata")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
-ch.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
+ch.setFormatter(_ColorFormatter("%(levelname)s %(message)s"))
 logger.addHandler(ch)
+logger.propagate = False
 
 
 class CSVLogger:

@@ -4,11 +4,14 @@ title NRA-Metadata Launcher
 cd /d "%~dp0"
 set "PYTHONPATH=%CD%"
 
-echo ============================================================
-echo            NRA-Metadata - Auto Launcher
-echo ============================================================
+set "frame=+--------------------------------------------------+"
+
+echo.
+echo %frame%
+echo |          NRA-Metadata - Auto Launcher          |
+echo %frame%
 echo [DIR] Project Directory : %CD%
-echo ------------------------------------------------------------
+echo %frame%
 echo.
 
 if not exist "cache" mkdir cache
@@ -16,17 +19,24 @@ if not exist "logs" mkdir logs
 if not exist "output" mkdir output
 
 :: 0. Pra-pemeriksaan folder tools eksternal
-echo [*] External tools pre-check (folder tools/):
+echo.
+echo %frame%
+echo [1/4] External tools pre-check (folder tools/)
+echo %frame%
 call :FOLDER_CHECK "tools\exiftool" "ExifTool"
 call :FOLDER_CHECK "tools\ghostscript" "Ghostscript"
 call :FOLDER_CHECK "tools\ffmpeg" "FFmpeg"
 call :FOLDER_CHECK "tools\gtk3" "GTK3 Runtime"
 echo [i] Deteksi exhaustive berjalan otomatis di Python: recursive scan
 echo [i] tools/ kemudian fallback ke PATH dan direktori umum Windows.
-echo ------------------------------------------------------------
+echo %frame%
 echo.
 
 :: 1. Deteksi Python Sistem & Cek Tkinter
+echo.
+echo %frame%
+echo [2/4] Python environment check
+echo %frame%
 where python >nul 2>&1
 if %ERRORLEVEL% neq 0 goto :CHECK_WINGET
 
@@ -38,7 +48,7 @@ echo [SUCCESS] Python sistem terdeteksi (Tkinter tersedia).
 if exist "cache\.deps_installed" goto :DEPS_CACHED
 
 echo [i] Tidak ada cache dependensi - melakukan pemasangan fresh...
-echo -------------------------------------------------------
+echo --------------------------------------------------------------
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt --no-warn-script-location
 if %ERRORLEVEL% equ 0 (
@@ -47,7 +57,7 @@ if %ERRORLEVEL% equ 0 (
 ) else (
     echo [WARN] Instalasi dependensi mengalami kendala. Mencoba melanjutkan...
 )
-echo -------------------------------------------------------
+echo --------------------------------------------------------------
 goto :INIT_CONFIG
 
 :DEPS_CACHED
@@ -95,12 +105,15 @@ exit /b 1
 
 :INIT_CONFIG
 echo.
+echo %frame%
+echo [3/4] Initial configuration
+echo %frame%
 echo [*] Menjalankan scripts\init_config.py ...
 python scripts\init_config.py
 set "IC_ERR=%ERRORLEVEL%"
 if not "%IC_ERR%"=="0" goto :INIT_FAILED
 echo [SUCCESS] Konfigurasi awal siap.
-echo ------------------------------------------------------------
+echo %frame%
 goto :LAUNCH_APP
 
 :INIT_FAILED
@@ -109,6 +122,10 @@ pause
 exit /b %IC_ERR%
 
 :LAUNCH_APP
+echo.
+echo %frame%
+echo [4/4] Launching NRA-Metadata
+echo %frame%
 echo [*] Menjalankan NRA-Metadata...
 echo.
 python apps\desktop\src\main.py
@@ -117,14 +134,14 @@ if not "%APP_EXIT%"=="0" goto :END
 
 :END
 echo.
-echo =======================================================
+echo %frame%
 if "%APP_EXIT%"=="" set "APP_EXIT=0"
 if "%APP_EXIT%"=="0" (
     echo Launcher selesai dengan sukses.
 ) else (
     echo [WARN] Aplikasi berhenti dengan exit code %APP_EXIT%.
 )
-echo =======================================================
+echo %frame%
 pause
 exit /b %APP_EXIT%
 
