@@ -5,6 +5,5 @@ const CANVA_SELECTORS = {
     'textarea[placeholder*="Describe"], textarea[placeholder*="Ceritakan"], textarea[aria-label*="prompt" i], textarea[class*="canva-ai-input"]',
   SUBMIT_BUTTON: 'button[type="submit"]',
   DOWNLOAD_BUTTON:
-    'button[aria-label*="Download" i], button[aria-label*="Unduh" i], button:has(svg path[d*="m11.25 15.85"])'
-// ALERT_STATUS: '[@role="alert" or @role="status"]'
+    'button[aria-label="Download"], button[aria-label="Unduh"], button[aria-label*="Download" i], button[aria-label*="Unduh" i], button:has(svg path[d*="m11.25 15.85"]), button[data-testid*="download" i]'
 };
