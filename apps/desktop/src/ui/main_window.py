@@ -21,7 +21,7 @@ from backend.core.worker_pool import (
 from backend.processors.exiftool_client import ExifToolClient
 from backend.services.ftp_uploader import FTPUploader
 from backend.services.folder_watcher import FolderWatcher
-from packages.shared_utils.csv_exporter import generate_microstock_csvs
+from packages.shared_utils.csv_exporter import generate_microstock_csvs, upsert_metadata_csv
 from packages.shared_utils.tools_setup import ensure_tools_installed
 from packages.shared_utils.env_check import run_environment_checks
 from packages.shared_utils.filter import (
@@ -31,6 +31,7 @@ from packages.shared_utils.filter import (
     clean_metadata,
     detect_redundant_keywords,
     get_blacklist,
+    is_placeholder_title,
     lowercase_keywords,
     remove_from_blacklist,
     remove_redundant_keywords,
@@ -733,6 +734,11 @@ class AppWindow(ctk.CTk):
         p = self.presets.get(choice)
         if not p:
             return
+        # Applying a preset that carries kw bounds is a deliberate override.
+        if choice != "Default" and ("min_kw" in p or "max_kw" in p):
+            custom_kw_range = getattr(self, "custom_kw_range", None)
+            if custom_kw_range is not None:
+                custom_kw_range.set(True)
         if "min_kw" in p:
             self.min_kw_entry.delete(0, "end")
             self.min_kw_entry.insert(0, str(p["min_kw"]))
@@ -900,6 +906,7 @@ class AppWindow(ctk.CTk):
                     "style_preset": self.style_cb.get(),
                     "min_kw": self._safe_int(self.min_kw_entry.get(), 10),
                     "max_kw": self._safe_int(self.max_kw_entry.get(), 49),
+                    "kw_locked": bool(self.custom_kw_range.get()),
                     "custom_kw": self.custom_kw_entry.get(),
                     "custom_kw_pos": self.custom_kw_pos.get(),
                     "extra_prompt": self.extra_prompt_entry.get(),
@@ -1295,7 +1302,9 @@ class AppWindow(ctk.CTk):
         title = self.edit_title_var.get()
         desc = self.edit_desc_var.get()
         kws = self._get_kws_list()
-        result = calculate_quality_score(title, desc, kws)
+        result = calculate_quality_score(
+            title, desc, kws, self.target_plat_var.get()
+        )
         score = result["score"]
         issues = result["issues"]
         status = result.get("status", "")
@@ -1394,6 +1403,23 @@ class AppWindow(ctk.CTk):
         kws = meta["keywords"]
 
         name = os.path.basename(self.current_edit_file)
+        if is_placeholder_title(title):
+            self.log(
+                f"{name} (Manual save blocked: title empty or still a fallback placeholder)",
+                "error",
+            )
+            # Show a modal so fallback metadata can't silently slip into EXIF.
+            try:
+                import tkinter.messagebox
+
+                tkinter.messagebox.showwarning(
+                    "Metadata Tidak Valid",
+                    "Title kosong atau masih berisi placeholder fallback AI.\n"
+                    "Perbaiki title terlebih dahulu sebelum menyimpan.",
+                )
+            except Exception:
+                pass
+            return
         if self.processor.embed_metadata(
             self.current_edit_file,
             title,
@@ -1419,12 +1445,7 @@ class AppWindow(ctk.CTk):
 
             sub_dir = os.path.dirname(self.current_edit_file)
             temp_master = os.path.join(sub_dir, "metadata_output.csv")
-            import csv
-
-            with open(temp_master, "w", newline="", encoding="utf-8") as tf:
-                tw = csv.writer(tf)
-                tw.writerow(["Filename", "Title", "Description", "Keywords"])
-                tw.writerow([name, title, desc, ",".join(kws)])
+            upsert_metadata_csv(temp_master, name, title, desc, kws)
             platforms = self._get_selected_csv_platforms()
             selected = self.target_plat_var.get()
             if selected and selected != "Generic":
@@ -1602,10 +1623,9 @@ class AppWindow(ctk.CTk):
             "min_kw": self.config["min_kw"],
             "max_kw": self.config["max_kw"],
             "platform": self.target_plat_var.get(),
-            "kw_locked": (
-                int(self.config.get("min_kw", 25)) != 25
-                or int(self.config.get("max_kw", 49)) != 49
-            ),
+            # Explicit user override only — set via the Custom KW Range toggle or
+            # a custom preset; editing min/max alone never locks platform ranges.
+            "kw_locked": bool(self.config.get("kw_locked", False)),
             "style_preset": self.config["style_preset"],
             "extra_prompt": self.config.get("extra_prompt", ""),
             "custom_kw": self.config.get("custom_kw", ""),

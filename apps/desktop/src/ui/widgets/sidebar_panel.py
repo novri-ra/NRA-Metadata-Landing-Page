@@ -229,6 +229,18 @@ class SidebarPanel(ctk.CTkFrame):
         self.max_kw_entry.pack(fill="x")
         self.max_kw_entry.bind("<FocusOut>", lambda e: app._save_current_config())
 
+        self.custom_kw_range = ctk.BooleanVar(
+            value=bool(config.get("kw_locked", False))
+        )
+        ctk.CTkCheckBox(
+            kw_row,
+            text="Custom Range (override platform)",
+            variable=self.custom_kw_range,
+            fg_color=C["accent"],
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            command=lambda: app._save_current_config(),
+        ).grid(row=1, column=0, columnspan=2, sticky="w", padx=(0, 4), pady=(4, 0))
+
         _label(sidebar, "Mandatory Keywords").pack(fill="x", anchor="w", **LPAD)
         self.custom_kw_entry = _entry(sidebar, placeholder_text="e.g. 3d, isolated")
         self.custom_kw_entry.insert(0, config.get("custom_kw", ""))
@@ -491,6 +503,7 @@ class SidebarPanel(ctk.CTkFrame):
             "style_cb",
             "min_kw_entry",
             "max_kw_entry",
+            "custom_kw_range",
             "custom_kw_entry",
             "extra_prompt_entry",
             "custom_kw_pos",

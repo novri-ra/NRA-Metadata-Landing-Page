@@ -1,13 +1,18 @@
 import json
 import os
 
-_PRESETS_FILE = os.path.join(os.getcwd(), "keyword_presets.json")
+from backend.core.config_manager import get_config_dir
+
+
+def presets_path() -> str:
+    """Resolve the presets file under the stable config dir, not the cwd."""
+    return os.path.join(get_config_dir(), "keyword_presets.json")
 
 
 def _load_presets() -> dict:
-    if os.path.exists(_PRESETS_FILE):
+    if os.path.exists(presets_path()):
         try:
-            with open(_PRESETS_FILE, "r", encoding="utf-8") as f:
+            with open(presets_path(), "r", encoding="utf-8") as f:
                 return json.load(f)
         except (OSError, json.JSONDecodeError):
             return {}
@@ -15,7 +20,7 @@ def _load_presets() -> dict:
 
 
 def _save_presets(presets: dict):
-    with open(_PRESETS_FILE, "w", encoding="utf-8") as f:
+    with open(presets_path(), "w", encoding="utf-8") as f:
         json.dump(presets, f, indent=2, ensure_ascii=False)
 
 
