@@ -10,7 +10,7 @@ import customtkinter as ctk
 
 from backend.core.config_manager import get_file_hash, set_cached_metadata
 from backend.processors.media_converter import extract_preview_image
-from packages.shared_utils.filter import sanitize_keywords
+from packages.shared_utils.filter import clean_metadata
 from ui.theme import C
 
 
@@ -29,17 +29,24 @@ def start_offline_retag(app):
     app.retag_btn.configure(state="disabled")
     app.start_btn.configure(state="disabled")
     max_kw = app._safe_int(app.max_kw_entry.get(), 50)
+    min_kw = app._safe_int(app.min_kw_entry.get(), 0)
     author = app.author_entry.get().strip()
     copyright_text = app._get_copyright_text()
     threading.Thread(
         target=_run_offline_retag,
-        args=(app, csv_path, target_dir, max_kw, author, copyright_text),
+        args=(app, csv_path, target_dir, max_kw, min_kw, author, copyright_text),
         daemon=True,
     ).start()
 
 
 def _run_offline_retag(
-    app, csv_path: str, target_dir: str, max_kw: int, author: str, copyright_text: str
+    app,
+    csv_path: str,
+    target_dir: str,
+    max_kw: int,
+    min_kw: int,
+    author: str,
+    copyright_text: str,
 ):
     import csv as csv_mod
 
@@ -76,12 +83,20 @@ def _run_offline_retag(
             app.log(f"{filename} not found in folder", "error")
             continue
 
-        title = row.get("Title", "").strip()
-        desc = row.get("Description", "").strip()
-        raw_kws = [
-            k.strip() for k in row.get("Keywords", "").split(",") if k.strip()
-        ]
-        keywords = sanitize_keywords(raw_kws, max_kw)
+        meta = clean_metadata(
+            {
+                "title": row.get("Title", "").strip(),
+                "description": row.get("Description", "").strip(),
+                "keywords": [
+                    k.strip() for k in row.get("Keywords", "").split(",") if k.strip()
+                ],
+            },
+            max_kw=max_kw,
+            min_kw=min_kw,
+        )
+        title = meta["title"]
+        desc = meta["description"]
+        keywords = meta["keywords"]
 
         if app.processor.embed_metadata(
             asset_path,

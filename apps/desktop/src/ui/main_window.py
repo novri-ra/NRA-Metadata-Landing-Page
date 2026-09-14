@@ -28,6 +28,7 @@ from packages.shared_utils.filter import (
     add_to_blacklist,
     autofix_compliance,
     calculate_quality_score,
+    clean_metadata,
     detect_redundant_keywords,
     get_blacklist,
     lowercase_keywords,
@@ -1360,9 +1361,24 @@ class AppWindow(ctk.CTk):
         if not self.current_edit_file or not os.path.exists(self.current_edit_file):
             return
         self._save_snapshot()
-        title = self.edit_title_var.get()
-        desc = self.edit_desc_var.get()
-        kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
+        max_kw = self._safe_int(self.max_kw_entry.get(), 50)
+        min_kw = self._safe_int(self.min_kw_entry.get(), 0)
+        meta = clean_metadata(
+            {
+                "title": self.edit_title_var.get(),
+                "description": self.edit_desc_var.get(),
+                "keywords": [
+                    k.strip()
+                    for k in self.edit_kws_var.get().split(",")
+                    if k.strip()
+                ],
+            },
+            max_kw=max_kw,
+            min_kw=min_kw,
+        )
+        title = meta["title"]
+        desc = meta["description"]
+        kws = meta["keywords"]
 
         name = os.path.basename(self.current_edit_file)
         if self.processor.embed_metadata(
