@@ -68,18 +68,21 @@ def _retry_after_seconds(exc) -> float | None:
         return None
 
 
-MISTRAL_MIN_INTERVAL = 2.0
+MISTRAL_MIN_INTERVAL = 2.5
 MISTRAL_429_MIN_SLEEP = 5.0
 _mistral_lock = threading.Lock()
 _mistral_last_call = 0.0
 
 
-def _mistral_chat_completion(headers: dict, data: dict) -> requests.Response:
+def _mistral_chat_completion(
+    headers: dict, data: dict, log=None, preview_name: str = "", model: str = ""
+) -> requests.Response:
     """Serialize Mistral vision requests: one in flight at a time, spaced at
     least ``MISTRAL_MIN_INTERVAL`` seconds after the previous one *finished*.
     The standard tier rejects concurrent requests, so the lock is held for the
-    whole HTTP exchange.
-    ponytail: hard-coded 2s cadence for the standard tier; make it configurable
+    whole HTTP exchange. The "Sending vision prompt" log is emitted inside the
+    lock so log timestamps reflect the actual request time, not queue-join time.
+    ponytail: hard-coded 2.5s cadence for the standard tier; make it configurable
     if a permissive tier is ever used.
     """
     global _mistral_last_call
@@ -87,6 +90,11 @@ def _mistral_chat_completion(headers: dict, data: dict) -> requests.Response:
         elapsed = time.time() - _mistral_last_call
         if elapsed < MISTRAL_MIN_INTERVAL:
             time.sleep(MISTRAL_MIN_INTERVAL - elapsed)
+        if log:
+            log(
+                f"[{preview_name}] Sending vision prompt to Mistral | Model: {model}...",
+                "info",
+            )
         response = requests.post(
             "https://api.mistral.ai/v1/chat/completions",
             headers=headers,
@@ -273,8 +281,10 @@ class AIService:
         max_retries = self.failover.max_retries
         backoff_times = self.failover.backoff_times
 
-        _log(f"[{filename}] Sending vision prompt to {self.provider} | Model: {self.model or 'default'}...", "info")
+        if self.provider != "Mistral":
+            _log(f"[{filename}] Sending vision prompt to {self.provider} | Model: {self.model or 'default'}...", "info")
 
+        fail_reason = None
         for attempt in range(max_retries + 1):
             if not is_text_fallback:
                 _throttle_vision_request()
@@ -375,7 +385,13 @@ class AIService:
                         "temperature": self.temperature,
                         "response_format": {"type": "json_object"},
                     }
-                    res = _mistral_chat_completion(headers, data)
+                    res = _mistral_chat_completion(
+                        headers,
+                        data,
+                        log=_log,
+                        preview_name=filename,
+                        model=self.model or "mistral-small-latest",
+                    )
                     res.raise_for_status()
                     data = res.json()
                     usage = data.get("usage") or {}
@@ -441,6 +457,15 @@ class AIService:
                 else:
                     is_retryable = detect_retryable(err_str)
 
+                if detect_rate_limit(err_str):
+                    fail_reason = "rate_limit"
+                elif detect_auth_failure(err_str):
+                    fail_reason = "auth"
+                elif is_retryable and attempt >= max_retries:
+                    fail_reason = "retries_exhausted"
+                else:
+                    fail_reason = None
+
                 # Check for Rate Limit / Quota / Invalid Key -> Rotate Key
                 if detect_rate_limit(err_str) or detect_auth_failure(err_str):
                     if "429" in err_str:
@@ -490,12 +515,12 @@ class AIService:
                                 _log(
                                     f"[{filename}] All API keys exhausted. No failover provider available.", "error"
                                 )
-                                return self._fallback_metadata(error_details="All keys exhausted. No failover available.")
+                                return self._fallback_metadata(error_details="All keys exhausted. No failover available.", fail_reason="auth")
                             continue  # retry with new provider
                         print(
                             f"[{filename}] {self.provider}: Authentication failed. Check API Key."
                         )
-                        return self._fallback_metadata(error_details="Authentication failed. Check API Key.")
+                        return self._fallback_metadata(error_details="Authentication failed. Check API Key.", fail_reason="auth")
 
                 if is_retryable and attempt < max_retries:
                     wait_time = backoff_times[attempt]
@@ -530,9 +555,9 @@ class AIService:
                                     **kwargs,
                                 )
                     _log(f"[{filename}] {self.provider}: {e}", "error")
-                    return self._fallback_metadata(error_details=str(e))
+                    return self._fallback_metadata(error_details=str(e), fail_reason=fail_reason)
 
-        return self._fallback_metadata(error_details="Max retries exhausted")
+        return self._fallback_metadata(error_details="Max retries exhausted", fail_reason=fail_reason)
 
     def _parse_json(self, text: str) -> dict:
         parsed = None
@@ -577,8 +602,10 @@ class AIService:
             )
         return parsed
 
-    def _fallback_metadata(self, error_details: str = "Unknown error") -> dict:
-        return {
+    def _fallback_metadata(
+        self, error_details: str = "Unknown error", fail_reason: str | None = None
+    ) -> dict:
+        meta = {
             "title": "Unknown Title",
             "description": "Metadata generation failed.",
             "category": "Unknown",
@@ -588,6 +615,9 @@ class AIService:
             "error": True,
             "error_details": error_details,
         }
+        if fail_reason:
+            meta["fail_reason"] = fail_reason
+        return meta
 
     # --- Vision capability registry (research-backed, Sep 2026) ---
     # Models confirmed to accept image input for metadata generation.

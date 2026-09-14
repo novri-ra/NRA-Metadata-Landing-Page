@@ -84,7 +84,10 @@ class ToolDiscoveryTest(unittest.TestCase):
         self.assertTrue(any("[SUCCESS] FFmpeg found at:" in m for m in self.logs))
 
     def test_ffmpeg_missing_is_warn_not_error(self):
-        path = detect_ffmpeg(log=self._log, tools_dir=self.tools_dir)
+        with patch(
+            "backend.processors.system_detector.which", return_value=None
+        ):
+            path = detect_ffmpeg(log=self._log, tools_dir=self.tools_dir)
         self.assertIsNone(path)
         self.assertTrue(any("[WARN] FFmpeg tidak ditemukan" in m for m in self.logs))
 
@@ -137,7 +140,8 @@ class ToolDiscoveryTest(unittest.TestCase):
         if not repo_exe.exists():
             self.skipTest("repo tools/exiftool/exiftool.exe not present")
         path = detect_exiftool()
-        self.assertEqual(path, str(repo_exe))
+        self.assertIsNotNone(path)
+        self.assertEqual((path or "").lower(), str(repo_exe).lower())
         reset_tool_cache()
 
 
