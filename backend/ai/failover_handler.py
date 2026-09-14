@@ -8,7 +8,7 @@ multiple worker threads can share one ``AIService`` instance safely.
 import threading
 import time
 
-BACKOFF_TIMES = [2, 4, 8, 16, 32]
+BACKOFF_TIMES = [3, 6, 12, 24, 48]
 DEFAULT_MAX_RETRIES = 5
 
 _TIMEOUT_KEYS = ("timeout", "connection")

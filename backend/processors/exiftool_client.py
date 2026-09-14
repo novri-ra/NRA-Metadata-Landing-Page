@@ -12,11 +12,10 @@ import stat
 import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
-from pathlib import Path
 
-from backend.processors._tools import (  # noqa: F401 (re-exported)
+from backend.processors._tools import (
     exiftool_flags,
-    get_base_path,
+    format_tool_failure,
     get_tool_path,
     log_failed_file,
 )
@@ -30,13 +29,10 @@ def get_exiftool_path() -> str | None:
 
 
 def _prepare_target(file_path: str) -> None:
-    """Make the target writable and free it from stale ExifTool temp files.
+    """Clear read-only flags so ExifTool can overwrite the file in place.
 
-    Stock-downloaded files often carry a read-only attribute that survives
-    ``shutil.move``; ``-overwrite_original`` then fails to rename the temp
-    file over the original on Windows. A failed rename also leaves a stale
-    ``<file>_exiftool_tmp`` behind, and ExifTool refuses to proceed while it
-    exists -- so both must be cleared before every run.
+    Stock-downloaded files often carry a read-only attribute; the in-place
+    overwrite then fails on Windows if the file (or its parent) is locked.
     """
     # Parent directory first: a read-only parent blocks chmod on the file
     # itself (EACCES), so it must be unlocked before touching the file.
@@ -50,123 +46,6 @@ def _prepare_target(file_path: str) -> None:
         os.chmod(file_path, stat.S_IREAD | stat.S_IWRITE)
     except OSError:
         pass
-    try:
-        stale = file_path + "_exiftool_tmp"
-        if os.path.exists(stale):
-            os.chmod(stale, stat.S_IREAD | stat.S_IWRITE)
-            os.remove(stale)
-    except OSError:
-        pass
-
-
-def _staging_root() -> str | None:
-    """Writable root for staging copies, on the local/system drive.
-
-    Windows temp is preferred on native builds; under WSL the temp dir is not
-    reachable by the Windows exe, so the project cache (on ``/mnt/<drive>``) is
-    used instead so ``_to_cli_path`` can translate it back to a Windows path.
-    """
-    tmp = Path(tempfile.gettempdir())
-    candidates: list[Path] = []
-    if os.name == "nt" or str(tmp).startswith("/mnt/"):
-        candidates.append(tmp / "nra_exiftool_staging")
-    candidates.append(Path(get_base_path()) / "cache" / "exiftool_staging")
-    for c in candidates:
-        try:
-            c.mkdir(parents=True, exist_ok=True)
-            return str(c)
-        except OSError:
-            continue
-    return None
-
-
-def _stage_copy(file_path: str) -> str | None:
-    """Copy the target into a writable staging area so ExifTool can create its
-    ``_exiftool_tmp`` there even when the destination folder rejects writes."""
-    root = _staging_root()
-    if not root:
-        return None
-    p = Path(file_path)
-    staged = Path(root) / f"{p.stem}.{os.getpid()}{p.suffix}"
-    try:
-        if staged.exists():
-            os.chmod(staged, stat.S_IREAD | stat.S_IWRITE)
-            os.remove(staged)
-        shutil.copy2(file_path, staged)
-        os.chmod(staged, stat.S_IREAD | stat.S_IWRITE)
-        return str(staged)
-    except OSError:
-        return None
-
-
-def _replace_original(original: str, staged: str) -> None:
-    """Move the metadata-embedded staged copy back over the original."""
-    parent = os.path.dirname(original)
-    if parent:
-        try:
-            os.chmod(parent, stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC)
-        except OSError:
-            pass
-    try:
-        os.chmod(original, stat.S_IREAD | stat.S_IWRITE)
-    except OSError:
-        pass
-    stale = original + "_exiftool_tmp"
-    try:
-        if os.path.exists(stale):
-            os.chmod(stale, stat.S_IREAD | stat.S_IWRITE)
-            os.remove(stale)
-    except OSError:
-        pass
-    try:
-        os.remove(original)
-    except OSError:
-        pass
-    shutil.move(staged, original)
-
-
-def _run_with_staging_fallback(
-    file_path: str, cmd: list, timeout: int
-) -> subprocess.CompletedProcess:
-    """Run ExifTool in place, retrying through a local staging copy when the
-    target directory rejects ``_exiftool_tmp`` creation (read-only / external
-    drive permission issues). ExifTool always creates its temp file in the
-    same directory as the target, so when that fails the only reliable path is
-    to write in a writable directory and move the result back."""
-    result = _run_exiftool(cmd, timeout)
-    if result.returncode == 0:
-        return result
-    err = result.stderr or ""
-    if "Error creating file" not in err and "_exiftool_tmp" not in err:
-        return result
-    staged = _stage_copy(file_path)
-    if not staged:
-        print(
-            f"[EXIFTOOL] {os.path.basename(file_path)}: in-place temp denied "
-            "and staging fallback unavailable"
-        )
-        return result
-    print(
-        f"[EXIFTOOL] {os.path.basename(file_path)}: in-place temp denied, "
-        "embedding via local staging copy"
-    )
-    staged_cmd = cmd[:-1] + [staged]
-    staged_result = _run_exiftool(staged_cmd, timeout)
-    if staged_result.returncode != 0 or not os.path.isfile(staged):
-        return staged_result
-    try:
-        _replace_original(file_path, staged)
-        print(
-            f"[EXIFTOOL] {os.path.basename(file_path)}: "
-            "staged result moved back to original"
-        )
-    except OSError as e:
-        print(f"[EXIFTOOL] {os.path.basename(file_path)}: move-back failed: {e}")
-        try:
-            os.remove(staged)
-        except OSError:
-            pass
-    return staged_result
 
 
 def _to_cli_path(path: str, is_exe: bool) -> str:
@@ -178,17 +57,20 @@ def _to_cli_path(path: str, is_exe: bool) -> str:
     return path
 
 
-def _run_exiftool(cmd: list, timeout: int) -> subprocess.CompletedProcess:
+def _run_exiftool(
+    cmd: list, timeout: int, cwd: str | None = None
+) -> subprocess.CompletedProcess:
     """Run ExifTool with fully visible text output.
 
-    The cwd is pinned to the ExifTool directory so the bundled Perl wrapper
-    can always find its ``exiftool_files`` support modules, and stderr is
-    decoded with ``errors="replace"`` so a non-UTF8 native message can never
-    be swallowed by a decode exception while surfacing hidden command-line
-    errors.
+    The cwd defaults to the ExifTool directory so the bundled Perl wrapper can
+    always find its ``exiftool_files`` support modules; an isolated staging run
+    pins it to the temp working directory instead. stderr is decoded with
+    ``errors="replace"`` so a non-UTF8 native message can never be swallowed by
+    a decode exception while surfacing hidden command-line errors.
     """
     exiftool_path = cmd[0]
-    cwd = os.path.dirname(os.path.abspath(exiftool_path))
+    if cwd is None:
+        cwd = os.path.dirname(os.path.abspath(exiftool_path))
     is_exe = str(exiftool_path).lower().endswith(".exe")
     converted_cmd = [cmd[0]] + [_to_cli_path(arg, is_exe) for arg in cmd[1:]]
     return subprocess.run(
@@ -202,20 +84,193 @@ def _run_exiftool(cmd: list, timeout: int) -> subprocess.CompletedProcess:
     )
 
 
+def _looks_like_write_blocked(result: subprocess.CompletedProcess) -> bool:
+    """True when ExifTool failed because it could not create/overwrite a file.
+
+    The in-place overwrite path makes ExifTool create ``<file>_exiftool_tmp``
+    next to the target; when the folder is protected (e.g. Windows Links /
+    Favorites), that creation fails and ExifTool exits 1. Native messages may
+    surface on either stream, so both are scanned.
+    """
+    text = ((result.stderr or "") + " " + (result.stdout or "")).lower()
+    return "error creating file" in text or (
+        "permission denied" in text or "access is denied" in text
+    )
+
+
+def _build_staged_cmd(cmd: list, staged_path: str) -> list:
+    """Rebuild the ExifTool command for an isolated temp copy.
+
+    ``-overwrite_original_in_place`` writes ``<file>_exiftool_tmp`` next to the
+    target, which is what the caller's directory blocked. Inside an isolated
+    staging dir a plain ``-overwrite_original`` on the copy is what we want,
+    and the Windows API mode keeps long-path I/O enabled unconditionally.
+    """
+    staged_cmd = [
+        "-overwrite_original" if arg == "-overwrite_original_in_place" else arg
+        for arg in cmd
+    ]
+    if "-api" not in staged_cmd and os.name == "nt":
+        staged_cmd = [staged_cmd[0], "-api", "Windows=1", *staged_cmd[1:]]
+    staged_cmd[-1] = staged_path
+    return staged_cmd
+
+
+def _pre_cleanup_temp(file_path: str) -> None:
+    """Remove a leftover ``<target>_exiftool_tmp`` from an earlier run."""
+    parent = os.path.dirname(file_path) or "."
+    tmp = os.path.join(parent, os.path.basename(file_path) + "_exiftool_tmp")
+    try:
+        if os.path.isfile(tmp):
+            os.chmod(tmp, stat.S_IREAD | stat.S_IWRITE)
+            os.remove(tmp)
+    except OSError:
+        pass
+
+
+def _build_stream_cmd(cmd: list) -> list:
+    """Turn a metadata command into a pure STDIN→STDOUT stream.
+
+    The overwrite flags (which force ``<file>_exiftool_tmp`` next to the
+    target) are dropped, the trailing file argument is replaced by ``-`` (read
+    binary input from STDIN), and ``-o -`` redirects the rewritten binary to
+    STDOUT so ExifTool never touches the target directory.
+    """
+    cleaned = [
+        arg
+        for arg in cmd
+        if arg not in ("-overwrite_original", "-overwrite_original_in_place")
+    ]
+    return cleaned[:-1] + ["-o", "-", "-"]
+
+
+def _run_exiftool_stream(
+    cmd: list, timeout: int, input_bytes: bytes
+) -> subprocess.CompletedProcess:
+    """Run ExifTool over a binary pipe: target bytes in on STDIN, the rewritten
+    file comes back on STDOUT (bytes), so nothing is written to the filesystem."""
+    exiftool_path = cmd[0]
+    cwd = os.path.dirname(os.path.abspath(exiftool_path))
+    is_exe = str(exiftool_path).lower().endswith(".exe")
+    converted_cmd = [cmd[0]] + [_to_cli_path(arg, is_exe) for arg in cmd[1:]]
+    return subprocess.run(
+        converted_cmd,
+        input=input_bytes,
+        capture_output=True,
+        timeout=timeout,
+        cwd=cwd,
+    )
+
+
+def _run_metadata_write(cmd: list, file_path: str, timeout: int):
+    """Write metadata with zero disk-temp usage: stream the file through
+    ExifTool's STDIN/STDOUT and write the returned binary back to the target.
+
+    When the stream yields nothing (some formats reject ``-o -``) or errors, a
+    controlled fallback runs the classic direct write (with temp-staging if the
+    target folder blocks in-place writes).
+    """
+    _pre_cleanup_temp(file_path)
+    try:
+        with open(file_path, "rb") as f_in:
+            input_bytes = f_in.read()
+    except OSError:
+        input_bytes = None
+    if input_bytes is not None:
+        stream_cmd = _build_stream_cmd(cmd)
+        try:
+            stream = _run_exiftool_stream(stream_cmd, timeout, input_bytes)
+            if stream.returncode == 0 and len(stream.stdout or b"") > 0:
+                _prepare_target(file_path)
+                try:
+                    os.chmod(file_path, stat.S_IREAD | stat.S_IWRITE)
+                except OSError:
+                    pass
+                with open(file_path, "wb") as f_out:
+                    f_out.write(stream.stdout)
+                return stream
+        except subprocess.TimeoutExpired:
+            raise
+        except OSError:
+            pass
+    return _run_exiftool_resilient(cmd, timeout=timeout, file_path=file_path)
+
+
+class ToolExecutionError(RuntimeError):
+    """ExifTool failed against the temp-staged copy too.
+
+    Carries the staged ``CompletedProcess`` so callers can keep reporting the
+    real tool stderr through their existing failure-logging path.
+    """
+
+    def __init__(self, message: str, result: subprocess.CompletedProcess):
+        super().__init__(message)
+        self.result = result
+
+
+def _run_exiftool_resilient(
+    cmd: list, timeout: int, file_path: str
+) -> subprocess.CompletedProcess:
+    """Run ExifTool; if the target folder blocks in-place writes, retry on a
+    copy staged in a dedicated temp working directory, copy the result back
+    onto the original, then clean up. Raises ``ToolExecutionError`` when the
+    staged run fails as well.
+    """
+    result = _run_exiftool(cmd, timeout=timeout)
+    if result.returncode == 0 or not _looks_like_write_blocked(result):
+        return result
+
+    # Target folder won't take the _exiftool_tmp file. Stage in system temp.
+    staged_dir = None
+    try:
+        staged_dir = tempfile.mkdtemp(prefix="nra_exiftool_")
+        staged_path = os.path.join(staged_dir, os.path.basename(file_path))
+        shutil.copy2(file_path, staged_path)
+        _prepare_target(staged_path)
+        staged_cmd = _build_staged_cmd(cmd, staged_path)
+        staged = _run_exiftool(staged_cmd, timeout=timeout, cwd=staged_dir)
+        if staged.returncode == 0:
+            _prepare_target(staged_path)
+            _prepare_target(file_path)
+            shutil.copyfile(staged_path, file_path)
+            _prepare_target(file_path)
+            print(
+                f"[TEMP-STAGED] {os.path.basename(file_path)}: ExifTool ditulis "
+                f"via temp folder ({tempfile.gettempdir()}) lalu disalin balik."
+            )
+            return staged
+        raise ToolExecutionError(
+            f"ExifTool masih gagal pada salinan temp {os.path.basename(file_path)}",
+            staged,
+        )
+    except (OSError, ValueError) as e:
+        print(f"[WARN] Temp staging fallback gagal untuk {os.path.basename(file_path)}: {e}")
+        return result
+    finally:
+        if staged_dir and os.path.isdir(staged_dir):
+            shutil.rmtree(staged_dir, ignore_errors=True)
+
+
 def _log_exiftool_failure(
     file_path: str, cmd: list, result: subprocess.CompletedProcess
 ) -> None:
-    """Expose the raw ExifTool failure to the console and logger.
+    """Print a structured, word-wrapped failure block for ExifTool.
 
-    stderr was previously swallowed by a ``CalledProcessError`` decode path,
-    so every EPS embed failed silently. Dump exit code, full command, stderr
-    and stdout verbatim.
+    The command and stderr can be very long (hundreds of keyword arguments);
+    rendering them as one giant line made real errors unreadable. Wrap output
+    into a boxed block instead.
     """
-    print(f"\n[EXIFTOOL ERROR DETAIL] Exit Code: {result.returncode}", flush=True)
-    print(f"[EXIFTOOL CMD] {' '.join(cmd)}", flush=True)
-    print(f"[EXIFTOOL STDERR] {result.stderr}", flush=True)
-    print(f"[EXIFTOOL STDOUT] {result.stdout}\n", flush=True)
-    logger.error(f"[EXIFTOOL] Failed on {file_path}: {result.stderr.strip()}")
+    rows = [
+        ("File", os.path.basename(file_path)),
+        ("ExitCode", str(result.returncode)),
+        ("Command", " ".join(cmd)),
+        ("Error", (result.stderr or "").strip()),
+    ]
+    if result.stdout and result.stdout.strip():
+        rows.append(("Stdout", result.stdout.strip()))
+    block = format_tool_failure("[EXIFTOOL FAILURE]", rows)
+    print(block, flush=True)
+    logger.error("%s failed on %s:\n%s", "ExifTool", file_path, block)
 
 
 class ExifToolClient:
@@ -250,9 +305,12 @@ class ExifToolClient:
             ]
         )
         try:
-            result = _run_with_staging_fallback(file_path, cmd, timeout=30)
+            result = _run_metadata_write(cmd, file_path, timeout=30)
         except subprocess.TimeoutExpired:
             print(f"[WARN] Sanitizer timeout on {os.path.basename(file_path)}")
+            return False
+        except ToolExecutionError as e:
+            _log_exiftool_failure(file_path, cmd, e.result)
             return False
         except (OSError, ValueError) as e:
             # We don't hard fail if sanitization fails (e.g. exiftool error on a specific file type)
@@ -359,13 +417,21 @@ class ExifToolClient:
         cmd.append(file_path)
 
         try:
-            result = _run_with_staging_fallback(file_path, cmd, timeout=60)
+            result = _run_metadata_write(cmd, file_path, timeout=60)
         except subprocess.TimeoutExpired:
             print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool Timeout")
             log_failed_file(
                 os.path.dirname(file_path),
                 os.path.basename(file_path),
                 "ExifTool: Timeout",
+            )
+            return False
+        except ToolExecutionError as e:
+            _log_exiftool_failure(file_path, cmd, e.result)
+            log_failed_file(
+                os.path.dirname(file_path),
+                os.path.basename(file_path),
+                f"ExifTool: {(e.result.stderr or '').strip()}",
             )
             return False
         except (OSError, ValueError) as e:

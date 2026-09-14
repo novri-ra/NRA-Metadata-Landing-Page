@@ -73,6 +73,46 @@ def sanitize_keywords(keywords: list[str], max_kw: int = 50) -> list[str]:
     return cleaned
 
 
+def _context_keyword_candidates(text: str, existing: set, needed: int) -> list[str]:
+    """Derive keyword candidates from title/description content words.
+
+    Falls back to contextual terms from the AI's own prose when the AI's
+    keyword list comes up short, so a thin keyword array still reaches the
+    target count instead of being truncated by the min_kw floor.
+    """
+    seen_phrase = {k.lower() for k in existing}
+    candidates = []
+    for tok in re.split(r"[^a-zA-Z0-9']+", text.lower()):
+        tok = tok.strip("'").strip()
+        if len(tok) < 3 or not re.search(r"[a-zA-Z]", tok):
+            continue
+        if tok in seen_phrase or tok in _COMMON_WORDS:
+            continue
+        if not filter_text(tok):
+            continue
+        seen_phrase.add(tok)
+        candidates.append(tok)
+        if len(candidates) >= needed:
+            break
+    return candidates
+
+
+def clean_metadata(meta: dict, max_kw: int = 50, min_kw: int = 0) -> dict:
+    title = filter_text(meta.get("title", ""))
+    description = filter_text(meta.get("description", ""))
+    keywords = sanitize_keywords(meta.get("keywords", []), max_kw)
+    if min_kw and len(keywords) < min_kw and len(keywords) < max_kw:
+        needed = min(min_kw, max_kw) - len(keywords)
+        context = f"{title} {description}"
+        keywords += _context_keyword_candidates(context, set(keywords), needed)
+    return {
+        "title": title,
+        "description": description,
+        "category": filter_text(meta.get("category", "")),
+        "keywords": keywords,
+    }
+
+
 PLATFORM_RULES = {
     "Adobe Stock": {
         "title_max_chars": 200,
@@ -86,7 +126,7 @@ PLATFORM_RULES = {
         "title_max_chars": 150,
         "title_min_words": 5,
         "desc_min_words": 5,
-        "desc_max_chars": 200,
+        "desc_max_chars": 2000,
         "kw_min": 7,
         "kw_max": 50,
     },
@@ -109,10 +149,14 @@ PLATFORM_RULES = {
 }
 
 
-def validate_compliance(title: str, keywords: list[str], platform: str) -> dict:
+def validate_compliance(
+    title: str, description: str = "", keywords: list[str] | None = None, platform: str = ""
+) -> dict:
     rules = PLATFORM_RULES.get(platform)
     if not rules:
         return {"valid": True, "errors": []}
+    if keywords is None:
+        keywords = []
 
     errors = []
 
@@ -126,10 +170,15 @@ def validate_compliance(title: str, keywords: list[str], platform: str) -> dict:
 
     # Description validation
     if "desc_min_words" in rules:
-        len(
-            [w for w in (title or "").split() if w.strip()]
-        )  # reuse title if desc not passed
-        # Note: validate_compliance doesn't receive desc, so this is future-ready
+        desc_word_count = len([w for w in (description or "").split() if w.strip()])
+        if desc_word_count < rules["desc_min_words"]:
+            errors.append(
+                f"Description has {desc_word_count} words (min {rules['desc_min_words']})"
+            )
+    if "desc_max_chars" in rules and len(description or "") > rules["desc_max_chars"]:
+        errors.append(
+            f"Description exceeds {rules['desc_max_chars']} chars"
+        )
 
     # Keywords validation
     kw_count = len(keywords)
@@ -141,27 +190,36 @@ def validate_compliance(title: str, keywords: list[str], platform: str) -> dict:
     return {"valid": len(errors) == 0, "errors": errors}
 
 
+def _title_from_filename(filename: str) -> str:
+    """Derive a clean title from a source filename (strip ext, separators, stray numbers)."""
+    base = os.path.splitext(os.path.basename(filename or ""))[0]
+    base = re.sub(r"[_-]+", " ", base)
+    base = re.sub(r"\b\d{4,}\b", "", base)
+    words = [w for w in re.sub(r"\s+", " ", base).strip().split() if w]
+    return " ".join(w.capitalize() for w in words) if words else "Untitled"
+
+
 def autofix_compliance(
-    title: str, keywords: list[str], platform: str
+    title: str,
+    description: str = "",
+    keywords: list[str] | None = None,
+    platform: str = "",
+    filename: str = "",
 ) -> tuple[str, list[str]]:
     rules = PLATFORM_RULES.get(platform)
     if not rules:
-        return title, keywords
+        return title, list(keywords or [])
 
-    # Detect fallback metadata - cannot be fixed by string manipulation
-    _is_fallback = (
-        title == "Unknown Title"
-        or any(k.lower() in ("error", "fallback") for k in keywords)
-        or len(keywords) < rules.get("kw_min", 5)
-    )
-    if _is_fallback:
-        print(
-            "[WARN] Auto-fix skipped: metadata is AI fallback/error. Re-generate from AI instead."
-        )
-        return title, keywords
+    # Recover placeholder titles from the source filename instead of bailing out.
+    fixed_title = (title or "").strip()
+    if not fixed_title or fixed_title.lower() == "unknown title":
+        fixed_title = _title_from_filename(filename)
+
+    # Never keep AI error/fallback tokens as valid keywords.
+    junk = {"error", "fallback", "unknown title"}
+    fixed_keywords = [k for k in (keywords or []) if k.lower() not in junk]
 
     # Fix Title
-    fixed_title = title
     if len(fixed_title) > rules["title_max_chars"]:
         # truncate while keeping whole words if possible
         fixed_title = fixed_title[: rules["title_max_chars"]].rsplit(" ", 1)[0]
@@ -170,7 +228,6 @@ def autofix_compliance(
             fixed_title = fixed_title[: rules["title_max_chars"]]
 
     # Fix Keywords
-    fixed_keywords = list(keywords)
     if platform == "Freepik":
         # Freepik only letters and spaces
         fixed_keywords = [re.sub(r"[^a-zA-Z\s]", "", k).strip() for k in fixed_keywords]
@@ -178,6 +235,14 @@ def autofix_compliance(
 
     if len(fixed_keywords) > rules["kw_max"]:
         fixed_keywords = fixed_keywords[: rules["kw_max"]]
+
+    # Pad up to the platform minimum with contextual words from title/description.
+    if len(fixed_keywords) < rules["kw_min"]:
+        needed = min(rules["kw_min"], rules["kw_max"]) - len(fixed_keywords)
+        context = f"{fixed_title} {description}"
+        fixed_keywords += _context_keyword_candidates(
+            context, set(fixed_keywords), needed
+        )
 
     return fixed_title, fixed_keywords
 
@@ -331,15 +396,6 @@ def remove_redundant_keywords(keywords: list[str]) -> list[str]:
             cleaned.append(actual_kw)
 
     return cleaned
-
-
-def clean_metadata(meta: dict, max_kw: int = 50) -> dict:
-    return {
-        "title": filter_text(meta.get("title", "")),
-        "description": filter_text(meta.get("description", "")),
-        "category": filter_text(meta.get("category", "")),
-        "keywords": sanitize_keywords(meta.get("keywords", []), max_kw),
-    }
 
 
 # ── Metadata Quality & Spam Score ─────────────────────────────────────

@@ -22,6 +22,12 @@ def show_login_modal(app):
         modal.destroy()
         app.deiconify()
 
+    def _alive(widget):
+        try:
+            return bool(widget.winfo_exists())
+        except Exception:
+            return False
+
     # Center Screen
     w, h = 480, 640
     sx = (modal.winfo_screenwidth() - w) // 2
@@ -32,10 +38,16 @@ def show_login_modal(app):
     modal.attributes("-alpha", 0.0)
 
     def fade_in(alpha=0.0):
-        if alpha < 1.0:
-            alpha += 0.05
+        if alpha >= 1.0:
+            return
+        if not _alive(modal):
+            return
+        alpha += 0.05
+        try:
             modal.attributes("-alpha", alpha)
             modal.after(15, lambda: fade_in(alpha))
+        except Exception:
+            return
 
     fade_in()
 
@@ -215,6 +227,20 @@ def show_login_modal(app):
         corner_radius=8,
     )
 
+    def _show_auth_error(label, msg):
+        try:
+            if _alive(label):
+                label.configure(text=f"\u274c {msg}", text_color=C["error"])
+        except Exception:
+            pass
+        import tkinter.messagebox as messagebox
+
+        try:
+            if _alive(modal):
+                messagebox.showerror("Autentikasi", msg, parent=modal)
+        except Exception:
+            pass
+
     def _do_login():
         u = user_var_login.get().strip()
         p = pass_var_login.get().strip()
@@ -234,58 +260,97 @@ def show_login_modal(app):
             try:
                 res = app.auth.login(u, p)
             except Exception as e:
-                modal.after(0, lambda: _login_done({"status": "ERROR", "message": f"Login error: {e!s}"}, u))
+                try:
+                    modal.after(
+                        0,
+                        lambda: _login_done(
+                            {"status": "ERROR", "message": f"Login error: {e!s}"}, u
+                        ),
+                    )
+                except Exception:
+                    pass
                 return
-            modal.after(0, lambda: _login_done(res, u))
+            try:
+                modal.after(0, lambda: _login_done(res, u))
+            except Exception:
+                pass
 
         import threading
 
         threading.Thread(target=_bg, daemon=True).start()
 
     def _login_done(res, u):
-        btn_login.configure(state="normal", text="\U0001f680 Masuk ke Aplikasi")
-        if res.get("status") == "SUCCESS":
-            actual_user = res.get("username", u)
-            if remember_var.get():
-                app.config["last_auth_user"] = actual_user
-                from backend.core.config_manager import save_config
+        if not _alive(modal) or not _alive(btn_login):
+            return
+        try:
+            btn_login.configure(state="normal", text="\U0001f680 Masuk ke Aplikasi")
+        except Exception:
+            return
+        try:
+            if res.get("error"):
+                _show_auth_error(status_lbl_login, res.get("error"))
+                return
+            if res.get("status") == "SUCCESS":
+                actual_user = res.get("username", u)
+                if remember_var.get():
+                    app.config["last_auth_user"] = actual_user
+                    from backend.core.config_manager import save_config
 
-                save_config(app.config)
-            else:
-                app.auth.config["auth_user"] = ""
-                app.config["last_auth_user"] = ""
-                from backend.core.config_manager import save_config
-
-                save_config(app.config)
-                save_config(app.auth.config)
-
-            status_lbl_login.configure(
-                text="\u2705 Login berhasil!", text_color=C["success"]
-            )
-            modal.update()
-
-            # Smooth fade out
-            def fade_out(alpha=1.0):
-                if alpha > 0.0:
-                    alpha -= 0.1
-                    modal.attributes("-alpha", alpha)
-                    modal.after(15, lambda: fade_out(alpha))
+                    save_config(app.config)
                 else:
-                    app._auth_modal_open = False
-                    modal.destroy()
-                    app.deiconify()
+                    app.auth.config["auth_user"] = ""
+                    app.config["last_auth_user"] = ""
+                    from backend.core.config_manager import save_config
 
-            fade_out()
+                    save_config(app.config)
+                    save_config(app.auth.config)
 
-            app.after(
-                500,
-                lambda: app.log(f"Login sukses sebagai {actual_user}", "success"),
-            )
-        else:
-            status_lbl_login.configure(
-                text=f"\u274c {res.get('message', 'Error login')}",
-                text_color=C["error"],
-            )
+                if _alive(status_lbl_login):
+                    status_lbl_login.configure(
+                        text="\u2705 Login berhasil!", text_color=C["success"]
+                    )
+                if not _alive(modal):
+                    return
+                modal.update()
+
+                def fade_out(alpha=1.0):
+                    if not _alive(modal):
+                        app._auth_modal_open = False
+                        return
+                    if alpha > 0.0:
+                        alpha -= 0.1
+                        try:
+                            modal.attributes("-alpha", alpha)
+                            modal.after(15, lambda: fade_out(alpha))
+                        except Exception:
+                            app._auth_modal_open = False
+                            return
+                    else:
+                        app._auth_modal_open = False
+                        try:
+                            modal.destroy()
+                        except Exception:
+                            pass
+                        try:
+                            app.deiconify()
+                        except Exception:
+                            pass
+
+                fade_out()
+
+                if _alive(app):
+                    app.after(
+                        500,
+                        lambda: app.log(f"Login sukses sebagai {actual_user}", "success"),
+                    )
+            else:
+                if _alive(status_lbl_login):
+                    status_lbl_login.configure(
+                        text=f"\u274c {res.get('message', 'Error login')}",
+                        text_color=C["error"],
+                    )
+        except Exception:
+            return
 
     btn_login.configure(command=_do_login)
     btn_login.pack(padx=20, pady=(8, 12))
@@ -415,30 +480,56 @@ def show_login_modal(app):
                     data["password"],
                 )
             except Exception as e:
-                modal.after(0, lambda: _reg_done({"status": "ERROR", "message": f"Registrasi error: {e!s}"}, data["username"]))
+                try:
+                    modal.after(
+                        0,
+                        lambda: _reg_done(
+                            {"status": "ERROR", "message": f"Registrasi error: {e!s}"},
+                            data["username"],
+                        ),
+                    )
+                except Exception:
+                    pass
                 return
-            modal.after(0, lambda: _reg_done(res, data["username"]))
+            try:
+                modal.after(0, lambda: _reg_done(res, data["username"]))
+            except Exception:
+                pass
 
         import threading
 
         threading.Thread(target=_bg, daemon=True).start()
 
     def _reg_done(res, u):
-        btn_reg.configure(
-            state="normal", text="\u2728 Buat Akun & Gabung Komunitas"
-        )
-        if res.get("status") == "SUCCESS":
-            status_lbl_reg.configure(
-                text="\u2705 Registrasi sukses! Silakan login.",
-                text_color=C["success"],
+        if not _alive(modal) or not _alive(btn_reg):
+            return
+        try:
+            btn_reg.configure(
+                state="normal", text="\u2728 Buat Akun & Gabung Komunitas"
             )
-            user_var_login.set(u)
-            tabview.set(" Masuk ")
-        else:
-            status_lbl_reg.configure(
-                text=f"\u274c {res.get('message', 'Error registrasi')}",
-                text_color=C["error"],
-            )
+        except Exception:
+            return
+        try:
+            if res.get("error"):
+                _show_auth_error(status_lbl_reg, res.get("error"))
+                return
+            if res.get("status") == "SUCCESS":
+                if _alive(status_lbl_reg):
+                    status_lbl_reg.configure(
+                        text="\u2705 Registrasi sukses! Silakan login.",
+                        text_color=C["success"],
+                    )
+                user_var_login.set(u)
+                if _alive(tabview):
+                    tabview.set(" Masuk ")
+            else:
+                if _alive(status_lbl_reg):
+                    status_lbl_reg.configure(
+                        text=f"\u274c {res.get('message', 'Error registrasi')}",
+                        text_color=C["error"],
+                    )
+        except Exception:
+            return
 
     btn_reg.configure(command=_do_register)
     btn_reg.pack(padx=20, pady=(8, 12))
@@ -446,9 +537,5 @@ def show_login_modal(app):
     modal.grab_set()
     # Defer sash restore until window is rendered
     app.after(100, app._restore_sash_positions)
-    import threading
-
-    threading.Thread(target=app._watcher_loop, daemon=True).start()
-
-    app.bind("<Control-z>", lambda e: app.undo_metadata())
-    app.bind("<Control-y>", lambda e: app.redo_metadata())
+    # Watcher lifecycle and keyboard shortcuts are owned by AppWindow itself
+    # (_apply_auto_watch_startup / _toggle_auto_watch / __init__ binds).

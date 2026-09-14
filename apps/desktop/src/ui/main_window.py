@@ -28,6 +28,7 @@ from packages.shared_utils.filter import (
     add_to_blacklist,
     autofix_compliance,
     calculate_quality_score,
+    clean_metadata,
     detect_redundant_keywords,
     get_blacklist,
     lowercase_keywords,
@@ -141,7 +142,7 @@ class AppWindow(ctk.CTk):
                 "mistral-large-latest",
             ],
             "OpenAI": ["gpt-4o-mini (Optimal)", "gpt-4o", "chatgpt-4o-latest"],
-            "Custom": ["9router/auto"],
+            "Custom": ["gpt-4o-mini (Default)"],
         }
 
         self._restore_geometry()
@@ -149,6 +150,13 @@ class AppWindow(ctk.CTk):
         self.after(100, self._flush_log_queue)
         self.after(100, self._flush_tk_queue)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        # Keyboard shortcuts bound at startup, independent of the auth modal.
+        self.bind("<Control-z>", lambda e: self.undo_metadata())
+        self.bind("<Control-y>", lambda e: self.redo_metadata())
+
+        # Auto-Watch switch drives the watcher without depending on the modal.
+        self.after(100, self._apply_auto_watch_startup)
 
         # Update initial key counter
         self.after(
@@ -579,8 +587,10 @@ class AppWindow(ctk.CTk):
         if not hasattr(self, "console"):
             self.after(100, self._flush_log_queue)
             return
+        processed = 0
+        edited = False
         try:
-            while True:
+            while processed < 300:
                 message, level = self._log_queue.get_nowait()
                 entry = {
                     "ts": datetime.now(UTC).strftime("%H:%M:%S"),
@@ -597,16 +607,23 @@ class AppWindow(ctk.CTk):
                 if (flt == "all" or flt == level) and (
                     not q or q in message.lower()
                 ):
-                    self.console.configure(state="normal")
+                    if not edited:
+                        self.console.configure(state="normal")
+                        edited = True
                     tb = self.console._textbox
                     tb.insert("end", f"[{entry['ts']}] ", "timestamp")
                     tb.insert("end", f"[{level.upper()}] ", level)
                     tb.insert("end", f"{message}\n", level)
-                    self.console.see("end")
-                    self.console.configure(state="disabled")
+                processed += 1
         except (queue.Empty, RuntimeError):
             pass
-        self.after(100, self._flush_log_queue)
+        if edited:
+            self.console.see("end")
+            self.console.configure(state="disabled")
+        # Huge batches drain in bounded slices (300/tick) so the paint loop
+        # stays responsive; scroll once per slice, not per line.
+        interval = 25 if processed >= 300 else 100
+        self.after(interval, self._flush_log_queue)
 
     def _flush_tk_queue(self):
         try:
@@ -1064,7 +1081,13 @@ class AppWindow(ctk.CTk):
         kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
         plat = self.target_plat_var.get()
 
-        fixed_title, fixed_kws = autofix_compliance(title, kws, plat)
+        fixed_title, fixed_kws = autofix_compliance(
+            title,
+            self.edit_desc_var.get(),
+            kws,
+            plat,
+            os.path.basename(self.current_edit_file or ""),
+        )
         self.edit_title_var.set(fixed_title)
         self.edit_kws_var.set(", ".join(fixed_kws))
         self._update_compliance()
@@ -1074,7 +1097,7 @@ class AppWindow(ctk.CTk):
         kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
         plat = self.target_plat_var.get()
 
-        res = validate_compliance(title, kws, plat)
+        res = validate_compliance(title, self.edit_desc_var.get(), kws, plat)
         if res["valid"]:
             self.compliance_lbl.configure(
                 text=f"● Compliant ({plat})", text_color=C["success"]
@@ -1351,9 +1374,24 @@ class AppWindow(ctk.CTk):
         if not self.current_edit_file or not os.path.exists(self.current_edit_file):
             return
         self._save_snapshot()
-        title = self.edit_title_var.get()
-        desc = self.edit_desc_var.get()
-        kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
+        max_kw = self._safe_int(self.max_kw_entry.get(), 50)
+        min_kw = self._safe_int(self.min_kw_entry.get(), 0)
+        meta = clean_metadata(
+            {
+                "title": self.edit_title_var.get(),
+                "description": self.edit_desc_var.get(),
+                "keywords": [
+                    k.strip()
+                    for k in self.edit_kws_var.get().split(",")
+                    if k.strip()
+                ],
+            },
+            max_kw=max_kw,
+            min_kw=min_kw,
+        )
+        title = meta["title"]
+        desc = meta["description"]
+        kws = meta["keywords"]
 
         name = os.path.basename(self.current_edit_file)
         if self.processor.embed_metadata(
@@ -1387,7 +1425,11 @@ class AppWindow(ctk.CTk):
                 tw = csv.writer(tf)
                 tw.writerow(["Filename", "Title", "Description", "Keywords"])
                 tw.writerow([name, title, desc, ",".join(kws)])
-            generate_microstock_csvs(sub_dir, self._get_selected_csv_platforms())
+            platforms = self._get_selected_csv_platforms()
+            selected = self.target_plat_var.get()
+            if selected and selected != "Generic":
+                platforms.add(selected)
+            generate_microstock_csvs(sub_dir, platforms)
         else:
             self.log(f"{name} (Manual save fail)", "error")
 
@@ -1418,17 +1460,34 @@ class AppWindow(ctk.CTk):
         ext = os.path.splitext(filename)[1].lower()
         return ext in self._get_allowed_extensions()
 
-    def _watcher_loop(self):
-        if getattr(self, "_watcher_started", False):
-            return
-        self._watcher_started = True
-        self._watcher = FolderWatcher(
-            get_directory=lambda: self.input_dir.get(),
-            is_allowed=self._is_allowed_file,
-            is_busy=lambda: self.pool.is_running,
-            on_new_files=lambda files: self._call_main(self._on_watcher_files, files),
-        )
-        self._watcher.start()
+    def _apply_auto_watch_startup(self):
+        if self.auto_watch.get():
+            self._start_watcher()
+
+    def _start_watcher(self):
+        if getattr(self, "_watcher", None) is None:
+            self._watcher = FolderWatcher(
+                get_directory=lambda: self.input_dir.get(),
+                is_allowed=self._is_allowed_file,
+                is_busy=lambda: self.pool.is_running,
+                on_new_files=lambda files: self._call_main(self._on_watcher_files, files),
+            )
+        if not self._watcher.running:
+            self._watcher.start()
+            self.log("Auto-Watch aktif.", "info")
+
+    def _stop_watcher(self):
+        watcher = getattr(self, "_watcher", None)
+        if watcher and watcher.running:
+            watcher.stop()
+            self.log("Auto-Watch dimatikan.", "info")
+
+    def _toggle_auto_watch(self):
+        if self.auto_watch.get():
+            self._start_watcher()
+        else:
+            self._stop_watcher()
+        self._save_current_config()
 
     def _on_watcher_files(self, files):
         if self.auto_watch.get() and not self.pool.is_running:
@@ -1448,17 +1507,20 @@ class AppWindow(ctk.CTk):
             self.log("Batch RESUMED.", "info")
 
     def cancel_batch(self):
-        if self.pool.is_running:
-            self.pool.cancel()
-            self.log("Canceling batch... finishing current active files.", "error")
-            self.pause_btn.configure(state="disabled")
-            self.cancel_btn.configure(state="disabled")
+        if not self.pool.is_running:
+            return
+        self.pool.cancel()
+        self.log("Canceling batch... finishing current active files.", "error")
+        self.start_btn.configure(state="normal")
+        self.pause_btn.configure(state="disabled")
+        self.cancel_btn.configure(state="disabled")
 
     def start_offline_retag(self):
         start_offline_retag(self)
 
     def start_processing(self, new_only=False):
         if self.pool.is_running:
+            self.log("Batch masih menyelesaikan file aktif...", "warn")
             return
 
         if not self.tools_ready:
@@ -1539,6 +1601,11 @@ class AppWindow(ctk.CTk):
             "temperature": self.config.get("temperature", 0.3),
             "min_kw": self.config["min_kw"],
             "max_kw": self.config["max_kw"],
+            "platform": self.target_plat_var.get(),
+            "kw_locked": (
+                int(self.config.get("min_kw", 25)) != 25
+                or int(self.config.get("max_kw", 49)) != 49
+            ),
             "style_preset": self.config["style_preset"],
             "extra_prompt": self.config.get("extra_prompt", ""),
             "custom_kw": self.config.get("custom_kw", ""),

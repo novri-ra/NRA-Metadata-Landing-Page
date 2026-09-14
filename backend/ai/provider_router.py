@@ -12,6 +12,7 @@ Extracted from ``packages/ai_engine/service.py``. Decoupled concerns:
 import json
 import os
 import re
+import threading
 import time
 
 import requests
@@ -30,6 +31,124 @@ from backend.ai.token_optimizer import encode_image, read_text_asset
 from packages.shared_utils import cost_tracker as _cost_tracker
 
 
+VISION_MIN_INTERVAL = 1.5
+_vision_lock = threading.Lock()
+_last_vision_call = 0.0
+
+
+def build_metadata_prompt(
+    min_kw: int, max_kw: int, style_guide: str, extra_prompt: str = ""
+) -> str:
+    """Assemble the metadata-generation prompt (extracted for testability)."""
+    extra_line = (
+        f"\n        Additional Context / Focus: {extra_prompt}"
+        if extra_prompt.strip()
+        else ""
+    )
+    return f"""
+        Analyze this image/file and return a JSON object with:
+        "title": a concise, SEO-optimized title (max 180 chars),
+        "description": a detailed description for microstock search (max 200 chars),
+        "category": a broad category,
+        "primary_category": primary Shutterstock category from Abstract, Animals/Wildlife, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and Drink, Healthcare/Medical, Holidays, Illustrations/Clip-Art, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, The Arts, Transportation, Vintage,
+        "secondary_category": optional secondary Shutterstock category,
+        "keywords": an array of {min_kw} to {max_kw} descriptive keywords.
+
+        Generate strictly between {min_kw} and {max_kw} highly relevant, comma-separated keywords. Do not output fewer than {min_kw} keywords. The keyword array MUST be {min_kw}-{max_kw} items long; count them before returning.
+
+        KEYWORD PRIORITY ORDER (most important first):
+        1. Primary subject, main action, and central visual elements (first 5-10 keywords)
+        2. Visual style, format (vector, flat, isolated, silhouette, 3d), colors, and mood (middle keywords)
+        3. Abstract concepts, business use-cases, and general search intent (final keywords)
+
+        Style Focus: {style_guide}
+        {extra_line}
+        Return ONLY valid JSON. Keywords must be in priority order as specified above.
+        """
+
+
+def _throttle_vision_request() -> None:
+    """Stagger concurrent vision calls so a batch does not slam the provider.
+
+    Worker threads run several files in parallel; without a shared cadence gate
+    they all hit the vision endpoint at once and trip the Mistral RPM limit.
+    ponytail: one global gate for every provider; key it per provider if a batch
+    ever mixes providers with different rate ceilings.
+    """
+    global _last_vision_call
+    with _vision_lock:
+        now = time.monotonic()
+        wait = VISION_MIN_INTERVAL - (now - _last_vision_call)
+        if wait > 0:
+            time.sleep(wait)
+            now = time.monotonic()
+        _last_vision_call = now
+
+
+def _retry_after_seconds(exc) -> float | None:
+    """Read the ``Retry-After`` header off a raised HTTP error, clamped to 60s."""
+    response = getattr(exc, "response", None)
+    if response is None or not getattr(response, "headers", None):
+        return None
+    value = response.headers.get("Retry-After")
+    if not value:
+        return None
+    try:
+        return min(max(float(value), 1), 60)
+    except (TypeError, ValueError):
+        return None
+
+
+def _interruptible_sleep(seconds, cancel_check=None, step=0.25) -> bool:
+    """Sleep in small slices so a batch cancel cuts through long backoffs.
+
+    Returns False if ``cancel_check`` turned True before the sleep elapsed.
+    """
+    remaining = float(seconds)
+    while remaining > 0 and not (cancel_check and cancel_check()):
+        chunk = min(step, remaining)
+        time.sleep(chunk)
+        remaining -= chunk
+    return not (cancel_check and cancel_check())
+
+
+MISTRAL_MIN_INTERVAL = 2.5
+MISTRAL_429_MIN_SLEEP = 5.0
+_mistral_lock = threading.Lock()
+_mistral_last_call = 0.0
+
+
+def _mistral_chat_completion(
+    headers: dict, data: dict, log=None, preview_name: str = "", model: str = ""
+) -> requests.Response:
+    """Serialize Mistral vision requests: one in flight at a time, spaced at
+    least ``MISTRAL_MIN_INTERVAL`` seconds after the previous one *finished*.
+    The standard tier rejects concurrent requests, so the lock is held for the
+    whole HTTP exchange. The "Sending vision prompt" log is emitted inside the
+    lock so log timestamps reflect the actual request time, not queue-join time.
+    ponytail: hard-coded 2.5s cadence for the standard tier; make it configurable
+    if a permissive tier is ever used.
+    """
+    global _mistral_last_call
+    with _mistral_lock:
+        elapsed = time.time() - _mistral_last_call
+        if elapsed < MISTRAL_MIN_INTERVAL:
+            time.sleep(MISTRAL_MIN_INTERVAL - elapsed)
+        if log:
+            log(
+                f"[{preview_name}] Sending vision prompt to Mistral | Model: {model}...",
+                "info",
+            )
+        response = requests.post(
+            "https://api.mistral.ai/v1/chat/completions",
+            headers=headers,
+            json=data,
+            timeout=30,
+        )
+        _mistral_last_call = time.time()
+        return response
+
+
 class MetadataModel(BaseModel):
     title: str = Field(description="A concise title")
     description: str = Field(description="A detailed description")
@@ -45,7 +164,7 @@ class MetadataModel(BaseModel):
 
 def normalize_base_url(url: str) -> str:
     if not url:
-        return "https://api.9router.com/v1"
+        return ""
     url = url.strip()
     while url.endswith("/"):
         url = url[:-1]
@@ -77,7 +196,7 @@ class AIService:
         self.base_url = None
         if custom_base_url:
             self.base_url = normalize_base_url(custom_base_url)
-        elif self.provider in ("9router", "Custom"):
+        elif self.provider == "Custom":
             self.base_url = normalize_base_url(None)
         self._init_clients()
 
@@ -88,7 +207,7 @@ class AIService:
     def _init_clients(self):
         if self.provider == "Gemini":
             self.gemini_client = genai.Client(api_key=self.api_key)
-        elif self.provider in ("OpenAI", "9router", "Custom"):
+        elif self.provider in ("OpenAI", "Custom"):
             kwargs = {}
             if self.base_url:
                 kwargs["base_url"] = self.base_url
@@ -161,6 +280,7 @@ class AIService:
         style_preset: str = "Standard",
         extra_prompt: str = "",
         log_callback=None,
+        cancel_check=None,
         **kwargs,
     ) -> dict:
         filename = os.path.basename(image_path) if image_path else "unknown"
@@ -176,28 +296,14 @@ class AIService:
             "Icons & Clipart": "Focus on style (flat, line, glyph), UI/UX functionality, and simple search intent keywords.",
             "Backgrounds & Patterns": "Focus on texture, copy space, backdrop, seamless, and wallpaper attributes.",
             "Characters & Mascot": "Focus on pose, expression, emotional theme, and persona.",
+            "Photo Realistic": "Describe as a photograph: natural lighting, depth of field, lens perspective, crisp focus, and realistic texture, tone, and mood.",
+            "Vector Clipart": "Describe as clean vector clipart: flat shapes, bold outlines, scalable geometry, solid or limited colors, and simple graphic style.",
         }
         style_guide = style_prompts.get(
             style_preset, style_prompts["General Commercial"]
         )
 
-        prompt = f"""
-        Analyze this image/file and return a JSON object with:
-        "title": a concise, SEO-optimized title (max 180 chars),
-        "description": a detailed description for microstock search (max 200 chars),
-        "category": a broad category,
-        "primary_category": primary Shutterstock category from Abstract, Animals/Wildlife, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and Drink, Healthcare/Medical, Holidays, Illustrations/Clip-Art, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, The Arts, Transportation, Vintage,
-        "secondary_category": optional secondary Shutterstock category,
-        "keywords": an array of {min_kw} to {max_kw} descriptive keywords.
-
-        KEYWORD PRIORITY ORDER (most important first):
-        1. Primary subject, main action, and central visual elements (first 5-10 keywords)
-        2. Visual style, format (vector, flat, isolated, silhouette, 3d), colors, and mood (middle keywords)
-        3. Abstract concepts, business use-cases, and general search intent (final keywords)
-
-        Style Focus: {style_guide}
-        Return ONLY valid JSON. Keywords must be in priority order as specified above.
-        """
+        prompt = build_metadata_prompt(min_kw, max_kw, style_guide, extra_prompt)
 
         is_text_fallback = image_path.endswith(".svg") and not image_path.endswith(
             ".jpg"
@@ -206,9 +312,17 @@ class AIService:
         max_retries = self.failover.max_retries
         backoff_times = self.failover.backoff_times
 
-        _log(f"[{filename}] Sending vision prompt to {self.provider} | Model: {self.model or 'default'}...", "info")
+        if self.provider != "Mistral":
+            _log(f"[{filename}] Sending vision prompt to {self.provider} | Model: {self.model or 'default'}...", "info")
 
+        fail_reason = None
         for attempt in range(max_retries + 1):
+            if cancel_check and cancel_check():
+                return self._fallback_metadata(
+                    error_details="Batch canceled", fail_reason="cancelled"
+                )
+            if not is_text_fallback:
+                _throttle_vision_request()
             try:
                 if self.provider == "Gemini":
                     if is_text_fallback:
@@ -230,7 +344,7 @@ class AIService:
                         response,
                     )
 
-                elif self.provider in ["OpenAI", "9router", "Custom"]:
+                elif self.provider in ("OpenAI", "Custom"):
                     if is_text_fallback:
                         msgs = [
                             {
@@ -263,9 +377,7 @@ class AIService:
                             },
                         ]
 
-                    default_model = (
-                        "gpt-4o-mini" if self.provider == "OpenAI" else "9router/auto"
-                    )
+                    default_model = "gpt-4o-mini"
                     response = self.openai_client.chat.completions.create(
                         model=self.model or default_model,
                         messages=msgs,
@@ -308,11 +420,12 @@ class AIService:
                         "temperature": self.temperature,
                         "response_format": {"type": "json_object"},
                     }
-                    res = requests.post(
-                        "https://api.mistral.ai/v1/chat/completions",
-                        headers=headers,
-                        json=data,
-                        timeout=30,
+                    res = _mistral_chat_completion(
+                        headers,
+                        data,
+                        log=_log,
+                        preview_name=filename,
+                        model=self.model or "mistral-small-latest",
                     )
                     res.raise_for_status()
                     data = res.json()
@@ -370,7 +483,13 @@ class AIService:
                     )
             except Exception as e:
                 err_str = str(e)
-                _log(f"[{filename}] {self.provider} error: {err_str}", "error")
+                if detect_rate_limit(err_str):
+                    _log(
+                        f"[{filename}] {self.provider} rate limit (429/quota): {err_str}",
+                        "warn",
+                    )
+                else:
+                    _log(f"[{filename}] {self.provider} error: {err_str}", "error")
                 if detect_connection_refused(err_str):
                     print(
                         f"[ERROR] Connection refused to endpoint {self.base_url or 'API'}. Ensure server/proxy is active."
@@ -379,12 +498,35 @@ class AIService:
                 else:
                     is_retryable = detect_retryable(err_str)
 
+                if detect_rate_limit(err_str):
+                    fail_reason = "rate_limit"
+                elif detect_auth_failure(err_str):
+                    fail_reason = "auth"
+                elif is_retryable and attempt >= max_retries:
+                    fail_reason = "retries_exhausted"
+                else:
+                    fail_reason = None
+
                 # Check for Rate Limit / Quota / Invalid Key -> Rotate Key
                 if detect_rate_limit(err_str) or detect_auth_failure(err_str):
                     if "429" in err_str:
                         delay = backoff_times[attempt] if attempt < len(backoff_times) else 30
-                        _log(f"[{filename}] Rate limit (429) on {self.provider}/{self.model or 'default'}. Delaying {delay}s (Attempt {attempt+1}/{max_retries})...", "warn")
-                        time.sleep(delay)
+                        retry_after = _retry_after_seconds(e)
+                        if retry_after is not None:
+                            delay = retry_after
+                        if self.provider == "Mistral":
+                            delay = max(delay, MISTRAL_429_MIN_SLEEP)
+                        _log(f"[{filename}] Rate limit (429) on {self.provider}/{self.model or 'default'}. Delaying {int(delay)}s (Attempt {attempt+1}/{max_retries})...", "warn")
+                        if not _interruptible_sleep(delay, cancel_check):
+                            return self._fallback_metadata(
+                                error_details="Batch canceled while backing off",
+                                fail_reason="cancelled",
+                            )
+                        # Already backed off for 429; retry the same key/provider
+                        # through the full retry budget (max_retries, default 5)
+                        # before any failover/fallback decision.
+                        if attempt < max_retries and self.failover.keyring.size() <= 1:
+                            continue
 
                     if self.failover.keyring.size() > 1:
                         _log(
@@ -409,28 +551,36 @@ class AIService:
                                         f"[FAILOVER] {self.provider} auth failed. Switching to {alt_provider}..."
                                     )
                                     self.failover.mark_failover_attempted()
-                                    self.provider = alt_provider
-                                    self.failover.bind_provider(alt_provider)
-                                    self.failover.replace_keys(alt_key)
-                                    self._init_clients()
-                                    break
-                            else:
-                                _log(
-                                    f"[{filename}] All API keys exhausted. No failover provider available.", "error"
-                                )
-                                return self._fallback_metadata(error_details="All keys exhausted. No failover available.")
-                            continue  # retry with new provider
+                                    return self._failover_call(
+                                        alt_provider,
+                                        alt_key,
+                                        image_path,
+                                        min_kw,
+                                        max_kw,
+                                        style_preset,
+                                        extra_prompt,
+                                        log_callback,
+                                        cancel_check,
+                                    )
+                            _log(
+                                f"[{filename}] All API keys exhausted. No failover provider available.", "error"
+                            )
+                            return self._fallback_metadata(error_details="All keys exhausted. No failover available.", fail_reason="auth")
                         print(
                             f"[{filename}] {self.provider}: Authentication failed. Check API Key."
                         )
-                        return self._fallback_metadata(error_details="Authentication failed. Check API Key.")
+                        return self._fallback_metadata(error_details="Authentication failed. Check API Key.", fail_reason="auth")
 
                 if is_retryable and attempt < max_retries:
                     wait_time = backoff_times[attempt]
                     print(
                         f"[{filename}] Retry {attempt + 1}/{max_retries} for {self.provider} after {wait_time}s..."
                     )
-                    time.sleep(wait_time)
+                    if not _interruptible_sleep(wait_time, cancel_check):
+                        return self._fallback_metadata(
+                            error_details="Batch canceled while retrying",
+                            fail_reason="cancelled",
+                        )
                     continue
                 else:
                     # Last chance: try provider failover if 429 exhausted all retries
@@ -445,22 +595,55 @@ class AIService:
                                     f"[FAILOVER] {self.provider} rate-limited (429). Switching to {alt_provider}..."
                                 )
                                 self.failover.mark_failover_attempted()
-                                self.provider = alt_provider
-                                self.failover.bind_provider(alt_provider)
-                                self.failover.replace_keys(alt_key)
-                                self._init_clients()
-                                return self.generate_metadata(
+                                return self._failover_call(
+                                    alt_provider,
+                                    alt_key,
                                     image_path,
                                     min_kw,
                                     max_kw,
                                     style_preset,
                                     extra_prompt,
-                                    **kwargs,
+                                    log_callback,
+                                    cancel_check,
                                 )
                     _log(f"[{filename}] {self.provider}: {e}", "error")
-                    return self._fallback_metadata(error_details=str(e))
+                    return self._fallback_metadata(error_details=str(e), fail_reason=fail_reason)
 
-        return self._fallback_metadata(error_details="Max retries exhausted")
+        return self._fallback_metadata(error_details="Max retries exhausted", fail_reason=fail_reason)
+
+    def _failover_call(
+        self,
+        alt_provider: str,
+        alt_key: str,
+        image_path: str,
+        min_kw: int,
+        max_kw: int,
+        style_preset: str,
+        extra_prompt: str,
+        log_callback=None,
+        cancel_check=None,
+    ) -> dict:
+        # Run failover on an isolated AIService so concurrent worker threads
+        # never see provider/key/client state mutated under them, and forward
+        # the logger + cancel check so in-flight status stays wired.
+        alt = AIService(
+            alt_provider,
+            alt_key,
+            self.model,
+            self.temperature,
+            failover_providers=None,
+            custom_base_url=self.base_url,
+        )
+        alt.failover.mark_failover_attempted()
+        return alt.generate_metadata(
+            image_path,
+            min_kw,
+            max_kw,
+            style_preset,
+            extra_prompt,
+            log_callback=log_callback,
+            cancel_check=cancel_check,
+        )
 
     def _parse_json(self, text: str) -> dict:
         parsed = None
@@ -505,8 +688,10 @@ class AIService:
             )
         return parsed
 
-    def _fallback_metadata(self, error_details: str = "Unknown error") -> dict:
-        return {
+    def _fallback_metadata(
+        self, error_details: str = "Unknown error", fail_reason: str | None = None
+    ) -> dict:
+        meta = {
             "title": "Unknown Title",
             "description": "Metadata generation failed.",
             "category": "Unknown",
@@ -516,6 +701,9 @@ class AIService:
             "error": True,
             "error_details": error_details,
         }
+        if fail_reason:
+            meta["fail_reason"] = fail_reason
+        return meta
 
     # --- Vision capability registry (research-backed, Sep 2026) ---
     # Models confirmed to accept image input for metadata generation.

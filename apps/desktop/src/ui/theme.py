@@ -20,6 +20,11 @@ C = {
     "error_h": "#dc2626",  # red-600
     "violet": "#8b5cf6",  # violet-500
     "violet_h": "#7c3aed",  # violet-600
+    "info": "#a1a1aa",  # zinc-400 — info log tag
+    "success_soft": "#34d399",  # emerald-400 — success log tag
+    "warn_soft": "#fbbf24",  # amber-400 — warning log tag
+    "error_soft": "#f87171",  # red-400 — error log tag
+    "cyan": "#22d3ee",  # cyan-400 — processing/cache log tag
 }
 
 FONT_BRAND = ("Segoe UI", 16, "bold")

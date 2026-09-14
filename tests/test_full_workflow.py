@@ -1,5 +1,6 @@
 import csv
 import os
+import time
 import unittest
 
 from backend.ai.provider_router import normalize_base_url
@@ -16,8 +17,8 @@ class TestCostTracker(unittest.TestCase):
         self.assertTrue(cost > 0)
         self.assertEqual(tracker.estimated_cost_usd, cost)
 
-        cost2 = tracker.calculate("9router", "9router/auto", 100, 100)
-        self.assertEqual(cost2, 0.0)
+        cost2 = tracker.calculate("Unknown", "future-model", 100, 100)
+        self.assertGreater(cost2, 0.0)
 
     def test_record_usage_nonzero_cost(self):
         tracker = CostTracker()
@@ -68,8 +69,8 @@ class TestNormalizeBaseUrl(unittest.TestCase):
 
     def test_already_correct(self):
         self.assertEqual(
-            normalize_base_url("https://api.9router.com/v1"),
-            "https://api.9router.com/v1",
+            normalize_base_url("https://api.openai.com/v1"),
+            "https://api.openai.com/v1",
         )
 
     def test_whitespace(self):
@@ -77,9 +78,9 @@ class TestNormalizeBaseUrl(unittest.TestCase):
             normalize_base_url("  http://test.com  "), "http://test.com/v1"
         )
 
-    def test_empty_fallback(self):
-        self.assertEqual(normalize_base_url(""), "https://api.9router.com/v1")
-        self.assertEqual(normalize_base_url(None), "https://api.9router.com/v1")
+    def test_empty_returns_empty(self):
+        self.assertEqual(normalize_base_url(""), "")
+        self.assertEqual(normalize_base_url(None), "")
 
 
 class TestAdobeStockCsvExport(unittest.TestCase):
@@ -349,6 +350,73 @@ class TestBatchOutputStructure(unittest.TestCase):
             for name in dirs:
                 os.rmdir(os.path.join(root, name))
         os.rmdir(self.out_dir)
+
+
+class TestRateLimitHandling(unittest.TestCase):
+    def test_backoff_times_lead_with_3s(self):
+        from backend.ai.failover_handler import BACKOFF_TIMES
+
+        self.assertEqual(BACKOFF_TIMES[:3], [3, 6, 12])
+
+    def test_retry_after_seconds_reads_header(self):
+        from backend.ai.provider_router import _retry_after_seconds
+
+        class Resp:
+            headers = {"Retry-After": "25"}
+
+        class Exc:
+            response = Resp()
+
+        self.assertEqual(_retry_after_seconds(Exc()), 25.0)
+
+    def test_retry_after_seconds_ignores_garbage(self):
+        from backend.ai.provider_router import _retry_after_seconds
+
+        class Resp:
+            headers = {"Retry-After": "abc"}
+
+        class Exc:
+            response = Resp()
+
+        self.assertIsNone(_retry_after_seconds(Exc()))
+
+    def test_vision_throttle_enforces_min_interval(self):
+        from backend.ai import provider_router as pr
+
+        start = time.monotonic()
+        pr._throttle_vision_request()
+        pr._throttle_vision_request()
+        self.assertGreaterEqual(time.monotonic() - start, pr.VISION_MIN_INTERVAL - 0.05)
+
+    def test_max_retries_default_is_5(self):
+        from backend.ai.failover_handler import BACKOFF_TIMES, DEFAULT_MAX_RETRIES, FailoverHandler
+
+        self.assertEqual(FailoverHandler("").max_retries, DEFAULT_MAX_RETRIES)
+        self.assertEqual(DEFAULT_MAX_RETRIES, 5)
+        self.assertEqual(len(BACKOFF_TIMES), DEFAULT_MAX_RETRIES)
+
+    def test_mistral_calls_serialize_with_2s_gap(self):
+        from unittest import mock
+
+        from backend.ai import provider_router as pr
+
+        pr._mistral_last_call = 0.0
+        starts = []
+
+        def fake_post(url, **kwargs):
+            starts.append(time.monotonic())
+            resp = mock.Mock()
+            resp.status_code = 200
+            return resp
+
+        with mock.patch("requests.post", side_effect=fake_post):
+            pr._mistral_chat_completion({}, {"model": "test"})
+            pr._mistral_chat_completion({}, {"model": "test"})
+
+        self.assertEqual(len(starts), 2)
+        self.assertGreaterEqual(
+            starts[1] - starts[0], pr.MISTRAL_MIN_INTERVAL - 0.05
+        )
 
 
 class TestSanitizer(unittest.TestCase):

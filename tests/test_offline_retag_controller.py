@@ -80,7 +80,7 @@ class RunOfflineRetagTest(unittest.TestCase):
         ) as m_set, mock.patch.object(
             ctrl, "extract_preview_image", return_value=None
         ):
-            ctrl._run_offline_retag(app, csv_path, target_dir, 50, "Author", "Copy")
+            ctrl._run_offline_retag(app, csv_path, target_dir, 50, 0, "Author", "Copy")
         return app, m_set
 
     def test_success_path(self):
@@ -115,10 +115,30 @@ class RunOfflineRetagTest(unittest.TestCase):
     def test_csv_read_error_reenables(self):
         app = _stub_app()
         with mock.patch.object(ctrl, "get_file_hash") as m_hash:
-            ctrl._run_offline_retag(app, "/nonexistent/in.csv", "/tmp", 50, "", "")
+            ctrl._run_offline_retag(app, "/nonexistent/in.csv", "/tmp", 50, 0, "", "")
         m_hash.assert_not_called()
         self.assertEqual(app.retag_btn.state, "normal")
         self.assertEqual(app.start_btn.state, "normal")
+
+    def test_min_kw_padding_applied(self):
+        tmp = tempfile.mkdtemp()
+        with open(os.path.join(tmp, "a.jpg"), "w"):
+            pass
+        csv_path = os.path.join(tmp, "in.csv")
+        with open(csv_path, "w", encoding="utf-8", newline="") as f:
+            import csv as csv_mod
+
+            w = csv_mod.writer(f)
+            w.writerow(["Filename", "Title", "Description", "Keywords"])
+            w.writerow(["a.jpg", "Parrot", "Colorful tropical bird on branch", "parrot"])
+        app = _stub_app()
+        with mock.patch.object(ctrl, "get_file_hash", return_value="hash1"), mock.patch.object(
+            ctrl, "set_cached_metadata"
+        ), mock.patch.object(ctrl, "extract_preview_image", return_value=None):
+            ctrl._run_offline_retag(app, csv_path, tmp, 50, 5, "Author", "Copy")
+        embed_kws = app.processor.calls[0][3]
+        self.assertGreaterEqual(len(embed_kws), 5)
+        self.assertNotIn("background", embed_kws)
 
 
 if __name__ == "__main__":

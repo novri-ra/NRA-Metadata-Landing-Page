@@ -11,7 +11,6 @@ RATES = {
     "OpenAI": {"gpt-4o-mini": (0.00015, 0.0006), "gpt-4o": (0.005, 0.015)},
     "Gemini": {"gemini-1.5-flash": (0.000075, 0.0003)},
     "Mistral": {"mistral-large-latest": (0.002, 0.006)},
-    "9router": {"9router/auto": (0.0, 0.0)},
     "Groq": {"llama3-8b-8192": (0.00005, 0.00008)},
 }
 DEFAULT_RATE = (0.001, 0.002)

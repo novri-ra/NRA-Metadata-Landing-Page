@@ -149,7 +149,7 @@ def show_batch_replace(app):
                         except OSError:
                             pass
 
-        generate_microstock_csvs(target_dir)
+        generate_microstock_csvs(target_dir, app._get_selected_csv_platforms())
 
         # also update UI if current file is active
         if app.current_edit_hash:

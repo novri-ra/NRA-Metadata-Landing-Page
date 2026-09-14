@@ -25,7 +25,7 @@ from backend.processors.exiftool_client import ExifToolClient
 from backend.processors.media_converter import extract_preview_image
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.shared_utils.cost_tracker import cost_tracker
-from packages.shared_utils.filter import clean_metadata
+from packages.shared_utils.filter import PLATFORM_RULES, clean_metadata
 from packages.shared_utils.logger import CSVLogger
 
 
@@ -123,8 +123,27 @@ class FileWorkerPool:
     def cancel(self):
         self.cancel_flag = True
         self.pause_event.set()
+        executor = self._executor
+        if executor is not None:
+            executor.shutdown(wait=False, cancel_futures=True)
 
     def _run_batch(self, paths, out_dir, options):
+        try:
+            self._run_batch_inner(paths, out_dir, options)
+        except Exception as e:
+            try:
+                self._emit("log", f"Batch failed: {e}", "error")
+            except Exception:
+                pass
+        finally:
+            self.is_running = False
+            try:
+                self._emit("stats", self.stats_snapshot(), False)
+                self._emit("finished")
+            except Exception:
+                pass
+
+    def _run_batch_inner(self, paths, out_dir, options):
         provider = options.get("provider", "Gemini")
         api_keys_dict = options.get("api_keys", {})
         api_key = api_keys_dict.get(provider, "")
@@ -162,6 +181,8 @@ class FileWorkerPool:
             self._executor = executor
             futures = {submit(f): f for f in paths}
             for i, future in enumerate(as_completed(futures), 1):
+                if future.cancelled():
+                    continue
                 try:
                     future.result()
                 except Exception as e:
@@ -179,7 +200,11 @@ class FileWorkerPool:
             self._emit("log", "Batch CANCELED.", "error")
         else:
             self._emit("log", "Batch complete. Generating exports...", "info")
-            generate_microstock_csvs(csv_dir, options.get("csv_platforms", set()))
+            csv_platforms = set(options.get("csv_platforms", set()))
+            selected = options.get("platform")
+            if selected and selected != "Generic":
+                csv_platforms.add(selected)
+            generate_microstock_csvs(csv_dir, csv_platforms)
 
             # Collect generated CSV list
             csv_files = [
@@ -201,9 +226,11 @@ class FileWorkerPool:
             self.session_stats.update(summary)
             self._emit("batch_complete", summary)
 
-        self.is_running = False
-        self._emit("stats", self.stats_snapshot(), False)
-        self._emit("finished")
+    def _remove_preview(self, preview):
+        try:
+            os.remove(preview)
+        except OSError:
+            pass
 
     def _process_file(self, file_path, out_dir, ai, options, csv_logger):
         self.pause_event.wait()
@@ -211,6 +238,12 @@ class FileWorkerPool:
             return
 
         name = os.path.basename(file_path)
+        # Apply the selected platform's keyword limits unless the user locked
+        # min/max manually in the UI (kw_locked=True).
+        rules = PLATFORM_RULES.get(options.get("platform", ""), {})
+        if rules and not options.get("kw_locked", False):
+            options["min_kw"] = rules["kw_min"]
+            options["max_kw"] = rules["kw_max"]
         self._emit("log", f"[{name}] Starting processing pipeline...", "processing")
 
         def log_cb(msg, lvl="info"):
@@ -219,6 +252,10 @@ class FileWorkerPool:
         preview = extract_preview_image(file_path, progress_callback=log_cb)
         if not preview:
             self._inc_stat("error")
+            return
+        if self.cancel_flag:
+            self._remove_preview(preview)
+            self._emit("log", f"[{name}] Stopped after preview render.", "info")
             return
 
         file_hash = get_file_hash(preview)
@@ -236,10 +273,25 @@ class FileWorkerPool:
                 options["style_preset"],
                 options.get("extra_prompt", ""),
                 log_callback=log_cb,
+                cancel_check=lambda: self.cancel_flag,
             )
+
+            if meta.get("fail_reason") == "cancelled":
+                self._remove_preview(preview)
+                self._emit("log", f"[{name}] Stopped: batch cancelled.", "info")
+                return
 
             if meta.get("is_fallback") or meta.get("error"):
                 err_detail = meta.get("error_details", "fallback rejected")
+                fail_reason = meta.get("fail_reason")
+                if fail_reason == "auth" and not self.cancel_flag:
+                    self.cancel_flag = True
+                    self.pause_event.set()
+                    self._emit(
+                        "log",
+                        f"[{name}] Fatal AI error ({fail_reason}). Canceling batch...",
+                        "error",
+                    )
                 self._emit(
                     "log",
                     f"[{name}] AI generation failed: {err_detail}",
@@ -247,10 +299,7 @@ class FileWorkerPool:
                 )
                 self._inc_stat("error")
                 # Clean up preview since we're aborting
-                try:
-                    os.remove(preview)
-                except OSError:
-                    pass
+                self._remove_preview(preview)
                 return
 
             set_cached_metadata(file_hash, meta)
@@ -292,7 +341,8 @@ class FileWorkerPool:
             pass
 
         max_kw = options["max_kw"]
-        meta = clean_metadata(meta, max_kw)
+        min_kw = options.get("min_kw", 0)
+        meta = clean_metadata(meta, max_kw, min_kw=min_kw)
 
         base_name = os.path.splitext(name)[0]
         final_path = os.path.join(out_dir, name)
@@ -308,6 +358,10 @@ class FileWorkerPool:
             self._emit(
                 "preview", img, status, tag, meta, final_path, file_hash
             )
+
+        if self.cancel_flag:
+            self._emit("log", f"[{name}] Saved but batch stopped before embedding.", "info")
+            return
 
         if self.processor.embed_metadata(
             final_path,
