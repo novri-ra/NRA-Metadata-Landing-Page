@@ -60,5 +60,79 @@ class EssentialFlagsTest(unittest.TestCase):
         self.assertIn("\\test_image.png", captured[-1])
 
 
+class StagingFallbackTest(unittest.TestCase):
+    def test_write_blocked_retries_on_temp_copy_and_restores(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "img.eps"
+            _make_file(target, b"EPS")
+
+            blocked = mock.Mock(
+                returncode=1,
+                stdout="",
+                stderr="Error creating file: .../img.eps_exiftool_tmp - permission denied",
+            )
+            ok = mock.Mock(returncode=0, stdout="1 image files updated", stderr="")
+
+            with mock.patch("backend.processors.exiftool_client._run_exiftool") as run:
+                run.side_effect = [blocked, ok]
+                result = ec._run_exiftool_resilient(
+                    ["exiftool", "-m", str(target)], timeout=30, file_path=str(target)
+                )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(run.call_count, 2)
+            retried_target = run.call_args.args[0][-1]
+            self.assertNotEqual(retried_target, str(target))
+            self.assertTrue(
+                os.path.normpath(retried_target).startswith(
+                    os.path.normpath(tempfile.gettempdir())
+                )
+            )
+            self.assertFalse(os.path.exists(retried_target), "temp copy must be cleaned up")
+
+    def test_non_write_error_does_not_restage(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "img.eps"
+            _make_file(target, b"EPS")
+
+            broken = mock.Mock(
+                returncode=1, stdout="", stderr="File is corrupted"
+            )
+            with mock.patch("backend.processors.exiftool_client._run_exiftool") as run:
+                run.return_value = broken
+                result = ec._run_exiftool_resilient(
+                    ["exiftool", "-m", str(target)], timeout=30, file_path=str(target)
+                )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(run.call_count, 1)
+
+    def test_temp_staging_fail_raises_tool_execution_error(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "img.eps"
+            _make_file(target, b"EPS")
+
+            blocked = mock.Mock(
+                returncode=1,
+                stdout="",
+                stderr="Error creating file: .../img.eps_exiftool_tmp - permission denied",
+            )
+            with mock.patch("backend.processors.exiftool_client._run_exiftool") as run:
+                run.return_value = blocked
+                with self.assertRaises(ec.ToolExecutionError) as ctx:
+                    ec._run_exiftool_resilient(
+                        ["exiftool", "-m", str(target)], timeout=30, file_path=str(target)
+                    )
+
+            self.assertEqual(run.call_count, 2)
+            self.assertEqual(ctx.exception.result.returncode, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

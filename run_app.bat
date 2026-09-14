@@ -28,10 +28,26 @@ echo.
 echo %frame%
 echo [1/4] External tools pre-check (folder tools/)
 echo %frame%
-call :FOLDER_CHECK "tools\exiftool" "ExifTool"
-call :FOLDER_CHECK "tools\ghostscript" "Ghostscript"
-call :FOLDER_CHECK "tools\ffmpeg" "FFmpeg"
-call :FOLDER_CHECK "tools\gtk3" "GTK3 Runtime"
+if exist "tools\exiftool" (
+    echo   [OK]  ExifTool folder : tools\exiftool
+) else (
+    echo   [..]  ExifTool folder belum ada di tools\exiftool - deteksi otomatis via PATH
+)
+if exist "tools\ghostscript" (
+    echo   [OK]  Ghostscript folder : tools\ghostscript
+) else (
+    echo   [..]  Ghostscript folder belum ada di tools\ghostscript - deteksi otomatis via PATH
+)
+if exist "tools\ffmpeg" (
+    echo   [OK]  FFmpeg folder : tools\ffmpeg
+) else (
+    echo   [..]  FFmpeg folder belum ada di tools\ffmpeg - deteksi otomatis via PATH
+)
+if exist "tools\gtk3" (
+    echo   [OK]  GTK3 Runtime folder : tools\gtk3
+) else (
+    echo   [..]  GTK3 Runtime folder belum ada di tools\gtk3 - deteksi otomatis via PATH
+)
 echo [i] Deteksi exhaustive berjalan otomatis di Python: recursive scan
 echo [i] tools/ kemudian fallback ke PATH dan direktori umum Windows.
 echo %frame%
@@ -160,12 +176,4 @@ echo ^|    --help   Tampilkan bantuan lalu keluar.  ^|
 echo ^|    --check  Pre-flight check lalu keluar.   ^|
 echo %frame%
 pause
-exit /b 0
-
-:FOLDER_CHECK
-if exist "%~1" (
-    echo   [OK]  %~2 folder : %~1
-) else (
-    echo   [..]  %~2 folder belum ada di %~1 - deteksi otomatis via PATH
-)
 exit /b 0

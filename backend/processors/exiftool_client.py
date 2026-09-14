@@ -7,8 +7,10 @@ Extracted from ``packages/media_processor/embedder.py``; the class was renamed
 
 import logging
 import os
+import shutil
 import stat
 import subprocess
+import tempfile
 import xml.etree.ElementTree as ET
 
 from backend.processors._tools import (
@@ -79,6 +81,74 @@ def _run_exiftool(cmd: list, timeout: int) -> subprocess.CompletedProcess:
     )
 
 
+def _looks_like_write_blocked(result: subprocess.CompletedProcess) -> bool:
+    """True when ExifTool failed because it could not create/overwrite a file.
+
+    The in-place overwrite path makes ExifTool create ``<file>_exiftool_tmp``
+    next to the target; when the folder is protected (e.g. Windows Links /
+    Favorites), that creation fails and ExifTool exits 1. Native messages may
+    surface on either stream, so both are scanned.
+    """
+    text = ((result.stderr or "") + " " + (result.stdout or "")).lower()
+    return "error creating file" in text or (
+        "permission denied" in text or "access is denied" in text
+    )
+
+
+class ToolExecutionError(RuntimeError):
+    """ExifTool failed against the temp-staged copy too.
+
+    Carries the staged ``CompletedProcess`` so callers can keep reporting the
+    real tool stderr through their existing failure-logging path.
+    """
+
+    def __init__(self, message: str, result: subprocess.CompletedProcess):
+        super().__init__(message)
+        self.result = result
+
+
+def _run_exiftool_resilient(
+    cmd: list, timeout: int, file_path: str
+) -> subprocess.CompletedProcess:
+    """Run ExifTool; if the target folder blocks in-place writes, retry on a
+    copy staged in a dedicated temp working directory, copy the result back
+    onto the original, then clean up. Raises ``ToolExecutionError`` when the
+    staged run fails as well.
+    """
+    result = _run_exiftool(cmd, timeout=timeout)
+    if result.returncode == 0 or not _looks_like_write_blocked(result):
+        return result
+
+    # Target folder won't take the _exiftool_tmp file. Stage in system temp.
+    staged_dir = None
+    try:
+        staged_dir = tempfile.mkdtemp(prefix="nra_exiftool_")
+        staged_path = os.path.join(staged_dir, os.path.basename(file_path))
+        shutil.copy2(file_path, staged_path)
+        _prepare_target(staged_path)
+        staged_cmd = list(cmd)
+        staged_cmd[-1] = staged_path
+        staged = _run_exiftool(staged_cmd, timeout=timeout)
+        if staged.returncode == 0:
+            _prepare_target(file_path)
+            shutil.copy2(staged_path, file_path)
+            print(
+                f"[TEMP-STAGED] {os.path.basename(file_path)}: ExifTool ditulis "
+                f"via temp folder ({tempfile.gettempdir()}) lalu disalin balik."
+            )
+            return staged
+        raise ToolExecutionError(
+            f"ExifTool masih gagal pada salinan temp {os.path.basename(file_path)}",
+            staged,
+        )
+    except (OSError, ValueError) as e:
+        print(f"[WARN] Temp staging fallback gagal untuk {os.path.basename(file_path)}: {e}")
+        return result
+    finally:
+        if staged_dir and os.path.isdir(staged_dir):
+            shutil.rmtree(staged_dir, ignore_errors=True)
+
+
 def _log_exiftool_failure(
     file_path: str, cmd: list, result: subprocess.CompletedProcess
 ) -> None:
@@ -133,9 +203,12 @@ class ExifToolClient:
             ]
         )
         try:
-            result = _run_exiftool(cmd, timeout=30)
+            result = _run_exiftool_resilient(cmd, timeout=30, file_path=file_path)
         except subprocess.TimeoutExpired:
             print(f"[WARN] Sanitizer timeout on {os.path.basename(file_path)}")
+            return False
+        except ToolExecutionError as e:
+            _log_exiftool_failure(file_path, cmd, e.result)
             return False
         except (OSError, ValueError) as e:
             # We don't hard fail if sanitization fails (e.g. exiftool error on a specific file type)
@@ -242,13 +315,21 @@ class ExifToolClient:
         cmd.append(file_path)
 
         try:
-            result = _run_exiftool(cmd, timeout=60)
+            result = _run_exiftool_resilient(cmd, timeout=60, file_path=file_path)
         except subprocess.TimeoutExpired:
             print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool Timeout")
             log_failed_file(
                 os.path.dirname(file_path),
                 os.path.basename(file_path),
                 "ExifTool: Timeout",
+            )
+            return False
+        except ToolExecutionError as e:
+            _log_exiftool_failure(file_path, cmd, e.result)
+            log_failed_file(
+                os.path.dirname(file_path),
+                os.path.basename(file_path),
+                f"ExifTool: {(e.result.stderr or '').strip()}",
             )
             return False
         except (OSError, ValueError) as e:
