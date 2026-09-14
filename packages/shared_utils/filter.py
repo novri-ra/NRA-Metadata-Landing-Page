@@ -149,10 +149,14 @@ PLATFORM_RULES = {
 }
 
 
-def validate_compliance(title: str, keywords: list[str], platform: str) -> dict:
+def validate_compliance(
+    title: str, description: str = "", keywords: list[str] | None = None, platform: str = ""
+) -> dict:
     rules = PLATFORM_RULES.get(platform)
     if not rules:
         return {"valid": True, "errors": []}
+    if keywords is None:
+        keywords = []
 
     errors = []
 
@@ -166,10 +170,11 @@ def validate_compliance(title: str, keywords: list[str], platform: str) -> dict:
 
     # Description validation
     if "desc_min_words" in rules:
-        len(
-            [w for w in (title or "").split() if w.strip()]
-        )  # reuse title if desc not passed
-        # Note: validate_compliance doesn't receive desc, so this is future-ready
+        desc_word_count = len([w for w in (description or "").split() if w.strip()])
+        if desc_word_count < rules["desc_min_words"]:
+            errors.append(
+                f"Description has {desc_word_count} words (min {rules['desc_min_words']})"
+            )
 
     # Keywords validation
     kw_count = len(keywords)
@@ -181,27 +186,36 @@ def validate_compliance(title: str, keywords: list[str], platform: str) -> dict:
     return {"valid": len(errors) == 0, "errors": errors}
 
 
+def _title_from_filename(filename: str) -> str:
+    """Derive a clean title from a source filename (strip ext, separators, stray numbers)."""
+    base = os.path.splitext(os.path.basename(filename or ""))[0]
+    base = re.sub(r"[_-]+", " ", base)
+    base = re.sub(r"\b\d{4,}\b", "", base)
+    words = [w for w in re.sub(r"\s+", " ", base).strip().split() if w]
+    return " ".join(w.capitalize() for w in words) if words else "Untitled"
+
+
 def autofix_compliance(
-    title: str, keywords: list[str], platform: str
+    title: str,
+    description: str = "",
+    keywords: list[str] | None = None,
+    platform: str = "",
+    filename: str = "",
 ) -> tuple[str, list[str]]:
     rules = PLATFORM_RULES.get(platform)
     if not rules:
-        return title, keywords
+        return title, list(keywords or [])
 
-    # Detect fallback metadata - cannot be fixed by string manipulation
-    _is_fallback = (
-        title == "Unknown Title"
-        or any(k.lower() in ("error", "fallback") for k in keywords)
-        or len(keywords) < rules.get("kw_min", 5)
-    )
-    if _is_fallback:
-        print(
-            "[WARN] Auto-fix skipped: metadata is AI fallback/error. Re-generate from AI instead."
-        )
-        return title, keywords
+    # Recover placeholder titles from the source filename instead of bailing out.
+    fixed_title = (title or "").strip()
+    if not fixed_title or fixed_title.lower() == "unknown title":
+        fixed_title = _title_from_filename(filename)
+
+    # Never keep AI error/fallback tokens as valid keywords.
+    junk = {"error", "fallback", "unknown title"}
+    fixed_keywords = [k for k in (keywords or []) if k.lower() not in junk]
 
     # Fix Title
-    fixed_title = title
     if len(fixed_title) > rules["title_max_chars"]:
         # truncate while keeping whole words if possible
         fixed_title = fixed_title[: rules["title_max_chars"]].rsplit(" ", 1)[0]
@@ -210,7 +224,6 @@ def autofix_compliance(
             fixed_title = fixed_title[: rules["title_max_chars"]]
 
     # Fix Keywords
-    fixed_keywords = list(keywords)
     if platform == "Freepik":
         # Freepik only letters and spaces
         fixed_keywords = [re.sub(r"[^a-zA-Z\s]", "", k).strip() for k in fixed_keywords]
@@ -218,6 +231,14 @@ def autofix_compliance(
 
     if len(fixed_keywords) > rules["kw_max"]:
         fixed_keywords = fixed_keywords[: rules["kw_max"]]
+
+    # Pad up to the platform minimum with contextual words from title/description.
+    if len(fixed_keywords) < rules["kw_min"]:
+        needed = min(rules["kw_min"], rules["kw_max"]) - len(fixed_keywords)
+        context = f"{fixed_title} {description}"
+        fixed_keywords += _context_keyword_candidates(
+            context, set(fixed_keywords), needed
+        )
 
     return fixed_title, fixed_keywords
 

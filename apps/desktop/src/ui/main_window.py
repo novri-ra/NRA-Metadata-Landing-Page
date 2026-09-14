@@ -1074,7 +1074,13 @@ class AppWindow(ctk.CTk):
         kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
         plat = self.target_plat_var.get()
 
-        fixed_title, fixed_kws = autofix_compliance(title, kws, plat)
+        fixed_title, fixed_kws = autofix_compliance(
+            title,
+            self.edit_desc_var.get(),
+            kws,
+            plat,
+            os.path.basename(self.current_edit_file or ""),
+        )
         self.edit_title_var.set(fixed_title)
         self.edit_kws_var.set(", ".join(fixed_kws))
         self._update_compliance()
@@ -1084,7 +1090,7 @@ class AppWindow(ctk.CTk):
         kws = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
         plat = self.target_plat_var.get()
 
-        res = validate_compliance(title, kws, plat)
+        res = validate_compliance(title, self.edit_desc_var.get(), kws, plat)
         if res["valid"]:
             self.compliance_lbl.configure(
                 text=f"● Compliant ({plat})", text_color=C["success"]
@@ -1412,7 +1418,11 @@ class AppWindow(ctk.CTk):
                 tw = csv.writer(tf)
                 tw.writerow(["Filename", "Title", "Description", "Keywords"])
                 tw.writerow([name, title, desc, ",".join(kws)])
-            generate_microstock_csvs(sub_dir, self._get_selected_csv_platforms())
+            platforms = self._get_selected_csv_platforms()
+            selected = self.target_plat_var.get()
+            if selected and selected != "Generic":
+                platforms.add(selected)
+            generate_microstock_csvs(sub_dir, platforms)
         else:
             self.log(f"{name} (Manual save fail)", "error")
 
@@ -1567,6 +1577,11 @@ class AppWindow(ctk.CTk):
             "temperature": self.config.get("temperature", 0.3),
             "min_kw": self.config["min_kw"],
             "max_kw": self.config["max_kw"],
+            "platform": self.target_plat_var.get(),
+            "kw_locked": (
+                int(self.config.get("min_kw", 25)) != 25
+                or int(self.config.get("max_kw", 49)) != 49
+            ),
             "style_preset": self.config["style_preset"],
             "extra_prompt": self.config.get("extra_prompt", ""),
             "custom_kw": self.config.get("custom_kw", ""),

@@ -36,6 +36,37 @@ _vision_lock = threading.Lock()
 _last_vision_call = 0.0
 
 
+def build_metadata_prompt(
+    min_kw: int, max_kw: int, style_guide: str, extra_prompt: str = ""
+) -> str:
+    """Assemble the metadata-generation prompt (extracted for testability)."""
+    extra_line = (
+        f"\n        Additional Context / Focus: {extra_prompt}"
+        if extra_prompt.strip()
+        else ""
+    )
+    return f"""
+        Analyze this image/file and return a JSON object with:
+        "title": a concise, SEO-optimized title (max 180 chars),
+        "description": a detailed description for microstock search (max 200 chars),
+        "category": a broad category,
+        "primary_category": primary Shutterstock category from Abstract, Animals/Wildlife, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and Drink, Healthcare/Medical, Holidays, Illustrations/Clip-Art, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, The Arts, Transportation, Vintage,
+        "secondary_category": optional secondary Shutterstock category,
+        "keywords": an array of {min_kw} to {max_kw} descriptive keywords.
+
+        Generate strictly between {min_kw} and {max_kw} highly relevant, comma-separated keywords. Do not output fewer than {min_kw} keywords. The keyword array MUST be {min_kw}-{max_kw} items long; count them before returning.
+
+        KEYWORD PRIORITY ORDER (most important first):
+        1. Primary subject, main action, and central visual elements (first 5-10 keywords)
+        2. Visual style, format (vector, flat, isolated, silhouette, 3d), colors, and mood (middle keywords)
+        3. Abstract concepts, business use-cases, and general search intent (final keywords)
+
+        Style Focus: {style_guide}
+        {extra_line}
+        Return ONLY valid JSON. Keywords must be in priority order as specified above.
+        """
+
+
 def _throttle_vision_request() -> None:
     """Stagger concurrent vision calls so a batch does not slam the provider.
 
@@ -265,30 +296,14 @@ class AIService:
             "Icons & Clipart": "Focus on style (flat, line, glyph), UI/UX functionality, and simple search intent keywords.",
             "Backgrounds & Patterns": "Focus on texture, copy space, backdrop, seamless, and wallpaper attributes.",
             "Characters & Mascot": "Focus on pose, expression, emotional theme, and persona.",
+            "Photo Realistic": "Describe as a photograph: natural lighting, depth of field, lens perspective, crisp focus, and realistic texture, tone, and mood.",
+            "Vector Clipart": "Describe as clean vector clipart: flat shapes, bold outlines, scalable geometry, solid or limited colors, and simple graphic style.",
         }
         style_guide = style_prompts.get(
             style_preset, style_prompts["General Commercial"]
         )
 
-        prompt = f"""
-        Analyze this image/file and return a JSON object with:
-        "title": a concise, SEO-optimized title (max 180 chars),
-        "description": a detailed description for microstock search (max 200 chars),
-        "category": a broad category,
-        "primary_category": primary Shutterstock category from Abstract, Animals/Wildlife, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and Drink, Healthcare/Medical, Holidays, Illustrations/Clip-Art, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, The Arts, Transportation, Vintage,
-        "secondary_category": optional secondary Shutterstock category,
-        "keywords": an array of {min_kw} to {max_kw} descriptive keywords.
-
-        Generate strictly between {min_kw} and {max_kw} highly relevant, comma-separated keywords. Do not output fewer than {min_kw} keywords. The keyword array MUST be {min_kw}-{max_kw} items long; count them before returning.
-
-        KEYWORD PRIORITY ORDER (most important first):
-        1. Primary subject, main action, and central visual elements (first 5-10 keywords)
-        2. Visual style, format (vector, flat, isolated, silhouette, 3d), colors, and mood (middle keywords)
-        3. Abstract concepts, business use-cases, and general search intent (final keywords)
-
-        Style Focus: {style_guide}
-        Return ONLY valid JSON. Keywords must be in priority order as specified above.
-        """
+        prompt = build_metadata_prompt(min_kw, max_kw, style_guide, extra_prompt)
 
         is_text_fallback = image_path.endswith(".svg") and not image_path.endswith(
             ".jpg"

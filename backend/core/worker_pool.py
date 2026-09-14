@@ -25,7 +25,7 @@ from backend.processors.exiftool_client import ExifToolClient
 from backend.processors.media_converter import extract_preview_image
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from packages.shared_utils.cost_tracker import cost_tracker
-from packages.shared_utils.filter import clean_metadata
+from packages.shared_utils.filter import PLATFORM_RULES, clean_metadata
 from packages.shared_utils.logger import CSVLogger
 
 
@@ -184,7 +184,11 @@ class FileWorkerPool:
             self._emit("log", "Batch CANCELED.", "error")
         else:
             self._emit("log", "Batch complete. Generating exports...", "info")
-            generate_microstock_csvs(csv_dir, options.get("csv_platforms", set()))
+            csv_platforms = set(options.get("csv_platforms", set()))
+            selected = options.get("platform")
+            if selected and selected != "Generic":
+                csv_platforms.add(selected)
+            generate_microstock_csvs(csv_dir, csv_platforms)
 
             # Collect generated CSV list
             csv_files = [
@@ -222,6 +226,12 @@ class FileWorkerPool:
             return
 
         name = os.path.basename(file_path)
+        # Apply the selected platform's keyword limits unless the user locked
+        # min/max manually in the UI (kw_locked=True).
+        rules = PLATFORM_RULES.get(options.get("platform", ""), {})
+        if rules and not options.get("kw_locked", False):
+            options["min_kw"] = rules["kw_min"]
+            options["max_kw"] = rules["kw_max"]
         self._emit("log", f"[{name}] Starting processing pipeline...", "processing")
 
         def log_cb(msg, lvl="info"):

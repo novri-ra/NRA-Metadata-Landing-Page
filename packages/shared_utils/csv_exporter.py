@@ -98,7 +98,7 @@ def fmt_kw_limited(s: str, max_count: int) -> str:
 
 
 def is_illus(fname: str) -> str:
-    return "yes" if fname.lower().endswith((".svg", ".eps", ".ai", ".png")) else "no"
+    return "yes" if fname.lower().endswith((".svg", ".eps", ".ai")) else "no"
 
 
 def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
