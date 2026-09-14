@@ -94,19 +94,33 @@ class AuthClient:
                 timeout=(15.0, 45.0),
                 allow_redirects=True,
             )
+            text = res.text
+            content_type = res.headers.get("Content-Type", "").lower()
+            if "text/html" in content_type or text.lstrip().startswith(
+                ("<!DOCTYPE", "<html")
+            ):
+                print(
+                    f"[AUTH ERROR] (HTTP {res.status_code}) Apps Script deployment "
+                    "tidak menjawab dengan JSON: URL Web App salah atau belum "
+                    "di-deploy dengan akses 'Anyone'. Server mengembalikan HTML.",
+                    file=sys.stderr,
+                )
+                return {
+                    "success": False,
+                    "error": "Apps Script deployment misconfigured",
+                }
             try:
                 return res.json()
             except ValueError:
                 print(
                     f"[AUTH ERROR] (HTTP {res.status_code}) Server Apps Script "
-                    "mengembalikan format HTML (bukan JSON). Periksa pengaturan "
-                    "akses deployment Web App (harus 'Anyone').",
+                    "mengembalikan respons yang bukan JSON. Periksa deployment "
+                    "Web App (akses 'Anyone') dan URL yang digunakan.",
                     file=sys.stderr,
                 )
                 return {
-                    "status": "ERROR",
-                    "message": "Server Apps Script mengembalikan HTML (bukan JSON). "
-                    "Periksa akses deployment Web App (harus 'Anyone').",
+                    "success": False,
+                    "error": "Apps Script deployment misconfigured",
                 }
         except requests.exceptions.ConnectTimeout as e:
             print(f"[AUTH] Connect timeout: {e!r}", file=sys.stderr)
