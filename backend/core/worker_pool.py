@@ -29,6 +29,19 @@ from packages.shared_utils.filter import PLATFORM_RULES, clean_metadata
 from packages.shared_utils.logger import CSVLogger
 
 
+def resolve_kw_range(options: dict) -> tuple[int, int]:
+    """Return (min_kw, max_kw) for a batch run.
+
+    Auto-aligns to the selected platform's PLATFORM_RULES unless the user
+    explicitly locked the range in the UI (kw_locked). Relying on an explicit
+    flag means tweaking only min_kw never disables platform max alignment.
+    """
+    rules = PLATFORM_RULES.get(options.get("platform", ""), {})
+    if rules and not options.get("kw_locked", False):
+        return rules["kw_min"], rules["kw_max"]
+    return options["min_kw"], options["max_kw"]
+
+
 def find_companion_files(file_path):
     """Find files with same base name but different extensions in the same folder."""
     if not file_path or not os.path.exists(file_path):
@@ -239,11 +252,8 @@ class FileWorkerPool:
 
         name = os.path.basename(file_path)
         # Apply the selected platform's keyword limits unless the user locked
-        # min/max manually in the UI (kw_locked=True).
-        rules = PLATFORM_RULES.get(options.get("platform", ""), {})
-        if rules and not options.get("kw_locked", False):
-            options["min_kw"] = rules["kw_min"]
-            options["max_kw"] = rules["kw_max"]
+        # the range via the Custom Range override in the UI (kw_locked=True).
+        options["min_kw"], options["max_kw"] = resolve_kw_range(options)
         self._emit("log", f"[{name}] Starting processing pipeline...", "processing")
 
         def log_cb(msg, lvl="info"):

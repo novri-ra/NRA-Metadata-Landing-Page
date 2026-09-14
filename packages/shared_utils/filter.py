@@ -474,12 +474,22 @@ _SPAM_WORDS = {
 }
 
 
-def calculate_quality_score(title: str, description: str, keywords: list) -> dict:
+def calculate_quality_score(
+    title: str, description: str, keywords: list, platform: str = "Generic"
+) -> dict:
     """
     Returns dict with:
       score: 0-100
       issues: list of strings describing problems
+
+    Thresholds adapt to the target platform's PLATFORM_RULES when a platform is
+    given; "Generic" (default) keeps the legacy 3/5 words and 5-49 keyword bars.
     """
+    rules = PLATFORM_RULES.get(platform, {})
+    title_min_words = rules.get("title_min_words", 3)
+    desc_min_words = rules.get("desc_min_words", 5)
+    kw_min = rules.get("kw_min", 5)
+    kw_max = rules.get("kw_max", 49)
     # Detect fallback/error metadata early
     if title == "Unknown Title" or "generation failed" in (description or "").lower():
         return {
@@ -507,8 +517,8 @@ def calculate_quality_score(title: str, description: str, keywords: list) -> dic
     tw_count = len(title_words)
     if tw_count == 0:
         issues.append("Title is empty")
-    elif tw_count < 3:
-        issues.append("Title too short (< 3 words)")
+    elif tw_count < title_min_words:
+        issues.append(f"Title too short (< {title_min_words} words)")
         points += 10
     elif tw_count > 25:
         issues.append("Title too long (> 25 words)")
@@ -529,8 +539,8 @@ def calculate_quality_score(title: str, description: str, keywords: list) -> dic
     dw_count = len(desc_words)
     if dw_count == 0:
         issues.append("Description is empty")
-    elif dw_count < 5:
-        issues.append("Description too short (< 5 words)")
+    elif dw_count < desc_min_words:
+        issues.append(f"Description too short (< {desc_min_words} words)")
         points += 8
     elif dw_count > 200:
         issues.append("Description too long (> 200 words)")
@@ -543,11 +553,11 @@ def calculate_quality_score(title: str, description: str, keywords: list) -> dic
     kw_count = len(keywords)
     if kw_count == 0:
         issues.append("No keywords")
-    elif kw_count < 5:
-        issues.append(f"Too few keywords ({kw_count}, min 5)")
+    elif kw_count < kw_min:
+        issues.append(f"Too few keywords ({kw_count}, min {kw_min})")
         points += 5
-    elif kw_count > 49:
-        issues.append(f"Too many keywords ({kw_count}, max 49)")
+    elif kw_count > kw_max:
+        issues.append(f"Too many keywords ({kw_count}, max {kw_max})")
         points += 10
     else:
         points += 20

@@ -5,7 +5,7 @@ import os
 import customtkinter as ctk
 
 from backend.core.config_manager import get_file_hash, get_cached_metadata, set_cached_metadata
-from packages.shared_utils.csv_exporter import generate_microstock_csvs
+from packages.shared_utils.csv_exporter import generate_microstock_csvs, upsert_metadata_csv
 from ui.theme import C, _btn, _combo, _entry, _label
 
 
@@ -128,24 +128,14 @@ def show_batch_replace(app):
                         # update sub-dir csv
                         sub_dir = os.path.dirname(fpath)
                         temp_master = os.path.join(sub_dir, "metadata_output.csv")
-                        import csv
-
                         try:
-                            with open(
-                                temp_master, "w", newline="", encoding="utf-8"
-                            ) as tf:
-                                tw = csv.writer(tf)
-                                tw.writerow(
-                                    ["Filename", "Title", "Description", "Keywords"]
-                                )
-                                tw.writerow(
-                                    [
-                                        fname,
-                                        meta["title"],
-                                        meta["description"],
-                                        ",".join(meta["keywords"]),
-                                    ]
-                                )
+                            upsert_metadata_csv(
+                                temp_master,
+                                fname,
+                                meta["title"],
+                                meta["description"],
+                                meta["keywords"],
+                            )
                         except OSError:
                             pass
 

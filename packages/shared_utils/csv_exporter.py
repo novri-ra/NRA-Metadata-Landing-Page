@@ -101,6 +101,31 @@ def is_illus(fname: str) -> str:
     return "yes" if fname.lower().endswith((".svg", ".eps", ".ai")) else "no"
 
 
+def upsert_metadata_csv(
+    master_path: str, filename: str, title: str, description: str, keywords: list
+) -> None:
+    """Update-or-append a single file's row in metadata_output.csv.
+
+    Reads any existing rows, replaces the matching filename entry (if present),
+    or appends a new row — so saving one file no longer wipes other files.
+    """
+    rows: list[list[str]] = []
+    if os.path.exists(master_path):
+        with open(master_path, "r", encoding="utf-8", newline="") as f:
+            rows = list(csv.reader(f))
+    if not rows:
+        rows = [["Filename", "Title", "Description", "Keywords"]]
+    row = [filename, title, description, ",".join(keywords)]
+    for r in rows[1:]:
+        if r and r[0] == filename:
+            r[:] = row
+            break
+    else:
+        rows.append(row)
+    with open(master_path, "w", encoding="utf-8", newline="") as f:
+        csv.writer(f).writerows(rows)
+
+
 def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
     master = os.path.join(out_dir, "metadata_output.csv")
     if not os.path.exists(master):

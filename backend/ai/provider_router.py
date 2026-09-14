@@ -751,6 +751,8 @@ class AIService:
         },
     }
 
+    # Matched as whole word segments (boundary-anchored), so "mistral-small"
+    # blocks "mistral-small" but is decided *after* a vision-implying name.
     NON_VISION_PATTERNS = [
         "embed", "tts", "whisper", "moderation", "transcrib", "codestral",
         "text-embedding", "davinci", "babbage", "ada", "curie",
@@ -761,20 +763,28 @@ class AIService:
         "antigravity", "omni-flash",
     ]
 
+    _NON_VISION_RE = re.compile(
+        r"(?<![a-z0-9])(?:"
+        + "|".join(re.escape(p) for p in NON_VISION_PATTERNS)
+        + r")(?![a-z0-9])",
+        re.IGNORECASE,
+    )
+
     def _is_vision_capable(self, model_id: str) -> bool:
         mid = model_id.lower()
-        for pat in self.NON_VISION_PATTERNS:
-            if pat in mid:
-                return False
         whitelist = self.VISION_WHITELIST.get(self.provider, set())
         if model_id in whitelist:
             return True
+        # Vision-implying ids win over the non-vision blacklist so a future
+        # "mistral-small-vision" variant is never blocked by its base name.
         if "vision" in mid or "pixtral" in mid:
             return True
         if self.provider == "Gemini" and ("flash" in mid or "pro" in mid):
             return True
         if self.provider == "OpenAI" and "gpt-4o" in mid:
             return True
+        if self._NON_VISION_RE.search(mid):
+            return False
         return False
 
     def fetch_available_models(self) -> list[str]:
