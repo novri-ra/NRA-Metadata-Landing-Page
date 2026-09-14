@@ -1457,17 +1457,20 @@ class AppWindow(ctk.CTk):
             self.log("Batch RESUMED.", "info")
 
     def cancel_batch(self):
-        if self.pool.is_running:
-            self.pool.cancel()
-            self.log("Canceling batch... finishing current active files.", "error")
-            self.pause_btn.configure(state="disabled")
-            self.cancel_btn.configure(state="disabled")
+        if not self.pool.is_running:
+            return
+        self.pool.cancel()
+        self.log("Canceling batch... finishing current active files.", "error")
+        self.start_btn.configure(state="normal")
+        self.pause_btn.configure(state="disabled")
+        self.cancel_btn.configure(state="disabled")
 
     def start_offline_retag(self):
         start_offline_retag(self)
 
     def start_processing(self, new_only=False):
         if self.pool.is_running:
+            self.log("Batch masih menyelesaikan file aktif...", "warn")
             return
 
         if not self.tools_ready:

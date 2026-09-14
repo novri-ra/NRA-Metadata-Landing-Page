@@ -123,6 +123,9 @@ class FileWorkerPool:
     def cancel(self):
         self.cancel_flag = True
         self.pause_event.set()
+        executor = self._executor
+        if executor is not None:
+            executor.shutdown(wait=False, cancel_futures=True)
 
     def _run_batch(self, paths, out_dir, options):
         provider = options.get("provider", "Gemini")
@@ -162,6 +165,8 @@ class FileWorkerPool:
             self._executor = executor
             futures = {submit(f): f for f in paths}
             for i, future in enumerate(as_completed(futures), 1):
+                if future.cancelled():
+                    continue
                 try:
                     future.result()
                 except Exception as e:
@@ -205,6 +210,12 @@ class FileWorkerPool:
         self._emit("stats", self.stats_snapshot(), False)
         self._emit("finished")
 
+    def _remove_preview(self, preview):
+        try:
+            os.remove(preview)
+        except OSError:
+            pass
+
     def _process_file(self, file_path, out_dir, ai, options, csv_logger):
         self.pause_event.wait()
         if self.cancel_flag:
@@ -219,6 +230,10 @@ class FileWorkerPool:
         preview = extract_preview_image(file_path, progress_callback=log_cb)
         if not preview:
             self._inc_stat("error")
+            return
+        if self.cancel_flag:
+            self._remove_preview(preview)
+            self._emit("log", f"[{name}] Stopped after preview render.", "info")
             return
 
         file_hash = get_file_hash(preview)
@@ -236,7 +251,13 @@ class FileWorkerPool:
                 options["style_preset"],
                 options.get("extra_prompt", ""),
                 log_callback=log_cb,
+                cancel_check=lambda: self.cancel_flag,
             )
+
+            if meta.get("fail_reason") == "cancelled":
+                self._remove_preview(preview)
+                self._emit("log", f"[{name}] Stopped: batch cancelled.", "info")
+                return
 
             if meta.get("is_fallback") or meta.get("error"):
                 err_detail = meta.get("error_details", "fallback rejected")
@@ -256,10 +277,7 @@ class FileWorkerPool:
                 )
                 self._inc_stat("error")
                 # Clean up preview since we're aborting
-                try:
-                    os.remove(preview)
-                except OSError:
-                    pass
+                self._remove_preview(preview)
                 return
 
             set_cached_metadata(file_hash, meta)
@@ -317,6 +335,10 @@ class FileWorkerPool:
             self._emit(
                 "preview", img, status, tag, meta, final_path, file_hash
             )
+
+        if self.cancel_flag:
+            self._emit("log", f"[{name}] Saved but batch stopped before embedding.", "info")
+            return
 
         if self.processor.embed_metadata(
             final_path,

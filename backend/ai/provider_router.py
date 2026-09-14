@@ -68,6 +68,19 @@ def _retry_after_seconds(exc) -> float | None:
         return None
 
 
+def _interruptible_sleep(seconds, cancel_check=None, step=0.25) -> bool:
+    """Sleep in small slices so a batch cancel cuts through long backoffs.
+
+    Returns False if ``cancel_check`` turned True before the sleep elapsed.
+    """
+    remaining = float(seconds)
+    while remaining > 0 and not (cancel_check and cancel_check()):
+        chunk = min(step, remaining)
+        time.sleep(chunk)
+        remaining -= chunk
+    return not (cancel_check and cancel_check())
+
+
 MISTRAL_MIN_INTERVAL = 2.5
 MISTRAL_429_MIN_SLEEP = 5.0
 _mistral_lock = threading.Lock()
@@ -236,6 +249,7 @@ class AIService:
         style_preset: str = "Standard",
         extra_prompt: str = "",
         log_callback=None,
+        cancel_check=None,
         **kwargs,
     ) -> dict:
         filename = os.path.basename(image_path) if image_path else "unknown"
@@ -286,6 +300,10 @@ class AIService:
 
         fail_reason = None
         for attempt in range(max_retries + 1):
+            if cancel_check and cancel_check():
+                return self._fallback_metadata(
+                    error_details="Batch canceled", fail_reason="cancelled"
+                )
             if not is_text_fallback:
                 _throttle_vision_request()
             try:
@@ -482,7 +500,11 @@ class AIService:
                         if self.provider == "Mistral":
                             delay = max(delay, MISTRAL_429_MIN_SLEEP)
                         _log(f"[{filename}] Rate limit (429) on {self.provider}/{self.model or 'default'}. Delaying {int(delay)}s (Attempt {attempt+1}/{max_retries})...", "warn")
-                        time.sleep(delay)
+                        if not _interruptible_sleep(delay, cancel_check):
+                            return self._fallback_metadata(
+                                error_details="Batch canceled while backing off",
+                                fail_reason="cancelled",
+                            )
                         # Already backed off for 429; retry the same key/provider
                         # through the full retry budget (max_retries, default 5)
                         # before any failover/fallback decision.
@@ -533,7 +555,11 @@ class AIService:
                     print(
                         f"[{filename}] Retry {attempt + 1}/{max_retries} for {self.provider} after {wait_time}s..."
                     )
-                    time.sleep(wait_time)
+                    if not _interruptible_sleep(wait_time, cancel_check):
+                        return self._fallback_metadata(
+                            error_details="Batch canceled while retrying",
+                            fail_reason="cancelled",
+                        )
                     continue
                 else:
                     # Last chance: try provider failover if 429 exhausted all retries
@@ -558,6 +584,7 @@ class AIService:
                                     max_kw,
                                     style_preset,
                                     extra_prompt,
+                                    cancel_check=cancel_check,
                                     **kwargs,
                                 )
                     _log(f"[{filename}] {self.provider}: {e}", "error")
