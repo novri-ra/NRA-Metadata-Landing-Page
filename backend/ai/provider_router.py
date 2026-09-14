@@ -448,7 +448,13 @@ class AIService:
                     )
             except Exception as e:
                 err_str = str(e)
-                _log(f"[{filename}] {self.provider} error: {err_str}", "error")
+                if detect_rate_limit(err_str):
+                    _log(
+                        f"[{filename}] {self.provider} rate limit (429/quota): {err_str}",
+                        "warn",
+                    )
+                else:
+                    _log(f"[{filename}] {self.provider} error: {err_str}", "error")
                 if detect_connection_refused(err_str):
                     print(
                         f"[ERROR] Connection refused to endpoint {self.base_url or 'API'}. Ensure server/proxy is active."

@@ -241,10 +241,7 @@ class FileWorkerPool:
             if meta.get("is_fallback") or meta.get("error"):
                 err_detail = meta.get("error_details", "fallback rejected")
                 fail_reason = meta.get("fail_reason")
-                if (
-                    fail_reason in ("auth", "retries_exhausted")
-                    and not self.cancel_flag
-                ):
+                if fail_reason == "auth" and not self.cancel_flag:
                     self.cancel_flag = True
                     self.pause_event.set()
                     self._emit(
