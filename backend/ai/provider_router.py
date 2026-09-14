@@ -279,6 +279,8 @@ class AIService:
         "secondary_category": optional secondary Shutterstock category,
         "keywords": an array of {min_kw} to {max_kw} descriptive keywords.
 
+        Generate strictly between {min_kw} and {max_kw} highly relevant, comma-separated keywords. Do not output fewer than {min_kw} keywords. The keyword array MUST be {min_kw}-{max_kw} items long; count them before returning.
+
         KEYWORD PRIORITY ORDER (most important first):
         1. Primary subject, main action, and central visual elements (first 5-10 keywords)
         2. Visual style, format (vector, flat, isolated, silhouette, 3d), colors, and mood (middle keywords)

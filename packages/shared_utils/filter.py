@@ -73,6 +73,46 @@ def sanitize_keywords(keywords: list[str], max_kw: int = 50) -> list[str]:
     return cleaned
 
 
+def _context_keyword_candidates(text: str, existing: set, needed: int) -> list[str]:
+    """Derive keyword candidates from title/description content words.
+
+    Falls back to contextual terms from the AI's own prose when the AI's
+    keyword list comes up short, so a thin keyword array still reaches the
+    target count instead of being truncated by the min_kw floor.
+    """
+    seen_phrase = {k.lower() for k in existing}
+    candidates = []
+    for tok in re.split(r"[^a-zA-Z0-9']+", text.lower()):
+        tok = tok.strip("'").strip()
+        if len(tok) < 3 or not re.search(r"[a-zA-Z]", tok):
+            continue
+        if tok in seen_phrase or tok in _COMMON_WORDS:
+            continue
+        if not filter_text(tok):
+            continue
+        seen_phrase.add(tok)
+        candidates.append(tok)
+        if len(candidates) >= needed:
+            break
+    return candidates
+
+
+def clean_metadata(meta: dict, max_kw: int = 50, min_kw: int = 0) -> dict:
+    title = filter_text(meta.get("title", ""))
+    description = filter_text(meta.get("description", ""))
+    keywords = sanitize_keywords(meta.get("keywords", []), max_kw)
+    if min_kw and len(keywords) < min_kw and len(keywords) < max_kw:
+        needed = min(min_kw, max_kw) - len(keywords)
+        context = f"{title} {description}"
+        keywords += _context_keyword_candidates(context, set(keywords), needed)
+    return {
+        "title": title,
+        "description": description,
+        "category": filter_text(meta.get("category", "")),
+        "keywords": keywords,
+    }
+
+
 PLATFORM_RULES = {
     "Adobe Stock": {
         "title_max_chars": 200,
@@ -331,15 +371,6 @@ def remove_redundant_keywords(keywords: list[str]) -> list[str]:
             cleaned.append(actual_kw)
 
     return cleaned
-
-
-def clean_metadata(meta: dict, max_kw: int = 50) -> dict:
-    return {
-        "title": filter_text(meta.get("title", "")),
-        "description": filter_text(meta.get("description", "")),
-        "category": filter_text(meta.get("category", "")),
-        "keywords": sanitize_keywords(meta.get("keywords", []), max_kw),
-    }
 
 
 # ── Metadata Quality & Spam Score ─────────────────────────────────────

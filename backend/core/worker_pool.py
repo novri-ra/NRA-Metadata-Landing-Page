@@ -319,7 +319,8 @@ class FileWorkerPool:
             pass
 
         max_kw = options["max_kw"]
-        meta = clean_metadata(meta, max_kw)
+        min_kw = options.get("min_kw", 0)
+        meta = clean_metadata(meta, max_kw, min_kw=min_kw)
 
         base_name = os.path.splitext(name)[0]
         final_path = os.path.join(out_dir, name)
