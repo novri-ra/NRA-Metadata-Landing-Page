@@ -388,6 +388,36 @@ class TestRateLimitHandling(unittest.TestCase):
         pr._throttle_vision_request()
         self.assertGreaterEqual(time.monotonic() - start, pr.VISION_MIN_INTERVAL - 0.05)
 
+    def test_max_retries_default_is_5(self):
+        from backend.ai.failover_handler import BACKOFF_TIMES, DEFAULT_MAX_RETRIES, FailoverHandler
+
+        self.assertEqual(FailoverHandler("").max_retries, DEFAULT_MAX_RETRIES)
+        self.assertEqual(DEFAULT_MAX_RETRIES, 5)
+        self.assertEqual(len(BACKOFF_TIMES), DEFAULT_MAX_RETRIES)
+
+    def test_mistral_calls_serialize_with_2s_gap(self):
+        from unittest import mock
+
+        from backend.ai import provider_router as pr
+
+        pr._mistral_last_call = 0.0
+        starts = []
+
+        def fake_post(url, **kwargs):
+            starts.append(time.monotonic())
+            resp = mock.Mock()
+            resp.status_code = 200
+            return resp
+
+        with mock.patch("requests.post", side_effect=fake_post):
+            pr._mistral_chat_completion({}, {"model": "test"})
+            pr._mistral_chat_completion({}, {"model": "test"})
+
+        self.assertEqual(len(starts), 2)
+        self.assertGreaterEqual(
+            starts[1] - starts[0], pr.MISTRAL_MIN_INTERVAL - 0.05
+        )
+
 
 class TestSanitizer(unittest.TestCase):
     def test_sanitize_ai_metadata(self):

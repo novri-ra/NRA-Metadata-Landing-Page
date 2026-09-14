@@ -68,6 +68,35 @@ def _retry_after_seconds(exc) -> float | None:
         return None
 
 
+MISTRAL_MIN_INTERVAL = 2.0
+MISTRAL_429_MIN_SLEEP = 5.0
+_mistral_lock = threading.Lock()
+_mistral_last_call = 0.0
+
+
+def _mistral_chat_completion(headers: dict, data: dict) -> requests.Response:
+    """Serialize Mistral vision requests: one in flight at a time, spaced at
+    least ``MISTRAL_MIN_INTERVAL`` seconds after the previous one *finished*.
+    The standard tier rejects concurrent requests, so the lock is held for the
+    whole HTTP exchange.
+    ponytail: hard-coded 2s cadence for the standard tier; make it configurable
+    if a permissive tier is ever used.
+    """
+    global _mistral_last_call
+    with _mistral_lock:
+        elapsed = time.time() - _mistral_last_call
+        if elapsed < MISTRAL_MIN_INTERVAL:
+            time.sleep(MISTRAL_MIN_INTERVAL - elapsed)
+        response = requests.post(
+            "https://api.mistral.ai/v1/chat/completions",
+            headers=headers,
+            json=data,
+            timeout=30,
+        )
+        _mistral_last_call = time.time()
+        return response
+
+
 class MetadataModel(BaseModel):
     title: str = Field(description="A concise title")
     description: str = Field(description="A detailed description")
@@ -346,12 +375,7 @@ class AIService:
                         "temperature": self.temperature,
                         "response_format": {"type": "json_object"},
                     }
-                    res = requests.post(
-                        "https://api.mistral.ai/v1/chat/completions",
-                        headers=headers,
-                        json=data,
-                        timeout=30,
-                    )
+                    res = _mistral_chat_completion(headers, data)
                     res.raise_for_status()
                     data = res.json()
                     usage = data.get("usage") or {}
@@ -424,9 +448,13 @@ class AIService:
                         retry_after = _retry_after_seconds(e)
                         if retry_after is not None:
                             delay = retry_after
+                        if self.provider == "Mistral":
+                            delay = max(delay, MISTRAL_429_MIN_SLEEP)
                         _log(f"[{filename}] Rate limit (429) on {self.provider}/{self.model or 'default'}. Delaying {int(delay)}s (Attempt {attempt+1}/{max_retries})...", "warn")
                         time.sleep(delay)
-                        # Already backed off for 429; retry the same key/provider.
+                        # Already backed off for 429; retry the same key/provider
+                        # through the full retry budget (max_retries, default 5)
+                        # before any failover/fallback decision.
                         if attempt < max_retries and self.failover.keyring.size() <= 1:
                             continue
 
