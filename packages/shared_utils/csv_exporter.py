@@ -164,7 +164,7 @@ def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
             ],
             lambda r: [
                 r["Filename"],
-                fmt_str(r.get("Description", r.get("Title", "")), 200, 5),
+                fmt_str(r.get("Description", r.get("Title", "")), 2000, 5),
                 fmt_kw(r["Keywords"], 7, 50),
                 ss_categories(
                     r.get("PrimaryCategory", ""),

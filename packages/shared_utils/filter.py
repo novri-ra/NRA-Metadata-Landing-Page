@@ -126,7 +126,7 @@ PLATFORM_RULES = {
         "title_max_chars": 150,
         "title_min_words": 5,
         "desc_min_words": 5,
-        "desc_max_chars": 200,
+        "desc_max_chars": 2000,
         "kw_min": 7,
         "kw_max": 50,
     },
@@ -175,6 +175,10 @@ def validate_compliance(
             errors.append(
                 f"Description has {desc_word_count} words (min {rules['desc_min_words']})"
             )
+    if "desc_max_chars" in rules and len(description or "") > rules["desc_max_chars"]:
+        errors.append(
+            f"Description exceeds {rules['desc_max_chars']} chars"
+        )
 
     # Keywords validation
     kw_count = len(keywords)

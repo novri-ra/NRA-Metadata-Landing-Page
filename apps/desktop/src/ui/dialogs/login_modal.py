@@ -537,9 +537,5 @@ def show_login_modal(app):
     modal.grab_set()
     # Defer sash restore until window is rendered
     app.after(100, app._restore_sash_positions)
-    import threading
-
-    threading.Thread(target=app._watcher_loop, daemon=True).start()
-
-    app.bind("<Control-z>", lambda e: app.undo_metadata())
-    app.bind("<Control-y>", lambda e: app.redo_metadata())
+    # Watcher lifecycle and keyboard shortcuts are owned by AppWindow itself
+    # (_apply_auto_watch_startup / _toggle_auto_watch / __init__ binds).

@@ -128,6 +128,22 @@ class FileWorkerPool:
             executor.shutdown(wait=False, cancel_futures=True)
 
     def _run_batch(self, paths, out_dir, options):
+        try:
+            self._run_batch_inner(paths, out_dir, options)
+        except Exception as e:
+            try:
+                self._emit("log", f"Batch failed: {e}", "error")
+            except Exception:
+                pass
+        finally:
+            self.is_running = False
+            try:
+                self._emit("stats", self.stats_snapshot(), False)
+                self._emit("finished")
+            except Exception:
+                pass
+
+    def _run_batch_inner(self, paths, out_dir, options):
         provider = options.get("provider", "Gemini")
         api_keys_dict = options.get("api_keys", {})
         api_key = api_keys_dict.get(provider, "")
@@ -209,10 +225,6 @@ class FileWorkerPool:
             }
             self.session_stats.update(summary)
             self._emit("batch_complete", summary)
-
-        self.is_running = False
-        self._emit("stats", self.stats_snapshot(), False)
-        self._emit("finished")
 
     def _remove_preview(self, preview):
         try:

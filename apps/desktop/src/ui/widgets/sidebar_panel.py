@@ -359,6 +359,7 @@ class SidebarPanel(ctk.CTkFrame):
             toggle_frame,
             text="Auto-Watch",
             variable=self.auto_watch,
+            command=app._toggle_auto_watch,
             progress_color=C["success"],
             button_color=C["text3"],
             button_hover_color=C["text2"],

@@ -151,6 +151,13 @@ class AppWindow(ctk.CTk):
         self.after(100, self._flush_tk_queue)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
+        # Keyboard shortcuts bound at startup, independent of the auth modal.
+        self.bind("<Control-z>", lambda e: self.undo_metadata())
+        self.bind("<Control-y>", lambda e: self.redo_metadata())
+
+        # Auto-Watch switch drives the watcher without depending on the modal.
+        self.after(100, self._apply_auto_watch_startup)
+
         # Update initial key counter
         self.after(
             10, lambda: self._update_keys_counter(self.config.get("provider", "Gemini"))
@@ -1453,17 +1460,34 @@ class AppWindow(ctk.CTk):
         ext = os.path.splitext(filename)[1].lower()
         return ext in self._get_allowed_extensions()
 
-    def _watcher_loop(self):
-        if getattr(self, "_watcher_started", False):
-            return
-        self._watcher_started = True
-        self._watcher = FolderWatcher(
-            get_directory=lambda: self.input_dir.get(),
-            is_allowed=self._is_allowed_file,
-            is_busy=lambda: self.pool.is_running,
-            on_new_files=lambda files: self._call_main(self._on_watcher_files, files),
-        )
-        self._watcher.start()
+    def _apply_auto_watch_startup(self):
+        if self.auto_watch.get():
+            self._start_watcher()
+
+    def _start_watcher(self):
+        if getattr(self, "_watcher", None) is None:
+            self._watcher = FolderWatcher(
+                get_directory=lambda: self.input_dir.get(),
+                is_allowed=self._is_allowed_file,
+                is_busy=lambda: self.pool.is_running,
+                on_new_files=lambda files: self._call_main(self._on_watcher_files, files),
+            )
+        if not self._watcher.running:
+            self._watcher.start()
+            self.log("Auto-Watch aktif.", "info")
+
+    def _stop_watcher(self):
+        watcher = getattr(self, "_watcher", None)
+        if watcher and watcher.running:
+            watcher.stop()
+            self.log("Auto-Watch dimatikan.", "info")
+
+    def _toggle_auto_watch(self):
+        if self.auto_watch.get():
+            self._start_watcher()
+        else:
+            self._stop_watcher()
+        self._save_current_config()
 
     def _on_watcher_files(self, files):
         if self.auto_watch.get() and not self.pool.is_running:

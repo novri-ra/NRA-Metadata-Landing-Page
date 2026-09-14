@@ -551,17 +551,21 @@ class AIService:
                                         f"[FAILOVER] {self.provider} auth failed. Switching to {alt_provider}..."
                                     )
                                     self.failover.mark_failover_attempted()
-                                    self.provider = alt_provider
-                                    self.failover.bind_provider(alt_provider)
-                                    self.failover.replace_keys(alt_key)
-                                    self._init_clients()
-                                    break
-                            else:
-                                _log(
-                                    f"[{filename}] All API keys exhausted. No failover provider available.", "error"
-                                )
-                                return self._fallback_metadata(error_details="All keys exhausted. No failover available.", fail_reason="auth")
-                            continue  # retry with new provider
+                                    return self._failover_call(
+                                        alt_provider,
+                                        alt_key,
+                                        image_path,
+                                        min_kw,
+                                        max_kw,
+                                        style_preset,
+                                        extra_prompt,
+                                        log_callback,
+                                        cancel_check,
+                                    )
+                            _log(
+                                f"[{filename}] All API keys exhausted. No failover provider available.", "error"
+                            )
+                            return self._fallback_metadata(error_details="All keys exhausted. No failover available.", fail_reason="auth")
                         print(
                             f"[{filename}] {self.provider}: Authentication failed. Check API Key."
                         )
@@ -591,23 +595,55 @@ class AIService:
                                     f"[FAILOVER] {self.provider} rate-limited (429). Switching to {alt_provider}..."
                                 )
                                 self.failover.mark_failover_attempted()
-                                self.provider = alt_provider
-                                self.failover.bind_provider(alt_provider)
-                                self.failover.replace_keys(alt_key)
-                                self._init_clients()
-                                return self.generate_metadata(
+                                return self._failover_call(
+                                    alt_provider,
+                                    alt_key,
                                     image_path,
                                     min_kw,
                                     max_kw,
                                     style_preset,
                                     extra_prompt,
-                                    cancel_check=cancel_check,
-                                    **kwargs,
+                                    log_callback,
+                                    cancel_check,
                                 )
                     _log(f"[{filename}] {self.provider}: {e}", "error")
                     return self._fallback_metadata(error_details=str(e), fail_reason=fail_reason)
 
         return self._fallback_metadata(error_details="Max retries exhausted", fail_reason=fail_reason)
+
+    def _failover_call(
+        self,
+        alt_provider: str,
+        alt_key: str,
+        image_path: str,
+        min_kw: int,
+        max_kw: int,
+        style_preset: str,
+        extra_prompt: str,
+        log_callback=None,
+        cancel_check=None,
+    ) -> dict:
+        # Run failover on an isolated AIService so concurrent worker threads
+        # never see provider/key/client state mutated under them, and forward
+        # the logger + cancel check so in-flight status stays wired.
+        alt = AIService(
+            alt_provider,
+            alt_key,
+            self.model,
+            self.temperature,
+            failover_providers=None,
+            custom_base_url=self.base_url,
+        )
+        alt.failover.mark_failover_attempted()
+        return alt.generate_metadata(
+            image_path,
+            min_kw,
+            max_kw,
+            style_preset,
+            extra_prompt,
+            log_callback=log_callback,
+            cancel_check=cancel_check,
+        )
 
     def _parse_json(self, text: str) -> dict:
         parsed = None
