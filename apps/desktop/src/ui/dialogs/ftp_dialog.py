@@ -1,4 +1,4 @@
-"""FTP / SFTP Uploader dialog. Extracted from AppWindow.open_ftp_dialog."""
+"""FTP Uploader dialog. Extracted from AppWindow.open_ftp_dialog."""
 
 import os
 import threading
@@ -12,7 +12,7 @@ from ui.theme import C, _btn, _combo, _entry, _label
 
 def show_ftp_dialog(app):
     dialog = ctk.CTkToplevel(app)
-    dialog.title("FTP / SFTP Uploader")
+    dialog.title("FTP Uploader")
     dialog.geometry("450x450")
     dialog.configure(fg_color=C["bg"])
     dialog.transient(app)

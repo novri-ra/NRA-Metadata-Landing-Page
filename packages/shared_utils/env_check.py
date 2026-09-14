@@ -5,22 +5,26 @@ import sys
 
 def check_exiftool() -> tuple[bool, str]:
     """Check if ExifTool is available in system PATH or local tools dir."""
-    local_path = os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__), "..", "..", "tools", "exiftool", "exiftool.exe"
-        )
-    )
+    try:
+        from backend.processors.system_detector import detect_exiftool
 
-    if os.path.exists(local_path):
-        return True, "Found in local tools directory"
+        path = detect_exiftool(silent=True)
+    except Exception:  # pragma: no cover - import guard for exotic layouts
+        path = None
+    if path:
+        return True, f"Found at {path}"
 
     try:
         res = subprocess.run(
-            ["exiftool", "-ver"], capture_output=True, text=True, check=False
+            ["exiftool", "-ver"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False,
         )
         if res.returncode == 0:
             return True, f"Found in system PATH (v{res.stdout.strip()})"
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         pass
 
     return False, "ExifTool not found. Metadata writing will fail."

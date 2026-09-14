@@ -124,23 +124,6 @@ echo [ERROR] Gagal menyiapkan environment Python.
 pause
 exit /b 1
 
-:INIT_CONFIG
-echo.
-echo %frame%
-echo [3/4] Initial configuration
-echo %frame%
-echo [*] Menjalankan scripts\init_config.py ...
-python scripts\init_config.py
-if %ERRORLEVEL% neq 0 goto :INIT_FAILED
-echo [SUCCESS] Konfigurasi awal siap.
-echo %frame%
-goto :LAUNCH_APP
-
-:INIT_FAILED
-echo [ERROR] scripts\init_config.py keluar dengan exit code %ERRORLEVEL%.
-pause
-exit /b 1
-
 :LAUNCH_APP
 echo.
 echo %frame%

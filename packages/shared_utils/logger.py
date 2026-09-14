@@ -49,9 +49,34 @@ class CSVLogger:
         self.lock = threading.Lock()
         with open(self.filepath, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(["Filename", "Title", "Description", "Keywords", "IsAI"])
+            writer.writerow(
+                [
+                    "Filename",
+                    "Title",
+                    "Description",
+                    "Keywords",
+                    "IsAI",
+                    "IsEditorial",
+                    "City",
+                    "Country",
+                    "CountryCode",
+                    "DateCreated",
+                ]
+            )
 
-    def log(self, filename, title, description, keywords, is_ai_generated=False):
+    def log(
+        self,
+        filename,
+        title,
+        description,
+        keywords,
+        is_ai_generated=False,
+        is_editorial=False,
+        city="",
+        country="",
+        country_code="",
+        date_created="",
+    ):
         with self.lock, open(self.filepath, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(
@@ -61,5 +86,10 @@ class CSVLogger:
                     description,
                     ",".join(keywords),
                     "1" if is_ai_generated else "0",
+                    "1" if is_editorial else "0",
+                    city,
+                    country,
+                    country_code,
+                    date_created,
                 ]
             )

@@ -23,7 +23,10 @@ from backend.core.config_manager import (
 )
 from backend.processors.exiftool_client import ExifToolClient
 from backend.processors.media_converter import extract_preview_image
-from packages.shared_utils.csv_exporter import generate_microstock_csvs
+from packages.shared_utils.csv_exporter import (
+    build_editorial_caption,
+    generate_microstock_csvs,
+)
 from packages.shared_utils.cost_tracker import cost_tracker
 from packages.shared_utils.filter import PLATFORM_RULES, clean_metadata
 from packages.shared_utils.logger import CSVLogger
@@ -50,7 +53,19 @@ def find_companion_files(file_path):
 
 
 def sync_companion_metadata(
-    file_path, title, desc, kws, processor, copyright_text, author, is_ai_generated=False
+    file_path,
+    title,
+    desc,
+    kws,
+    processor,
+    copyright_text,
+    author,
+    is_ai_generated=False,
+    is_editorial=False,
+    city="",
+    country="",
+    country_code="",
+    date_created="",
 ):
     """Embed metadata to all companion files with the same base name. Returns count."""
     companions = find_companion_files(file_path)
@@ -62,7 +77,18 @@ def sync_companion_metadata(
         meta = {"title": title, "description": desc, "keywords": kws}
         set_cached_metadata(comp_hash, meta)
         if processor.embed_metadata(
-            comp, title, desc, kws, copyright_text, author, is_ai_generated
+            comp,
+            title,
+            desc,
+            kws,
+            copyright_text,
+            author,
+            is_ai_generated,
+            is_editorial,
+            city,
+            country,
+            country_code,
+            date_created,
         ):
             count += 1
     return count
@@ -267,6 +293,13 @@ class FileWorkerPool:
 
         name = os.path.basename(file_path)
         target_kw = resolve_target_kw(options)
+        is_editorial = bool(options.get("is_editorial"))
+        editorial_fields = {
+            "city": options.get("editorial_city", ""),
+            "country": options.get("editorial_country", ""),
+            "country_code": options.get("editorial_country_code", ""),
+            "date_created": options.get("editorial_date", ""),
+        }
         self._emit("file_status", name, "processing")
         self._emit("log", f"[{name}] Starting processing pipeline...", "processing")
 
@@ -300,6 +333,7 @@ class FileWorkerPool:
                 log_callback=log_cb,
                 cancel_check=lambda: self.cancel_flag,
                 platform=options.get("platform", ""),
+                editorial=is_editorial,
             )
 
             if meta.get("fail_reason") == "cancelled":
@@ -383,6 +417,14 @@ class FileWorkerPool:
             meta.get("keywords", []),
         )
 
+        if is_editorial:
+            desc = build_editorial_caption(
+                desc,
+                editorial_fields["city"],
+                editorial_fields["country"],
+                editorial_fields["date_created"],
+            )
+
         if img:
             self._emit(
                 "preview", img, status, tag, meta, final_path, file_hash
@@ -401,6 +443,11 @@ class FileWorkerPool:
             options.get("copyright", ""),
             options.get("author", ""),
             is_ai_generated=is_ai_generated,
+            is_editorial=is_editorial,
+            city=editorial_fields["city"],
+            country=editorial_fields["country"],
+            country_code=editorial_fields["country_code"],
+            date_created=editorial_fields["date_created"],
         ):
             self._emit("log", f"[{name}] File completed and saved. ({len(keywords)} kw)", "success")
             self._emit("file_status", name, "done")
@@ -416,6 +463,11 @@ class FileWorkerPool:
                     options.get("copyright", ""),
                     options.get("author", ""),
                     is_ai_generated=is_ai_generated,
+                    is_editorial=is_editorial,
+                    city=editorial_fields["city"],
+                    country=editorial_fields["country"],
+                    country_code=editorial_fields["country_code"],
+                    date_created=editorial_fields["date_created"],
                 )
                 if synced > 0:
                     self._emit(
@@ -424,7 +476,18 @@ class FileWorkerPool:
                         "info",
                     )
 
-            csv_logger.log(name, title, desc, keywords, is_ai_generated=is_ai_generated)
+            csv_logger.log(
+                name,
+                title,
+                desc,
+                keywords,
+                is_ai_generated=is_ai_generated,
+                is_editorial=is_editorial,
+                city=editorial_fields["city"],
+                country=editorial_fields["country"],
+                country_code=editorial_fields["country_code"],
+                date_created=editorial_fields["date_created"],
+            )
 
             if (
                 options.get("auto_zip")

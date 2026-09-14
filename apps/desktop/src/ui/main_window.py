@@ -21,7 +21,12 @@ from backend.core.worker_pool import (
 from backend.processors.exiftool_client import ExifToolClient
 from backend.services.ftp_uploader import FTPUploader
 from backend.services.folder_watcher import FolderWatcher
-from packages.shared_utils.csv_exporter import generate_microstock_csvs, upsert_metadata_csv
+from packages.shared_utils.csv_exporter import (
+    build_editorial_caption,
+    generate_microstock_csvs,
+    upsert_editorial_csv,
+    upsert_metadata_csv,
+)
 from packages.shared_utils.tools_setup import ensure_tools_installed
 from packages.shared_utils.env_check import run_environment_checks
 from packages.shared_utils.filter import (
@@ -592,6 +597,9 @@ class AppWindow(ctk.CTk):
 
     # ── Batch Copy & Apply Metadata ──────────────────────────────────────
     def _open_batch_apply(self):
+        self._require_license(self._do_batch_apply, "Batch Apply Metadata...")
+
+    def _do_batch_apply(self):
         show_batch_apply(self)
 
     # ── Logging ──────────────────────────────────────────────────────────
@@ -601,6 +609,9 @@ class AppWindow(ctk.CTk):
 
     # ── Batch Find & Replace ─────────────────────────────────────────────
     def open_batch_replace(self):
+        self._require_license(self._do_batch_replace, "Batch Find & Replace")
+
+    def _do_batch_replace(self):
         show_batch_replace(self)
 
     def log(self, message: str, level="info"):
@@ -949,6 +960,13 @@ class AppWindow(ctk.CTk):
                     "sync_companion_files": self.sync_companions.get(),
                     "last_folder": self.input_dir.get(),
                     "active_profile": self.preset_var.get(),
+                    "is_editorial": bool(self.config.get("editorial_enabled")),
+                    "editorial_city": self.config.get("editorial_city", ""),
+                    "editorial_country": self.config.get("editorial_country", ""),
+                    "editorial_country_code": self.config.get(
+                        "editorial_country_code", ""
+                    ),
+                    "editorial_date": self.config.get("editorial_date", ""),
                 }
             )
             if self.outer_paned.winfo_ismapped():
@@ -963,6 +981,7 @@ class AppWindow(ctk.CTk):
         save_config(self.config)
 
     def _on_close(self):
+        self._stop_watcher()
         self.pool.cancel()
         self._save_current_config()
         self.destroy()
@@ -1468,6 +1487,9 @@ class AppWindow(ctk.CTk):
         self.edit_kws_var.set(", ".join(trim_keywords(raw)))
 
     def save_manual(self):
+        self._require_license(self._save_manual_impl, "Save Metadata")
+
+    def _save_manual_impl(self):
         if not self.current_edit_file or not os.path.exists(self.current_edit_file):
             return
         self._save_snapshot()
@@ -1508,6 +1530,15 @@ class AppWindow(ctk.CTk):
             except Exception:
                 pass
             return
+        is_editorial = bool(self.config.get("editorial_enabled"))
+        editorial_city = self.config.get("editorial_city", "")
+        editorial_country = self.config.get("editorial_country", "")
+        editorial_country_code = self.config.get("editorial_country_code", "")
+        editorial_date = self.config.get("editorial_date", "")
+        if is_editorial:
+            desc = build_editorial_caption(
+                desc, editorial_city, editorial_country, editorial_date
+            )
         if self.processor.embed_metadata(
             self.current_edit_file,
             title,
@@ -1515,6 +1546,11 @@ class AppWindow(ctk.CTk):
             kws,
             self._get_copyright_text(),
             self.author_entry.get().strip(),
+            is_editorial=is_editorial,
+            city=editorial_city,
+            country=editorial_country,
+            country_code=editorial_country_code,
+            date_created=editorial_date,
         ):
             meta = {"title": title, "description": desc, "keywords": kws}
             if self.current_edit_hash:
@@ -1534,6 +1570,19 @@ class AppWindow(ctk.CTk):
             sub_dir = os.path.dirname(self.current_edit_file)
             temp_master = os.path.join(sub_dir, "metadata_output.csv")
             upsert_metadata_csv(temp_master, name, title, desc, kws)
+            if is_editorial:
+                upsert_editorial_csv(
+                    temp_master,
+                    name,
+                    title,
+                    desc,
+                    kws,
+                    is_editorial,
+                    editorial_city,
+                    editorial_country,
+                    editorial_country_code,
+                    editorial_date,
+                )
             platforms = self._get_selected_csv_platforms()
             selected = self.target_plat_var.get()
             if selected and selected != "Generic":
@@ -1548,10 +1597,19 @@ class AppWindow(ctk.CTk):
             self.input_dir.set(dir_path)
 
     def open_ftp_dialog(self):
+        self._require_license(self._do_open_ftp, "FTP Upload")
+
+    def _do_open_ftp(self):
         show_ftp_dialog(self)
 
     def _run_ftp_upload(self, host, port, user, passwd, folder, zip_only):
-        uploader = FTPUploader(host, port, user, passwd)
+        uploader = FTPUploader(
+            host,
+            port,
+            user,
+            passwd,
+            cancel_check=lambda: self.pool.cancel_flag,
+        )
         uploader.upload_batch(
             folder,
             zip_only,
@@ -1626,7 +1684,44 @@ class AppWindow(ctk.CTk):
         self._call_main(self._refresh_file_queue)
 
     def start_offline_retag(self):
+        self._require_license(self._do_offline_retag, "Import Metadata from CSV...")
+
+    def _do_offline_retag(self):
         start_offline_retag(self)
+
+    def _require_license(self, action, description, *args):
+        import threading
+
+        def _check():
+            try:
+                is_valid, msg = self.auth.validate_session()
+            except Exception as e:
+                self.log(
+                    f"[AUTH] Session check error: {type(e).__name__}: {e}", "error"
+                )
+                self._call_main(
+                    self._run_licensed_action, False, "ERROR", action, description, args
+                )
+                return
+            self._call_main(
+                self._run_licensed_action, is_valid, msg, action, description, args
+            )
+
+        threading.Thread(target=_check, daemon=True).start()
+
+    def _run_licensed_action(self, is_valid, msg, action, description, args):
+        if not is_valid:
+            self.log(f"{description} dibatalkan: {msg}", "error")
+            if msg == "KICKED":
+                import tkinter.messagebox
+
+                tkinter.messagebox.showerror(
+                    "Akses Ditolak",
+                    "Sesi Berakhir: Akun Anda telah login di perangkat lain",
+                )
+            self.show_login_modal()
+            return
+        action(*args)
 
     def start_processing(self, new_only=False):
         if self.pool.is_running and not self.pool.reap_stale():

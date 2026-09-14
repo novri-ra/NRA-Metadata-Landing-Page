@@ -21,8 +21,9 @@ class FTPUploader:
         passwd: str,
         max_retries: int = 3,
         retry_delay: float = 1.0,
+        cancel_check: Callable[[], bool] | None = None,
     ):
-        self._client = FTPClient(host, port, user, passwd)
+        self._client = FTPClient(host, port, user, passwd, cancel_check=cancel_check)
         self._max_retries = max_retries
         self._retry_delay = retry_delay
 
@@ -78,36 +79,41 @@ class FTPUploader:
             progress_cb(0)
 
         success = 0
-        for i, fpath in enumerate(files):
-            fname = os.path.basename(fpath)
-            if log_cb:
-                log_cb(f"FTP: uploading {fname}...", "processing")
-
-            uploaded = False
-            for attempt in range(1, self._max_retries + 1):
-                if self.upload_file(fpath):
-                    uploaded = True
-                    break
-                if attempt < self._max_retries:
+        try:
+            for i, fpath in enumerate(files):
+                if self._client.cancel_check():
                     if log_cb:
-                        log_cb(
-                            f"FTP: retry {fname} (attempt {attempt + 1})...",
-                            "processing",
-                        )
-                    time.sleep(self._retry_delay)
-
-            if uploaded:
+                        log_cb("FTP: upload canceled by user.", "error")
+                    break
+                fname = os.path.basename(fpath)
                 if log_cb:
-                    log_cb(f"FTP: OK {fname}", "success")
-                success += 1
-            else:
-                if log_cb:
-                    log_cb(f"FTP: FAIL {fname}", "error")
+                    log_cb(f"FTP: uploading {fname}...", "processing")
 
-            if progress_cb:
-                progress_cb((i + 1) / total)
+                uploaded = False
+                for attempt in range(1, self._max_retries + 1):
+                    if self.upload_file(fpath):
+                        uploaded = True
+                        break
+                    if attempt < self._max_retries:
+                        if log_cb:
+                            log_cb(
+                                f"FTP: retry {fname} (attempt {attempt + 1})...",
+                                "processing",
+                            )
+                        time.sleep(self._retry_delay)
 
-        self.disconnect()
+                if uploaded:
+                    if log_cb:
+                        log_cb(f"FTP: OK {fname}", "success")
+                    success += 1
+                else:
+                    if log_cb:
+                        log_cb(f"FTP: FAIL {fname}", "error")
+
+                if progress_cb:
+                    progress_cb((i + 1) / total)
+        finally:
+            self.disconnect()
         if log_cb:
             log_cb(f"FTP Upload Complete: {success}/{total} successful.", "info")
         return success, total

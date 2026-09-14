@@ -1,8 +1,12 @@
 import csv
 import os
 import re
+from datetime import datetime
 
-from packages.shared_utils.taxonomy import get_adobe_category_code
+from packages.shared_utils.taxonomy import (
+    SHUTTERSTOCK_CATEGORIES,
+    get_adobe_category_code,
+)
 
 
 def sanitize_text(s: str, semi: str = ",") -> str:
@@ -41,40 +45,11 @@ def fmt_desc(s: str, max_len: int = 2000, semi: str = ",") -> str:
     return s[:idx] if idx > 0 else s[:max_len]
 
 
-# Shutterstock photos (and EPS vectors) use *named* categories, up to 2 per file.
-SHUTTERSTOCK_CATEGORIES = [
-    "Abstract",
-    "Animals/Wildlife",
-    "Arts",
-    "Backgrounds/Textures",
-    "Beauty/Fashion",
-    "Buildings/Landmarks",
-    "Business/Finance",
-    "Celebrities",
-    "Education",
-    "Food and Drink",
-    "Healthcare/Medical",
-    "Holidays",
-    "Industrial",
-    "Interiors",
-    "Miscellaneous",
-    "Nature",
-    "Objects",
-    "Parks/Outdoor",
-    "People",
-    "Religion",
-    "Science",
-    "Signs/Symbols",
-    "Sports/Recreation",
-    "Technology",
-    "Transportation",
-    "Vintage",
-]
-
 _SS_CATEGORY_ALIASES = {
     "Food and drink": "Food and Drink",
     "Health care": "Healthcare/Medical",
-    "Art": "Arts",
+    "Art": "The Arts",
+    "Arts": "The Arts",
 }
 
 
@@ -136,6 +111,53 @@ def _row_is_ai(r: dict) -> bool:
     return str(r.get("IsAI", "")).strip().lower() in {"1", "true", "yes"}
 
 
+def _row_is_editorial(r: dict) -> bool:
+    return str(r.get("IsEditorial", "") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def _parse_editorial_date(raw: str) -> datetime | None:
+    """Parse ``YYYY-MM-DD`` / ``YYYY/MM/DD`` / 8-digit ``YYYYMMDD``."""
+    raw = (raw or "").strip()
+    m = re.match(r"^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", raw)
+    if not m:
+        m = re.match(r"^(\d{4})(\d{2})(\d{2})$", raw)
+    if not m:
+        return None
+    try:
+        return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except ValueError:
+        return None
+
+
+def format_editorial_date(date_created: str) -> str:
+    """Render a date as editorial caption format ``MONTH DAY, YEAR``."""
+    d = _parse_editorial_date(date_created)
+    return d.strftime("%B %d, %Y") if d else (date_created or "").strip()
+
+
+def build_editorial_caption(
+    description: str,
+    city: str = "",
+    country: str = "",
+    date_created: str = "",
+) -> str:
+    """Compose the Getty/iStock 5W editorial caption prefix.
+
+    ``[CITY, COUNTRY - MONTH DAY, YEAR: <factual description>]``.  Missing
+    parts degrade gracefully; a blank location and date returns the raw
+    description unchanged.
+    """
+    loc = ", ".join(x.strip() for x in (city, country) if x and x.strip())
+    date = format_editorial_date(date_created)
+    if not loc and not date:
+        return description
+    return f"[{loc} - {date}: {description}]" if loc and date else f"[{loc or date}: {description}]"
+
+
 def upsert_metadata_csv(
     master_path: str, filename: str, title: str, description: str, keywords: list
 ) -> None:
@@ -154,6 +176,49 @@ def upsert_metadata_csv(
     for r in rows[1:]:
         if r and r[0] == filename:
             r[:] = row
+            break
+    else:
+        rows.append(row)
+    with open(master_path, "w", encoding="utf-8", newline="") as f:
+        csv.writer(f).writerows(rows)
+
+
+def upsert_editorial_csv(
+    master_path: str,
+    filename: str,
+    title: str,
+    description: str,
+    keywords: list,
+    is_editorial: bool = False,
+    city: str = "",
+    country: str = "",
+    country_code: str = "",
+    date_created: str = "",
+) -> None:
+    """Update-or-append a single file's row with the editorial columns."""
+    rows: list[list[str]] = []
+    if os.path.exists(master_path):
+        with open(master_path, "r", encoding="utf-8", newline="") as f:
+            rows = list(csv.reader(f))
+    if not rows:
+        rows = [["Filename", "Title", "Description", "Keywords",
+                 "IsAI", "IsEditorial", "City", "Country", "CountryCode", "DateCreated"]]
+    row = [
+        filename,
+        title,
+        description,
+        ",".join(keywords),
+        "0",
+        "1" if is_editorial else "0",
+        city,
+        country,
+        country_code,
+        date_created,
+    ]
+    for r in rows[1:]:
+        if r and r[0] == filename:
+            r.extend("" for _ in range(len(row) - len(r)))
+            r[: len(row)] = row
             break
     else:
         rows.append(row)
@@ -238,7 +303,7 @@ def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
                     r.get("SecondaryCategory", ""),
                     r["Filename"],
                 ),
-                "no",
+                "yes" if _row_is_editorial(r) else "no",
                 "",
                 is_illus(r["Filename"]),
             ],
@@ -278,7 +343,7 @@ def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
     if "Dreamstime" in platforms:
         write_csv(
             "dreamstime_export.csv",
-            ["Filename", "Title", "Description", "Keywords"],
+            ["Filename", "Title", "Description", "Keywords", "Editorial"],
             lambda r: [
                 r["Filename"],
                 sanitize_text(r.get("Title", "")),
@@ -286,5 +351,32 @@ def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
                     sanitize_text(r.get("Description", "")), _row_is_ai(r)
                 ),
                 fmt_kw(r["Keywords"], 0, 50),
+                "yes" if _row_is_editorial(r) else "no",
+            ],
+        )
+
+    editorial_rows = [r for r in rows if _row_is_editorial(r)]
+    if editorial_rows:
+        write_csv(
+            "getty_editorial_export.csv",
+            [
+                "Filename",
+                "Title",
+                "Description",
+                "Keywords",
+                "City",
+                "Country",
+                "CountryCode",
+                "DateCreated",
+            ],
+            lambda r: [
+                r["Filename"],
+                sanitize_text(r.get("Title", "")),
+                sanitize_text(r.get("Description", "")),
+                fmt_kw(r.get("Keywords", ""), 0, 999),
+                sanitize_text(r.get("City", "")),
+                sanitize_text(r.get("Country", "")),
+                sanitize_text(r.get("CountryCode", "")),
+                sanitize_text(r.get("DateCreated", "")),
             ],
         )

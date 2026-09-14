@@ -445,6 +445,46 @@ class SidebarPanel(ctk.CTkFrame):
                 font=ctk.CTkFont(family="Segoe UI", size=11),
             ).grid(row=i, column=0, sticky="w", pady=2)
 
+        _label(sidebar, "Editorial (news/documentary)").pack(
+            fill="x", anchor="w", **LPAD
+        )
+        self.editorial_var = ctk.BooleanVar(value=config.get("editorial_enabled", False))
+        ctk.CTkCheckBox(
+            sidebar,
+            text="Enable editorial mode",
+            variable=self.editorial_var,
+            fg_color=C["accent"],
+            hover_color=C["accent_h"],
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            command=lambda: (
+                app.config.__setitem__("editorial_enabled", self.editorial_var.get()),
+                app._save_current_config(),
+            ),
+        ).pack(anchor="w", padx=12, pady=(0, 4))
+
+        editorial_entries = [
+            ("editorial_city", "City"),
+            ("editorial_country", "Country"),
+            ("editorial_country_code", "Country Code"),
+            ("editorial_date", "Date (YYYY-MM-DD)"),
+        ]
+        for key, label_text in editorial_entries:
+            _label(sidebar, label_text).pack(fill="x", anchor="w", **LPAD)
+            entry = _entry(sidebar)
+            entry.insert(0, config.get(key, ""))
+            entry.pack(fill="x", **PAD)
+            entry.bind(
+                "<FocusOut>",
+                lambda e, k=key, en=entry: (
+                    app.config.__setitem__(k, en.get().strip()),
+                    app._save_current_config(),
+                ),
+            )
+            entry.bind(
+                "<Return>",
+                lambda e, en=entry: app.winfo_toplevel().focus_set(),
+            )
+
         _divider(sidebar).pack(fill="x", padx=12, pady=(8, 8))
 
         self.start_btn = _btn(
@@ -492,7 +532,7 @@ class SidebarPanel(ctk.CTkFrame):
 
         self.ftp_btn = _btn(
             sidebar,
-            "FTP / SFTP Upload",
+            "FTP Upload",
             C["violet"],
             C["violet_h"],
             command=app.open_ftp_dialog,
@@ -539,6 +579,7 @@ class SidebarPanel(ctk.CTkFrame):
             "author_entry",
             "copyright_entry",
             "csv_vars",
+            "editorial_var",
             "start_btn",
             "pause_btn",
             "cancel_btn",

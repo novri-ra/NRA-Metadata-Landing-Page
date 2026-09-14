@@ -42,6 +42,7 @@ def build_metadata_prompt(
     style_guide: str,
     extra_prompt: str = "",
     platform: str = "",
+    editorial: bool = False,
 ) -> str:
     rules = PLATFORM_RULES.get(platform, {})
     title_max = rules.get("title_max_chars", 180)
@@ -50,6 +51,15 @@ def build_metadata_prompt(
     extra_line = (
         f"\nAdditional Context / Focus: {extra_prompt}"
         if extra_prompt.strip()
+        else ""
+    )
+    editorial_block = (
+        "\n## EDITORIAL MODE (news/documentary asset):\n"
+        "- Describe the scene factually, answering who, what, where, when, and why.\n"
+        "- The exporter appends the '[CITY, COUNTRY - MONTH DAY, YEAR]' caption prefix "
+        "automatically; do not invent a bracket prefix yourself.\n"
+        "- Keep a neutral journalistic tone; avoid commercial 'perfect for buyers' phrasing.\n"
+        if editorial
         else ""
     )
     return f"""You are an elite microstock metadata SEO specialist. Analyze this image and generate strictly valid JSON metadata optimized for Adobe Stock and Shutterstock search algorithms.
@@ -77,7 +87,7 @@ def build_metadata_prompt(
 
 Style Focus: {style_guide}
 {extra_line}
-
+{editorial_block}
 Return ONLY valid raw JSON with this exact structure:
 {{"title": "...", "description": "...", "keywords": ["keyword1", "keyword2", ..., "keyword{target_kw}"]}}
 Do NOT return anything else — no explanations, no markdown, no code fences. Just the raw JSON object."""
@@ -302,6 +312,7 @@ class AIService:
         log_callback=None,
         cancel_check=None,
         platform: str = "",
+        editorial: bool = False,
         **kwargs,
     ) -> dict:
         filename = os.path.basename(image_path) if image_path else "unknown"
@@ -325,7 +336,7 @@ class AIService:
         )
 
         prompt = build_metadata_prompt(
-            target_kw, style_guide, extra_prompt, platform=platform
+            target_kw, style_guide, extra_prompt, platform=platform, editorial=editorial
         )
 
         is_text_fallback = image_path.endswith(".svg") and not image_path.endswith(
