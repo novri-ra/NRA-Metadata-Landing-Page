@@ -116,6 +116,86 @@ def _build_staged_cmd(cmd: list, staged_path: str) -> list:
     return staged_cmd
 
 
+def _pre_cleanup_temp(file_path: str) -> None:
+    """Remove a leftover ``<target>_exiftool_tmp`` from an earlier run."""
+    parent = os.path.dirname(file_path) or "."
+    tmp = os.path.join(parent, os.path.basename(file_path) + "_exiftool_tmp")
+    try:
+        if os.path.isfile(tmp):
+            os.chmod(tmp, stat.S_IREAD | stat.S_IWRITE)
+            os.remove(tmp)
+    except OSError:
+        pass
+
+
+def _build_stream_cmd(cmd: list) -> list:
+    """Turn a metadata command into a pure STDIN→STDOUT stream.
+
+    The overwrite flags (which force ``<file>_exiftool_tmp`` next to the
+    target) are dropped, the trailing file argument is replaced by ``-`` (read
+    binary input from STDIN), and ``-o -`` redirects the rewritten binary to
+    STDOUT so ExifTool never touches the target directory.
+    """
+    cleaned = [
+        arg
+        for arg in cmd
+        if arg not in ("-overwrite_original", "-overwrite_original_in_place")
+    ]
+    return cleaned[:-1] + ["-o", "-", "-"]
+
+
+def _run_exiftool_stream(
+    cmd: list, timeout: int, input_bytes: bytes
+) -> subprocess.CompletedProcess:
+    """Run ExifTool over a binary pipe: target bytes in on STDIN, the rewritten
+    file comes back on STDOUT (bytes), so nothing is written to the filesystem."""
+    exiftool_path = cmd[0]
+    cwd = os.path.dirname(os.path.abspath(exiftool_path))
+    is_exe = str(exiftool_path).lower().endswith(".exe")
+    converted_cmd = [cmd[0]] + [_to_cli_path(arg, is_exe) for arg in cmd[1:]]
+    return subprocess.run(
+        converted_cmd,
+        input=input_bytes,
+        capture_output=True,
+        timeout=timeout,
+        cwd=cwd,
+    )
+
+
+def _run_metadata_write(cmd: list, file_path: str, timeout: int):
+    """Write metadata with zero disk-temp usage: stream the file through
+    ExifTool's STDIN/STDOUT and write the returned binary back to the target.
+
+    When the stream yields nothing (some formats reject ``-o -``) or errors, a
+    controlled fallback runs the classic direct write (with temp-staging if the
+    target folder blocks in-place writes).
+    """
+    _pre_cleanup_temp(file_path)
+    try:
+        with open(file_path, "rb") as f_in:
+            input_bytes = f_in.read()
+    except OSError:
+        input_bytes = None
+    if input_bytes is not None:
+        stream_cmd = _build_stream_cmd(cmd)
+        try:
+            stream = _run_exiftool_stream(stream_cmd, timeout, input_bytes)
+            if stream.returncode == 0 and len(stream.stdout or b"") > 0:
+                _prepare_target(file_path)
+                try:
+                    os.chmod(file_path, stat.S_IREAD | stat.S_IWRITE)
+                except OSError:
+                    pass
+                with open(file_path, "wb") as f_out:
+                    f_out.write(stream.stdout)
+                return stream
+        except subprocess.TimeoutExpired:
+            raise
+        except OSError:
+            pass
+    return _run_exiftool_resilient(cmd, timeout=timeout, file_path=file_path)
+
+
 class ToolExecutionError(RuntimeError):
     """ExifTool failed against the temp-staged copy too.
 
@@ -225,7 +305,7 @@ class ExifToolClient:
             ]
         )
         try:
-            result = _run_exiftool_resilient(cmd, timeout=30, file_path=file_path)
+            result = _run_metadata_write(cmd, file_path, timeout=30)
         except subprocess.TimeoutExpired:
             print(f"[WARN] Sanitizer timeout on {os.path.basename(file_path)}")
             return False
@@ -337,7 +417,7 @@ class ExifToolClient:
         cmd.append(file_path)
 
         try:
-            result = _run_exiftool_resilient(cmd, timeout=60, file_path=file_path)
+            result = _run_metadata_write(cmd, file_path, timeout=60)
         except subprocess.TimeoutExpired:
             print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool Timeout")
             log_failed_file(

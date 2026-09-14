@@ -167,5 +167,67 @@ class StagingFallbackTest(unittest.TestCase):
             self.assertEqual(ctx.exception.result.returncode, 1)
 
 
+class StreamingWriteTest(unittest.TestCase):
+    def test_streaming_rewrites_file_via_pipe(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "img.jpg"
+            _make_file(target, b"ORIGINAL-BYTES")
+
+            ok = mock.Mock(
+                returncode=0, stdout=b"NEW-STREAMED-BYTES", stderr=b"Warning: minor"
+            )
+            with mock.patch(
+                "backend.processors.exiftool_client._run_exiftool_stream"
+            ) as stream:
+                stream.return_value = ok
+                ec._run_metadata_write(
+                    ["exiftool", "-overwrite_original_in_place", "-m", str(target)],
+                    str(target),
+                    timeout=30,
+                )
+
+            self.assertEqual(target.read_bytes(), b"NEW-STREAMED-BYTES")
+            stream_cmd, _timeout, input_bytes = stream.call_args.args
+            self.assertNotIn("-overwrite_original_in_place", stream_cmd)
+            self.assertNotIn("-overwrite_original", stream_cmd)
+            self.assertEqual(stream_cmd[-3:], ["-o", "-", "-"])
+            self.assertEqual(input_bytes, b"ORIGINAL-BYTES")
+
+    def test_streaming_empty_stdout_falls_back_to_in_place(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "img.jpg"
+            _make_file(target, b"ORIGINAL")
+
+            empty = mock.Mock(returncode=0, stdout=b"", stderr=b"")
+            with mock.patch(
+                "backend.processors.exiftool_client._run_exiftool_stream"
+            ) as stream, mock.patch(
+                "backend.processors.exiftool_client._run_exiftool"
+            ) as run:
+                stream.return_value = empty
+                run.return_value = mock.Mock(returncode=0, stdout="ok", stderr="")
+                result = ec._run_metadata_write(
+                    ["exiftool", "-overwrite_original_in_place", "-m", str(target)],
+                    str(target),
+                    timeout=30,
+                )
+
+            self.assertEqual(run.call_count, 1)
+            self.assertEqual(result.returncode, 0)
+
+    def test_pre_cleanup_removes_leftover_tmp(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "img.jpg"
+            _make_file(target, b"ORIGINAL")
+            leftover = Path(tmp) / "img.jpg_exiftool_tmp"
+            leftover.write_bytes(b"junk")
+            ec._pre_cleanup_temp(str(target))
+            self.assertFalse(leftover.exists())
+
+
 if __name__ == "__main__":
     unittest.main()
