@@ -4,7 +4,7 @@ import tempfile
 import unittest
 
 from backend.ai.provider_router import AIService
-from backend.core.worker_pool import resolve_kw_range
+from backend.core.worker_pool import resolve_target_kw
 from packages.shared_utils.csv_exporter import upsert_metadata_csv
 from packages.shared_utils.filter import calculate_quality_score
 
@@ -62,26 +62,12 @@ class CsvUpsertTest(unittest.TestCase):
             self.assertEqual(rows[1][3], "x,y")
 
 
-class KwRangeLockTest(unittest.TestCase):
-    def test_min_only_change_without_override_still_auto_aligns(self):
-        options = {
-            "platform": "Shutterstock",
-            "min_kw": 20,  # user nudged the lower bound only
-            "max_kw": 49,
-            "kw_locked": False,  # no Custom Range override checked
-        }
-        min_kw, max_kw = resolve_kw_range(options)
-        self.assertEqual((min_kw, max_kw), (7, 50), "platform auto-align stays active")
+class TargetKwTest(unittest.TestCase):
+    def test_default_target_kw_is_49(self):
+        self.assertEqual(resolve_target_kw({}), 49)
 
-    def test_explicit_override_keeps_user_range(self):
-        options = {
-            "platform": "Shutterstock",
-            "min_kw": 20,
-            "max_kw": 49,
-            "kw_locked": True,  # user checked Custom Range override
-        }
-        min_kw, max_kw = resolve_kw_range(options)
-        self.assertEqual((min_kw, max_kw), (20, 49))
+    def test_target_kw_from_options(self):
+        self.assertEqual(resolve_target_kw({"target_kw": 30}), 30)
 
 
 class VisionPatternTest(unittest.TestCase):

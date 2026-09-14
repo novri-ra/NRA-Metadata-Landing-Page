@@ -91,6 +91,7 @@ class AppWindow(ctk.CTk):
                 "stats": self._on_pool_stats,
                 "progress": lambda v: self._call_main(self.progress_bar.set, v),
                 "preview": self._on_pool_preview,
+                "file_status": self._on_file_status,
                 "batch_complete": self._on_batch_complete,
                 "finished": self._on_pool_finished,
             }
@@ -99,6 +100,7 @@ class AppWindow(ctk.CTk):
         self.current_preview_img = None
         self.processed_files = set()
         self.excluded_files = set()
+        self.queue_status = {}
         self.batch_session_stats = {
             "processed": 0,
             "skipped": 0,
@@ -145,6 +147,11 @@ class AppWindow(ctk.CTk):
             "OpenAI": ["gpt-4o-mini (Optimal)", "gpt-4o", "chatgpt-4o-latest"],
             "Custom": ["gpt-4o-mini (Default)"],
         }
+
+        # Restore previously fetched model lists
+        for prov, cached in self.config.get("model_cache", {}).items():
+            if cached:
+                self.MODEL_MAP[prov] = cached
 
         self._restore_geometry()
         self.build_ui()
@@ -252,14 +259,28 @@ class AppWindow(ctk.CTk):
             )
             row.pack(fill="x")
 
-            is_processed = f in self.processed_files
+            is_excluded = f in self.excluded_files
+            file_status = self.queue_status.get(f)
 
-            # Badge
-            badge_color = C["success"] if is_processed else C["text3"]
-            badge_text = "Done" if is_processed else "Pending"
+            # Determine badge color and text from live status
+            if file_status == "processing":
+                badge_color = C["cyan"]
+                badge_text = "Processing"
+            elif file_status == "done":
+                badge_color = C["success"]
+                badge_text = "\u2713 Done"
+            elif file_status == "failed":
+                badge_color = C["error"]
+                badge_text = "Failed"
+            elif f in self.processed_files:
+                badge_color = C["success"]
+                badge_text = "\u2713 Done"
+            else:
+                badge_color = C["text3"]
+                badge_text = "Pending"
 
             # Use boolean var for exclude toggle
-            var = ctk.BooleanVar(value=f in self.excluded_files)
+            var = ctk.BooleanVar(value=is_excluded)
             self._queue_vars[f] = var
 
             def on_toggle(filename=f, v=var):
@@ -267,7 +288,7 @@ class AppWindow(ctk.CTk):
                     self.excluded_files.add(filename)
                 else:
                     self.excluded_files.discard(filename)
-                self._refresh_file_queue()  # re-render to show skipped style
+                self._refresh_file_queue()
 
             cb = ctk.CTkCheckBox(
                 row,
@@ -283,17 +304,17 @@ class AppWindow(ctk.CTk):
             )
             cb.pack(side="left", padx=(8, 4), pady=4)
 
-            if var.get():
+            if is_excluded:
                 badge_color = C["border"]
                 badge_text = "Skipped"
 
             ctk.CTkLabel(
                 row,
                 text=badge_text,
-                width=50,
+                width=70,
                 corner_radius=4,
                 fg_color=badge_color,
-                text_color=C["bg"] if badge_color != "transparent" else C["text"],
+                text_color=C["bg"] if badge_color not in ("transparent", C["text3"]) else C["text"],
                 font=ctk.CTkFont(size=9, weight="bold"),
             ).pack(side="left", padx=4, pady=4)
 
@@ -301,7 +322,7 @@ class AppWindow(ctk.CTk):
                 row,
                 text=f,
                 font=ctk.CTkFont(family="Segoe UI", size=11),
-                text_color=C["text3"] if var.get() else C["text"],
+                text_color=C["text3"] if is_excluded else C["text"],
             )
             lbl.pack(side="left", padx=8, pady=4)
 
@@ -319,6 +340,10 @@ class AppWindow(ctk.CTk):
         else:
             self.excluded_files.clear()
         self._refresh_file_queue()
+
+    def _on_file_status(self, name, status):
+        self.queue_status[name] = status
+        self._call_main(self._refresh_file_queue)
 
     # ── History & Undo ───────────────────────────────────────────────────
     def _save_snapshot(self):
@@ -684,8 +709,7 @@ class AppWindow(ctk.CTk):
         self.presets = {
             "Default": {},
             "Adobe Stock Vector": {
-                "min_kw": 15,
-                "max_kw": 45,
+                "target_kw": 45,
                 "formats": {
                     ".svg": True,
                     ".eps": True,
@@ -698,8 +722,7 @@ class AppWindow(ctk.CTk):
                 "style_preset": "General Commercial",
             },
             "Shutterstock Photo": {
-                "min_kw": 20,
-                "max_kw": 50,
+                "target_kw": 50,
                 "formats": {
                     ".svg": False,
                     ".eps": False,
@@ -712,8 +735,7 @@ class AppWindow(ctk.CTk):
                 "style_preset": "Photo Realistic",
             },
             "Vecteezy Icon/Clipart": {
-                "min_kw": 10,
-                "max_kw": 30,
+                "target_kw": 30,
                 "formats": {
                     ".svg": True,
                     ".eps": True,
@@ -734,19 +756,10 @@ class AppWindow(ctk.CTk):
         p = self.presets.get(choice)
         if not p:
             return
-        # Applying a preset that carries kw bounds is a deliberate override.
-        if choice != "Default" and ("min_kw" in p or "max_kw" in p):
-            custom_kw_range = getattr(self, "custom_kw_range", None)
-            if custom_kw_range is not None:
-                custom_kw_range.set(True)
-        if "min_kw" in p:
-            self.min_kw_entry.delete(0, "end")
-            self.min_kw_entry.insert(0, str(p["min_kw"]))
-        if "max_kw" in p:
-            self.max_kw_entry.delete(0, "end")
-            self.max_kw_entry.insert(0, str(p["max_kw"]))
+        if "target_kw" in p:
+            self.target_kw_entry.delete(0, "end")
+            self.target_kw_entry.insert(0, str(p["target_kw"]))
         if "style_preset" in p:
-            # Need to ensure combo has it, though normally we'd dynamically add or rely on style mapping
             self.style_cb.set(p["style_preset"])
         if "formats" in p:
             for ext, val in p["formats"].items():
@@ -762,8 +775,7 @@ class AppWindow(ctk.CTk):
 
         custom = self.config.get("custom_presets", {})
         custom[name] = {
-            "min_kw": self._safe_int(self.min_kw_entry.get(), 10),
-            "max_kw": self._safe_int(self.max_kw_entry.get(), 49),
+            "target_kw": self._safe_int(self.target_kw_entry.get(), 49),
             "custom_kw": self.custom_kw_entry.get(),
             "custom_kw_pos": self.custom_kw_pos.get(),
             "extra_prompt": self.extra_prompt_entry.get(),
@@ -891,9 +903,10 @@ class AppWindow(ctk.CTk):
             if "api_keys" not in self.config:
                 self.config["api_keys"] = {}
 
-            # Update the key for the CURRENT provider explicitly from the entry field
-            if hasattr(self, "api_key_entry"):
-                self.config["api_keys"][provider] = self.api_key_entry.get()
+            # Update the key(s) for the CURRENT provider explicitly from the textbox
+            if hasattr(self, "api_key_text"):
+                raw = self.api_key_text.get("1.0", "end-1c").strip()
+                self.config["api_keys"][provider] = raw
 
             # Clean old legacy key
             self.config.pop("api_key", None)
@@ -904,17 +917,17 @@ class AppWindow(ctk.CTk):
                     "model": self.model_cb.get(),
                     "temperature": round(float(self.temp_slider.get()), 1),
                     "style_preset": self.style_cb.get(),
-                    "min_kw": self._safe_int(self.min_kw_entry.get(), 10),
-                    "max_kw": self._safe_int(self.max_kw_entry.get(), 49),
-                    "kw_locked": bool(self.custom_kw_range.get()),
+                    "target_kw": self._safe_int(
+                        self.target_kw_entry.get(), 49
+                    ) if hasattr(self, "target_kw_entry") else 49,
                     "custom_kw": self.custom_kw_entry.get(),
                     "custom_kw_pos": self.custom_kw_pos.get(),
                     "extra_prompt": self.extra_prompt_entry.get(),
                     "workers": int(self.workers_slider.get()),
                     "delay": (
-                        int(self.delay_slider.get())
-                        if hasattr(self, "delay_slider")
-                        else 0
+                        int(self.cooldown_delay_entry.get())
+                        if hasattr(self, "cooldown_delay_entry")
+                        else 10
                     ),
                     "custom_base_url": (
                         self.base_url_entry.get().strip()
@@ -925,6 +938,11 @@ class AppWindow(ctk.CTk):
                     "author": self.author_entry.get().strip(),
                     "copyright": self.copyright_entry.get().strip(),
                     "csv_platforms": list(self._get_selected_csv_platforms()),
+                    "custom_endpoint": {
+                        "name": self.custom_name_entry.get().strip() if hasattr(self, "custom_name_entry") else "My Custom API",
+                        "base_url": self.base_url_entry.get().strip() if hasattr(self, "base_url_entry") else "",
+                        "package": self.custom_package_cb.get() if hasattr(self, "custom_package_cb") else "openai",
+                    },
                     "auto_watch": self.auto_watch.get(),
                     "auto_zip_vector": self.auto_zip.get(),
                     "target_platform": self.target_plat_var.get(),
@@ -952,34 +970,29 @@ class AppWindow(ctk.CTk):
     def _load_keys_from_file(self):
         from tkinter import filedialog
 
-        path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
+        path = filedialog.askopenfilename(
+            filetypes=[
+                ("Supported Files", "*.txt;*.csv;*.json;*.env"),
+                ("Text Files", "*.txt"),
+                ("CSV Files", "*.csv"),
+                ("All Files", "*.*"),
+            ]
+        )
         if not path:
             return
 
         provider = self.provider_cb.get()
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
+            from backend.core.utils.key_manager import load_keys_from_file
 
-            keys = []
-            for line in lines:
-                k = line.strip()
-                if k and k not in keys:
-                    keys.append(k)
-
+            keys = load_keys_from_file(path)
             if keys:
-                if "api_keys_pool" not in self.config:
-                    self.config["api_keys_pool"] = {}
-                self.config["api_keys_pool"][provider] = keys
-
-                # Update current entry to first key
-                self.api_key_entry.delete(0, "end")
-                self.api_key_entry.insert(0, keys[0])
-                self._save_current_config()  # Save to old api_keys dict for backward compatibility
-
-                self.keys_counter_lbl.configure(text=f"({len(keys)} keys loaded)")
+                self.config["api_keys"][provider] = "\n".join(keys)
+                self.api_key_text.delete("1.0", "end")
+                self.api_key_text.insert("1.0", "\n".join(keys))
                 self._save_current_config()
-                self.log(f"Loaded {len(keys)} API keys for {provider}", "success")
+                self.keys_counter_lbl.configure(text=f"({len(keys)} keys loaded)")
+                self.log(f"Loaded {len(keys)} API key(s) for {provider} from file.", "success")
             else:
                 self.log("File is empty or contains no valid keys.", "error")
         except OSError as e:
@@ -987,15 +1000,17 @@ class AppWindow(ctk.CTk):
 
     def _update_keys_counter(self, provider):
         if hasattr(self, "keys_counter_lbl"):
-            pool = self.config.get("api_keys_pool", {}).get(provider, [])
-            # Also check old api_keys dict if pool is empty
-            if not pool and self.config.get("api_keys", {}).get(provider):
-                pool = [self.config["api_keys"][provider]]
-            self.keys_counter_lbl.configure(text=f"({len(pool)} keys loaded)")
+            from backend.core.utils.key_manager import parse_api_keys
+            raw = self.config.get("api_keys", {}).get(provider, "")
+            keys = parse_api_keys(raw)
+            self.keys_counter_lbl.configure(text=f"({len(keys)} keys loaded)")
 
     def _fetch_models(self):
         provider = self.provider_cb.get()
-        api_key = self.api_key_entry.get().strip()
+        from backend.core.utils.key_manager import parse_api_keys
+        raw = self.api_key_text.get("1.0", "end-1c").strip() if hasattr(self, "api_key_text") else ""
+        keys = parse_api_keys(raw)
+        api_key = keys[0] if keys else ""
 
         if not api_key:
             self.log(f"Please enter an API Key for {provider} first.", "error")
@@ -1025,18 +1040,27 @@ class AppWindow(ctk.CTk):
 
         # Update MAP and UI
         self.MODEL_MAP[provider] = models
+        self.config.setdefault("model_cache", {})[provider] = models
         current_provider = self.provider_cb.get()
 
         if current_provider == provider:
             self.model_cb.configure(values=models)
-            if models:
+            saved_model = self.config.get("model", "")
+            if saved_model and saved_model in models:
+                self.model_cb.set(saved_model)
+            elif models:
                 self.model_cb.set(models[0])
             self.log(f"Successfully updated models for {provider}.", "success")
+        self._save_current_config()
 
     def _update_model_list(self, choice):
+        is_custom = choice == "Custom"
         models = self.MODEL_MAP.get(choice, [])
-        self.model_cb.configure(values=models, state="readonly")
-        if models:
+        self.model_cb.configure(values=models, state="normal" if is_custom else "readonly")
+        saved = self.config.get("model", "")
+        if saved and saved in models:
+            self.model_cb.set(saved)
+        elif models:
             self.model_cb.set(models[0])
             self.config["model"] = models[0]
         else:
@@ -1044,40 +1068,103 @@ class AppWindow(ctk.CTk):
             self.config["model"] = ""
 
     def _on_provider_change(self, choice):
-        if hasattr(self, "api_key_entry"):
-            # 1. Simpan API Key yang sedang diketik ke provider sebelumnya
-            current_key_input = self.api_key_entry.get().strip()
-            prev_provider = getattr(
-                self, "current_provider", self.config.get("provider", "Gemini")
-            )
+        prev_provider = getattr(
+            self, "current_provider", self.config.get("provider", "Gemini")
+        )
+        self._loading_provider = True
 
-            if "api_keys" not in self.config:
-                self.config["api_keys"] = {}
-            if current_key_input:
-                self.config["api_keys"][prev_provider] = current_key_input
+        if "api_keys" not in self.config:
+            self.config["api_keys"] = {}
 
-            # 2. Update status provider aktif
-            self.current_provider = choice
-            self.config["provider"] = choice
+        # Save current provider's keys
+        if hasattr(self, "api_key_text"):
+            raw = self.api_key_text.get("1.0", "end-1c").strip()
+            if raw:
+                self.config["api_keys"][prev_provider] = raw
 
-            # 3. Muat API Key milik provider yang baru dipilih
+        self.current_provider = choice
+        self.config["provider"] = choice
+
+        # Load new provider's keys
+        if hasattr(self, "api_key_text"):
+            self.api_key_text.delete("1.0", "end")
             target_key = self.config["api_keys"].get(choice, "")
-            self.api_key_entry.delete(0, "end")
             if target_key:
-                self.api_key_entry.insert(0, target_key)
+                self.api_key_text.insert("1.0", target_key)
+            self._loading_provider = False
 
-            self.api_key_entry.configure(placeholder_text="API Key")
+        # Update model list
+        if hasattr(self, "_update_model_list"):
+            self._update_model_list(choice)
+
+        # Toggle custom endpoint fields visibility (Part 6)
+        if hasattr(self, "custom_frame"):
+            if choice == "Custom":
+                self.custom_frame.pack(fill="x", padx=0, pady=0, after=self.fetch_models_btn)
+                self.model_cb.configure(state="normal")
+            else:
+                self.custom_frame.pack_forget()
+                self.model_cb.configure(state="readonly")
 
         # Update counter
         if hasattr(self, "_update_keys_counter"):
             self._update_keys_counter(choice)
 
-        # 4. Sinkronkan daftar Model di dropdown ComboBox
-        if hasattr(self, "_update_model_list"):
-            self._update_model_list(choice)
-
-        # 5. Simpan state konfigurasi ke storage
         self._save_current_config()
+
+    def _test_custom_connection(self):
+        base_url = self.base_url_entry.get().strip()
+        api_key = self.api_key_text.get("1.0", "end-1c").strip() if hasattr(self, "api_key_text") else ""
+        model = self.model_cb.get().strip() if hasattr(self, "model_cb") else ""
+        package = self.custom_package_cb.get() if hasattr(self, "custom_package_cb") else "openai"
+
+        if not base_url:
+            self.log("Please enter a Base URL first.", "error")
+            return
+
+        self.test_conn_btn.configure(text="Testing...", state="disabled")
+        self.update_idletasks()
+
+        def _bg_test():
+            try:
+                if package == "openai":
+                    from backend.core.utils.key_manager import build_openai_compatible_client
+                    client = build_openai_compatible_client(base_url, api_key or "test", model)
+                    models_list = client.models.list()
+                    model_names = [m.id for m in models_list][:20]
+                    self._call_main(self._test_conn_done, True, model_names)
+                else:
+                    import requests as _req
+                    norm_url = base_url.rstrip("/")
+                    if not norm_url.endswith("/v1"):
+                        norm_url += "/v1"
+                    resp = _req.get(
+                        f"{norm_url}/models",
+                        headers={"Authorization": f"Bearer {api_key}"},
+                        timeout=15,
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    model_names = [m.get("id", "") for m in data.get("data", [])][:20]
+                    self._call_main(self._test_conn_done, True, model_names)
+            except Exception as e:
+                self._call_main(self._test_conn_done, False, str(e))
+
+        import threading
+        threading.Thread(target=_bg_test, daemon=True).start()
+
+    def _test_conn_done(self, ok, result):
+        self.test_conn_btn.configure(text="Test Connection", state="normal")
+        if ok:
+            self.log(f"Connection successful! Found {len(result)} model(s).", "success")
+            if result:
+                self.MODEL_MAP["Custom"] = result
+                self.model_cb.configure(values=result, state="normal")
+                self.model_cb.set(result[0])
+                self.config["model"] = result[0]
+                self._save_current_config()
+        else:
+            self.log(f"Connection failed: {result}", "error")
 
     def _get_selected_csv_platforms(self) -> set:
         return {plat for plat, var in self.csv_vars.items() if var.get()}
@@ -1135,16 +1222,15 @@ class AppWindow(ctk.CTk):
     def _update_kw_counter(self):
         raw = self.edit_kws_var.get()
         count = len([k for k in raw.split(",") if k.strip()])
-        min_kw = self._safe_int(self.min_kw_entry.get(), 10)
-        max_kw = self._safe_int(self.max_kw_entry.get(), 49)
-        if min_kw <= count <= max_kw:
+        target = self._safe_int(self.target_kw_entry.get(), 49) if hasattr(self, "target_kw_entry") else 49
+        if count == target:
             color = C["success"]
-        elif count < min_kw:
+        elif count < target:
             color = C["warn"]
         else:
             color = C["error"]
         self.kw_counter_lbl.configure(
-            text=f"Keywords ({count} / {max_kw})", text_color=color
+            text=f"Keywords ({count} / {target})", text_color=color
         )
         self._check_redundancies()
 
@@ -1365,8 +1451,10 @@ class AppWindow(ctk.CTk):
     def _dedup_keywords(self):
         self._save_snapshot()
         raw = [k.strip() for k in self.edit_kws_var.get().split(",") if k.strip()]
-        max_kw = self._safe_int(self.max_kw_entry.get(), 50)
-        cleaned = sanitize_keywords(raw, max_kw)
+        target_kw = self._safe_int(
+            self.target_kw_entry.get(), 49
+        ) if hasattr(self, "target_kw_entry") else 49
+        cleaned = sanitize_keywords(raw, target_kw)
         self.edit_kws_var.set(", ".join(cleaned))
 
     def _lowercase_all_keywords(self):
@@ -1383,8 +1471,9 @@ class AppWindow(ctk.CTk):
         if not self.current_edit_file or not os.path.exists(self.current_edit_file):
             return
         self._save_snapshot()
-        max_kw = self._safe_int(self.max_kw_entry.get(), 50)
-        min_kw = self._safe_int(self.min_kw_entry.get(), 0)
+        target_kw = self._safe_int(
+            self.target_kw_entry.get(), 49
+        ) if hasattr(self, "target_kw_entry") else 49
         meta = clean_metadata(
             {
                 "title": self.edit_title_var.get(),
@@ -1395,8 +1484,7 @@ class AppWindow(ctk.CTk):
                     if k.strip()
                 ],
             },
-            max_kw=max_kw,
-            min_kw=min_kw,
+            target_kw=target_kw,
         )
         title = meta["title"]
         desc = meta["description"]
@@ -1535,12 +1623,13 @@ class AppWindow(ctk.CTk):
         self.start_btn.configure(state="normal")
         self.pause_btn.configure(state="disabled")
         self.cancel_btn.configure(state="disabled")
+        self._call_main(self._refresh_file_queue)
 
     def start_offline_retag(self):
         start_offline_retag(self)
 
     def start_processing(self, new_only=False):
-        if self.pool.is_running:
+        if self.pool.is_running and not self.pool.reap_stale():
             self.log("Batch masih menyelesaikan file aktif...", "warn")
             return
 
@@ -1607,6 +1696,7 @@ class AppWindow(ctk.CTk):
             self.start_btn.configure(state="normal")
             return self.log("No new files." if new_only else "No files.", "error")
         self.processed_files.update(files)
+        self.queue_status.clear()
 
         self.pause_btn.configure(
             text="Pause", fg_color=C["warn"], hover_color=C["warn_h"], state="normal"
@@ -1620,12 +1710,8 @@ class AppWindow(ctk.CTk):
             "api_keys": self.config.get("api_keys", {}),
             "model": self.config.get("model", "") or "Gemini",
             "temperature": self.config.get("temperature", 0.3),
-            "min_kw": self.config["min_kw"],
-            "max_kw": self.config["max_kw"],
+            "target_kw": self.config.get("target_kw", 49),
             "platform": self.target_plat_var.get(),
-            # Explicit user override only — set via the Custom KW Range toggle or
-            # a custom preset; editing min/max alone never locks platform ranges.
-            "kw_locked": bool(self.config.get("kw_locked", False)),
             "style_preset": self.config["style_preset"],
             "extra_prompt": self.config.get("extra_prompt", ""),
             "custom_kw": self.config.get("custom_kw", ""),
@@ -1639,7 +1725,7 @@ class AppWindow(ctk.CTk):
             "csv_platforms": self._get_selected_csv_platforms(),
             "workers": max(1, int(self.workers_slider.get())),
             "custom_base_url": self.config.get("custom_base_url", ""),
-            "delay": float(self.config.get("delay", 0)),
+            "delay": float(self.config.get("delay", 10)),
             "skipped_count": skipped_count,
         }
         paths = [os.path.join(in_dir, f) for f in files]
@@ -1656,8 +1742,34 @@ class AppWindow(ctk.CTk):
         self.start_btn.configure(state="normal")
         self.pause_btn.configure(state="normal")
         self.cancel_btn.configure(state="normal")
+        self._refresh_file_queue()
+        self._show_batch_end_summary()
 
     def _show_batch_summary(self):
         show_batch_summary(self)
+
+    def _show_batch_end_summary(self):
+        s = self.stats
+        success = s.get("success", 0)
+        error = s.get("error", 0)
+        skipped = self.pool.session_stats.get("skipped", 0)
+        total = s.get("total", 0)
+
+        if self.pool.cancel_flag:
+            color = C["error"]
+            label = f"Cancelled — {success} done, {error} failed, {skipped} skipped"
+        elif error:
+            color = C["error"]
+            label = f"Done — {success}/{total} succeeded, {error} failed"
+        else:
+            color = C["success"]
+            label = f"All done — {success} files processed"
+            if skipped:
+                label += f", {skipped} skipped"
+
+        self.header_status.configure(text=label, text_color=color)
+        self.after(8000, lambda: self.header_status.configure(
+            text="Ready", text_color=C["text3"],
+        ))
 
 

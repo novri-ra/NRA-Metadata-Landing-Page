@@ -58,13 +58,58 @@ class WorkerPoolCancelTest(unittest.TestCase):
         with mock.patch(
             "backend.core.worker_pool.extract_preview_image", return_value=preview
         ):
-            options = {"min_kw": 25, "max_kw": 49, "style_preset": "Standard",
+            options = {"target_kw": 49, "style_preset": "Standard",
                        "extra_prompt": "", "custom_kw": "", "custom_kw_pos": "Start (Priority)"}
             pool._process_file(os.path.join(tmp, "x.eps"), tmp, FakeAI(pool), options, object())
 
         self.assertFalse(os.path.exists(preview))
         self.assertTrue(any("Stopped: batch cancelled" in str(l) for l in logs))
         self.assertEqual(pool.stats["error"], 0)
+
+
+class CancelReentrancyTest(unittest.TestCase):
+    """Restart after cancel must not be blocked by a stale is_running flag."""
+
+    _OPTIONS = {
+        "provider": "Gemini",
+        "api_keys": {},
+        "model": "gemini-2.5-flash",
+        "temperature": 0.3,
+        "target_kw": 49,
+        "style_preset": "Standard",
+        "extra_prompt": "",
+        "workers": 1,
+        "delay": 0,
+    }
+
+    def test_start_recovers_from_stale_flag(self):
+        pool = FileWorkerPool()
+        pool.is_running = True
+        pool._batch_thread = None
+
+        class FakeService:
+            def __init__(self, *a, **k):
+                pass
+
+        with mock.patch(
+            "backend.core.worker_pool.AIService", FakeService
+        ), mock.patch(
+            "backend.core.worker_pool.extract_preview_image", return_value=None
+        ):
+            started = pool.start(["a.jpg", "b.jpg"], tempfile.mkdtemp(), dict(self._OPTIONS))
+        self.assertTrue(started, "start() must survive an orphaned is_running flag")
+        deadline = time.time() + 10
+        while pool.is_running and time.time() < deadline:
+            time.sleep(0.02)
+        self.assertFalse(pool.is_running)
+
+    def test_cancel_does_not_block_when_thread_absent(self):
+        pool = FileWorkerPool()
+        t0 = time.monotonic()
+        pool.cancel()
+        self.assertLess(time.monotonic() - t0, 1.0)
+        self.assertTrue(pool.cancel_flag)
+        self.assertTrue(pool.pause_event.is_set())
 
 
 if __name__ == "__main__":

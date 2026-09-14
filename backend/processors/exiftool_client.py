@@ -274,8 +274,17 @@ def _log_exiftool_failure(
 
 
 class ExifToolClient:
-    def sanitize_ai_metadata(self, file_path: str) -> bool:
-        """Strip AI provenance and generation tags while preserving Adobe/creative app metadata."""
+    def sanitize_ai_metadata(
+        self, file_path: str, is_ai_generated: bool = False
+    ) -> bool:
+        """Manage AI provenance tags.
+
+        ``is_ai_generated=False`` (human-made): strip internal generator junk
+        (PNG prompt/workflow) only; official C2PA manifests and IPTC
+        ``DigitalSourceType`` are preserved. ``is_ai_generated=True``: no
+        removal args at all, and the IPTC ``trainedAlgorithmicMedia``
+        declaration is written explicitly.
+        """
         file_path = os.path.normpath(os.path.abspath(file_path))
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         _prepare_target(file_path)
@@ -286,24 +295,26 @@ class ExifToolClient:
         is_png = os.path.splitext(file_path)[1].lower() == ".png"
         cmd = [exiftool_path]
         cmd.extend(exiftool_flags(exiftool_path))
-        if is_png:
+        if is_ai_generated:
             cmd.extend(
                 [
-                    "-PNG:parameters=",
-                    "-PNG:prompt=",
-                    "-PNG:workflow=",
-                    "-PNG:negative_prompt=",
-                    "-PNG:Generation time=",
+                    "-XMP-iptcExt:DigitalSourceType=http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+                    "-XMP:DigitalSourceType=trainedAlgorithmicMedia",
                 ]
             )
-        cmd.extend(
-            [
-                "-XMP-c2pa:all=",
-                "-XMP-xmpGImg:all=",
-                "-XMP:DigitalSourceType=",
-                file_path,
-            ]
-        )
+        else:
+            if is_png:
+                cmd.extend(
+                    [
+                        "-PNG:parameters=",
+                        "-PNG:prompt=",
+                        "-PNG:workflow=",
+                        "-PNG:negative_prompt=",
+                        "-PNG:Generation time=",
+                    ]
+                )
+            cmd.extend(["-XMP-xmpGImg:all="])
+        cmd.append(file_path)
         try:
             result = _run_metadata_write(cmd, file_path, timeout=30)
         except subprocess.TimeoutExpired:
@@ -329,6 +340,7 @@ class ExifToolClient:
         keywords: list[str],
         copyright_text: str,
         author: str = "",
+        is_ai_generated: bool = False,
     ) -> bool:
         file_path = os.path.normpath(os.path.abspath(file_path))
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -350,8 +362,8 @@ class ExifToolClient:
             return False
         _prepare_target(file_path)
 
-        # 1. Sanitize AI metadata first
-        self.sanitize_ai_metadata(file_path)
+        # 1. Manage AI provenance tags
+        self.sanitize_ai_metadata(file_path, is_ai_generated)
 
         # 2. Embed new metadata
         exiftool_path = get_exiftool_path()
@@ -464,6 +476,9 @@ class ExifToolClient:
         try:
             ET.register_namespace("", "http://www.w3.org/2000/svg")
             ET.register_namespace("dc", "http://purl.org/dc/elements/1.1/")
+            ET.register_namespace(
+                "rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+            )
             tree = ET.parse(file_path)
             root = tree.getroot()
             title_el = ET.Element("{http://www.w3.org/2000/svg}title")
@@ -473,7 +488,7 @@ class ExifToolClient:
             root.insert(0, desc_el)
             root.insert(0, title_el)
 
-            if author or copyright_text:
+            if author or copyright_text or keywords:
                 metadata_el = ET.Element("{http://www.w3.org/2000/svg}metadata")
                 rdf_el = ET.Element("{http://www.w3.org/1999/02/22-rdf-syntax-ns#}RDF")
                 work_el = ET.Element("{http://purl.org/dc/elements/1.1/}Work")
@@ -485,6 +500,17 @@ class ExifToolClient:
                     rights_el = ET.Element("{http://purl.org/dc/elements/1.1/}rights")
                     rights_el.text = copyright_text
                     work_el.append(rights_el)
+                if keywords:
+                    subject_el = ET.Element("{http://purl.org/dc/elements/1.1/}subject")
+                    bag_el = ET.SubElement(
+                        subject_el, "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}Bag"
+                    )
+                    for kw in keywords:
+                        li_el = ET.SubElement(
+                            bag_el, "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}li"
+                        )
+                        li_el.text = kw
+                    work_el.append(subject_el)
                 rdf_el.append(work_el)
                 metadata_el.append(rdf_el)
                 root.insert(0, metadata_el)

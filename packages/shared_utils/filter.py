@@ -66,9 +66,8 @@ def filter_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def sanitize_keywords(keywords: list[str], max_kw: int = 50) -> list[str]:
-    # dict preserves first-occurrence insertion order during dedup, so the AI's
-    # priority ordering (most important first) is never scrambled.
+def sanitize_keywords(keywords: list[str], target_kw: int = 49) -> list[str]:
+    """Deduplicate (case-insensitive, preserving order) and truncate to target."""
     ordered: dict[str, str] = {}
     for kw in keywords:
         kw_clean = re.sub(r"^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$", "", kw).strip()
@@ -83,9 +82,9 @@ def sanitize_keywords(keywords: list[str], max_kw: int = 50) -> list[str]:
         if key in _FALLBACK_TOKENS or key in ordered:
             continue
         ordered[key] = filtered
-        if len(ordered) >= max_kw:
+        if len(ordered) >= target_kw:
             break
-    return list(ordered.values())
+    return list(ordered.values())[:target_kw]
 
 
 def _context_keyword_candidates(text: str, existing: set, needed: int) -> list[str]:
@@ -112,19 +111,19 @@ def _context_keyword_candidates(text: str, existing: set, needed: int) -> list[s
     return candidates
 
 
-def clean_metadata(meta: dict, max_kw: int = 50, min_kw: int = 0) -> dict:
+def clean_metadata(meta: dict, target_kw: int = 49) -> dict:
     title = filter_text(meta.get("title", ""))
     description = filter_text(meta.get("description", ""))
-    keywords = sanitize_keywords(meta.get("keywords", []), max_kw)
-    if min_kw and len(keywords) < min_kw and len(keywords) < max_kw:
-        needed = min(min_kw, max_kw) - len(keywords)
+    keywords = sanitize_keywords(meta.get("keywords", []), target_kw)
+    if len(keywords) < target_kw:
+        needed = target_kw - len(keywords)
         context = f"{title} {description}"
         keywords += _context_keyword_candidates(context, set(keywords), needed)
     return {
         "title": title,
         "description": description,
         "category": filter_text(meta.get("category", "")),
-        "keywords": keywords,
+        "keywords": keywords[:target_kw],
     }
 
 
@@ -158,8 +157,8 @@ PLATFORM_RULES = {
         "title_min_words": 3,
         "desc_min_words": 5,
         "desc_max_chars": 200,
-        "kw_min": 5,
-        "kw_max": 50,
+        "kw_min": 10,
+        "kw_max": 30,
     },
 }
 

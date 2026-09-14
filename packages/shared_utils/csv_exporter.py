@@ -210,7 +210,7 @@ def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
                 r["Filename"],
                 sanitize_text(r.get("Title", "")),
                 sanitize_text(r.get("Description", "")),
-                fmt_kw(r["Keywords"], 5, 50),
+                fmt_kw(r["Keywords"], 10, 30),
                 "pro",
                 "",
             ],

@@ -11,14 +11,14 @@ from packages.shared_utils.license_manager import AuthClient
 from packages.shared_utils.logger import CSVLogger, logger
 
 
-def process_file(file_path, out_dir, ai, processor, min_kw, max_kw, csv_logger):
+def process_file(file_path, out_dir, ai, processor, target_kw, csv_logger):
     logger.info(f"Processing {os.path.basename(file_path)}")
     preview = extract_preview_image(file_path)
     if not preview:
         logger.warning(f"Skipped {os.path.basename(file_path)}: no preview")
         return
 
-    meta = ai.generate_metadata(preview, min_kw, max_kw)
+    meta = ai.generate_metadata(preview, target_kw)
     try:
         os.remove(preview)
     except OSError:
@@ -46,8 +46,7 @@ def main():
         "--provider", required=True, choices=["Gemini", "OpenAI", "Mistral"]
     )
     parser.add_argument("--api-key", required=True)
-    parser.add_argument("--min-kw", type=int, default=5)
-    parser.add_argument("--max-kw", type=int, default=20)
+    parser.add_argument("--target-kw", type=int, default=49)
     parser.add_argument("--workers", type=int, default=2)
     parser.add_argument(
         "--config-dir",
@@ -99,8 +98,7 @@ def main():
                 args.output,
                 ai,
                 processor,
-                args.min_kw,
-                args.max_kw,
+                args.target_kw,
                 csv_logger,
             )
 

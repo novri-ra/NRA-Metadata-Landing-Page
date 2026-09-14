@@ -80,25 +80,25 @@ class VectorDetectionTest(unittest.TestCase):
 class PromptExtraContextTest(unittest.TestCase):
     def test_extra_prompt_interpolated(self):
         prompt = build_metadata_prompt(
-            25, 49, "Balanced visual description for general stock assets.",
+            49, "Balanced visual description for general stock assets.",
             "Focus on pastel colors",
         )
         self.assertIn("Focus on pastel colors", prompt)
-        self.assertIn("Analyze this image/file", prompt)
+        self.assertIn("Analyze this image", prompt)
 
     def test_extra_prompt_absent_when_empty(self):
-        prompt = build_metadata_prompt(25, 49, "Guide text", "")
+        prompt = build_metadata_prompt(49, "Guide text", "")
         self.assertNotIn("Additional Context", prompt)
 
 
-class PlatformRulesOverrideTest(unittest.TestCase):
+class TargetKwPassThroughTest(unittest.TestCase):
     def _run_process(self, options):
         class FakeAI:
             def __init__(self):
                 self.kw = None
 
-            def generate_metadata(self, preview, min_kw, max_kw, *args, **kwargs):
-                self.kw = (min_kw, max_kw)
+            def generate_metadata(self, preview, target_kw, *args, **kwargs):
+                self.kw = target_kw
                 return {"fail_reason": "auth", "error": True}
 
         pool = FileWorkerPool()
@@ -113,17 +113,11 @@ class PlatformRulesOverrideTest(unittest.TestCase):
             pool._process_file(os.path.join(tmp, "x.eps"), tmp, ai, options, object())
         return ai.kw
 
-    def test_platform_limits_override_when_unlocked(self):
-        options = {"platform": "Shutterstock", "kw_locked": False,
-                   "min_kw": 25, "max_kw": 49, "style_preset": "General Commercial",
+    def test_target_kw_passed_to_generate_metadata(self):
+        options = {"platform": "Shutterstock", "target_kw": 32,
+                   "style_preset": "General Commercial",
                    "extra_prompt": "", "custom_kw": "", "custom_kw_pos": "Start (Priority)"}
-        self.assertEqual(self._run_process(options), (7, 50))
-
-    def test_platform_limits_respected_when_locked(self):
-        options = {"platform": "Shutterstock", "kw_locked": True,
-                   "min_kw": 25, "max_kw": 49, "style_preset": "General Commercial",
-                   "extra_prompt": "", "custom_kw": "", "custom_kw_pos": "Start (Priority)"}
-        self.assertEqual(self._run_process(options), (25, 49))
+        self.assertEqual(self._run_process(options), 32)
 
 
 if __name__ == "__main__":

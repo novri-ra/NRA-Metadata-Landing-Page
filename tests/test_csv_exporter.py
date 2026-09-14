@@ -9,6 +9,7 @@ from packages.shared_utils.csv_exporter import (
     sanitize_text,
     ss_categories,
 )
+from packages.shared_utils.filter import PLATFORM_RULES
 
 
 def _write_master(out_dir, rows):
@@ -125,6 +126,40 @@ class ShutterstockCategoriesTest(unittest.TestCase):
             rows = list(csv.DictReader(f))
         self.assertEqual(rows[0]["Categories"], "Arts")
         self.assertEqual(rows[0]["Keywords"], "one")
+
+
+class VecteezyLimitTest(unittest.TestCase):
+    def test_platform_rules_cap_at_30(self):
+        rules = PLATFORM_RULES["Vecteezy"]
+        self.assertEqual(rules["kw_max"], 30)
+        self.assertEqual(rules["kw_min"], 10)
+
+    def test_vecteezy_export_slices_to_30_keywords(self):
+        tmp = tempfile.mkdtemp()
+        kws = ", ".join(f"keyword{i}" for i in range(49))
+        _write_master(
+            tmp,
+            [
+                {
+                    "Filename": "icon.eps",
+                    "Title": "t",
+                    "Description": "a nice description here",
+                    "Keywords": kws,
+                    "PrimaryCategory": "",
+                    "SecondaryCategory": "",
+                }
+            ],
+        )
+        generate_microstock_csvs(tmp, {"Vecteezy"})
+        out = os.path.join(tmp, "vecteezy_export.csv")
+        self.assertTrue(os.path.exists(out))
+        with open(out, "r", encoding="utf-8", newline="") as f:
+            rows = list(csv.DictReader(f))
+        self.assertEqual(len(rows), 1)
+        exported_kws = [k.strip() for k in rows[0]["Keywords"].split(",")]
+        self.assertEqual(len(exported_kws), 30)
+        self.assertEqual(exported_kws[0], "keyword0")
+        self.assertEqual(exported_kws[-1], "keyword29")
 
 
 if __name__ == "__main__":

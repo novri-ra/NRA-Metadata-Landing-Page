@@ -29,17 +29,9 @@ from packages.shared_utils.filter import PLATFORM_RULES, clean_metadata
 from packages.shared_utils.logger import CSVLogger
 
 
-def resolve_kw_range(options: dict) -> tuple[int, int]:
-    """Return (min_kw, max_kw) for a batch run.
-
-    Auto-aligns to the selected platform's PLATFORM_RULES unless the user
-    explicitly locked the range in the UI (kw_locked). Relying on an explicit
-    flag means tweaking only min_kw never disables platform max alignment.
-    """
-    rules = PLATFORM_RULES.get(options.get("platform", ""), {})
-    if rules and not options.get("kw_locked", False):
-        return rules["kw_min"], rules["kw_max"]
-    return options["min_kw"], options["max_kw"]
+def resolve_target_kw(options: dict) -> int:
+    """Return the target keyword count for a batch run."""
+    return int(options.get("target_kw", 49))
 
 
 def find_companion_files(file_path):
@@ -57,7 +49,9 @@ def find_companion_files(file_path):
     return companions
 
 
-def sync_companion_metadata(file_path, title, desc, kws, processor, copyright_text, author):
+def sync_companion_metadata(
+    file_path, title, desc, kws, processor, copyright_text, author, is_ai_generated=False
+):
     """Embed metadata to all companion files with the same base name. Returns count."""
     companions = find_companion_files(file_path)
     if not companions:
@@ -67,7 +61,9 @@ def sync_companion_metadata(file_path, title, desc, kws, processor, copyright_te
         comp_hash = get_file_hash(comp)
         meta = {"title": title, "description": desc, "keywords": kws}
         set_cached_metadata(comp_hash, meta)
-        if processor.embed_metadata(comp, title, desc, kws, copyright_text, author):
+        if processor.embed_metadata(
+            comp, title, desc, kws, copyright_text, author, is_ai_generated
+        ):
             count += 1
     return count
 
@@ -79,6 +75,7 @@ class FileWorkerPool:
         self.pause_event = threading.Event()
         self.pause_event.set()
         self.cancel_flag = False
+        self.cancel_event = threading.Event()
         self.stats = {"total": 0, "success": 0, "error": 0}
         self.session_stats = {
             "processed": 0,
@@ -90,6 +87,7 @@ class FileWorkerPool:
         self.processor = ExifToolClient()
         self._lock = threading.Lock()
         self._executor = None
+        self._batch_thread = None
 
     def _emit(self, name: str, *args):
         cb = self.callbacks.get(name)
@@ -104,12 +102,25 @@ class FileWorkerPool:
     def stats_snapshot(self) -> dict:
         return dict(self.stats)
 
+    def reap_stale(self) -> bool:
+        """Clear a stale ``is_running`` flag left over from a batch thread that
+        already exited (e.g. cancel drained and the thread finished). Returns
+        True when a stale flag was cleared."""
+        if self.is_running:
+            bt = self._batch_thread
+            if bt is None or not bt.is_alive():
+                self.is_running = False
+                self._batch_thread = None
+                return True
+        return False
+
     def start(self, paths, in_dir, options) -> bool:
         """Begin the batch in a background thread. Returns False if already running."""
-        if self.is_running:
+        if self.is_running and not self.reap_stale():
             return False
         self.is_running = True
         self.cancel_flag = False
+        self.cancel_event.clear()
         self.pause_event.set()
         self.stats = {"total": len(paths), "success": 0, "error": 0}
         self.session_stats = {
@@ -120,9 +131,11 @@ class FileWorkerPool:
             "csvs": [],
         }
         self._emit("stats", self.stats_snapshot(), True)
-        threading.Thread(
+        t = threading.Thread(
             target=self._run_batch, args=(paths, in_dir, options), daemon=True
-        ).start()
+        )
+        self._batch_thread = t
+        t.start()
         return True
 
     def toggle_pause(self) -> bool:
@@ -135,6 +148,7 @@ class FileWorkerPool:
 
     def cancel(self):
         self.cancel_flag = True
+        self.cancel_event.set()
         self.pause_event.set()
         executor = self._executor
         if executor is not None:
@@ -150,6 +164,7 @@ class FileWorkerPool:
                 pass
         finally:
             self.is_running = False
+            self._batch_thread = None
             try:
                 self._emit("stats", self.stats_snapshot(), False)
                 self._emit("finished")
@@ -251,9 +266,8 @@ class FileWorkerPool:
             return
 
         name = os.path.basename(file_path)
-        # Apply the selected platform's keyword limits unless the user locked
-        # the range via the Custom Range override in the UI (kw_locked=True).
-        options["min_kw"], options["max_kw"] = resolve_kw_range(options)
+        target_kw = resolve_target_kw(options)
+        self._emit("file_status", name, "processing")
         self._emit("log", f"[{name}] Starting processing pipeline...", "processing")
 
         def log_cb(msg, lvl="info"):
@@ -261,10 +275,12 @@ class FileWorkerPool:
 
         preview = extract_preview_image(file_path, progress_callback=log_cb)
         if not preview:
+            self._emit("file_status", name, "failed")
             self._inc_stat("error")
             return
         if self.cancel_flag:
             self._remove_preview(preview)
+            self._emit("file_status", name, "failed")
             self._emit("log", f"[{name}] Stopped after preview render.", "info")
             return
 
@@ -278,8 +294,7 @@ class FileWorkerPool:
         else:
             meta = ai.generate_metadata(
                 preview,
-                options["min_kw"],
-                options["max_kw"],
+                target_kw,
                 options["style_preset"],
                 options.get("extra_prompt", ""),
                 log_callback=log_cb,
@@ -289,6 +304,7 @@ class FileWorkerPool:
 
             if meta.get("fail_reason") == "cancelled":
                 self._remove_preview(preview)
+                self._emit("file_status", name, "failed")
                 self._emit("log", f"[{name}] Stopped: batch cancelled.", "info")
                 return
 
@@ -308,6 +324,7 @@ class FileWorkerPool:
                     f"[{name}] AI generation failed: {err_detail}",
                     "error",
                 )
+                self._emit("file_status", name, "failed")
                 self._inc_stat("error")
                 # Clean up preview since we're aborting
                 self._remove_preview(preview)
@@ -351,9 +368,10 @@ class FileWorkerPool:
         except OSError:
             pass
 
-        max_kw = options["max_kw"]
-        min_kw = options.get("min_kw", 0)
-        meta = clean_metadata(meta, max_kw, min_kw=min_kw)
+        meta = clean_metadata(meta, target_kw)
+        is_ai_generated = bool(
+            options.get("is_ai_generated") or meta.get("is_ai_generated", False)
+        )
 
         base_name = os.path.splitext(name)[0]
         final_path = os.path.join(out_dir, name)
@@ -372,6 +390,7 @@ class FileWorkerPool:
 
         if self.cancel_flag:
             self._emit("log", f"[{name}] Saved but batch stopped before embedding.", "info")
+            self._emit("file_status", name, "done")
             return
 
         if self.processor.embed_metadata(
@@ -381,8 +400,10 @@ class FileWorkerPool:
             keywords,
             options.get("copyright", ""),
             options.get("author", ""),
+            is_ai_generated=is_ai_generated,
         ):
             self._emit("log", f"[{name}] File completed and saved. ({len(keywords)} kw)", "success")
+            self._emit("file_status", name, "done")
             self._inc_stat("success")
 
             if options.get("sync_companions"):
@@ -394,6 +415,7 @@ class FileWorkerPool:
                     self.processor,
                     options.get("copyright", ""),
                     options.get("author", ""),
+                    is_ai_generated=is_ai_generated,
                 )
                 if synced > 0:
                     self._emit(
@@ -430,8 +452,10 @@ class FileWorkerPool:
                     f"[{name}] Cooldown {delay:.0f}s before next file...",
                     "info",
                 )
-                time.sleep(min(delay, 5))
+                if self.cancel_event.wait(timeout=delay):
+                    self._emit("log", f"[{name}] Cooldown interrupted by cancel.", "info")
 
         else:
             self._emit("log", f"[{name}] ExifTool metadata embedding failed.", "error")
+            self._emit("file_status", name, "failed")
             self._inc_stat("error")

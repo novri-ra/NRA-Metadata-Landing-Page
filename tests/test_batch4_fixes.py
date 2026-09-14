@@ -14,22 +14,22 @@ from packages.shared_utils.filter import (
 
 class PromptPlatformLimitTest(unittest.TestCase):
     def _prompt(self, platform):
-        return build_metadata_prompt(5, 20, "Guide text", "", platform=platform)
+        return build_metadata_prompt(49, "Guide text", "", platform=platform)
 
     def test_freepik_title_limit_100(self):
-        self.assertIn("(max 100 chars),", self._prompt("Freepik"))
+        self.assertIn("(max 100 characters):", self._prompt("Freepik"))
 
     def test_shutterstock_title_limit_150(self):
-        self.assertIn("(max 150 chars),", self._prompt("Shutterstock"))
+        self.assertIn("(max 150 characters):", self._prompt("Shutterstock"))
 
     def test_defaults_when_platform_unknown(self):
-        self.assertIn("(max 180 chars),", self._prompt("Unknown Platform"))
+        self.assertIn("(max 180 characters):", self._prompt("Unknown Platform"))
 
     def test_matches_platform_rules(self):
         for plat, rules in PLATFORM_RULES.items():
             p = self._prompt(plat)
-            self.assertIn(f"(max {rules['title_max_chars']} chars),", p, plat)
-            self.assertIn(f"(max {rules['desc_max_chars']} chars)", p, plat)
+            self.assertIn(f"(max {rules['title_max_chars']} characters):", p, plat)
+            self.assertIn(f"(max {rules['desc_max_chars']} characters):", p, plat)
 
 
 class FallbackTokenStripTest(unittest.TestCase):
@@ -40,7 +40,7 @@ class FallbackTokenStripTest(unittest.TestCase):
             "category": "Objects",
             "keywords": ["ball", "error", "fallback", "Error", "Fallback", "toy"],
         }
-        cleaned = clean_metadata(meta, max_kw=10, min_kw=0)
+        cleaned = clean_metadata(meta, target_kw=10)
         lowered = [k.lower() for k in cleaned["keywords"]]
         self.assertNotIn("error", lowered)
         self.assertNotIn("fallback", lowered)
@@ -48,7 +48,7 @@ class FallbackTokenStripTest(unittest.TestCase):
         self.assertIn("toy", lowered)
 
     def test_sanitize_keywords_strips_fallback(self):
-        kws = sanitize_keywords(["sun", "error", "fallback", "sky"], max_kw=10)
+        kws = sanitize_keywords(["sun", "error", "fallback", "sky"], target_kw=10)
         self.assertEqual(kws, ["sun", "sky"])
 
     def test_placeholder_title_blocks_embed(self):
@@ -62,7 +62,7 @@ class FallbackTokenStripTest(unittest.TestCase):
 
 class KeywordOrderTest(unittest.TestCase):
     def test_dedup_preserves_first_occurrence_order(self):
-        kws = sanitize_keywords(["ball", "sport", "ball", "red", "sport"], max_kw=10)
+        kws = sanitize_keywords(["ball", "sport", "ball", "red", "sport"], target_kw=10)
         self.assertEqual(kws, ["ball", "sport", "red"])
 
     def test_clean_metadata_keeps_ai_order_padding_last(self):
@@ -74,7 +74,7 @@ class KeywordOrderTest(unittest.TestCase):
             "category": "Animals",
             "keywords": ["parrot", "bird", "tropical"],
         }
-        cleaned = clean_metadata(meta, max_kw=8, min_kw=6)
+        cleaned = clean_metadata(meta, target_kw=8)
         # AI keywords stay first, in order; padding is appended after them.
         self.assertEqual(cleaned["keywords"][:3], ["parrot", "bird", "tropical"])
         self.assertGreaterEqual(len(cleaned["keywords"]), 6)
