@@ -12,6 +12,7 @@ Extracted from ``packages/ai_engine/service.py``. Decoupled concerns:
 import json
 import os
 import re
+import threading
 import time
 
 import requests
@@ -28,6 +29,43 @@ from backend.ai.failover_handler import (
 )
 from backend.ai.token_optimizer import encode_image, read_text_asset
 from packages.shared_utils import cost_tracker as _cost_tracker
+
+
+VISION_MIN_INTERVAL = 1.5
+_vision_lock = threading.Lock()
+_last_vision_call = 0.0
+
+
+def _throttle_vision_request() -> None:
+    """Stagger concurrent vision calls so a batch does not slam the provider.
+
+    Worker threads run several files in parallel; without a shared cadence gate
+    they all hit the vision endpoint at once and trip the Mistral RPM limit.
+    ponytail: one global gate for every provider; key it per provider if a batch
+    ever mixes providers with different rate ceilings.
+    """
+    global _last_vision_call
+    with _vision_lock:
+        now = time.monotonic()
+        wait = VISION_MIN_INTERVAL - (now - _last_vision_call)
+        if wait > 0:
+            time.sleep(wait)
+            now = time.monotonic()
+        _last_vision_call = now
+
+
+def _retry_after_seconds(exc) -> float | None:
+    """Read the ``Retry-After`` header off a raised HTTP error, clamped to 60s."""
+    response = getattr(exc, "response", None)
+    if response is None or not getattr(response, "headers", None):
+        return None
+    value = response.headers.get("Retry-After")
+    if not value:
+        return None
+    try:
+        return min(max(float(value), 1), 60)
+    except (TypeError, ValueError):
+        return None
 
 
 class MetadataModel(BaseModel):
@@ -209,6 +247,8 @@ class AIService:
         _log(f"[{filename}] Sending vision prompt to {self.provider} | Model: {self.model or 'default'}...", "info")
 
         for attempt in range(max_retries + 1):
+            if not is_text_fallback:
+                _throttle_vision_request()
             try:
                 if self.provider == "Gemini":
                     if is_text_fallback:
@@ -381,8 +421,14 @@ class AIService:
                 if detect_rate_limit(err_str) or detect_auth_failure(err_str):
                     if "429" in err_str:
                         delay = backoff_times[attempt] if attempt < len(backoff_times) else 30
-                        _log(f"[{filename}] Rate limit (429) on {self.provider}/{self.model or 'default'}. Delaying {delay}s (Attempt {attempt+1}/{max_retries})...", "warn")
+                        retry_after = _retry_after_seconds(e)
+                        if retry_after is not None:
+                            delay = retry_after
+                        _log(f"[{filename}] Rate limit (429) on {self.provider}/{self.model or 'default'}. Delaying {int(delay)}s (Attempt {attempt+1}/{max_retries})...", "warn")
                         time.sleep(delay)
+                        # Already backed off for 429; retry the same key/provider.
+                        if attempt < max_retries and self.failover.keyring.size() <= 1:
+                            continue
 
                     if self.failover.keyring.size() > 1:
                         _log(

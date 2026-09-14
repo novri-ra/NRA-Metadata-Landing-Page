@@ -92,6 +92,39 @@ class StagingFallbackTest(unittest.TestCase):
             )
             self.assertFalse(os.path.exists(retried_target), "temp copy must be cleaned up")
 
+    def test_staged_cmd_uses_plain_overwrite_and_temp_cwd(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "img.eps"
+            _make_file(target, b"EPS")
+
+            blocked = mock.Mock(
+                returncode=1,
+                stdout="",
+                stderr="Error creating file: .../img.eps_exiftool_tmp - permission denied",
+            )
+            ok = mock.Mock(returncode=0, stdout="1 image files updated", stderr="")
+
+            with mock.patch("backend.processors.exiftool_client._run_exiftool") as run:
+                run.side_effect = [blocked, ok]
+                ec._run_exiftool_resilient(
+                    ["exiftool", "-overwrite_original_in_place", "-m", str(target)],
+                    timeout=30,
+                    file_path=str(target),
+                )
+
+            staged_cmd = run.call_args.args[0]
+            self.assertNotIn("-overwrite_original_in_place", staged_cmd)
+            self.assertIn("-overwrite_original", staged_cmd)
+            self.assertNotEqual(staged_cmd[-1], str(target))
+            self.assertEqual(
+                os.path.dirname(staged_cmd[-1]), run.call_args.kwargs["cwd"]
+            )
+            if os.name == "nt":
+                self.assertIn("-api", staged_cmd)
+                self.assertIn("Windows=1", staged_cmd)
+
     def test_non_write_error_does_not_restage(self):
         from unittest import mock
 

@@ -1,5 +1,6 @@
 import csv
 import os
+import time
 import unittest
 
 from backend.ai.provider_router import normalize_base_url
@@ -349,6 +350,43 @@ class TestBatchOutputStructure(unittest.TestCase):
             for name in dirs:
                 os.rmdir(os.path.join(root, name))
         os.rmdir(self.out_dir)
+
+
+class TestRateLimitHandling(unittest.TestCase):
+    def test_backoff_times_lead_with_3s(self):
+        from backend.ai.failover_handler import BACKOFF_TIMES
+
+        self.assertEqual(BACKOFF_TIMES[:3], [3, 6, 12])
+
+    def test_retry_after_seconds_reads_header(self):
+        from backend.ai.provider_router import _retry_after_seconds
+
+        class Resp:
+            headers = {"Retry-After": "25"}
+
+        class Exc:
+            response = Resp()
+
+        self.assertEqual(_retry_after_seconds(Exc()), 25.0)
+
+    def test_retry_after_seconds_ignores_garbage(self):
+        from backend.ai.provider_router import _retry_after_seconds
+
+        class Resp:
+            headers = {"Retry-After": "abc"}
+
+        class Exc:
+            response = Resp()
+
+        self.assertIsNone(_retry_after_seconds(Exc()))
+
+    def test_vision_throttle_enforces_min_interval(self):
+        from backend.ai import provider_router as pr
+
+        start = time.monotonic()
+        pr._throttle_vision_request()
+        pr._throttle_vision_request()
+        self.assertGreaterEqual(time.monotonic() - start, pr.VISION_MIN_INTERVAL - 0.05)
 
 
 class TestSanitizer(unittest.TestCase):

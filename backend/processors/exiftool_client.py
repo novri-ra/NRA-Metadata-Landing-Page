@@ -57,17 +57,20 @@ def _to_cli_path(path: str, is_exe: bool) -> str:
     return path
 
 
-def _run_exiftool(cmd: list, timeout: int) -> subprocess.CompletedProcess:
+def _run_exiftool(
+    cmd: list, timeout: int, cwd: str | None = None
+) -> subprocess.CompletedProcess:
     """Run ExifTool with fully visible text output.
 
-    The cwd is pinned to the ExifTool directory so the bundled Perl wrapper
-    can always find its ``exiftool_files`` support modules, and stderr is
-    decoded with ``errors="replace"`` so a non-UTF8 native message can never
-    be swallowed by a decode exception while surfacing hidden command-line
-    errors.
+    The cwd defaults to the ExifTool directory so the bundled Perl wrapper can
+    always find its ``exiftool_files`` support modules; an isolated staging run
+    pins it to the temp working directory instead. stderr is decoded with
+    ``errors="replace"`` so a non-UTF8 native message can never be swallowed by
+    a decode exception while surfacing hidden command-line errors.
     """
     exiftool_path = cmd[0]
-    cwd = os.path.dirname(os.path.abspath(exiftool_path))
+    if cwd is None:
+        cwd = os.path.dirname(os.path.abspath(exiftool_path))
     is_exe = str(exiftool_path).lower().endswith(".exe")
     converted_cmd = [cmd[0]] + [_to_cli_path(arg, is_exe) for arg in cmd[1:]]
     return subprocess.run(
@@ -93,6 +96,24 @@ def _looks_like_write_blocked(result: subprocess.CompletedProcess) -> bool:
     return "error creating file" in text or (
         "permission denied" in text or "access is denied" in text
     )
+
+
+def _build_staged_cmd(cmd: list, staged_path: str) -> list:
+    """Rebuild the ExifTool command for an isolated temp copy.
+
+    ``-overwrite_original_in_place`` writes ``<file>_exiftool_tmp`` next to the
+    target, which is what the caller's directory blocked. Inside an isolated
+    staging dir a plain ``-overwrite_original`` on the copy is what we want,
+    and the Windows API mode keeps long-path I/O enabled unconditionally.
+    """
+    staged_cmd = [
+        "-overwrite_original" if arg == "-overwrite_original_in_place" else arg
+        for arg in cmd
+    ]
+    if "-api" not in staged_cmd and os.name == "nt":
+        staged_cmd = [staged_cmd[0], "-api", "Windows=1", *staged_cmd[1:]]
+    staged_cmd[-1] = staged_path
+    return staged_cmd
 
 
 class ToolExecutionError(RuntimeError):
@@ -126,12 +147,13 @@ def _run_exiftool_resilient(
         staged_path = os.path.join(staged_dir, os.path.basename(file_path))
         shutil.copy2(file_path, staged_path)
         _prepare_target(staged_path)
-        staged_cmd = list(cmd)
-        staged_cmd[-1] = staged_path
-        staged = _run_exiftool(staged_cmd, timeout=timeout)
+        staged_cmd = _build_staged_cmd(cmd, staged_path)
+        staged = _run_exiftool(staged_cmd, timeout=timeout, cwd=staged_dir)
         if staged.returncode == 0:
+            _prepare_target(staged_path)
             _prepare_target(file_path)
-            shutil.copy2(staged_path, file_path)
+            shutil.copyfile(staged_path, file_path)
+            _prepare_target(file_path)
             print(
                 f"[TEMP-STAGED] {os.path.basename(file_path)}: ExifTool ditulis "
                 f"via temp folder ({tempfile.gettempdir()}) lalu disalin balik."
