@@ -29,6 +29,7 @@ from backend.ai.failover_handler import (
 )
 from backend.ai.token_optimizer import encode_image, read_text_asset
 from packages.shared_utils import cost_tracker as _cost_tracker
+from packages.shared_utils.filter import PLATFORM_RULES
 
 
 VISION_MIN_INTERVAL = 1.5
@@ -37,9 +38,20 @@ _last_vision_call = 0.0
 
 
 def build_metadata_prompt(
-    min_kw: int, max_kw: int, style_guide: str, extra_prompt: str = ""
+    min_kw: int,
+    max_kw: int,
+    style_guide: str,
+    extra_prompt: str = "",
+    platform: str = "",
 ) -> str:
-    """Assemble the metadata-generation prompt (extracted for testability)."""
+    """Assemble the metadata-generation prompt (extracted for testability).
+
+    Character limits follow the target platform's PLATFORM_RULES so the AI
+    emits titles/descriptions that survive ``autofix_compliance`` untouched.
+    """
+    rules = PLATFORM_RULES.get(platform, {})
+    title_max = rules.get("title_max_chars", 180)
+    desc_max = rules.get("desc_max_chars", 200)
     extra_line = (
         f"\n        Additional Context / Focus: {extra_prompt}"
         if extra_prompt.strip()
@@ -47,8 +59,8 @@ def build_metadata_prompt(
     )
     return f"""
         Analyze this image/file and return a JSON object with:
-        "title": a concise, SEO-optimized title (max 180 chars),
-        "description": a detailed description for microstock search (max 200 chars),
+        "title": a concise, SEO-optimized title (max {title_max} chars),
+        "description": a detailed description for microstock search (max {desc_max} chars),
         "category": a broad category,
         "primary_category": primary Shutterstock category from Abstract, Animals/Wildlife, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and Drink, Healthcare/Medical, Holidays, Illustrations/Clip-Art, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, The Arts, Transportation, Vintage,
         "secondary_category": optional secondary Shutterstock category,
@@ -97,6 +109,11 @@ def _retry_after_seconds(exc) -> float | None:
         return min(max(float(value), 1), 60)
     except (TypeError, ValueError):
         return None
+
+
+def _mask_secret(text: str, secret: str) -> str:
+    """Redact a secret from a message so URL/error strings never leak API keys."""
+    return text.replace(secret, "***") if secret else text
 
 
 def _interruptible_sleep(seconds, cancel_check=None, step=0.25) -> bool:
@@ -281,6 +298,7 @@ class AIService:
         extra_prompt: str = "",
         log_callback=None,
         cancel_check=None,
+        platform: str = "",
         **kwargs,
     ) -> dict:
         filename = os.path.basename(image_path) if image_path else "unknown"
@@ -303,7 +321,9 @@ class AIService:
             style_preset, style_prompts["General Commercial"]
         )
 
-        prompt = build_metadata_prompt(min_kw, max_kw, style_guide, extra_prompt)
+        prompt = build_metadata_prompt(
+            min_kw, max_kw, style_guide, extra_prompt, platform=platform
+        )
 
         is_text_fallback = image_path.endswith(".svg") and not image_path.endswith(
             ".jpg"
@@ -561,6 +581,7 @@ class AIService:
                                         extra_prompt,
                                         log_callback,
                                         cancel_check,
+                                        platform,
                                     )
                             _log(
                                 f"[{filename}] All API keys exhausted. No failover provider available.", "error"
@@ -605,6 +626,7 @@ class AIService:
                                     extra_prompt,
                                     log_callback,
                                     cancel_check,
+                                    platform,
                                 )
                     _log(f"[{filename}] {self.provider}: {e}", "error")
                     return self._fallback_metadata(error_details=str(e), fail_reason=fail_reason)
@@ -622,6 +644,7 @@ class AIService:
         extra_prompt: str,
         log_callback=None,
         cancel_check=None,
+        platform: str = "",
     ) -> dict:
         # Run failover on an isolated AIService so concurrent worker threads
         # never see provider/key/client state mutated under them, and forward
@@ -643,6 +666,7 @@ class AIService:
             extra_prompt,
             log_callback=log_callback,
             cancel_check=cancel_check,
+            platform=platform,
         )
 
     def _parse_json(self, text: str) -> dict:
@@ -798,7 +822,8 @@ class AIService:
 
             elif self.provider == "Gemini":
                 response = requests.get(
-                    f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}",
+                    "https://generativelanguage.googleapis.com/v1beta/models",
+                    headers={"x-goog-api-key": self.api_key},
                     timeout=10,
                 )
                 if response.status_code == 200:
@@ -813,5 +838,7 @@ class AIService:
                     return models if models else ["gemini-2.5-flash-lite (Recommended)", "gemini-2.5-flash"]
 
         except (OSError, ValueError, KeyError, RuntimeError) as e:
-            print(f"Fetch models failed for {self.provider}: {e}")
+            print(
+                f"Fetch models failed for {self.provider}: {_mask_secret(str(e), self.api_key)}"
+            )
         return []

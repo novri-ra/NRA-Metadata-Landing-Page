@@ -1,14 +1,28 @@
 import os
 import re
 
-BLACKLIST_FILE = os.path.join(os.getcwd(), "blacklist.txt")
+from backend.core.config_manager import get_config_dir
+
+# Tokens that signal AI fallback metadata. Never allowed as real keywords.
+_FALLBACK_TOKENS = {"error", "fallback", "unknown title"}
+
 _blacklist = set()
+
+
+def blacklist_path() -> str:
+    """Resolve the blacklist file under the stable config dir, not the cwd.
+
+    Matches config_manager storage so the file is found regardless of how the
+    app is launched (shortcut, .bat, different working directory).
+    """
+    return os.path.join(get_config_dir(), "blacklist.txt")
 
 
 def _load_blacklist() -> set:
     bl = {"apple", "nike", "disney", "photoshop", "lego", "coca cola"}
-    if os.path.exists(BLACKLIST_FILE):
-        with open(BLACKLIST_FILE, "r", encoding="utf-8") as f:
+    bl_path = blacklist_path()
+    if os.path.exists(bl_path):
+        with open(bl_path, "r", encoding="utf-8") as f:
             bl.update(line.strip().lower() for line in f if line.strip())
     return bl
 
@@ -39,7 +53,7 @@ def remove_from_blacklist(word: str):
 
 def _save_blacklist():
     # Save custom ones out, we don't necessarily have to separate built-ins, just dump all
-    with open(BLACKLIST_FILE, "w", encoding="utf-8") as f:
+    with open(blacklist_path(), "w", encoding="utf-8") as f:
         f.writelines(f"{w}\n" for w in sorted(get_blacklist()))
 
 
@@ -53,8 +67,9 @@ def filter_text(text: str) -> str:
 
 
 def sanitize_keywords(keywords: list[str], max_kw: int = 50) -> list[str]:
-    seen = set()
-    cleaned = []
+    # dict preserves first-occurrence insertion order during dedup, so the AI's
+    # priority ordering (most important first) is never scrambled.
+    ordered: dict[str, str] = {}
     for kw in keywords:
         kw_clean = re.sub(r"^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$", "", kw).strip()
         if not kw_clean:
@@ -64,13 +79,13 @@ def sanitize_keywords(keywords: list[str], max_kw: int = 50) -> list[str]:
         if not filtered:
             continue
 
-        kw_lower = filtered.lower()
-        if kw_lower not in seen:
-            seen.add(kw_lower)
-            cleaned.append(filtered)
-            if len(cleaned) >= max_kw:
-                break
-    return cleaned
+        key = filtered.lower()
+        if key in _FALLBACK_TOKENS or key in ordered:
+            continue
+        ordered[key] = filtered
+        if len(ordered) >= max_kw:
+            break
+    return list(ordered.values())
 
 
 def _context_keyword_candidates(text: str, existing: set, needed: int) -> list[str]:
@@ -86,7 +101,7 @@ def _context_keyword_candidates(text: str, existing: set, needed: int) -> list[s
         tok = tok.strip("'").strip()
         if len(tok) < 3 or not re.search(r"[a-zA-Z]", tok):
             continue
-        if tok in seen_phrase or tok in _COMMON_WORDS:
+        if tok in seen_phrase or tok in _COMMON_WORDS or tok in _FALLBACK_TOKENS:
             continue
         if not filter_text(tok):
             continue
@@ -199,6 +214,11 @@ def _title_from_filename(filename: str) -> str:
     return " ".join(w.capitalize() for w in words) if words else "Untitled"
 
 
+def is_placeholder_title(title: str) -> bool:
+    """True when a title is missing or still an AI fallback placeholder."""
+    return not (title or "").strip() or title.strip().lower() in _FALLBACK_TOKENS
+
+
 def autofix_compliance(
     title: str,
     description: str = "",
@@ -212,12 +232,11 @@ def autofix_compliance(
 
     # Recover placeholder titles from the source filename instead of bailing out.
     fixed_title = (title or "").strip()
-    if not fixed_title or fixed_title.lower() == "unknown title":
+    if is_placeholder_title(fixed_title):
         fixed_title = _title_from_filename(filename)
 
     # Never keep AI error/fallback tokens as valid keywords.
-    junk = {"error", "fallback", "unknown title"}
-    fixed_keywords = [k for k in (keywords or []) if k.lower() not in junk]
+    fixed_keywords = [k for k in (keywords or []) if k.lower() not in _FALLBACK_TOKENS]
 
     # Fix Title
     if len(fixed_title) > rules["title_max_chars"]:

@@ -31,6 +31,7 @@ from packages.shared_utils.filter import (
     clean_metadata,
     detect_redundant_keywords,
     get_blacklist,
+    is_placeholder_title,
     lowercase_keywords,
     remove_from_blacklist,
     remove_redundant_keywords,
@@ -1394,6 +1395,23 @@ class AppWindow(ctk.CTk):
         kws = meta["keywords"]
 
         name = os.path.basename(self.current_edit_file)
+        if is_placeholder_title(title):
+            self.log(
+                f"{name} (Manual save blocked: title empty or still a fallback placeholder)",
+                "error",
+            )
+            # Show a modal so fallback metadata can't silently slip into EXIF.
+            try:
+                import tkinter.messagebox
+
+                tkinter.messagebox.showwarning(
+                    "Metadata Tidak Valid",
+                    "Title kosong atau masih berisi placeholder fallback AI.\n"
+                    "Perbaiki title terlebih dahulu sebelum menyimpan.",
+                )
+            except Exception:
+                pass
+            return
         if self.processor.embed_metadata(
             self.current_edit_file,
             title,

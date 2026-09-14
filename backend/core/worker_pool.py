@@ -274,6 +274,7 @@ class FileWorkerPool:
                 options.get("extra_prompt", ""),
                 log_callback=log_cb,
                 cancel_check=lambda: self.cancel_flag,
+                platform=options.get("platform", ""),
             )
 
             if meta.get("fail_reason") == "cancelled":

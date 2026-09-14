@@ -84,9 +84,9 @@ def show_blacklist_manager(app):
         if path:
             import shutil
 
-            from packages.shared_utils.filter import BLACKLIST_FILE
+            from packages.shared_utils.filter import blacklist_path
 
-            shutil.copy(BLACKLIST_FILE, path)
+            shutil.copy(blacklist_path(), path)
             app.log("Blacklist exported.", "info")
 
     _btn(
