@@ -6,6 +6,13 @@ from backend.core.config_manager import get_config_dir
 # Tokens that signal AI fallback metadata. Never allowed as real keywords.
 _FALLBACK_TOKENS = {"error", "fallback", "unknown title"}
 
+# Prefixes that trigger spam rejection at Adobe/Shutterstock when a title starts
+# with them ("Vector ...", "Set of ..."). Stripped from normalized titles.
+_TITLE_BANNED_PREFIX_RE = re.compile(
+    r"^(vector|illustration|isolated|set of|collection of)\s+(of\s+)?",
+    re.IGNORECASE,
+)
+
 _blacklist = set()
 
 
@@ -66,8 +73,20 @@ def filter_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def clean_title(title: str) -> str:
+    """Strip microstock-spam opening prefixes ("Vector", "Set of", ...).
+
+    Adobe/Shutterstock reject titles that lead with these spam words; leave the
+    rest of the title untouched.
+    """
+    if not title:
+        return title
+    return _TITLE_BANNED_PREFIX_RE.sub("", title).strip()
+
+
 def sanitize_keywords(keywords: list[str], target_kw: int = 49) -> list[str]:
-    """Deduplicate (case-insensitive, preserving order) and truncate to target."""
+    """Deduplicate (case-insensitive + singular/plural stems, order-preserving),
+    drop bare stop-words, and truncate to target."""
     ordered: dict[str, str] = {}
     for kw in keywords:
         kw_clean = re.sub(r"^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$", "", kw).strip()
@@ -79,12 +98,11 @@ def sanitize_keywords(keywords: list[str], target_kw: int = 49) -> list[str]:
             continue
 
         key = filtered.lower()
-        if key in _FALLBACK_TOKENS or key in ordered:
+        if key in _FALLBACK_TOKENS or key in _COMMON_WORDS or key in ordered:
             continue
         ordered[key] = filtered
-        if len(ordered) >= target_kw:
-            break
-    return list(ordered.values())[:target_kw]
+
+    return remove_redundant_keywords(list(ordered.values()))[:target_kw]
 
 
 def _context_keyword_candidates(text: str, existing: set, needed: int) -> list[str]:
@@ -94,17 +112,18 @@ def _context_keyword_candidates(text: str, existing: set, needed: int) -> list[s
     keyword list comes up short, so a thin keyword array still reaches the
     target count instead of being truncated by the min_kw floor.
     """
-    seen_phrase = {k.lower() for k in existing}
+    seen_phrase = {_simple_stem(k) for k in existing}
     candidates = []
     for tok in re.split(r"[^a-zA-Z0-9']+", text.lower()):
         tok = tok.strip("'").strip()
         if len(tok) < 3 or not re.search(r"[a-zA-Z]", tok):
             continue
-        if tok in seen_phrase or tok in _COMMON_WORDS or tok in _FALLBACK_TOKENS:
+        stem = _simple_stem(tok)
+        if stem in seen_phrase or tok in _COMMON_WORDS or tok in _FALLBACK_TOKENS:
             continue
         if not filter_text(tok):
             continue
-        seen_phrase.add(tok)
+        seen_phrase.add(stem)
         candidates.append(tok)
         if len(candidates) >= needed:
             break
@@ -112,7 +131,7 @@ def _context_keyword_candidates(text: str, existing: set, needed: int) -> list[s
 
 
 def clean_metadata(meta: dict, target_kw: int = 49) -> dict:
-    title = filter_text(meta.get("title", ""))
+    title = clean_title(filter_text(meta.get("title", "")))
     description = filter_text(meta.get("description", ""))
     keywords = sanitize_keywords(meta.get("keywords", []), target_kw)
     if len(keywords) < target_kw:
@@ -130,6 +149,7 @@ def clean_metadata(meta: dict, target_kw: int = 49) -> dict:
 PLATFORM_RULES = {
     "Adobe Stock": {
         "title_max_chars": 200,
+        "title_target_chars": (50, 70),
         "title_min_words": 3,
         "desc_min_words": 5,
         "desc_max_chars": 200,
@@ -145,8 +165,8 @@ PLATFORM_RULES = {
         "kw_max": 50,
     },
     "Freepik": {
-        "title_max_chars": 100,
-        "title_min_words": 3,
+        "title_max_chars": 200,
+        "title_min_words": 5,
         "desc_min_words": 5,
         "desc_max_chars": 200,
         "kw_min": 5,
@@ -175,6 +195,11 @@ def validate_compliance(
     errors = []
 
     # Title validation
+    if _TITLE_BANNED_PREFIX_RE.match(title):
+        errors.append(
+            "Title starts with banned spam prefix "
+            "(vector/illustration/isolated/set of/collection of)"
+        )
     if len(title) > rules["title_max_chars"]:
         errors.append(f"Title exceeds {rules['title_max_chars']} chars")
 
@@ -233,6 +258,7 @@ def autofix_compliance(
     fixed_title = (title or "").strip()
     if is_placeholder_title(fixed_title):
         fixed_title = _title_from_filename(filename)
+    fixed_title = clean_title(fixed_title)
 
     # Never keep AI error/fallback tokens as valid keywords.
     fixed_keywords = [k for k in (keywords or []) if k.lower() not in _FALLBACK_TOKENS]
@@ -347,6 +373,40 @@ def trim_keywords(keywords: list[str]) -> list[str]:
     return [trim_spacing(k) for k in keywords if trim_spacing(k)]
 
 
+def _simple_stem(word: str) -> str:
+    """Very small English stemmer: plurals (-ies/-es/-s) and gerunds (-ing).
+
+    ponytail: naive heuristic for dedup keys only; irregular plurals
+    (children/mice/news) do not collapse. Swap for an inflect/stem library if
+    keyword budgets ever demand real morphological analysis.
+    """
+    w = word.lower().strip()
+
+    # Plurals
+    if w.endswith("ies") and len(w) > 5:
+        return w[:-3] + "y"
+    if (
+        w.endswith("es")
+        and len(w) > 4
+        and not w.endswith("hes")
+        and not w.endswith("sses")
+        and w[-3] not in "aeiou"
+    ):
+        return w[:-2]
+    if w.endswith("s") and len(w) > 3 and not w.endswith("ss"):
+        return w[:-1]
+
+    # Gerunds
+    if w.endswith("ing") and len(w) > 5:
+        stem = w[:-3]
+        # Handle doubled consonant (but not doubled vowels like 'ee' in treeing)
+        if len(stem) >= 2 and stem[-1] == stem[-2] and stem[-1] not in "aeiou":
+            stem = stem[:-1]
+        return stem
+
+    return w
+
+
 def detect_redundant_keywords(keywords: list[str]) -> dict[str, list[str]]:
     """
     Detects similar keywords using simple stemming (plurals, -ing, -er).
@@ -354,35 +414,8 @@ def detect_redundant_keywords(keywords: list[str]) -> dict[str, list[str]]:
     """
     groups = {}
 
-    def simple_stem(word: str) -> str:
-        w = word.lower().strip()
-
-        # Plurals
-        if w.endswith("ies") and len(w) > 5:
-            return w[:-3] + "y"
-        if (
-            w.endswith("es")
-            and len(w) > 4
-            and not w.endswith("hes")
-            and not w.endswith("sses")
-            and w[-3] not in "aeiou"
-        ):
-            return w[:-2]
-        if w.endswith("s") and len(w) > 3 and not w.endswith("ss"):
-            return w[:-1]
-
-        # Gerunds
-        if w.endswith("ing") and len(w) > 5:
-            stem = w[:-3]
-            # Handle doubled consonant (but not doubled vowels like 'ee' in treeing)
-            if len(stem) >= 2 and stem[-1] == stem[-2] and stem[-1] not in "aeiou":
-                stem = stem[:-1]
-            return stem
-
-        return w
-
     for kw in keywords:
-        root = simple_stem(kw)
+        root = _simple_stem(kw)
         if root not in groups:
             groups[root] = []
         groups[root].append(kw)

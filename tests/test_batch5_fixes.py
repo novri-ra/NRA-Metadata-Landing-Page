@@ -11,17 +11,29 @@ from packages.shared_utils.filter import calculate_quality_score
 
 class QualityScorePlatformTest(unittest.TestCase):
     def test_shutterstock_flags_4_word_title_freepik_accepts(self):
-        # Shutterstock min title words = 5, Freepik = 3.
+        # Shutterstock min title words = 5; Freepik raised to 5 words (M-A4),
+        # so a 4-word title is now flagged for both platforms.
         ss = calculate_quality_score("Red Ball On Grass", "A red ball on green grass", ["ball"], "Shutterstock")
         fp = calculate_quality_score("Red Ball On Grass", "A red ball on green grass", ["ball"], "Freepik")
         self.assertTrue(
             any("Title too short (< 5 words)" in i for i in ss["issues"]),
             ss["issues"],
         )
-        self.assertFalse(
-            any("Title too short" in i for i in fp["issues"]), fp["issues"]
+        self.assertTrue(
+            any("Title too short (< 5 words)" in i for i in fp["issues"]),
+            fp["issues"],
         )
-        self.assertLess(ss["score"], fp["score"])
+
+    def test_five_word_title_passes_both(self):
+        title = "Red Ball On Green Grass"
+        for platform in ("Shutterstock", "Freepik"):
+            score = calculate_quality_score(
+                title, "A red ball on green grass", ["ball", "sport", "outdoor", "red", "green"], platform
+            )
+            self.assertFalse(
+                any("Title too short" in i for i in score["issues"]),
+                (platform, score["issues"]),
+            )
 
     def test_shutterstock_flags_5_keywords_min7(self):
         kws = ["one", "two", "three", "four", "five"]

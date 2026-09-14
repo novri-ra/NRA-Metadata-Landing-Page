@@ -46,6 +46,7 @@ def build_metadata_prompt(
     rules = PLATFORM_RULES.get(platform, {})
     title_max = rules.get("title_max_chars", 180)
     desc_max = rules.get("desc_max_chars", 200)
+    title_target = rules.get("title_target_chars", (50, 90))
     extra_line = (
         f"\nAdditional Context / Focus: {extra_prompt}"
         if extra_prompt.strip()
@@ -54,7 +55,7 @@ def build_metadata_prompt(
     return f"""You are an elite microstock metadata SEO specialist. Analyze this image and generate strictly valid JSON metadata optimized for Adobe Stock and Shutterstock search algorithms.
 
 ## TITLE REQUIREMENTS (max {title_max} characters):
-- Length: Exactly 50 to 90 characters, concise and high-impact natural English.
+- Length: {title_target[0]} to {title_target[1]} characters, concise and high-impact natural English.
 - Structure: [Primary Subject] + [Action/Pose/Composition] + [Style/Context]
 - Example: "Cute Cartoon Cat Character Playing with Wool Ball Vector Illustration"
 - NEVER begin with generic filler words like "illustration", "vector", "isolated", "image", "picture". Place commercial keywords first.

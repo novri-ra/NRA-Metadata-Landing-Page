@@ -424,7 +424,7 @@ class FileWorkerPool:
                         "info",
                     )
 
-            csv_logger.log(name, title, desc, keywords)
+            csv_logger.log(name, title, desc, keywords, is_ai_generated=is_ai_generated)
 
             if (
                 options.get("auto_zip")

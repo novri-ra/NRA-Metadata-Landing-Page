@@ -429,7 +429,7 @@ class SidebarPanel(ctk.CTkFrame):
         csv_frame.pack(fill="x", padx=12, pady=(0, 6))
 
         self.csv_vars = {}
-        csv_defs = ["Generic", "Adobe Stock", "Shutterstock", "Vecteezy", "Freepik"]
+        csv_defs = ["Generic", "Adobe Stock", "Shutterstock", "Vecteezy", "Freepik", "Dreamstime"]
         saved_csvs = config.get(
             "csv_platforms", ["Generic", "Adobe Stock", "Shutterstock"]
         )

@@ -27,6 +27,20 @@ def fmt_str(s: str, max_len: int, min_len: int = 0, semi: str = ",") -> str:
     return s[:max_len]
 
 
+def fmt_desc(s: str, max_len: int = 2000, semi: str = ",") -> str:
+    """Description formatter - sanitizes and word-cuts, never dot-pads.
+
+    Microstock description floors are word-based (e.g. Shutterstock needs a
+    5-word prose sentence), so a character pad with '.' would poison the text;
+    word-level compliance is enforced upstream by validate_compliance.
+    """
+    s = sanitize_text(s, semi)
+    if len(s) <= max_len:
+        return s
+    idx = s.rfind(" ", 0, max_len)
+    return s[:idx] if idx > 0 else s[:max_len]
+
+
 # Shutterstock photos (and EPS vectors) use *named* categories, up to 2 per file.
 SHUTTERSTOCK_CATEGORIES = [
     "Abstract",
@@ -101,6 +115,27 @@ def is_illus(fname: str) -> str:
     return "yes" if fname.lower().endswith((".svg", ".eps", ".ai")) else "no"
 
 
+AI_DISCLOSURE = "Generative AI illustration."
+
+
+def apply_ai_disclosure(description: str, is_ai_generated: bool = False) -> str:
+    """Prepend the Dreamstime-required generative-AI provenance statement.
+
+    Dreamstime asks contributors to state generative-AI provenance in the
+    description text; the flag rides the master CSV's IsAI column (written by
+    the processing pipeline via CSVLogger).
+    """
+    if not is_ai_generated or not description:
+        return description
+    if description.lstrip().lower().startswith(AI_DISCLOSURE.lower()):
+        return description
+    return f"{AI_DISCLOSURE} {description}"
+
+
+def _row_is_ai(r: dict) -> bool:
+    return str(r.get("IsAI", "")).strip().lower() in {"1", "true", "yes"}
+
+
 def upsert_metadata_csv(
     master_path: str, filename: str, title: str, description: str, keywords: list
 ) -> None:
@@ -137,7 +172,14 @@ def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
     if not rows:
         return
     if platforms is None:
-        platforms = {"Generic", "Adobe Stock", "Shutterstock", "Vecteezy", "Freepik"}
+        platforms = {
+            "Generic",
+            "Adobe Stock",
+            "Shutterstock",
+            "Vecteezy",
+            "Freepik",
+            "Dreamstime",
+        }
 
     def write_csv(name, header, row_fn, delimiter=","):
         with open(os.path.join(out_dir, name), "w", newline="", encoding="utf-8") as f:
@@ -189,7 +231,7 @@ def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
             ],
             lambda r: [
                 r["Filename"],
-                fmt_str(r.get("Description", r.get("Title", "")), 2000, 5),
+                fmt_desc(r.get("Description", r.get("Title", "")), 2000),
                 fmt_kw(r["Keywords"], 7, 50),
                 ss_categories(
                     r.get("PrimaryCategory", ""),
@@ -225,10 +267,24 @@ def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
                 r["Filename"],
                 fmt_str(
                     r.get("Title", r.get("Description", "")),
-                    100,
+                    200,
                     semi=" ",
                 ),
                 fmt_kw(r["Keywords"], 5, 50, semi=" "),
             ],
             delimiter=";",
+        )
+
+    if "Dreamstime" in platforms:
+        write_csv(
+            "dreamstime_export.csv",
+            ["Filename", "Title", "Description", "Keywords"],
+            lambda r: [
+                r["Filename"],
+                sanitize_text(r.get("Title", "")),
+                apply_ai_disclosure(
+                    sanitize_text(r.get("Description", "")), _row_is_ai(r)
+                ),
+                fmt_kw(r["Keywords"], 0, 50),
+            ],
         )

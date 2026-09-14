@@ -16,8 +16,8 @@ class PromptPlatformLimitTest(unittest.TestCase):
     def _prompt(self, platform):
         return build_metadata_prompt(49, "Guide text", "", platform=platform)
 
-    def test_freepik_title_limit_100(self):
-        self.assertIn("(max 100 characters):", self._prompt("Freepik"))
+    def test_freepik_title_limit_200(self):
+        self.assertIn("(max 200 characters):", self._prompt("Freepik"))
 
     def test_shutterstock_title_limit_150(self):
         self.assertIn("(max 150 characters):", self._prompt("Shutterstock"))
