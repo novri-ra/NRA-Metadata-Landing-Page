@@ -31,14 +31,14 @@ def find_ghostscript_binary(tools_dir=None):
 
 
 _HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
 }
 
 
-def _download(url: str, dest: str):
+def _download(url: str, dest: str, timeout: int = 120):
     """Download url to dest, following redirects."""
     req = urllib.request.Request(url, headers=_HEADERS)
-    with urllib.request.urlopen(req, timeout=120) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
         # Reject HTML responses (CDN challenge pages)
         ct = resp.headers.get("Content-Type", "").lower()
         if "html" in ct:
@@ -91,12 +91,13 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
         urls = [
             "https://oliverbetz.de/cms/files/Artikel/ExifTool-for-Windows/exiftool-13.59_64.zip",
             "https://sourceforge.net/projects/exiftool/files/exiftool-13.59_64.zip/download",
+            "https://github.com/philharvey/ExifTool/releases/download/13.59/exiftool-13.59_64.zip",
         ]
         for url in urls:
             try:
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
                     tmp_path = tmp.name
-                _download(url, tmp_path)
+                _download(url, tmp_path, timeout=20)
                 if not _is_valid_zip(tmp_path):
                     os.remove(tmp_path)
                     _log(f"[WARN] ExifTool mirror returned non-zip payload, trying next...")
@@ -132,6 +133,7 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
             return
             
         _log("[INFO] Downloading Ghostscript...")
+        installer = td / "gs_installer.exe"
         try:
             url = "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10080/gs10080w64.exe"
             installer = td / "gs_installer.exe"
@@ -144,7 +146,7 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
             env = os.environ.copy()
             env["__COMPAT_LAYER"] = "RunAsInvoker"
             
-            subprocess.run(
+            result = subprocess.run(
                 cmd,
                 check=False,
                 timeout=120,
@@ -154,14 +156,19 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
             
             if installer.exists():
                 os.remove(str(installer))
-                
+            
+            if result.returncode != 0:
+                _log(f"[WARN] Ghostscript installer exited with code {result.returncode}.")
+            
             gs_path_new = find_ghostscript_binary(td)
             if gs_path_new:
                 _log(f"[SUCCESS] Ghostscript installed and verified at {gs_path_new}")
             else:
                 _log("[WARN] Ghostscript installer ran but gswin64c.exe not found. Install manually or add to PATH.")
         except Exception as e:
-            _log(f"[WARN] Failed to download Ghostscript: {e}. Vector preview will use system PATH fallback.")
+            if installer.exists():
+                os.remove(str(installer))
+            _log(f"[WARN] Failed to download/install Ghostscript: {e}. Vector preview will use system PATH fallback.")
 
     def _setup_ffmpeg():
         if (td / "ffmpeg.exe").exists() or (td / "ffmpeg" / "bin" / "ffmpeg.exe").exists():
