@@ -71,6 +71,42 @@ class EssentialFlagsTest(unittest.TestCase):
             self.assertIn("\\test_image.png", captured[-1])
 
 
+class SubprocessInvocationTest(unittest.TestCase):
+    def test_run_exiftool_uses_binary_dir_as_cwd_and_suppresses_console(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_exe = Path(tmp) / "exiftool.exe"
+            fake_exe.write_bytes(b"MZ")
+
+            proc = mock.Mock(returncode=0, stdout="13.26\n", stderr="")
+            with mock.patch(
+                "backend.processors.exiftool_client.subprocess.run", return_value=proc
+            ) as run:
+                ec._run_exiftool([str(fake_exe), "-ver"], timeout=30)
+
+            kwargs = run.call_args.kwargs
+            self.assertEqual(kwargs["cwd"], tmp)
+            if os.name == "nt":
+                self.assertIn("creationflags", kwargs)
+                self.assertTrue(kwargs["creationflags"] & 0x08000000, "no console window")
+
+    def test_run_exiftool_stream_uses_binary_dir_as_cwd(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_exe = Path(tmp) / "exiftool.exe"
+            fake_exe.write_bytes(b"MZ")
+
+            proc = mock.Mock(returncode=0, stdout=b"data", stderr=b"")
+            with mock.patch(
+                "backend.processors.exiftool_client.subprocess.run", return_value=proc
+            ) as run:
+                ec._run_exiftool_stream([str(fake_exe), "-o", "-", "-"], timeout=30, input_bytes=b"x")
+
+            self.assertEqual(run.call_args.kwargs["cwd"], tmp)
+
+
 class StagingFallbackTest(unittest.TestCase):
     def test_write_blocked_retries_on_temp_copy_and_restores(self):
         from unittest import mock

@@ -19,6 +19,7 @@ from backend.processors._tools import (
     format_tool_failure,
     get_tool_path,
     log_failed_file,
+    no_window_kwargs,
 )
 
 logger = logging.getLogger(__name__)
@@ -94,6 +95,7 @@ def _run_exiftool(
         errors="replace",
         timeout=timeout,
         cwd=cwd,
+        **no_window_kwargs(),
     )
 
 
@@ -172,6 +174,7 @@ def _run_exiftool_stream(
         capture_output=True,
         timeout=timeout,
         cwd=cwd,
+        **no_window_kwargs(),
     )
 
 

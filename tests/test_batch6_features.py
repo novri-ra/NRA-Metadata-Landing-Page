@@ -117,6 +117,78 @@ class FileStatusEventTest(unittest.TestCase):
 
         self.assertEqual(events[-1][2], "failed")
 
+    def test_embed_failure_emits_failed_not_done(self):
+        events = []
+
+        class FakeAI:
+            def generate_metadata(self, *args, **kwargs):
+                return {"title": "Red Ball", "description": "A red ball.", "keywords": ["red"]}
+
+        pool = FileWorkerPool()
+        pool._emit = lambda name, *a: (
+            events.append((name,) + tuple(a)) if name == "file_status" else None
+        )
+        pool.processor.embed_metadata = mock.Mock(return_value=False)
+
+        tmp = tempfile.mkdtemp()
+        preview = os.path.join(tmp, "preview.jpg")
+        open(preview, "w").close()
+        src = os.path.join(tmp, "x.eps")
+        open(src, "w").close()
+
+        with mock.patch(
+            "backend.core.worker_pool.extract_preview_image", return_value=preview
+        ), mock.patch("backend.core.worker_pool.get_file_hash", return_value="h1"), mock.patch(
+            "backend.core.worker_pool.get_cached_metadata", return_value=None
+        ):
+            pool._process_file(
+                src,
+                tmp,
+                FakeAI(),
+                {"target_kw": 49, "style_preset": "Standard", "extra_prompt": ""},
+                mock.Mock(),
+            )
+
+        states = [e[2] for e in events]
+        self.assertEqual(states[-1], "failed")
+
+    def test_cancel_branch_emits_failed_not_done(self):
+        events = []
+
+        class FakeAI:
+            def __init__(self, pool):
+                self._pool = pool
+
+            def generate_metadata(self, *args, **kwargs):
+                self._pool.cancel_flag = True
+                return {"title": "Red Ball", "description": "A red ball.", "keywords": ["red"]}
+
+        pool = FileWorkerPool()
+        pool._emit = lambda name, *a: (
+            events.append((name,) + tuple(a)) if name == "file_status" else None
+        )
+
+        tmp = tempfile.mkdtemp()
+        preview = os.path.join(tmp, "preview.jpg")
+        open(preview, "w").close()
+        src = os.path.join(tmp, "x.eps")
+        open(src, "w").close()
+
+        with mock.patch(
+            "backend.core.worker_pool.extract_preview_image", return_value=preview
+        ), mock.patch("backend.core.worker_pool.get_file_hash", return_value="h1"), mock.patch(
+            "backend.core.worker_pool.get_cached_metadata", return_value=None
+        ):
+            pool._process_file(
+                src,
+                tmp,
+                FakeAI(pool),
+                {"target_kw": 49, "style_preset": "Standard", "extra_prompt": ""},
+                mock.Mock(),
+            )
+
+        self.assertEqual(events[-1][2], "failed")
+
 
 class CooldownFullDelayTest(unittest.TestCase):
     def test_cooldown_waits_full_user_delay_uninterrupted(self):

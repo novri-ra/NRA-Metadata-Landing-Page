@@ -95,7 +95,7 @@ def detect_exiftool(
     silent: bool = False,
 ) -> str | None:
     """Locate ``exiftool.exe`` under ``tools/`` or on the system PATH."""
-    path = _resolve_binary(["exiftool.exe"], tools_dir=tools_dir)
+    path = _resolve_binary(["exiftool.exe", "ExifTool.exe"], tools_dir=tools_dir)
     if not silent:
         if path:
             _emit(f"[SUCCESS] ExifTool found at: {path}", log)

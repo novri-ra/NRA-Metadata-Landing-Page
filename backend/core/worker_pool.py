@@ -241,6 +241,12 @@ class FileWorkerPool:
                     future.result()
                 except Exception as e:
                     self._inc_stat("error")
+                    try:
+                        self._emit(
+                            "file_status", os.path.basename(futures[future]), "failed"
+                        )
+                    except Exception:
+                        pass
                     self._emit(
                         "log",
                         f"Worker error on {os.path.basename(futures[future])}: {e}",
@@ -432,7 +438,7 @@ class FileWorkerPool:
 
         if self.cancel_flag:
             self._emit("log", f"[{name}] Saved but batch stopped before embedding.", "info")
-            self._emit("file_status", name, "done")
+            self._emit("file_status", name, "failed")
             return
 
         if self.processor.embed_metadata(
