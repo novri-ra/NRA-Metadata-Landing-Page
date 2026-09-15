@@ -265,5 +265,78 @@ class CooldownFullDelayTest(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 3)
 
 
+class AiSystemNameFlowTest(unittest.TestCase):
+    def test_model_from_options_flows_to_embed_metadata(self):
+        captured = {}
+
+        def fake_embed(path, title, desc, kws, *a, **kw):
+            captured.update(kw)
+            return True
+
+        class FakeAI:
+            def generate_metadata(self, *args, **kwargs):
+                return {
+                    "title": "Red Ball",
+                    "description": "A red ball.",
+                    "keywords": ["ball"],
+                }
+
+        pool = FileWorkerPool()
+        pool.processor.embed_metadata = mock.Mock(side_effect=fake_embed)
+
+        tmp = tempfile.mkdtemp()
+        preview = os.path.join(tmp, "preview.jpg")
+        open(preview, "w").close()
+        src = os.path.join(tmp, "x.eps")
+        open(src, "w").close()
+
+        with mock.patch(
+            "backend.core.worker_pool.extract_preview_image", return_value=preview
+        ), mock.patch("backend.core.worker_pool.get_file_hash", return_value="h1"), mock.patch(
+            "backend.core.worker_pool.get_cached_metadata", return_value=None
+        ):
+            pool._process_file(
+                src,
+                tmp,
+                FakeAI(),
+                {
+                    "target_kw": 49,
+                    "style_preset": "Standard",
+                    "extra_prompt": "",
+                    "model": "gemini-2.5-flash",
+                },
+                mock.Mock(),
+            )
+        self.assertEqual(captured.get("ai_system_name"), "gemini-2.5-flash")
+
+    def test_missing_model_defaults_to_gemini(self):
+        captured = {}
+
+        def fake_embed(path, title, desc, kws, *a, **kw):
+            captured.update(kw)
+            return True
+
+        class FakeAI:
+            def generate_metadata(self, *args, **kwargs):
+                return {"title": "T", "description": "D.", "keywords": ["k"]}
+
+        pool = FileWorkerPool()
+        pool.processor.embed_metadata = mock.Mock(side_effect=fake_embed)
+
+        tmp = tempfile.mkdtemp()
+        preview = os.path.join(tmp, "preview.jpg")
+        open(preview, "w").close()
+        src = os.path.join(tmp, "x.eps")
+        open(src, "w").close()
+
+        with mock.patch(
+            "backend.core.worker_pool.extract_preview_image", return_value=preview
+        ), mock.patch("backend.core.worker_pool.get_file_hash", return_value="h1"), mock.patch(
+            "backend.core.worker_pool.get_cached_metadata", return_value=None
+        ):
+            pool._process_file(src, tmp, FakeAI(), {"style_preset": "Standard"}, mock.Mock())
+        self.assertEqual(captured.get("ai_system_name"), "Gemini")
+
+
 if __name__ == "__main__":
     unittest.main()

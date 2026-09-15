@@ -291,7 +291,11 @@ def _log_exiftool_failure(
 
 class ExifToolClient:
     def sanitize_ai_metadata(
-        self, file_path: str, is_ai_generated: bool = False
+        self,
+        file_path: str,
+        is_ai_generated: bool = False,
+        ai_system_name: str = "",
+        ai_system_version: str = "",
     ) -> bool:
         """Manage AI provenance tags.
 
@@ -299,7 +303,9 @@ class ExifToolClient:
         (PNG prompt/workflow) only; official C2PA manifests and IPTC
         ``DigitalSourceType`` are preserved. ``is_ai_generated=True``: no
         removal args at all, and the IPTC ``trainedAlgorithmicMedia``
-        declaration is written explicitly.
+        declaration is written explicitly, plus the IPTC 2025.1 AI system
+        fields when a model name is known. Raw prompts or workflow parameters
+        are never written -- that would invalidate the C2PA manifest.
         """
         file_path = os.path.normpath(os.path.abspath(file_path))
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -318,6 +324,12 @@ class ExifToolClient:
                     "-XMP:DigitalSourceType=trainedAlgorithmicMedia",
                 ]
             )
+            if ai_system_name:
+                cmd.append(f"-XMP-iptcExt:AISystemUsed={ai_system_name}")
+            if ai_system_version:
+                cmd.append(
+                    f"-XMP-iptcExt:AISystemVersionUsed={ai_system_version}"
+                )
         else:
             if is_png:
                 cmd.extend(
@@ -362,6 +374,8 @@ class ExifToolClient:
         country: str = "",
         country_code: str = "",
         date_created: str = "",
+        ai_system_name: str = "",
+        ai_system_version: str = "",
     ) -> bool:
         file_path = os.path.normpath(os.path.abspath(file_path))
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -384,7 +398,9 @@ class ExifToolClient:
         _prepare_target(file_path)
 
         # 1. Manage AI provenance tags
-        self.sanitize_ai_metadata(file_path, is_ai_generated)
+        self.sanitize_ai_metadata(
+            file_path, is_ai_generated, ai_system_name, ai_system_version
+        )
 
         # 2. Embed new metadata
         exiftool_path = get_exiftool_path()

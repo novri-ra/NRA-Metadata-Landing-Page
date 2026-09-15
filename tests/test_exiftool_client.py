@@ -333,5 +333,81 @@ class SvgMetadataTest(unittest.TestCase):
             self.assertEqual(li_texts, ["A & B", "3 < 4", 'q " quote'])
 
 
+class IptcAiFieldsTest(unittest.TestCase):
+    def test_ai_generated_with_model_writes_system_used(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_exe = Path(tmp) / "exiftool.exe"
+            fake_exe.write_bytes(b"MZ")
+            proc = mock.Mock(returncode=0, stdout="", stderr="")
+            with (
+                mock.patch("backend.processors.exiftool_client._run_exiftool") as run,
+                mock.patch(
+                    "backend.processors.exiftool_client.get_exiftool_path",
+                    return_value=str(fake_exe),
+                ),
+            ):
+                run.return_value = proc
+                ec.ExifToolClient().sanitize_ai_metadata(
+                    "img.png",
+                    is_ai_generated=True,
+                    ai_system_name="Gemini",
+                    ai_system_version="2.5-flash",
+                )
+                cmd = " ".join(run.call_args.args[0])
+            self.assertIn("trainedAlgorithmicMedia", cmd)
+            self.assertIn("-XMP-iptcExt:AISystemUsed=Gemini", cmd)
+            self.assertIn("-XMP-iptcExt:AISystemVersionUsed=2.5-flash", cmd)
+
+    def test_ai_generated_without_model_skips_system_used(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_exe = Path(tmp) / "exiftool.exe"
+            fake_exe.write_bytes(b"MZ")
+            proc = mock.Mock(returncode=0, stdout="", stderr="")
+            with (
+                mock.patch("backend.processors.exiftool_client._run_exiftool") as run,
+                mock.patch(
+                    "backend.processors.exiftool_client.get_exiftool_path",
+                    return_value=str(fake_exe),
+                ),
+            ):
+                run.return_value = proc
+                ec.ExifToolClient().sanitize_ai_metadata(
+                    "img.png",
+                    is_ai_generated=True,
+                )
+                cmd = " ".join(run.call_args.args[0])
+            self.assertIn("trainedAlgorithmicMedia", cmd)
+            self.assertNotIn("AISystemUsed", cmd)
+            self.assertNotIn("AISystemVersionUsed", cmd)
+
+    def test_non_ai_does_not_write_ai_fields(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_exe = Path(tmp) / "exiftool.exe"
+            fake_exe.write_bytes(b"MZ")
+            proc = mock.Mock(returncode=0, stdout="", stderr="")
+            with (
+                mock.patch("backend.processors.exiftool_client._run_exiftool") as run,
+                mock.patch(
+                    "backend.processors.exiftool_client.get_exiftool_path",
+                    return_value=str(fake_exe),
+                ),
+            ):
+                run.return_value = proc
+                ec.ExifToolClient().sanitize_ai_metadata(
+                    "img.png",
+                    is_ai_generated=False,
+                    ai_system_name="Gemini",
+                )
+                cmd = " ".join(run.call_args.args[0])
+            self.assertNotIn("trainedAlgorithmicMedia", cmd)
+            self.assertNotIn("AISystemUsed", cmd)
+
+
 if __name__ == "__main__":
     unittest.main()

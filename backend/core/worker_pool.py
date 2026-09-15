@@ -66,6 +66,8 @@ def sync_companion_metadata(
     country="",
     country_code="",
     date_created="",
+    ai_system_name="",
+    ai_system_version="",
 ):
     """Embed metadata to all companion files with the same base name. Returns count."""
     companions = find_companion_files(file_path)
@@ -89,6 +91,8 @@ def sync_companion_metadata(
             country,
             country_code,
             date_created,
+            ai_system_name,
+            ai_system_version,
         ):
             count += 1
     return count
@@ -423,6 +427,15 @@ class FileWorkerPool:
             meta.get("keywords", []),
         )
 
+        # Record which AI system produced the metadata/asset for IPTC 2025.1.
+        ai_system_name = (
+            options.get("ai_model")
+            or options.get("model")
+            or meta.get("ai_model")
+            or "Gemini"
+        )
+        ai_system_name = str(ai_system_name).split(" ")[0].strip()
+
         if is_editorial:
             desc = build_editorial_caption(
                 desc,
@@ -454,6 +467,7 @@ class FileWorkerPool:
             country=editorial_fields["country"],
             country_code=editorial_fields["country_code"],
             date_created=editorial_fields["date_created"],
+            ai_system_name=ai_system_name,
         ):
             self._emit("log", f"[{name}] File completed and saved. ({len(keywords)} kw)", "success")
             self._emit("file_status", name, "done")
@@ -474,6 +488,7 @@ class FileWorkerPool:
                     country=editorial_fields["country"],
                     country_code=editorial_fields["country_code"],
                     date_created=editorial_fields["date_created"],
+                    ai_system_name=ai_system_name,
                 )
                 if synced > 0:
                     self._emit(
