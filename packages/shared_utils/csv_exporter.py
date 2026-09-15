@@ -74,11 +74,14 @@ def ss_categories(primary: str, secondary: str, filename: str) -> str:
     return "Backgrounds/Textures"
 
 
-def fmt_kw(s: str, min_count: int = 0, max_count: int = 50, semi: str = ",") -> str:
+def fmt_kw(s: str, min_count: int = 0, max_count: int = 50, semi: str = ",", term_max: int = 0) -> str:
     # min_count is a compliance floor already upheld upstream (prompt + clean_metadata).
     # Never inject filler keywords here - platforms reject spammed/repeated terms.
     s = sanitize_text(s, semi)
     kws = [k.strip() for k in s.split(",") if k.strip()]
+    if term_max:
+        # iStock/Getty reject individual free-text terms longer than 64 chars.
+        kws = [k[:term_max] for k in kws]
     return ", ".join(kws[:max_count])
 
 
@@ -373,7 +376,7 @@ def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
                 r["Filename"],
                 sanitize_text(r.get("Title", "")),
                 sanitize_text(r.get("Description", "")),
-                fmt_kw(r.get("Keywords", ""), 0, 999),
+                fmt_kw(r.get("Keywords", ""), 0, 999, term_max=64),
                 sanitize_text(r.get("City", "")),
                 sanitize_text(r.get("Country", "")),
                 sanitize_text(r.get("CountryCode", "")),

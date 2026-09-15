@@ -48,6 +48,18 @@ def build_metadata_prompt(
     title_max = rules.get("title_max_chars", 180)
     desc_max = rules.get("desc_max_chars", 200)
     title_target = rules.get("title_target_chars", (50, 90))
+    if platform == "Shutterstock":
+        desc_len_instruction = (
+            "Length: 250 to 800 characters (detailed, narrative, factual "
+            "description of the visual elements and context, avoiding keyword "
+            "stuffing)."
+        )
+    elif platform == "Adobe Stock":
+        desc_len_instruction = "Length: 150 to 200 characters, concise and factual."
+    else:
+        desc_len_instruction = (
+            f"Length: 150 to {min(desc_max, 250)} characters, concise and factual."
+        )
     extra_line = (
         f"\nAdditional Context / Focus: {extra_prompt}"
         if extra_prompt.strip()
@@ -72,7 +84,7 @@ def build_metadata_prompt(
 - NO keyword stuffing in the title.
 
 ## DESCRIPTION REQUIREMENTS (max {desc_max} characters):
-- Length: 150 to 200 characters, exactly 2 concise sentences.
+- {desc_len_instruction}
 - Sentence 1: Accurately describe what is visually depicted in the image.
 - Sentence 2: Mention practical commercial use cases (e.g., "Perfect for children book illustrations, greeting cards, banners, and educational merchandise.").
 
