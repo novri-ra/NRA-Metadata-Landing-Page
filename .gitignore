@@ -25,12 +25,19 @@ token_result.txt
 *_result.txt
 
 # Binaries & Builds
-tools/exiftool/
-tools/ffmpeg/
-tools/ghostscript/
 tools/*.exe
 tools/*.zip
+tools/exiftool/*
+tools/ffmpeg/*
+tools/ghostscript/*
 !tools/.gitkeep
+!tools/exiftool/.gitkeep
+!tools/ffmpeg/bin/
+tools/ffmpeg/bin/*
+!tools/ffmpeg/bin/.gitkeep
+!tools/ghostscript/bin/
+tools/ghostscript/bin/*
+!tools/ghostscript/bin/.gitkeep
 !tools/README.txt
 dist/
 build/

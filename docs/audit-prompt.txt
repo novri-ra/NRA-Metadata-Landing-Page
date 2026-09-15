@@ -1,0 +1,76 @@
+Lakukan audit komprehensif terhadap arsitektur, kelengkapan fitur, dan kesesuaian algoritma di seluruh menu aplikasi pada target repository, serta sinkronkan standar metadata dengan regulasi microstock terbaru:
+- Path: C:\Users\Administrator\Saved Games\_Project\NRA-Metadata
+- Branch aktif: origin/development
+- OS Environment: Windows Ghost Spectre (Superlite)
+
+RESTRIKSI KETAT (STRICT CONSTRAINTS):
+1. ZERO-MODIFICATION POLICY: JANGAN memodifikasi, mengedit, merefaktor, atau membuat commit kode apa pun selama proses audit. Ini adalah inspeksi murni analitis dan observasional.
+2. EVIDENCE-BASED CITATIONS: Setiap temuan UI terputus, dead code, atau kecacatan algoritma WAJIB menyertakan path relatif file dan nomor baris presisi (misal: apps/desktop/src/ui/main_window.py:320-355 -> backend/core/worker_pool.py:120-145).
+3. EXHAUSTIVE COVERAGE: Telusuri setiap widget dari deklarasi UI, event listener/callback, backend handler, hingga ke I/O ExifTool dan file system.
+
+================================================================================
+BAGIAN 1: WEB SEARCH & COMPLIANCE SYNC (REGULASI TERBARU MICROSTOCK)
+Gunakan skill: /senior-architect /senior-qa
+================================================================================
+Gunakan fitur web search untuk menelusuri spesifikasi metadata resmi, kebijakan peninjauan (review guidelines), dan batasan tagging terbaru pada agensi microstock utama:
+- Target Agensi: Adobe Stock, Shutterstock, Freepik, Vecteezy, iStock/Getty Images, dan Dreamstime.
+Parameter Investigasi:
+1. Title & Description:
+   - Batasan panjang karakter (min/max), larangan kata tertentu (banned spam triggers: "Vector", "Illustration", "Isolated" di awal judul), dan format kalimat.
+2. Keyword & Tagging:
+   - Batasan jumlah keyword (hard limit 49/50, batas minimum tiap agensi).
+   - Sanitasi: pelarangan trademark/brand, singular vs plural spam, penanganan kata majemuk (compound words), dan eliminasi stop-words.
+3. Extended Metadata & Compliance:
+   - Standard AI disclosure tag (IPTC/XMP digitalSourceType untuk Generative AI).
+   - Format metadata editorial (City, Country, Date factual format).
+   - Standar injeksi XMP/IPTC langsung ke file EPS, SVG, PNG, dan Video (MP4/MOV).
+Bandingkan temuan regulasi terkini tersebut secara langsung dengan regex validator, normalizer, dan prompt builder yang ada di repository saat ini.
+
+================================================================================
+BAGIAN 2: AUDIT FITUR, WIRING & KESESUAIAN ALGORITMA
+================================================================================
+
+1. Wiring & Status Fungsional UI
+   Gunakan skill: /ui-ux-pro-max
+   - Periksa setiap menu, sidebar panel, dropdown (termasuk provider selection & fetch models), toggle switch (Auto-Watch, Auto-Zip, Sync Companion), input slider/spinbox, dan tombol aksi (Start, Pause, Cancel, Import CSV, FTP/SFTP, Manage Blacklist).
+   - Verifikasi apakah setiap widget benar-benar terhubung ke backend listener aktif, atau sekadar mockup/stub/dead code yang tidak mengubah internal state apa pun.
+   - Evaluasi kelancaran dispatch thread-safe ke Tkinter mainloop (root.after).
+
+2. Pipeline AI Prompt, Ingestion & Sanitizer
+   Gunakan skill: /senior-architect /clean-code
+   - Ingestion & Raster Preview: Evaluasi subprocess Ghostscript (gswin64c), svglib, dan FFmpeg dalam merender preview file (EPS, SVG, PNG, MP4, MOV) dan lifecycle pembersihan file temporary.
+   - Prompt Engine & Metadata Generation: Evaluasi pembentukan prompt LLM (Gemini, Mistral, OpenAI-Compatible), kepatuhan target keyword tunggal (default 49), pencegahan halusinasi, dan validasi output format JSON murni.
+   - Metadata Sanitizer & Normalizer: Evaluasi algoritma deduplikasi keyword, filtering stop-words/blacklist, sanitasi trademark, dan mekanisme slice guard/padding.
+
+3. Concurrency, File I/O & Diagnostics
+   Gunakan skill: /systematic-debugging
+   - Worker Pool, Rate Limiter & Concurrency: Evaluasi stabilitas worker_pool.py, dynamic cooldown delay (default 10s), sinyal pembatalan (cancel_event), dan pembersihan zombie worker (reap_stale).
+   - ExifTool Streaming & Tagging: Evaluasi buffer argument ExifTool, kompatibilitas MIC (Medium Integrity Level), companion file sync (.eps + .jpg), serta akurasi pemetaan kolom CSV export terhadap format agensi.
+   - System Diagnostics & Network Resilience: Evaluasi pendeteksian path tools eksternal dan handling error rate limit (HTTP 429).
+
+================================================================================
+BAGIAN 3: STRUKTUR LAPORAN EVALUASI (OUTPUT FORMAT)
+Gunakan skill: /clean-code /senior-qa
+================================================================================
+Kelompokkan seluruh temuan berdasarkan tingkat keparahan:
+- CRITICAL: Kerusakan fatal, race condition/deadlock, pelanggaran izin MIC/akses file, penolakan otomatis oleh agensi microstock, atau korupsi metadata file.
+- HIGH: Fitur utama yang terputus (dead code di UI), prompt menghasilkan output tidak valid, unhandled exceptions, atau kegagalan penanganan rate limit.
+- MEDIUM: Inkonsistensi batas karakter terhadap aturan agensi terkini, deduplikasi suboptimal, feedback UI tertunda, atau sleep thread yang kurang efisien.
+- LOW / NOTICE: Inkonsistensi style UI, edge case minor yang jarang terjadi, atau deprecated imports.
+
+Format untuk SETIAP temuan:
+--------------------------------------------------------------------------------
+- Menu / Fitur: [Nama kontrol UI dan lokasinya]
+- Status Fungsional: [Aktif & Terhubung | Dead Code / Mockup | Implementasi Parsial | Rusak]
+- File Reference & Line Numbers: [Path relatif dan rentang baris: path/to/file.py:XX-YY]
+- Hasil Sinkronisasi Microstock: [Perbandingan aturan codebase vs data hasil web search]
+- Analisis Algoritma & Masalah: [Ulasan teknis logika kode, race condition, atau celah algoritma]
+- Dampak Sistem: [Risiko penolakan portofolio, crash runtime, file rusak, atau UI hang]
+- Rekomendasi Solusi: [Arah perbaikan arsitektur dan algoritma yang presisi]
+--------------------------------------------------------------------------------
+
+================================================================================
+PROTOKOL PENUTUP
+================================================================================
+1. Sajikan tabel ringkasan kesehatan repository (Total Fitur Diperiksa, Persentase Fitur Aktif vs Dead Code, dan Skor Kesiapan Regulasi Microstock).
+2. Akhiri laporan secara eksplisit dengan menanyakan modul, algoritma, atau regulasi agensi mana yang ingin diperbaiki/disinkronkan terlebih dahulu.

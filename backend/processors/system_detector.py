@@ -60,8 +60,8 @@ def _resolve_binary(
     tools_dir: Path | None = None,
     extra_globs: tuple[str, ...] = (),
 ) -> str | None:
-    """Return the first existing binary, preferring the shallowest ``tools/``
-    match, then extra install locations (latest version first), then PATH."""
+    """Return the first existing binary: shallowest ``tools/`` match first,
+    then system PATH, then extra install locations (latest version first)."""
     lowered = {name.lower(): name for name in exe_names}
     root = tools_dir if tools_dir is not None else _tools_root()
     if root.is_dir():
@@ -73,6 +73,12 @@ def _resolve_binary(
         if matches:
             matches.sort(key=lambda p: len(p.parts))
             return str(matches[0])
+    for name in exe_names:
+        stem = Path(name).stem
+        for candidate in (name, stem):
+            found = which(candidate)
+            if found:
+                return found
     if extra_globs:
         hits: list[str] = []
         for pattern in extra_globs:
@@ -80,12 +86,6 @@ def _resolve_binary(
         if hits:
             hits.sort(key=_version_key, reverse=True)
             return hits[0]
-    for name in exe_names:
-        stem = Path(name).stem
-        for candidate in (name, stem):
-            found = which(candidate)
-            if found:
-                return found
     return None
 
 
