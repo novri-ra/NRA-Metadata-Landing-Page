@@ -1216,9 +1216,14 @@ class AppWindow(ctk.CTk):
         plat = self.target_plat_var.get()
 
         res = validate_compliance(title, self.edit_desc_var.get(), kws, plat)
-        if res["valid"]:
+        if res["valid"] and not res.get("warnings"):
             self.compliance_lbl.configure(
                 text=f"● Compliant ({plat})", text_color=C["success"]
+            )
+        elif res["valid"]:
+            warn_text = " | ".join(res["warnings"])
+            self.compliance_lbl.configure(
+                text=f"● {warn_text} ({plat})", text_color=C["warn_soft"]
             )
         else:
             err_text = " | ".join(res["errors"])

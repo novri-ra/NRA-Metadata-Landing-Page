@@ -193,6 +193,7 @@ def validate_compliance(
         keywords = []
 
     errors = []
+    warnings = []
 
     # Title validation
     if _TITLE_BANNED_PREFIX_RE.match(title):
@@ -202,6 +203,13 @@ def validate_compliance(
         )
     if len(title) > rules["title_max_chars"]:
         errors.append(f"Title exceeds {rules['title_max_chars']} chars")
+    # Soft SEO recommendation: over the recommended band top (70 for Adobe) is
+    # not a hard rejection — warn, don't block the batch.
+    target_top = rules.get("title_target_chars", (None, None))[1]
+    if target_top and len(title) > target_top:
+        warnings.append(
+            f"Title over {target_top} chars (SEO recommendation for {platform})"
+        )
 
     word_count = len([w for w in title.split() if w.strip()])
     if word_count < rules["title_min_words"]:
@@ -226,7 +234,15 @@ def validate_compliance(
     elif kw_count > rules["kw_max"]:
         errors.append(f"Has {kw_count} keywords (max {rules['kw_max']})")
 
-    return {"valid": len(errors) == 0, "errors": errors}
+    return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
+
+
+def truncate_at_boundary(text: str, max_len: int) -> str:
+    """Cut at the last whole-word boundary before ``max_len``, never mid-word."""
+    if len(text) <= max_len:
+        return text
+    cut = text[:max_len].rsplit(" ", 1)[0]
+    return cut if cut else text[:max_len]
 
 
 def _title_from_filename(filename: str) -> str:
@@ -266,10 +282,12 @@ def autofix_compliance(
     # Fix Title
     if len(fixed_title) > rules["title_max_chars"]:
         # truncate while keeping whole words if possible
-        fixed_title = fixed_title[: rules["title_max_chars"]].rsplit(" ", 1)[0]
-        # fallback if single word was > max chars
-        if len(fixed_title) > rules["title_max_chars"]:
-            fixed_title = fixed_title[: rules["title_max_chars"]]
+        fixed_title = truncate_at_boundary(fixed_title, rules["title_max_chars"])
+    # Soft-compliance: for platforms with a recommended SEO band (Adobe: 50-70),
+    # tighten long titles down to the band top at a word boundary.
+    target_top = rules.get("title_target_chars", (None, None))[1]
+    if target_top and len(fixed_title) > target_top:
+        fixed_title = truncate_at_boundary(fixed_title, target_top)
 
     # Fix Keywords
     if platform == "Freepik":
