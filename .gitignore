@@ -4,19 +4,24 @@ config.enc
 .auth_session
 *.env
 .env.*
+.env
 
 # DB & Cache
 *.db
 cache.db
 .cache/
 .ruff_cache/
-cache/
-output/
+cache/*
+!cache/.gitkeep
+output/*
+!output/.gitkeep
 
 # Test outputs & logs
 *_export.csv
 failed_files.log
 *.log
+logs/*.log
+!logs/.gitkeep
 
 # Temporary diagnostic/dump files
 out.txt
@@ -41,13 +46,14 @@ tools/ghostscript/bin/*
 !tools/README.txt
 dist/
 build/
+*.egg-info/
 *.exe
 *.spec
-nra_metadata.egg-info/
 
 # Python artifacts
 __pycache__/
 *.py[cod]
+*$py.class
 .venv/
 env/
 venv/
