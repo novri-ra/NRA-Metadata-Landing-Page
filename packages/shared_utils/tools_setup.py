@@ -7,6 +7,7 @@ import tempfile
 import threading
 from pathlib import Path
 
+from backend.processors._tools import no_window_kwargs
 from backend.processors.system_detector import discover_tools, reset_tool_cache
 
 
@@ -147,7 +148,8 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
                 cmd,
                 check=False,
                 timeout=120,
-                env=env
+                env=env,
+                **no_window_kwargs(),
             )
             
             if installer.exists():

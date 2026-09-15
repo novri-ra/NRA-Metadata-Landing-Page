@@ -106,6 +106,7 @@ class AppWindow(ctk.CTk):
         self.processed_files = set()
         self.excluded_files = set()
         self.queue_status = {}
+        self._batch_files = set()
         self.batch_session_stats = {
             "processed": 0,
             "skipped": 0,
@@ -277,7 +278,11 @@ class AppWindow(ctk.CTk):
             elif file_status == "failed":
                 badge_color = C["error"]
                 badge_text = "Failed"
-            elif f in self.processed_files:
+            elif f in self.processed_files and f not in self._batch_files:
+                # A file finished in an earlier batch still shows Done; a file
+                # that belongs to the current batch but never got a terminal
+                # status (cancelled before start, crashed worker) must not be
+                # green -- fall through to Pending instead.
                 badge_color = C["success"]
                 badge_text = "\u2713 Done"
             else:
@@ -1792,6 +1797,7 @@ class AppWindow(ctk.CTk):
             return self.log("No new files." if new_only else "No files.", "error")
         self.processed_files.update(files)
         self.queue_status.clear()
+        self._batch_files = set(files)
 
         self.pause_btn.configure(
             text="Pause", fg_color=C["warn"], hover_color=C["warn_h"], state="normal"

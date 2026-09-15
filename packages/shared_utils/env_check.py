@@ -2,6 +2,8 @@ import os
 import subprocess
 import sys
 
+from backend.processors._tools import no_window_kwargs
+
 
 def check_exiftool() -> tuple[bool, str]:
     """Check if ExifTool is available in system PATH or local tools dir."""
@@ -15,12 +17,25 @@ def check_exiftool() -> tuple[bool, str]:
         return True, f"Found at {path}"
 
     try:
+        cmd = ["exiftool", "-ver"]
+        cwd = None
+        try:
+            from shutil import which
+
+            found = which("exiftool.exe") or which("exiftool")
+            if found:
+                cmd = [found, "-ver"]
+                cwd = os.path.dirname(os.path.abspath(found))
+        except Exception:  # pragma: no cover - which() quirks
+            pass
         res = subprocess.run(
-            ["exiftool", "-ver"],
+            cmd,
             capture_output=True,
             text=True,
             timeout=3,
             check=False,
+            cwd=cwd,
+            **no_window_kwargs(),
         )
         if res.returncode == 0:
             return True, f"Found in system PATH (v{res.stdout.strip()})"

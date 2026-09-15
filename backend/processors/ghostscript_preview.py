@@ -20,6 +20,7 @@ from backend.processors._tools import (
     get_base_path,
     get_tool_path,
     log_failed_file,
+    no_window_kwargs,
 )
 from packages.shared_utils.tools_setup import find_ghostscript_binary
 
@@ -74,7 +75,12 @@ def render_vector_preview(file_path: str, out_path: str, _log) -> str | None:
             input_abs,
         ]
         try:
-            result = subprocess.run(cmd, capture_output=True, timeout=RENDER_TIMEOUT)
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                timeout=RENDER_TIMEOUT,
+                **no_window_kwargs(),
+            )
             if result.returncode != 0:
                 log(
                     format_tool_failure(
@@ -132,7 +138,14 @@ def render_vector_preview(file_path: str, out_path: str, _log) -> str | None:
         )
         try:
             res = subprocess.run(
-                cmd_fallback, check=True, capture_output=True, timeout=RENDER_TIMEOUT
+                cmd_fallback,
+                check=True,
+                capture_output=True,
+                timeout=RENDER_TIMEOUT,
+                # The portable ExifTool wrapper (~57KB PAR) needs its own dir as
+                # cwd to locate exiftool_files/ support modules or it dies.
+                cwd=os.path.dirname(os.path.abspath(exiftool_path)),
+                **no_window_kwargs(),
             )
             if res.stdout and len(res.stdout) > 1024:
                 with open(out_path, "wb") as f:

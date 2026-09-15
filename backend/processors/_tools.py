@@ -4,6 +4,7 @@ public surface of ``backend.processors`` stays clean.
 """
 
 import os
+import subprocess
 import sys
 import textwrap
 import threading
@@ -43,7 +44,7 @@ def get_tool_path(tool_name: str) -> str | None:
     from shutil import which
 
     candidates = {
-        "exiftool": ["exiftool.exe"],
+        "exiftool": ["exiftool.exe", "ExifTool.exe"],
         "ghostscript": ["gswin64c.exe", "gswin32c.exe", "gs.exe"],
         "ffmpeg": ["ffmpeg.exe"],
     }.get(tool_name, [f"{tool_name}.exe"])
@@ -108,3 +109,18 @@ def exiftool_flags(exiftool_path: str) -> list:
     if str(exiftool_path).lower().endswith(".exe"):
         return ["-api", "Windows=1"] + flags
     return flags
+
+
+def no_window_kwargs() -> dict:
+    """Return subprocess kwargs that suppress conhost windows on Windows.
+
+    Without these, every external tool spawns a visible console window
+    (conhost.exe flicker) and stalls the Tk event loop, freezing the UI.
+    On non-Windows platforms this is a no-op.
+    """
+    if os.name != "nt":
+        return {}
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = subprocess.SW_HIDE
+    return {"creationflags": subprocess.CREATE_NO_WINDOW, "startupinfo": si}

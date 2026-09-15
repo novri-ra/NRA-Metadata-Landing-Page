@@ -17,7 +17,12 @@ import tempfile
 
 from PIL import Image
 
-from backend.processors._tools import format_tool_failure, get_tool_path, log_failed_file
+from backend.processors._tools import (
+    format_tool_failure,
+    get_tool_path,
+    log_failed_file,
+    no_window_kwargs,
+)
 from backend.processors.ghostscript_preview import render_vector_preview
 
 
@@ -66,7 +71,7 @@ def extract_video_frame(file_path: str, out_path: str, filename: str, _log) -> s
         out_path,
     ]
     try:
-        subprocess.run(cmd, check=True, capture_output=True, timeout=60)
+        subprocess.run(cmd, check=True, capture_output=True, timeout=60, **no_window_kwargs())
         # Validate output
         if os.path.exists(out_path) and os.path.getsize(out_path) > 1024:
             try:
@@ -127,7 +132,7 @@ def extract_svg_preview(file_path: str, out_path: str, filename: str, _log) -> s
             f"file:///{os.path.abspath(file_path)}",
         ]
         try:
-            subprocess.run(cmd, check=True, capture_output=True, timeout=30)
+            subprocess.run(cmd, check=True, capture_output=True, timeout=30, **no_window_kwargs())
             if os.path.exists(png_path):
                 img = Image.open(png_path).convert("RGB")
                 img.thumbnail((1024, 1024))
