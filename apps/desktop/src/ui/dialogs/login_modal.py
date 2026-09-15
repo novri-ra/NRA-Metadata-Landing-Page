@@ -260,11 +260,12 @@ def show_login_modal(app):
             try:
                 res = app.auth.login(u, p)
             except Exception as e:
+                msg = f"Login error: {e!s}"
                 try:
                     modal.after(
                         0,
                         lambda: _login_done(
-                            {"status": "ERROR", "message": f"Login error: {e!s}"}, u
+                            {"status": "ERROR", "message": msg}, u
                         ),
                     )
                 except Exception:
@@ -480,11 +481,12 @@ def show_login_modal(app):
                     data["password"],
                 )
             except Exception as e:
+                msg = f"Registrasi error: {e!s}"
                 try:
                     modal.after(
                         0,
                         lambda: _reg_done(
-                            {"status": "ERROR", "message": f"Registrasi error: {e!s}"},
+                            {"status": "ERROR", "message": msg},
                             data["username"],
                         ),
                     )
