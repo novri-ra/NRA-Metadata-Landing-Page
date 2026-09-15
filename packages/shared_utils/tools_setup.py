@@ -51,6 +51,40 @@ def _download(url: str, dest: str, timeout: int = 120):
                 out.write(chunk)
 
 
+_VERIFY_ARGS = {
+    "exiftool": ["-ver"],
+    "ghostscript": ["--version"],
+    "ffmpeg": ["-version"],
+}
+_VERIFY_LABELS = {
+    "exiftool": "ExifTool",
+    "ghostscript": "Ghostscript",
+    "ffmpeg": "FFmpeg",
+}
+
+
+def _verify_binary(exe_path: str, tool: str) -> tuple[bool, str]:
+    """Quick execution probe (<=2s, no window). Returns (ok, version_text)."""
+    if not exe_path or not os.path.isfile(exe_path):
+        return False, ""
+    args = [exe_path] + _VERIFY_ARGS.get(tool, ["--version"])
+    try:
+        res = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+            **no_window_kwargs(),
+        )
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return False, ""
+    if res.returncode != 0:
+        return False, ""
+    out = (res.stdout or "").strip().splitlines()
+    return True, (out[0] if out else "v?")
+
+
 def _is_valid_zip(path: str) -> bool:
     """Check ZIP magic bytes PK\\x03\\x04."""
     try:
@@ -75,6 +109,25 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
     if sys.platform != "win32":
         _log("[INFO] Non-Windows platform - download skipped, detection complete.")
         return
+
+    def _verified(exe: str | None, tool: str):
+        ok, ver = _verify_binary(exe or "", tool)
+        if ok:
+            _log(
+                f"[INFO] {_VERIFY_LABELS[tool]} detected at: {exe} "
+                f"({ver}) - Skipping download."
+            )
+        else:
+            _log(
+                f"[WARN] {_VERIFY_LABELS[tool]} found at {exe} but failed "
+                f"execution probe - will attempt download."
+            )
+        return ok
+
+    ready = {
+        tool: (found.get(tool) is not None) and _verified(found[tool], tool)
+        for tool in ("exiftool", "ghostscript", "ffmpeg")
+    }
 
     def _setup_exiftool():
         exe_in_subdir = td / "exiftool" / "exiftool.exe"
@@ -198,18 +251,12 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
             _log(f"[WARN] Failed to download FFmpeg: {e}. Video frame extraction will use system PATH fallback.")
 
     threads = []
-    if not found.get("exiftool"):
+    if not ready["exiftool"]:
         threads.append(threading.Thread(target=_setup_exiftool, daemon=True))
-    else:
-        _log("[INFO] ExifTool already detected - skipping download.")
-    if not found.get("ghostscript"):
+    if not ready["ghostscript"]:
         threads.append(threading.Thread(target=_setup_ghostscript, daemon=True))
-    else:
-        _log("[INFO] Ghostscript already detected - skipping download.")
-    if not found.get("ffmpeg"):
+    if not ready["ffmpeg"]:
         threads.append(threading.Thread(target=_setup_ffmpeg, daemon=True))
-    else:
-        _log("[INFO] FFmpeg already detected - skipping download.")
     for t in threads:
         t.start()
     for t in threads:

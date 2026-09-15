@@ -79,13 +79,38 @@ class GhostscriptInstallCmdTest(unittest.TestCase):
                 ts, "find_ghostscript_binary", side_effect=[None, None]
             ), mock.patch(
                 "packages.shared_utils.tools_setup.discover_tools",
-                return_value={"exiftool": True, "ghostscript": False, "ffmpeg": True},
+                return_value={"exiftool": None, "ghostscript": None, "ffmpeg": None},
             ), mock.patch.object(ts, "_download", return_value=None), mock.patch(
                 "packages.shared_utils.tools_setup.subprocess.run",
                 side_effect=fake_run,
             ):
                 ts.ensure_tools_installed(tmp, progress_callback=lambda m: None)
         self.assertTrue(gs_found)
+
+
+class SkipWhenDetectedTest(unittest.TestCase):
+    def test_download_not_called_when_tools_present(self):
+        # A detected + verified binary must skip download entirely.
+        with tempfile.TemporaryDirectory() as tmp:
+            for rel in ("exiftool.exe", "gswin64c.exe", "ffmpeg.exe"):
+                open(os.path.join(tmp, rel), "wb").close()
+            logs = []
+
+            with mock.patch(
+                "packages.shared_utils.tools_setup.discover_tools",
+                return_value={
+                    "exiftool": os.path.join(tmp, "exiftool.exe"),
+                    "ghostscript": os.path.join(tmp, "gswin64c.exe"),
+                    "ffmpeg": os.path.join(tmp, "ffmpeg.exe"),
+                },
+            ), mock.patch.object(
+                ts, "_verify_binary", side_effect=lambda p, t: (True, "test-v")
+            ) as verify, mock.patch.object(ts, "_download") as dl:
+                ts.ensure_tools_installed(tmp, progress_callback=logs.append)
+            dl.assert_not_called()
+            skip_msgs = [m for m in logs if "Skipping download." in m]
+            self.assertEqual(len(skip_msgs), 3)
+            self.assertTrue(all("detected at:" in m for m in skip_msgs))
 
 
 if __name__ == "__main__":
