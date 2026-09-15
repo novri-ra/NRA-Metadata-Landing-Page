@@ -1,7 +1,7 @@
 import json
 import os
 
-from backend.core.config_manager import get_config_dir
+from backend.core.config_manager import atomic_write_text, get_config_dir
 
 
 def presets_path() -> str:
@@ -20,8 +20,9 @@ def _load_presets() -> dict:
 
 
 def _save_presets(presets: dict):
-    with open(presets_path(), "w", encoding="utf-8") as f:
-        json.dump(presets, f, indent=2, ensure_ascii=False)
+    atomic_write_text(
+        presets_path(), json.dumps(presets, indent=2, ensure_ascii=False)
+    )
 
 
 def get_preset_names() -> list[str]:
@@ -46,8 +47,7 @@ def delete_preset(name: str):
 
 def export_presets(filepath: str):
     presets = _load_presets()
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(presets, f, indent=2, ensure_ascii=False)
+    atomic_write_text(filepath, json.dumps(presets, indent=2, ensure_ascii=False))
 
 
 def import_presets(filepath: str) -> int:

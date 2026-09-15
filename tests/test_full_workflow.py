@@ -1,7 +1,9 @@
 import csv
 import os
+import tempfile
 import time
 import unittest
+from unittest import mock
 
 from backend.ai.provider_router import normalize_base_url
 from packages.shared_utils.cost_tracker import CostTracker
@@ -151,8 +153,7 @@ class TestConfigPersistence(unittest.TestCase):
             "model": "gpt-4o",
             "api_keys": {"OpenAI": "sk-test"},
             "temperature": 0.7,
-            "min_kw": 15,
-            "max_kw": 40,
+            "target_kw": 40,
             "extra_prompt": "Test mode",
             "csv_platforms": ["Adobe Stock", "Vecteezy"],
         }
@@ -438,12 +439,59 @@ class TestSanitizer(unittest.TestCase):
         subprocess.run = fake_run
 
         try:
-            processor.sanitize_ai_metadata("test_image.png")
-            # Verify specific AI tags are targeted
+            fake_exe = os.path.join(tempfile.gettempdir(), "nra_fake_exiftool.exe")
+            with open(fake_exe, "wb") as fe:
+                fe.write(b"MZ")
+            with mock.patch(
+                "backend.processors.exiftool_client.get_exiftool_path",
+                return_value=fake_exe,
+            ):
+                processor.sanitize_ai_metadata("test_image.png")
+            # Human-made files: strip generator junk, keep C2PA / DigitalSourceType
             self.assertIn("-PNG:parameters=", captured_cmd)
-            self.assertIn("-XMP-c2pa:all=", captured_cmd)
-            # Verify NOT using destructive -all=
+            self.assertNotIn("-XMP-c2pa:all=", captured_cmd)
+            self.assertNotIn("-XMP:DigitalSourceType=", set(captured_cmd))
             self.assertNotIn("-all=", captured_cmd)
+        finally:
+            subprocess.run = original_run
+
+    def test_sanitize_ai_generated_writes_trained_source(self):
+        import subprocess
+
+        from backend.processors.exiftool_client import ExifToolClient
+
+        processor = ExifToolClient()
+
+        captured_cmd = []
+
+        def fake_run(cmd, *args, **kwargs):
+            captured_cmd.extend(cmd)
+            return subprocess.CompletedProcess(cmd, 0)
+
+        original_run = subprocess.run
+        subprocess.run = fake_run
+
+        try:
+            fake_exe = os.path.join(tempfile.gettempdir(), "nra_fake_exiftool.exe")
+            with open(fake_exe, "wb") as fe:
+                fe.write(b"MZ")
+            with mock.patch(
+                "backend.processors.exiftool_client.get_exiftool_path",
+                return_value=fake_exe,
+            ):
+                processor.sanitize_ai_metadata("test_image.png", is_ai_generated=True)
+            # AI files: declare IPTC digitalSourceType, never remove provenance
+            self.assertIn(
+                "-XMP-iptcExt:DigitalSourceType="
+                "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+                captured_cmd,
+            )
+            self.assertIn(
+                "-XMP:DigitalSourceType=trainedAlgorithmicMedia", captured_cmd
+            )
+            self.assertNotIn("-XMP:DigitalSourceType=", set(captured_cmd))
+            self.assertNotIn("-XMP-c2pa:all=", captured_cmd)
+            self.assertNotIn("-PNG:prompt=", captured_cmd)
         finally:
             subprocess.run = original_run
 

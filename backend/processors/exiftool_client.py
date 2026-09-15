@@ -7,6 +7,7 @@ Extracted from ``packages/media_processor/embedder.py``; the class was renamed
 
 import logging
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -26,6 +27,18 @@ logger = logging.getLogger(__name__)
 def get_exiftool_path() -> str | None:
     """Resolve the ExifTool binary; ``None`` when it cannot be found."""
     return get_tool_path("exiftool")
+
+
+def _normalize_date_created(date_created: str) -> str:
+    """Normalize ``YYYY-MM-DD`` / ``YYYY/MM/DD`` / ``YYYYMMDD`` -> ``YYYYMMDD``."""
+    raw = (date_created or "").strip()
+    m = re.match(r"^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", raw)
+    if m and re.match(r"^(\d{4})(\d{2})(\d{2})$", raw):
+        return raw
+    if m:
+        return f"{int(m.group(1)):04d}{int(m.group(2)):02d}{int(m.group(3)):02d}"
+    m8 = re.match(r"^(\d{4})(\d{2})(\d{2})$", raw)
+    return m8.group(0) if m8 else raw
 
 
 def _prepare_target(file_path: str) -> None:
@@ -274,8 +287,17 @@ def _log_exiftool_failure(
 
 
 class ExifToolClient:
-    def sanitize_ai_metadata(self, file_path: str) -> bool:
-        """Strip AI provenance and generation tags while preserving Adobe/creative app metadata."""
+    def sanitize_ai_metadata(
+        self, file_path: str, is_ai_generated: bool = False
+    ) -> bool:
+        """Manage AI provenance tags.
+
+        ``is_ai_generated=False`` (human-made): strip internal generator junk
+        (PNG prompt/workflow) only; official C2PA manifests and IPTC
+        ``DigitalSourceType`` are preserved. ``is_ai_generated=True``: no
+        removal args at all, and the IPTC ``trainedAlgorithmicMedia``
+        declaration is written explicitly.
+        """
         file_path = os.path.normpath(os.path.abspath(file_path))
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         _prepare_target(file_path)
@@ -286,24 +308,26 @@ class ExifToolClient:
         is_png = os.path.splitext(file_path)[1].lower() == ".png"
         cmd = [exiftool_path]
         cmd.extend(exiftool_flags(exiftool_path))
-        if is_png:
+        if is_ai_generated:
             cmd.extend(
                 [
-                    "-PNG:parameters=",
-                    "-PNG:prompt=",
-                    "-PNG:workflow=",
-                    "-PNG:negative_prompt=",
-                    "-PNG:Generation time=",
+                    "-XMP-iptcExt:DigitalSourceType=http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+                    "-XMP:DigitalSourceType=trainedAlgorithmicMedia",
                 ]
             )
-        cmd.extend(
-            [
-                "-XMP-c2pa:all=",
-                "-XMP-xmpGImg:all=",
-                "-XMP:DigitalSourceType=",
-                file_path,
-            ]
-        )
+        else:
+            if is_png:
+                cmd.extend(
+                    [
+                        "-PNG:parameters=",
+                        "-PNG:prompt=",
+                        "-PNG:workflow=",
+                        "-PNG:negative_prompt=",
+                        "-PNG:Generation time=",
+                    ]
+                )
+            cmd.extend(["-XMP-xmpGImg:all="])
+        cmd.append(file_path)
         try:
             result = _run_metadata_write(cmd, file_path, timeout=30)
         except subprocess.TimeoutExpired:
@@ -329,6 +353,12 @@ class ExifToolClient:
         keywords: list[str],
         copyright_text: str,
         author: str = "",
+        is_ai_generated: bool = False,
+        is_editorial: bool = False,
+        city: str = "",
+        country: str = "",
+        country_code: str = "",
+        date_created: str = "",
     ) -> bool:
         file_path = os.path.normpath(os.path.abspath(file_path))
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -350,8 +380,8 @@ class ExifToolClient:
             return False
         _prepare_target(file_path)
 
-        # 1. Sanitize AI metadata first
-        self.sanitize_ai_metadata(file_path)
+        # 1. Manage AI provenance tags
+        self.sanitize_ai_metadata(file_path, is_ai_generated)
 
         # 2. Embed new metadata
         exiftool_path = get_exiftool_path()
@@ -409,6 +439,43 @@ class ExifToolClient:
                         f"-Artist={author}",
                     ]
                 )
+        if is_editorial:
+            exif_date = _normalize_date_created(date_created)
+            if is_eps:
+                if city:
+                    cmd.extend(
+                        [f"-XMP-photoshop:City={city}", f"-IPTC:City={city}"]
+                    )
+                if country:
+                    cmd.extend(
+                        [
+                            f"-XMP-photoshop:Country={country}",
+                            f"-IPTC:Country-PrimaryLocationName={country}",
+                        ]
+                    )
+                if country_code:
+                    cmd.extend(
+                        [
+                            f"-XMP-iptcExt:CountryCode={country_code}",
+                            f"-IPTC:Country-PrimaryLocationCode={country_code}",
+                        ]
+                    )
+                if exif_date:
+                    cmd.extend(
+                        [
+                            f"-XMP-photoshop:DateCreated={exif_date}",
+                            f"-IPTC:DateCreated={exif_date}",
+                        ]
+                    )
+            else:
+                if city:
+                    cmd.append(f"-City={city}")
+                if country:
+                    cmd.append(f"-Country={country}")
+                if country_code:
+                    cmd.append(f"-Country-PrimaryLocationCode={country_code}")
+                if exif_date:
+                    cmd.append(f"-DateCreated={exif_date}")
         for kw in keywords:
             if is_eps:
                 cmd.extend([f"-IPTC:Keywords={kw}", f"-XMP:Subject={kw}"])
@@ -464,6 +531,9 @@ class ExifToolClient:
         try:
             ET.register_namespace("", "http://www.w3.org/2000/svg")
             ET.register_namespace("dc", "http://purl.org/dc/elements/1.1/")
+            ET.register_namespace(
+                "rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+            )
             tree = ET.parse(file_path)
             root = tree.getroot()
             title_el = ET.Element("{http://www.w3.org/2000/svg}title")
@@ -473,7 +543,7 @@ class ExifToolClient:
             root.insert(0, desc_el)
             root.insert(0, title_el)
 
-            if author or copyright_text:
+            if author or copyright_text or keywords:
                 metadata_el = ET.Element("{http://www.w3.org/2000/svg}metadata")
                 rdf_el = ET.Element("{http://www.w3.org/1999/02/22-rdf-syntax-ns#}RDF")
                 work_el = ET.Element("{http://purl.org/dc/elements/1.1/}Work")
@@ -485,6 +555,17 @@ class ExifToolClient:
                     rights_el = ET.Element("{http://purl.org/dc/elements/1.1/}rights")
                     rights_el.text = copyright_text
                     work_el.append(rights_el)
+                if keywords:
+                    subject_el = ET.Element("{http://purl.org/dc/elements/1.1/}subject")
+                    bag_el = ET.SubElement(
+                        subject_el, "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}Bag"
+                    )
+                    for kw in keywords:
+                        li_el = ET.SubElement(
+                            bag_el, "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}li"
+                        )
+                        li_el.text = kw
+                    work_el.append(subject_el)
                 rdf_el.append(work_el)
                 metadata_el.append(rdf_el)
                 root.insert(0, metadata_el)

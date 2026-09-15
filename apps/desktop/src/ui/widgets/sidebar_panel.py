@@ -1,6 +1,6 @@
 import customtkinter as ctk
 
-from ui.theme import C, _btn, _combo, _divider, _entry, _label, _section_header, _slider
+from ui.theme import C, CR, _btn, _combo, _divider, _entry, _label, _section_header, _slider
 
 
 class SidebarPanel(ctk.CTkFrame):
@@ -98,11 +98,9 @@ class SidebarPanel(ctk.CTkFrame):
 
         self.model_cb.pack(fill="x", **PAD)
 
-        _label(sidebar, "API Key").pack(fill="x", anchor="w", **LPAD)
-        self.api_key_entry = _entry(sidebar, show="*")
-        self.keys_counter_lbl = _label(sidebar, "(0 keys loaded)")
-        self.keys_counter_lbl.pack(fill="x", anchor="w", padx=16, pady=2)
-
+        _label(sidebar, "API Key(s) (one per line)").pack(fill="x", anchor="w", **LPAD)
+        
+        # Migrate legacy single key format
         if "api_keys" not in config:
             config["api_keys"] = {}
             if "api_key" in config:
@@ -112,18 +110,43 @@ class SidebarPanel(ctk.CTkFrame):
                     config["api_keys"][old_provider] = old_key
 
         current_provider = config.get("provider", "Gemini")
-        self.api_key_entry.insert(0, config["api_keys"].get(current_provider, ""))
-        self.api_key_entry.pack(fill="x", **PAD)
+        self.api_key_text = ctk.CTkTextbox(
+            sidebar, height=70, fg_color=C["surface2"],
+            border_color=C["border"], border_width=1,
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text_color=C["text"], corner_radius=CR,
+        )
+        saved_keys = config["api_keys"].get(current_provider, "")
+        if saved_keys:
+            self.api_key_text.insert("1.0", saved_keys)
+        self.api_key_text.pack(fill="x", **PAD)
 
-        def _on_key_type(event=None):
-            active_prov = self.provider_cb.get()
-            if "api_keys" not in config:
-                config["api_keys"] = {}
-            config["api_keys"][active_prov] = self.api_key_entry.get().strip()
-            app._save_current_config()
+        def _on_key_change(event=None):
+            if not hasattr(app, "_loading_provider"):
+                active_prov = self.provider_cb.get()
+                if "api_keys" not in config:
+                    config["api_keys"] = {}
+                config["api_keys"][active_prov] = self.api_key_text.get("1.0", "end-1c").strip()
+                app._update_keys_counter(active_prov)
+                app._save_current_config()
 
-        self.api_key_entry.bind("<KeyRelease>", _on_key_type)
-        self.api_key_entry.bind("<FocusOut>", _on_key_type)
+        self.api_key_text.bind("<KeyRelease>", _on_key_change)
+        self.api_key_text.bind("<FocusOut>", _on_key_change)
+
+        keys_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
+        keys_row.pack(fill="x", **LPAD)
+        self.keys_counter_lbl = _label(keys_row, "(0 keys loaded)")
+        self.keys_counter_lbl.pack(side="left")
+        
+        def _load_keys_dialog():
+            app._load_keys_from_file()
+        self.load_keys_btn = ctk.CTkButton(
+            keys_row, text="Load from File...", fg_color=C["surface2"],
+            hover_color=C["border"], text_color=C["text2"], height=24,
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            command=_load_keys_dialog, width=100,
+        )
+        self.load_keys_btn.pack(side="right")
 
         self.fetch_models_btn = ctk.CTkButton(
             sidebar,
@@ -137,19 +160,50 @@ class SidebarPanel(ctk.CTkFrame):
         )
         self.fetch_models_btn.pack(fill="x", padx=16, pady=(0, 16))
 
-        _label(sidebar, "Custom Base URL (OpenAI-compatible)").pack(
-            fill="x", anchor="w", **LPAD
-        )
-        self.base_url_entry = _entry(sidebar)
-        self.base_url_entry.insert(0, config.get("custom_base_url", ""))
-        self.base_url_entry.pack(fill="x", **PAD)
+        self.custom_frame = ctk.CTkFrame(sidebar, fg_color=C["surface"])
+
+        _label(self.custom_frame, "Endpoint Name").pack(fill="x", anchor="w", padx=12, pady=(4, 1))
+        self.custom_name_entry = _entry(self.custom_frame)
+        custom_ep = config.get("custom_endpoint", {})
+        self.custom_name_entry.insert(0, custom_ep.get("name", "My Custom API"))
+        self.custom_name_entry.pack(fill="x", padx=12, pady=(0, 4))
+        self.custom_name_entry.bind("<FocusOut>", lambda e: app._save_current_config())
+
+        _label(self.custom_frame, "Custom Base URL (OpenAI-compatible)").pack(fill="x", anchor="w", padx=12, pady=(4, 1))
+        self.base_url_entry = _entry(self.custom_frame)
+        self.base_url_entry.insert(0, config.get("custom_base_url", custom_ep.get("base_url", "")))
+        self.base_url_entry.pack(fill="x", padx=12, pady=(0, 4))
 
         def _on_base_url_type(event=None):
             config["custom_base_url"] = self.base_url_entry.get().strip()
             app._save_current_config()
-
         self.base_url_entry.bind("<KeyRelease>", _on_base_url_type)
         self.base_url_entry.bind("<FocusOut>", _on_base_url_type)
+
+        _label(self.custom_frame, "Package").pack(fill="x", anchor="w", padx=12, pady=(4, 1))
+        self.custom_package_cb = _combo(
+            self.custom_frame,
+            ["openai", "requests", "httpx"],
+            command=lambda _: app._save_current_config(),
+        )
+        self.custom_package_cb.set(custom_ep.get("package", "openai"))
+        self.custom_package_cb.pack(fill="x", padx=12, pady=(0, 4))
+
+        def _on_test_conn():
+            app._test_custom_connection()
+        self.test_conn_btn = ctk.CTkButton(
+            self.custom_frame, text="Test Connection", fg_color=C["surface2"],
+            hover_color=C["border"], text_color=C["text2"], height=24,
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            command=_on_test_conn,
+        )
+        self.test_conn_btn.pack(fill="x", padx=12, pady=(0, 8))
+
+        # Toggle custom frame visibility based on provider
+        provider = config.get("provider", "Gemini")
+        if provider == "Custom":
+            self.custom_frame.pack(fill="x", padx=0, pady=0, after=self.fetch_models_btn)
+        # Note: base_url_entry is now inside custom_frame
 
         temp_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         temp_row.pack(fill="x", **LPAD)
@@ -209,37 +263,12 @@ class SidebarPanel(ctk.CTkFrame):
         self.style_cb.pack(fill="x", **PAD)
 
         kw_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
-        kw_row.pack(fill="x", padx=12, pady=(0, 4))
-        kw_row.grid_columnconfigure(0, weight=1)
-        kw_row.grid_columnconfigure(1, weight=1)
-
-        lf = ctk.CTkFrame(kw_row, fg_color=C["surface"])
-        lf.grid(row=0, column=0, sticky="ew", padx=(0, 4))
-        _label(lf, "Min KW").pack(anchor="w")
-        self.min_kw_entry = _entry(lf, width=60)
-        self.min_kw_entry.insert(0, str(config.get("min_kw", 10)))
-        self.min_kw_entry.pack(fill="x")
-        self.min_kw_entry.bind("<FocusOut>", lambda e: app._save_current_config())
-
-        rf = ctk.CTkFrame(kw_row, fg_color=C["surface"])
-        rf.grid(row=0, column=1, sticky="ew", padx=(4, 0))
-        _label(rf, "Max KW").pack(anchor="w")
-        self.max_kw_entry = _entry(rf, width=60)
-        self.max_kw_entry.insert(0, str(config.get("max_kw", 49)))
-        self.max_kw_entry.pack(fill="x")
-        self.max_kw_entry.bind("<FocusOut>", lambda e: app._save_current_config())
-
-        self.custom_kw_range = ctk.BooleanVar(
-            value=bool(config.get("kw_locked", False))
-        )
-        ctk.CTkCheckBox(
-            kw_row,
-            text="Custom Range (override platform)",
-            variable=self.custom_kw_range,
-            fg_color=C["accent"],
-            font=ctk.CTkFont(family="Segoe UI", size=10),
-            command=lambda: app._save_current_config(),
-        ).grid(row=1, column=0, columnspan=2, sticky="w", padx=(0, 4), pady=(4, 0))
+        kw_row.pack(fill="x", **LPAD)
+        _label(kw_row, "Target Keywords").pack(anchor="w")
+        self.target_kw_entry = _entry(kw_row, width=60)
+        self.target_kw_entry.insert(0, str(config.get("target_kw", 49)))
+        self.target_kw_entry.pack(fill="x")
+        self.target_kw_entry.bind("<FocusOut>", lambda e: app._save_current_config())
 
         _label(sidebar, "Mandatory Keywords").pack(fill="x", anchor="w", **LPAD)
         self.custom_kw_entry = _entry(sidebar, placeholder_text="e.g. 3d, isolated")
@@ -300,38 +329,29 @@ class SidebarPanel(ctk.CTkFrame):
             "<ButtonRelease-1>", lambda e: app._save_current_config()
         )
 
-        delay_val = config.get("delay", 0)
-        if not (0 <= delay_val <= 5):
-            delay_val = 0
+        delay_val = config.get("delay", 10)
+        if delay_val < 0:
+            delay_val = 10
 
         delay_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         delay_row.pack(fill="x", **LPAD)
-        _label(delay_row, "Delay after file (s)").pack(side="left")
-        self.delay_val = ctk.StringVar(value=f"{int(delay_val)}s")
-        ctk.CTkLabel(
-            delay_row,
-            textvariable=self.delay_val,
-            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
-            text_color=C["accent"],
-        ).pack(side="right")
+        _label(delay_row, "Cooldown Delay (s)").pack(side="left")
+        self.cooldown_delay_entry = _entry(delay_row, width=60)
+        self.cooldown_delay_entry.insert(0, str(int(delay_val)))
+        self.cooldown_delay_entry.pack(side="right")
 
-        def update_delay_lbl(val):
-            self.delay_val.set(f"{int(round(float(val)))}s")
+        def _on_delay_change(event=None):
+            try:
+                v = int(self.cooldown_delay_entry.get())
+                if v < 0:
+                    v = 10
+            except ValueError:
+                v = 10
+            config["delay"] = v
+            app._save_current_config()
 
-        self.delay_slider = _slider(
-            sidebar,
-            from_=0,
-            to=5,
-            number_of_steps=5,
-            command=update_delay_lbl,
-            progress_color=C["accent"],
-        )
-        self.delay_slider.set(int(delay_val))
-        self.delay_slider.pack(fill="x", **PAD)
-        self.delay_slider.bind(
-            "<ButtonRelease-1>", lambda e: app._save_current_config()
-        )
-        update_delay_lbl(int(delay_val))
+        self.cooldown_delay_entry.bind("<FocusOut>", _on_delay_change)
+        self.cooldown_delay_entry.bind("<Return>", _on_delay_change)
 
         _label(sidebar, "Formats").pack(fill="x", anchor="w", **LPAD)
         fmt_saved = config.get("formats", {})
@@ -409,7 +429,7 @@ class SidebarPanel(ctk.CTkFrame):
         csv_frame.pack(fill="x", padx=12, pady=(0, 6))
 
         self.csv_vars = {}
-        csv_defs = ["Generic", "Adobe Stock", "Shutterstock", "Vecteezy", "Freepik"]
+        csv_defs = ["Generic", "Adobe Stock", "Shutterstock", "Vecteezy", "Freepik", "Dreamstime"]
         saved_csvs = config.get(
             "csv_platforms", ["Generic", "Adobe Stock", "Shutterstock"]
         )
@@ -424,6 +444,46 @@ class SidebarPanel(ctk.CTkFrame):
                 hover_color=C["accent_h"],
                 font=ctk.CTkFont(family="Segoe UI", size=11),
             ).grid(row=i, column=0, sticky="w", pady=2)
+
+        _label(sidebar, "Editorial (news/documentary)").pack(
+            fill="x", anchor="w", **LPAD
+        )
+        self.editorial_var = ctk.BooleanVar(value=config.get("editorial_enabled", False))
+        ctk.CTkCheckBox(
+            sidebar,
+            text="Enable editorial mode",
+            variable=self.editorial_var,
+            fg_color=C["accent"],
+            hover_color=C["accent_h"],
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            command=lambda: (
+                app.config.__setitem__("editorial_enabled", self.editorial_var.get()),
+                app._save_current_config(),
+            ),
+        ).pack(anchor="w", padx=12, pady=(0, 4))
+
+        editorial_entries = [
+            ("editorial_city", "City"),
+            ("editorial_country", "Country"),
+            ("editorial_country_code", "Country Code"),
+            ("editorial_date", "Date (YYYY-MM-DD)"),
+        ]
+        for key, label_text in editorial_entries:
+            _label(sidebar, label_text).pack(fill="x", anchor="w", **LPAD)
+            entry = _entry(sidebar)
+            entry.insert(0, config.get(key, ""))
+            entry.pack(fill="x", **PAD)
+            entry.bind(
+                "<FocusOut>",
+                lambda e, k=key, en=entry: (
+                    app.config.__setitem__(k, en.get().strip()),
+                    app._save_current_config(),
+                ),
+            )
+            entry.bind(
+                "<Return>",
+                lambda e, en=entry: app.winfo_toplevel().focus_set(),
+            )
 
         _divider(sidebar).pack(fill="x", padx=12, pady=(8, 8))
 
@@ -472,7 +532,7 @@ class SidebarPanel(ctk.CTkFrame):
 
         self.ftp_btn = _btn(
             sidebar,
-            "FTP / SFTP Upload",
+            "FTP Upload",
             C["violet"],
             C["violet_h"],
             command=app.open_ftp_dialog,
@@ -494,29 +554,32 @@ class SidebarPanel(ctk.CTkFrame):
             "preset_cb",
             "provider_cb",
             "model_cb",
-            "api_key_entry",
+            "api_key_text",
             "keys_counter_lbl",
+            "load_keys_btn",
             "fetch_models_btn",
+            "custom_frame",
+            "custom_name_entry",
             "base_url_entry",
+            "custom_package_cb",
+            "test_conn_btn",
             "temp_val",
             "temp_slider",
             "style_cb",
-            "min_kw_entry",
-            "max_kw_entry",
-            "custom_kw_range",
+            "target_kw_entry",
             "custom_kw_entry",
             "extra_prompt_entry",
             "custom_kw_pos",
             "workers_val",
             "workers_slider",
-            "delay_val",
-            "delay_slider",
+            "cooldown_delay_entry",
             "fmt_vars",
             "auto_watch",
             "auto_zip",
             "author_entry",
             "copyright_entry",
             "csv_vars",
+            "editorial_var",
             "start_btn",
             "pause_btn",
             "cancel_btn",

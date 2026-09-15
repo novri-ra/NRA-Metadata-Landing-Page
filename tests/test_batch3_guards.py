@@ -147,7 +147,7 @@ class ProviderFailoverTest(unittest.TestCase):
     def test_failover_forwards_log_callback_and_cancel_check(self):
         captured = {}
 
-        def fake_generate(self, image_path, min_kw=25, max_kw=49, style_preset="Standard",
+        def fake_generate(self, image_path, target_kw=49, style_preset="Standard",
                           extra_prompt="", log_callback=None, cancel_check=None, **kw):
             captured["log_callback"] = log_callback
             captured["cancel_check"] = cancel_check
@@ -159,7 +159,7 @@ class ProviderFailoverTest(unittest.TestCase):
         svc = AIService("Gemini", "primary-key", failover_providers={"OpenAI": "alt-key"})
         with mock.patch.object(AIService, "generate_metadata", fake_generate):
             res = svc._failover_call(
-                "OpenAI", "alt-key", "x.jpg", 7, 50, "General Commercial", "", logger, lambda: False
+                "OpenAI", "alt-key", "x.jpg", 49, "General Commercial", "", logger, lambda: False
             )
         self.assertIs(captured.get("log_callback"), logger)
         self.assertIsNotNone(captured.get("cancel_check"))

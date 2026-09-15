@@ -28,13 +28,12 @@ def start_offline_retag(app):
 
     app.retag_btn.configure(state="disabled")
     app.start_btn.configure(state="disabled")
-    max_kw = app._safe_int(app.max_kw_entry.get(), 50)
-    min_kw = app._safe_int(app.min_kw_entry.get(), 0)
+    target_kw = app._safe_int(app.target_kw_entry.get(), 49)
     author = app.author_entry.get().strip()
     copyright_text = app._get_copyright_text()
     threading.Thread(
         target=_run_offline_retag,
-        args=(app, csv_path, target_dir, max_kw, min_kw, author, copyright_text),
+        args=(app, csv_path, target_dir, target_kw, author, copyright_text),
         daemon=True,
     ).start()
 
@@ -43,8 +42,7 @@ def _run_offline_retag(
     app,
     csv_path: str,
     target_dir: str,
-    max_kw: int,
-    min_kw: int,
+    target_kw: int,
     author: str,
     copyright_text: str,
 ):
@@ -91,8 +89,7 @@ def _run_offline_retag(
                     k.strip() for k in row.get("Keywords", "").split(",") if k.strip()
                 ],
             },
-            max_kw=max_kw,
-            min_kw=min_kw,
+            target_kw=target_kw,
         )
         title = meta["title"]
         desc = meta["description"]

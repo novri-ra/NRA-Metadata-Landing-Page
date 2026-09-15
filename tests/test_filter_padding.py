@@ -13,9 +13,8 @@ class MinKwPaddingTest(unittest.TestCase):
             "category": "Animals",
             "keywords": ["parrot", "bird"],
         }
-        cleaned = clean_metadata(meta, max_kw=8, min_kw=6)
-        self.assertGreaterEqual(len(cleaned["keywords"]), 6)
-        self.assertLessEqual(len(cleaned["keywords"]), 8)
+        cleaned = clean_metadata(meta, target_kw=8)
+        self.assertEqual(len(cleaned["keywords"]), 8)
         self.assertIn("parrot", cleaned["keywords"])
 
     def test_no_padding_when_already_at_or_above_min(self):
@@ -25,7 +24,7 @@ class MinKwPaddingTest(unittest.TestCase):
             "category": "Animals",
             "keywords": ["parrot", "bird", "tropical", "feathers", "jungle", "vivid"],
         }
-        cleaned = clean_metadata(meta, max_kw=8, min_kw=6)
+        cleaned = clean_metadata(meta, target_kw=6)
         self.assertEqual(len(cleaned["keywords"]), 6)
         self.assertEqual(cleaned["keywords"][0], "parrot")
 

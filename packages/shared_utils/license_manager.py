@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import sys
+import time
 import uuid
 
 import requests
@@ -8,6 +9,8 @@ import requests
 from backend.core.config_manager import load_config, save_config
 
 AUTH_API_URL = "https://script.google.com/macros/s/AKfycbyCQ_YsbTnjwgr1nBzPlOzyaiYv5BpfT6HDG72D9RsZRTAvK3axT5fagSV2we7Mkju9/exec"
+
+OFFLINE_SESSION_MAX_AGE_SECONDS = 3 * 24 * 3600
 
 
 def get_machine_hwid() -> str:
@@ -76,6 +79,7 @@ class AuthClient:
         self.config["auth_session"] = token
         if user_id:
             self.config["auth_user_id"] = str(user_id)
+        self._stamp_last_valid()
         save_config(self.config)
 
     def _clear_session(self):
@@ -84,6 +88,20 @@ class AuthClient:
         self.config["auth_user"] = ""
         self.config["auth_session"] = ""
         save_config(self.config)
+
+    def _stamp_last_valid(self):
+        self.config["auth_last_valid"] = str(int(time.time()))
+        save_config(self.config)
+
+    def _offline_allowed(self) -> bool:
+        raw = self.config.get("auth_last_valid")
+        if not raw:
+            return False
+        try:
+            ts = int(raw)
+        except (TypeError, ValueError):
+            return False
+        return (time.time() - ts) <= OFFLINE_SESSION_MAX_AGE_SECONDS
 
     def _post(self, payload: dict) -> dict:
         try:
@@ -106,8 +124,9 @@ class AuthClient:
                     file=sys.stderr,
                 )
                 return {
-                    "success": False,
-                    "error": "Apps Script deployment misconfigured",
+                    "status": "ERROR",
+                    "message": "Apps Script deployment misconfigured",
+                    "network": True,
                 }
             try:
                 return res.json()
@@ -119,8 +138,9 @@ class AuthClient:
                     file=sys.stderr,
                 )
                 return {
-                    "success": False,
-                    "error": "Apps Script deployment misconfigured",
+                    "status": "ERROR",
+                    "message": "Apps Script deployment misconfigured",
+                    "network": True,
                 }
         except requests.exceptions.ConnectTimeout as e:
             print(f"[AUTH] Connect timeout: {e!r}", file=sys.stderr)
@@ -199,6 +219,11 @@ class AuthClient:
             and self.session_token
             and (self.username == clean_user or self.config.get("auth_email") == clean_user)
         ):
+            if not self._offline_allowed():
+                return {
+                    "status": "ERROR",
+                    "message": "Offline session expired. Re-login required.",
+                }
             # Offline tolerance if credentials already match the saved session
             return {"status": "SUCCESS", "username": self.username, "session_token": self.session_token, "message": "Offline mode"}
         return res
@@ -224,11 +249,14 @@ class AuthClient:
         msg = res.get("message", "Error")
 
         if status in ["SUCCESS", "VALID"]:
+            self._stamp_last_valid()
             return True, msg
         elif status == "INVALID_SESSION" or status == "KICKED":
             self._clear_session()
             return False, "KICKED"
         elif status == "ERROR" and res.get("network"):
+            if not self._offline_allowed():
+                return False, "Offline session expired"
             return True, "Offline mode"
         return False, msg
 

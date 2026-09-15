@@ -199,12 +199,26 @@ def save_config(config: dict) -> bool:
             enc_data = _dpapi_encrypt(json_data)
         else:
             enc_data = _obfuscate(json_data)
-        with open(CONFIG_FILE_ENC, "wb") as f:
-            f.write(enc_data)
+        atomic_write_bytes(CONFIG_FILE_ENC, enc_data)
         return True
     except (OSError, RuntimeError) as e:
         print(f"Error saving encrypted config: {e}")
         return False
+
+
+def atomic_write_bytes(path: str, data: bytes) -> None:
+    """Write via temp file + fsync + ``os.replace`` so a crash mid-write never
+    truncates the real store (config.enc / presets / exported CSVs)."""
+    tmp = f"{path}.tmp"
+    with open(tmp, "wb") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+
+def atomic_write_text(path: str, text: str) -> None:
+    atomic_write_bytes(path, text.encode("utf-8"))
 
 
 def _get_conn():

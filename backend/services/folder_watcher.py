@@ -3,10 +3,13 @@
 Polls a directory and fires a callback when new allowed files appear,
 debouncing so a file mid-copy does not retrigger repeatedly.
 """
+import logging
 import os
 import threading
 import time
 from collections.abc import Callable
+
+logger = logging.getLogger(__name__)
 
 
 class FolderWatcher:
@@ -75,7 +78,9 @@ class FolderWatcher:
                 and self._is_allowed(f)
             ]
             if files:
-                self._last_fire = now
                 self._on_new_files(files)
+                # Only debounce after a *successful* callback, so a throwing
+                # handler re-fires on the next poll instead of being swallowed.
+                self._last_fire = now
         except Exception:
-            pass
+            logger.exception("FolderWatcher poll failed")

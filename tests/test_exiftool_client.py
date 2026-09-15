@@ -2,6 +2,7 @@ import os
 import stat
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from backend.processors import exiftool_client as ec
@@ -48,16 +49,26 @@ class EssentialFlagsTest(unittest.TestCase):
     def test_sanitize_command_targets_in_place_overwrite(self):
         from unittest import mock
 
-        captured = {}
-        proc = mock.Mock(returncode=0, stdout="", stderr="")
-        with mock.patch("backend.processors.exiftool_client._run_exiftool") as run:
-            run.return_value = proc
-            ec.ExifToolClient().sanitize_ai_metadata("sub/dir/test_image.png")
-            captured = run.call_args.args[0]
-        joined = " ".join(captured)
-        self.assertIn("-overwrite_original_in_place", joined)
-        self.assertNotIn("-overwrite_original ", joined + " ")
-        self.assertIn("\\test_image.png", captured[-1])
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_exe = Path(tmp) / "exiftool.exe"
+            fake_exe.write_bytes(b"MZ")
+
+            captured = {}
+            proc = mock.Mock(returncode=0, stdout="", stderr="")
+            with (
+                mock.patch("backend.processors.exiftool_client._run_exiftool") as run,
+                mock.patch(
+                    "backend.processors.exiftool_client.get_exiftool_path",
+                    return_value=str(fake_exe),
+                ),
+            ):
+                run.return_value = proc
+                ec.ExifToolClient().sanitize_ai_metadata("sub/dir/test_image.png")
+                captured = run.call_args.args[0]
+            joined = " ".join(captured)
+            self.assertIn("-overwrite_original_in_place", joined)
+            self.assertNotIn("-overwrite_original ", joined + " ")
+            self.assertIn("\\test_image.png", captured[-1])
 
 
 class StagingFallbackTest(unittest.TestCase):
@@ -227,6 +238,63 @@ class StreamingWriteTest(unittest.TestCase):
             leftover.write_bytes(b"junk")
             ec._pre_cleanup_temp(str(target))
             self.assertFalse(leftover.exists())
+
+
+class SvgMetadataTest(unittest.TestCase):
+    def _write_svg(self, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg"><g/></svg>', encoding="utf-8"
+        )
+
+    def test_svg_keywords_written_as_dc_subject_bag(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "icon.svg"
+            self._write_svg(target)
+            with mock.patch("backend.processors.exiftool_client.log_failed_file"):
+                result = ec.ExifToolClient()._embed_svg_metadata(
+                    str(target),
+                    "Red Ball Icon",
+                    "A red ball vector",
+                    ["red", "ball", "icon"],
+                    "c",
+                    "author",
+                )
+            self.assertTrue(result)
+            tree = ET.parse(str(target))
+            root = tree.getroot()
+            li_texts = [el.text for el in root.iter() if el.tag.endswith("}li")]
+            self.assertEqual(li_texts, ["red", "ball", "icon"])
+            bag = [
+                el for el in root.iter() if el.tag.endswith("}Bag")
+            ]
+            self.assertEqual(len(bag), 1)
+
+    def test_svg_keyword_escaping_round_trips(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "icon.svg"
+            self._write_svg(target)
+            with mock.patch("backend.processors.exiftool_client.log_failed_file"):
+                result = ec.ExifToolClient()._embed_svg_metadata(
+                    str(target),
+                    "T",
+                    "D",
+                    ["A & B", "3 < 4", 'q " quote'],
+                    "",
+                    "",
+                )
+            self.assertTrue(result)
+            raw = target.read_text(encoding="utf-8")
+            self.assertIn("&amp;", raw)
+            self.assertIn("&lt;", raw)
+            self.assertNotIn("<A & B>", raw)
+            tree = ET.parse(str(target))
+            li_texts = [el.text for el in tree.getroot().iter() if el.tag.endswith("}li")]
+            self.assertEqual(li_texts, ["A & B", "3 < 4", 'q " quote'])
 
 
 if __name__ == "__main__":

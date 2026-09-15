@@ -38,45 +38,59 @@ _last_vision_call = 0.0
 
 
 def build_metadata_prompt(
-    min_kw: int,
-    max_kw: int,
+    target_kw: int,
     style_guide: str,
     extra_prompt: str = "",
     platform: str = "",
+    editorial: bool = False,
 ) -> str:
-    """Assemble the metadata-generation prompt (extracted for testability).
-
-    Character limits follow the target platform's PLATFORM_RULES so the AI
-    emits titles/descriptions that survive ``autofix_compliance`` untouched.
-    """
     rules = PLATFORM_RULES.get(platform, {})
     title_max = rules.get("title_max_chars", 180)
     desc_max = rules.get("desc_max_chars", 200)
+    title_target = rules.get("title_target_chars", (50, 90))
     extra_line = (
-        f"\n        Additional Context / Focus: {extra_prompt}"
+        f"\nAdditional Context / Focus: {extra_prompt}"
         if extra_prompt.strip()
         else ""
     )
-    return f"""
-        Analyze this image/file and return a JSON object with:
-        "title": a concise, SEO-optimized title (max {title_max} chars),
-        "description": a detailed description for microstock search (max {desc_max} chars),
-        "category": a broad category,
-        "primary_category": primary Shutterstock category from Abstract, Animals/Wildlife, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and Drink, Healthcare/Medical, Holidays, Illustrations/Clip-Art, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, The Arts, Transportation, Vintage,
-        "secondary_category": optional secondary Shutterstock category,
-        "keywords": an array of {min_kw} to {max_kw} descriptive keywords.
+    editorial_block = (
+        "\n## EDITORIAL MODE (news/documentary asset):\n"
+        "- Describe the scene factually, answering who, what, where, when, and why.\n"
+        "- The exporter appends the '[CITY, COUNTRY - MONTH DAY, YEAR]' caption prefix "
+        "automatically; do not invent a bracket prefix yourself.\n"
+        "- Keep a neutral journalistic tone; avoid commercial 'perfect for buyers' phrasing.\n"
+        if editorial
+        else ""
+    )
+    return f"""You are an elite microstock metadata SEO specialist. Analyze this image and generate strictly valid JSON metadata optimized for Adobe Stock and Shutterstock search algorithms.
 
-        Generate strictly between {min_kw} and {max_kw} highly relevant, comma-separated keywords. Do not output fewer than {min_kw} keywords. The keyword array MUST be {min_kw}-{max_kw} items long; count them before returning.
+## TITLE REQUIREMENTS (max {title_max} characters):
+- Length: {title_target[0]} to {title_target[1]} characters, concise and high-impact natural English.
+- Structure: [Primary Subject] + [Action/Pose/Composition] + [Style/Context]
+- Example: "Cute Cartoon Cat Character Playing with Wool Ball Vector Illustration"
+- NEVER begin with generic filler words like "illustration", "vector", "isolated", "image", "picture". Place commercial keywords first.
+- NO keyword stuffing in the title.
 
-        KEYWORD PRIORITY ORDER (most important first):
-        1. Primary subject, main action, and central visual elements (first 5-10 keywords)
-        2. Visual style, format (vector, flat, isolated, silhouette, 3d), colors, and mood (middle keywords)
-        3. Abstract concepts, business use-cases, and general search intent (final keywords)
+## DESCRIPTION REQUIREMENTS (max {desc_max} characters):
+- Length: 150 to 200 characters, exactly 2 concise sentences.
+- Sentence 1: Accurately describe what is visually depicted in the image.
+- Sentence 2: Mention practical commercial use cases (e.g., "Perfect for children book illustrations, greeting cards, banners, and educational merchandise.").
 
-        Style Focus: {style_guide}
-        {extra_line}
-        Return ONLY valid JSON. Keywords must be in priority order as specified above.
-        """
+## KEYWORD REQUIREMENTS:
+- You MUST output EXACTLY {target_kw} keywords separated by commas. Not {target_kw - 1}, not {target_kw + 1}, but EXACTLY {target_kw} keywords. Count them before returning.
+- Tiered keyword hierarchy (most important first):
+  * First 5-7 keywords: Core primary visual elements and literal subject (highest weight in stock search).
+  * Next 10-15 keywords: Primary actions, artistic medium/style (flat vector, line art, minimalist, geometric, sticker), color palette, lighting/mood.
+  * Next 15-20 keywords: Conceptual and emotional terms, industry themes, seasonal contexts, design utility (creative, modern, decorative, graphic design, print template).
+  * Final keywords: Broad thematic category terms.
+- Quality filters: NO single-letter or numeric-only tags. NO stop-words or conjunctions ("and", "the", "with", "in", "of"). NO duplicate stems. Lowercase only, comma-separated.
+
+Style Focus: {style_guide}
+{extra_line}
+{editorial_block}
+Return ONLY valid raw JSON with this exact structure:
+{{"title": "...", "description": "...", "keywords": ["keyword1", "keyword2", ..., "keyword{target_kw}"]}}
+Do NOT return anything else — no explanations, no markdown, no code fences. Just the raw JSON object."""
 
 
 def _throttle_vision_request() -> None:
@@ -292,13 +306,13 @@ class AIService:
     def generate_metadata(
         self,
         image_path: str,
-        min_kw: int = 25,
-        max_kw: int = 49,
+        target_kw: int = 49,
         style_preset: str = "Standard",
         extra_prompt: str = "",
         log_callback=None,
         cancel_check=None,
         platform: str = "",
+        editorial: bool = False,
         **kwargs,
     ) -> dict:
         filename = os.path.basename(image_path) if image_path else "unknown"
@@ -322,7 +336,7 @@ class AIService:
         )
 
         prompt = build_metadata_prompt(
-            min_kw, max_kw, style_guide, extra_prompt, platform=platform
+            target_kw, style_guide, extra_prompt, platform=platform, editorial=editorial
         )
 
         is_text_fallback = image_path.endswith(".svg") and not image_path.endswith(
@@ -369,7 +383,7 @@ class AIService:
                         msgs = [
                             {
                                 "role": "system",
-                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",
+                                "content": "You are an elite microstock metadata SEO specialist optimized for Adobe Stock and Shutterstock. Always respond with strict valid JSON only containing title, description, and keywords.",
                             },
                             {
                                 "role": "user",
@@ -381,7 +395,7 @@ class AIService:
                         msgs = [
                             {
                                 "role": "system",
-                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",
+                                "content": "You are an elite microstock metadata SEO specialist optimized for Adobe Stock and Shutterstock. Always respond with strict valid JSON only containing title, description, and keywords.",
                             },
                             {
                                 "role": "user",
@@ -433,7 +447,7 @@ class AIService:
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",
+                                "content": "You are an elite microstock metadata SEO specialist optimized for Adobe Stock and Shutterstock. Always respond with strict valid JSON only containing title, description, and keywords.",
                             },
                             {"role": "user", "content": content},
                         ],
@@ -462,7 +476,7 @@ class AIService:
                         msgs = [
                             {
                                 "role": "system",
-                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",
+                                "content": "You are an elite microstock metadata SEO specialist optimized for Adobe Stock and Shutterstock. Always respond with strict valid JSON only containing title, description, and keywords.",
                             },
                             {
                                 "role": "user",
@@ -474,7 +488,7 @@ class AIService:
                         msgs = [
                             {
                                 "role": "system",
-                                "content": "You are a professional microstock SEO tagger. Always respond with strict valid JSON only containing title, description, and keywords.",
+                                "content": "You are an elite microstock metadata SEO specialist optimized for Adobe Stock and Shutterstock. Always respond with strict valid JSON only containing title, description, and keywords.",
                             },
                             {
                                 "role": "user",
@@ -575,8 +589,7 @@ class AIService:
                                         alt_provider,
                                         alt_key,
                                         image_path,
-                                        min_kw,
-                                        max_kw,
+                                        target_kw,
                                         style_preset,
                                         extra_prompt,
                                         log_callback,
@@ -620,8 +633,7 @@ class AIService:
                                     alt_provider,
                                     alt_key,
                                     image_path,
-                                    min_kw,
-                                    max_kw,
+                                    target_kw,
                                     style_preset,
                                     extra_prompt,
                                     log_callback,
@@ -638,8 +650,7 @@ class AIService:
         alt_provider: str,
         alt_key: str,
         image_path: str,
-        min_kw: int,
-        max_kw: int,
+        target_kw: int,
         style_preset: str,
         extra_prompt: str,
         log_callback=None,
@@ -660,8 +671,7 @@ class AIService:
         alt.failover.mark_failover_attempted()
         return alt.generate_metadata(
             image_path,
-            min_kw,
-            max_kw,
+            target_kw,
             style_preset,
             extra_prompt,
             log_callback=log_callback,

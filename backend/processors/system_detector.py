@@ -15,11 +15,26 @@ terminal and UI log tab) stays self-explanatory.
 
 import glob
 import os
+import re
 import sys
 from pathlib import Path
 from shutil import which
 
 _CACHE: dict[str, str | None] | None = None
+
+_GS_VER_RE = re.compile(r"[\\/]gs(\d+(?:[._]\d+)*)", re.IGNORECASE)
+
+
+def _version_key(path: str) -> tuple[int, ...]:
+    """Numeric version tuple of a tools glob path (``gs9.56`` -> ``(9, 56)``).
+
+    Lexicographic sort mis-ranks multi-digit releases (``"gs10" < "gs9"`` as
+    strings); a numeric tuple keeps the newest Ghostscript on top.
+    """
+    m = _GS_VER_RE.search(path)
+    if not m:
+        return ()
+    return tuple(int(t) for t in re.split(r"[._]", m.group(1)))
 
 
 def _emit(msg: str, log) -> None:
@@ -63,7 +78,7 @@ def _resolve_binary(
         for pattern in extra_globs:
             hits.extend(glob.glob(pattern))
         if hits:
-            hits.sort(reverse=True)
+            hits.sort(key=_version_key, reverse=True)
             return hits[0]
     for name in exe_names:
         stem = Path(name).stem
