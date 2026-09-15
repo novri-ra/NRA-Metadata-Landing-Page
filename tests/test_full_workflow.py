@@ -1,7 +1,9 @@
 import csv
 import os
+import tempfile
 import time
 import unittest
+from unittest import mock
 
 from backend.ai.provider_router import normalize_base_url
 from packages.shared_utils.cost_tracker import CostTracker
@@ -437,7 +439,14 @@ class TestSanitizer(unittest.TestCase):
         subprocess.run = fake_run
 
         try:
-            processor.sanitize_ai_metadata("test_image.png")
+            fake_exe = os.path.join(tempfile.gettempdir(), "nra_fake_exiftool.exe")
+            with open(fake_exe, "wb") as fe:
+                fe.write(b"MZ")
+            with mock.patch(
+                "backend.processors.exiftool_client.get_exiftool_path",
+                return_value=fake_exe,
+            ):
+                processor.sanitize_ai_metadata("test_image.png")
             # Human-made files: strip generator junk, keep C2PA / DigitalSourceType
             self.assertIn("-PNG:parameters=", captured_cmd)
             self.assertNotIn("-XMP-c2pa:all=", captured_cmd)
@@ -463,7 +472,14 @@ class TestSanitizer(unittest.TestCase):
         subprocess.run = fake_run
 
         try:
-            processor.sanitize_ai_metadata("test_image.png", is_ai_generated=True)
+            fake_exe = os.path.join(tempfile.gettempdir(), "nra_fake_exiftool.exe")
+            with open(fake_exe, "wb") as fe:
+                fe.write(b"MZ")
+            with mock.patch(
+                "backend.processors.exiftool_client.get_exiftool_path",
+                return_value=fake_exe,
+            ):
+                processor.sanitize_ai_metadata("test_image.png", is_ai_generated=True)
             # AI files: declare IPTC digitalSourceType, never remove provenance
             self.assertIn(
                 "-XMP-iptcExt:DigitalSourceType="

@@ -49,16 +49,26 @@ class EssentialFlagsTest(unittest.TestCase):
     def test_sanitize_command_targets_in_place_overwrite(self):
         from unittest import mock
 
-        captured = {}
-        proc = mock.Mock(returncode=0, stdout="", stderr="")
-        with mock.patch("backend.processors.exiftool_client._run_exiftool") as run:
-            run.return_value = proc
-            ec.ExifToolClient().sanitize_ai_metadata("sub/dir/test_image.png")
-            captured = run.call_args.args[0]
-        joined = " ".join(captured)
-        self.assertIn("-overwrite_original_in_place", joined)
-        self.assertNotIn("-overwrite_original ", joined + " ")
-        self.assertIn("\\test_image.png", captured[-1])
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_exe = Path(tmp) / "exiftool.exe"
+            fake_exe.write_bytes(b"MZ")
+
+            captured = {}
+            proc = mock.Mock(returncode=0, stdout="", stderr="")
+            with (
+                mock.patch("backend.processors.exiftool_client._run_exiftool") as run,
+                mock.patch(
+                    "backend.processors.exiftool_client.get_exiftool_path",
+                    return_value=str(fake_exe),
+                ),
+            ):
+                run.return_value = proc
+                ec.ExifToolClient().sanitize_ai_metadata("sub/dir/test_image.png")
+                captured = run.call_args.args[0]
+            joined = " ".join(captured)
+            self.assertIn("-overwrite_original_in_place", joined)
+            self.assertNotIn("-overwrite_original ", joined + " ")
+            self.assertIn("\\test_image.png", captured[-1])
 
 
 class StagingFallbackTest(unittest.TestCase):
