@@ -98,13 +98,16 @@ class SubprocessInvocationTest(unittest.TestCase):
             fake_exe = Path(tmp) / "exiftool.exe"
             fake_exe.write_bytes(b"MZ")
 
-            proc = mock.Mock(returncode=0, stdout=b"data", stderr=b"")
-            with mock.patch(
-                "backend.processors.exiftool_client.subprocess.run", return_value=proc
-            ) as run:
+            with mock.patch("subprocess.Popen") as mock_popen:
+                mock_proc = mock.Mock()
+                mock_proc.stdin = mock.Mock()
+                mock_proc.communicate.return_value = (b"data", b"")
+                mock_proc.returncode = 0
+                mock_popen.return_value = mock_proc
+                
                 ec._run_exiftool_stream([str(fake_exe), "-o", "-", "-"], timeout=30, input_bytes=b"x")
 
-            self.assertEqual(run.call_args.kwargs["cwd"], tmp)
+                self.assertEqual(mock_popen.call_args.kwargs["cwd"], tmp)
 
 
 class StagingFallbackTest(unittest.TestCase):
@@ -236,11 +239,11 @@ class StreamingWriteTest(unittest.TestCase):
                 )
 
             self.assertEqual(target.read_bytes(), b"NEW-STREAMED-BYTES")
-            stream_cmd, _timeout, input_bytes = stream.call_args.args
+            stream_cmd, _timeout, input_source = stream.call_args.args
             self.assertNotIn("-overwrite_original_in_place", stream_cmd)
             self.assertNotIn("-overwrite_original", stream_cmd)
             self.assertEqual(stream_cmd[-3:], ["-o", "-", "-"])
-            self.assertEqual(input_bytes, b"ORIGINAL-BYTES")
+            self.assertEqual(input_source, str(target))
 
     def test_streaming_empty_stdout_falls_back_to_in_place(self):
         from unittest import mock

@@ -74,86 +74,92 @@ def show_batch_replace(app):
             return
 
         status_lbl.configure(text="Processing...", text_color=C["warn"])
-        dialog.update()
 
-        count = 0
-        # Parse all output CSVs in subdirectories
-        for root, _, files in os.walk(target_dir):
-            for fname in files:
-                # we modify cache AND embed via processor
-                if app._is_allowed_file(fname):
-                    fpath = os.path.join(root, fname)
-                    fhash = get_file_hash(fpath)
-                    meta = get_cached_metadata(fhash)
-                    if not meta:
-                        continue
+        def _do_replace():
+            count = 0
+            # Parse all output CSVs in subdirectories
+            for root, _, files in os.walk(target_dir):
+                for fname in files:
+                    # we modify cache AND embed via processor
+                    if app._is_allowed_file(fname):
+                        fpath = os.path.join(root, fname)
+                        fhash = get_file_hash(fpath)
+                        meta = get_cached_metadata(fhash)
+                        if not meta:
+                            continue
 
-                    changed = False
+                        changed = False
 
-                    def _repl(text):
-                        if not text:
-                            return text
-                        new_t, n = regex.subn(r_text, text)
-                        nonlocal changed, count
-                        if n > 0:
-                            changed = True
-                            count += n
-                        return new_t
+                        def _repl(text):
+                            if not text:
+                                return text
+                            new_t, n = regex.subn(r_text, text)
+                            nonlocal changed, count
+                            if n > 0:
+                                changed = True
+                                count += n
+                            return new_t
 
-                    if field in ("All Fields", "Title"):
-                        meta["title"] = _repl(meta.get("title", ""))
-                    if field in ("All Fields", "Description"):
-                        meta["description"] = _repl(meta.get("description", ""))
-                    if field in ("All Fields", "Keywords"):
-                        kws = meta.get("keywords", [])
-                        new_kws = []
-                        for k in kws:
-                            replaced_k = _repl(k)
-                            # if replaced to empty string, drop it
-                            if replaced_k.strip():
-                                new_kws.append(replaced_k)
-                        meta["keywords"] = new_kws
+                        if field in ("All Fields", "Title"):
+                            meta["title"] = _repl(meta.get("title", ""))
+                        if field in ("All Fields", "Description"):
+                            meta["description"] = _repl(meta.get("description", ""))
+                        if field in ("All Fields", "Keywords"):
+                            kws = meta.get("keywords", [])
+                            new_kws = []
+                            for k in kws:
+                                replaced_k = _repl(k)
+                                # if replaced to empty string, drop it
+                                if replaced_k.strip():
+                                    new_kws.append(replaced_k)
+                            meta["keywords"] = new_kws
 
-                    if changed:
-                        set_cached_metadata(fhash, meta)
-                        app.processor.embed_metadata(
-                            fpath,
-                            meta["title"],
-                            meta["description"],
-                            meta["keywords"],
-                            app._get_copyright_text(),
-                            app.author_entry.get().strip(),
-                        )
-
-                        # update sub-dir csv
-                        sub_dir = os.path.dirname(fpath)
-                        temp_master = os.path.join(sub_dir, "metadata_output.csv")
-                        try:
-                            upsert_metadata_csv(
-                                temp_master,
-                                fname,
+                        if changed:
+                            set_cached_metadata(fhash, meta)
+                            app.processor.embed_metadata(
+                                fpath,
                                 meta["title"],
                                 meta["description"],
                                 meta["keywords"],
+                                app._get_copyright_text(),
+                                app.author_entry.get().strip(),
                             )
-                        except OSError:
-                            pass
 
-        generate_microstock_csvs(target_dir, app._get_selected_csv_platforms())
+                            # update sub-dir csv
+                            sub_dir = os.path.dirname(fpath)
+                            temp_master = os.path.join(sub_dir, "metadata_output.csv")
+                            try:
+                                upsert_metadata_csv(
+                                    temp_master,
+                                    fname,
+                                    meta["title"],
+                                    meta["description"],
+                                    meta["keywords"],
+                                )
+                            except OSError:
+                                pass
 
-        # also update UI if current file is active
-        if app.current_edit_hash:
-            m = get_cached_metadata(app.current_edit_hash)
-            if m:
-                app._save_snapshot()
-                app.edit_title_var.set(m.get("title", ""))
-                app.edit_desc_var.set(m.get("description", ""))
-                app.edit_kws_var.set(", ".join(m.get("keywords", [])))
+            generate_microstock_csvs(target_dir, app._get_selected_csv_platforms())
 
-        app.log(
-            f"Batch Replace: Replaced {count} occurrences of '{f_text}'.", "success"
-        )
-        dialog.destroy()
+            def _update_ui():
+                # also update UI if current file is active
+                if app.current_edit_hash:
+                    m = get_cached_metadata(app.current_edit_hash)
+                    if m:
+                        app._save_snapshot()
+                        app.edit_title_var.set(m.get("title", ""))
+                        app.edit_desc_var.set(m.get("description", ""))
+                        app.edit_kws_var.set(", ".join(m.get("keywords", [])))
+
+                app.log(
+                    f"Batch Replace: Replaced {count} occurrences of '{f_text}'.", "success"
+                )
+                dialog.destroy()
+            
+            dialog.after(0, _update_ui)
+
+        import threading
+        threading.Thread(target=_do_replace, daemon=True).start()
 
     _btn(dialog, "Replace All", C["warn"], C["warn_h"], command=run_replace).pack(
         side="bottom", pady=16, padx=12, fill="x"

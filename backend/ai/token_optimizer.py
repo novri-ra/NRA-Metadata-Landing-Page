@@ -13,7 +13,12 @@ from PIL import Image
 
 def encode_image(image_path: str) -> str:
     with Image.open(image_path) as img:
-        img = img.convert("RGB")
+        if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+            canvas = Image.new("RGBA", img.size, (255, 255, 255, 255))
+            canvas.paste(img, mask=img.convert("RGBA").split()[-1])
+            img = canvas.convert("RGB")
+        else:
+            img = img.convert("RGB")
         # Token-saver pipeline: limit to 1024x1024
         img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
         buffer = io.BytesIO()

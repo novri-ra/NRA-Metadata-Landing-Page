@@ -6,6 +6,8 @@ One module singleton ``cost_tracker`` accumulates app-wide cost/tokens from
 real provider token usage; batch code reads deltas off it.
 """
 
+import threading
+
 # Input/Output USD per 1k tokens by provider/model.
 RATES = {
     "OpenAI": {"gpt-4o-mini": (0.00015, 0.0006), "gpt-4o": (0.005, 0.015)},
@@ -25,6 +27,7 @@ class CostTracker:
         self.estimated_cost_usd = 0.0
         self.estimated_tokens = 0
         self.last_cost = 0.0
+        self._lock = threading.Lock()
 
     def rate_for(self, provider: str, model: str) -> tuple:
         return RATES.get(provider, {}).get(model, DEFAULT_RATE)
@@ -35,9 +38,10 @@ class CostTracker:
             prompt_tokens * in_rate / 1000.0
             + completion_tokens * out_rate / 1000.0
         )
-        self.estimated_cost_usd += cost
-        self.estimated_tokens += prompt_tokens + completion_tokens
-        self.last_cost = cost
+        with self._lock:
+            self.estimated_cost_usd += cost
+            self.estimated_tokens += prompt_tokens + completion_tokens
+            self.last_cost = cost
         return cost
 
     def record_usage(

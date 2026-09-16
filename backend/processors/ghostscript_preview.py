@@ -99,11 +99,16 @@ def render_vector_preview(file_path: str, out_path: str, _log) -> str | None:
                         verify_img.verify()
                     with Image.open(temp_png) as img:
                         img.convert("RGB").save(out_path, "JPEG")
-                    temp_png.unlink()
                     log(f"[{filename}] Preview rendered successfully.", "success")
                     return out_path
                 except (OSError, ValueError) as e:
                     log(f"[{filename}] Ghostscript produced invalid image: {e}", "error")
+                finally:
+                    if temp_png.exists():
+                        try:
+                            temp_png.unlink()
+                        except OSError:
+                            pass
             else:
                 log(f"[{filename}] Ghostscript produced empty or missing file", "error")
         except subprocess.TimeoutExpired:

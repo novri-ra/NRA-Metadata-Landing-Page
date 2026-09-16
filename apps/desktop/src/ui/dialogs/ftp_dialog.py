@@ -76,17 +76,21 @@ def show_ftp_dialog(app):
 
     def test_conn():
         status_lbl.configure(text="Testing...", text_color=C["warn"])
-        dialog.update()
         h, p = host_entry.get(), int(port_entry.get() or 21)
         u, pw = user_entry.get(), pass_entry.get()
 
-        client = FTPClient(h, p, u, pw)
-        ok, msg = client.connect()
-        if ok:
-            status_lbl.configure(text="Connection OK", text_color=C["success"])
-            client.disconnect()
-        else:
-            status_lbl.configure(text=f"Fail: {msg}", text_color=C["error"])
+        def _do_test():
+            client = FTPClient(h, p, u, pw)
+            ok, msg = client.connect()
+            def _update_ui():
+                if ok:
+                    status_lbl.configure(text="Connection OK", text_color=C["success"])
+                    client.disconnect()
+                else:
+                    status_lbl.configure(text=f"Fail: {msg}", text_color=C["error"])
+            dialog.after(0, _update_ui)
+
+        threading.Thread(target=_do_test, daemon=True).start()
 
     def start_upload():
         h, p = host_entry.get(), int(port_entry.get() or 21)

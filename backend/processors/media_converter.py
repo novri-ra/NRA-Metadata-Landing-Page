@@ -17,6 +17,13 @@ import tempfile
 
 from PIL import Image
 
+def _safe_rgb_convert(img: Image.Image) -> Image.Image:
+    if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+        canvas = Image.new("RGBA", img.size, (255, 255, 255, 255))
+        canvas.paste(img, mask=img.convert("RGBA").split()[-1])
+        return canvas.convert("RGB")
+    return img.convert("RGB")
+
 from backend.processors._tools import (
     format_tool_failure,
     get_tool_path,
@@ -39,7 +46,7 @@ def get_msedge_path():
 
 def raster_to_preview(file_path: str, out_path: str, filename: str, _log) -> str | None:
     try:
-        img = Image.open(file_path).convert("RGB")
+        img = _safe_rgb_convert(Image.open(file_path))
         img.thumbnail((1024, 1024))
         img.save(out_path, "JPEG")
         _log(f"[{filename}] Image preview generated.", "success")
@@ -134,18 +141,24 @@ def extract_svg_preview(file_path: str, out_path: str, filename: str, _log) -> s
         try:
             subprocess.run(cmd, check=True, capture_output=True, timeout=30, **no_window_kwargs())
             if os.path.exists(png_path):
-                img = Image.open(png_path).convert("RGB")
+                img = _safe_rgb_convert(Image.open(png_path))
                 img.thumbnail((1024, 1024))
                 img.save(out_path, "JPEG")
-                os.remove(png_path)
                 _log(f"[{filename}] Preview extracted (Edge).", "success")
                 return out_path
         except (OSError, ValueError, subprocess.TimeoutExpired) as e:
             err = f"Edge SVG extract error: {e}"
             _log(f"[{filename}] {err}", "warn")
             log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
+        finally:
+            if os.path.exists(png_path):
+                try:
+                    os.remove(png_path)
+                except OSError:
+                    pass
 
     # Fallback 1: svglib
+    png_path = ""
     try:
         from reportlab.graphics import renderPM
         from svglib.svglib import svg2rlg
@@ -154,16 +167,21 @@ def extract_svg_preview(file_path: str, out_path: str, filename: str, _log) -> s
         if drawing:
             png_path = out_path.replace(".jpg", ".png")
             renderPM.drawToFile(drawing, png_path, fmt="PNG")
-            img = Image.open(png_path).convert("RGB")
+            img = _safe_rgb_convert(Image.open(png_path))
             img.thumbnail((1024, 1024))
             img.save(out_path, "JPEG")
-            os.remove(png_path)
             _log(f"[{filename}] Preview extracted (svglib).", "success")
             return out_path
     except (OSError, ValueError) as e:
         err = f"svglib extract error: {e}"
         _log(f"[{filename}] {err}", "error")
         log_failed_file(os.path.dirname(file_path), os.path.basename(file_path), err)
+    finally:
+        if png_path and os.path.exists(png_path):
+            try:
+                os.remove(png_path)
+            except OSError:
+                pass
 
     # Fallback 2: Raw text inspection wrapper for LLM
     _log(f"[{filename}] No rasterizer found. Using raw SVG text fallback.", "warn")

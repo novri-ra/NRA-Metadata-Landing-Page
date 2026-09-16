@@ -158,7 +158,12 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
                 extract_dir = td / "exiftool"
                 extract_dir.mkdir(parents=True, exist_ok=True)
                 with zipfile.ZipFile(tmp_path, "r") as zf:
-                    zf.extractall(extract_dir)
+                    target_abs_path = os.path.abspath(extract_dir) + os.sep
+                    for member in zf.namelist():
+                        member_abs_path = os.path.abspath(os.path.join(extract_dir, member))
+                        if not member_abs_path.startswith(target_abs_path):
+                            raise ValueError(f"Path traversal attempt detected: {member}")
+                        zf.extract(member, extract_dir)
                 os.remove(tmp_path)
                 # Oliver Betz package contains exiftool.exe directly
                 # Phil Harvey package contains exiftool(-k).exe
