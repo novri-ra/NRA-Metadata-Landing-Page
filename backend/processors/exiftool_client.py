@@ -30,6 +30,40 @@ def get_exiftool_path() -> str | None:
     return get_tool_path("exiftool")
 
 
+def _patch_eps_dsc_title(file_path: str, title: str) -> None:
+    """Ensure the PostScript header %%Title: matches the real title for Adobe Stock parser."""
+    if not title:
+        return
+    try:
+        # Clean title for PostScript ASCII line safety
+        safe_title = re.sub(r"[^\x20-\x7E]", "", title).strip()
+        with open(file_path, "rb") as f:
+            content = f.read()
+
+        pattern = re.compile(rb"^%%Title:\s*.*$", re.MULTILINE)
+        replacement = f"%%Title: {safe_title}".encode("ascii", "ignore")
+
+        if pattern.search(content):
+            new_content = pattern.sub(replacement, content, count=1)
+        else:
+            first_line_end = content.find(b"\n")
+            if first_line_end != -1:
+                new_content = (
+                    content[: first_line_end + 1]
+                    + replacement
+                    + b"\n"
+                    + content[first_line_end + 1 :]
+                )
+            else:
+                new_content = content
+
+        if new_content != content:
+            with open(file_path, "wb") as f:
+                f.write(new_content)
+    except Exception as e:
+        logger.warning(f"Failed to patch EPS DSC Title: {e}")
+
+
 def _normalize_date_created(date_created: str) -> str:
     """Normalize ``YYYY-MM-DD`` / ``YYYY/MM/DD`` / ``YYYYMMDD`` -> ``YYYYMMDD``."""
     raw = (date_created or "").strip()
@@ -448,8 +482,11 @@ class ExifToolClient:
             # explicit XMP:/IPTC: group prefixes.
             cmd.extend(
                 [
-                    f"-XMP:Title={title}",
+                    f"-Title={title}",
+                    f"-XMP-dc:Title={title}",
                     f"-IPTC:ObjectName={title}",
+                    f"-IPTC:Headline={title}",
+                    f"-XMP-photoshop:Headline={title}",
                     f"-XMP:Description={description}",
                     f"-IPTC:Caption-Abstract={description}",
                     f"-XMP:Rights={copyright_text}",
@@ -558,6 +595,10 @@ class ExifToolClient:
                 f"ExifTool: {result.stderr.strip()} | Stdout: {result.stdout}",
             )
             return False
+            
+        if is_eps:
+            _patch_eps_dsc_title(file_path, title)
+            
         return True
 
     def _embed_svg_metadata(

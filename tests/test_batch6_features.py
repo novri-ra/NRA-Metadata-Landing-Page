@@ -44,6 +44,12 @@ class CleanMetadataExactTargetTest(unittest.TestCase):
         cleaned = clean_metadata(meta, target_kw=8)
         self.assertEqual(len(cleaned["keywords"]), 8)
 
+    def test_pads_using_commercial_tags_fallback(self):
+        from packages.shared_utils.filter import expand_keywords
+        kws = expand_keywords(["kw1", "kw2"], target_kw=10, asset_style="vector")
+        self.assertEqual(len(kws), 10)
+        self.assertIn("graphic", kws)
+
 
 class FileStatusEventTest(unittest.TestCase):
     def test_cache_hit_emits_done_and_continues(self):
@@ -81,6 +87,44 @@ class FileStatusEventTest(unittest.TestCase):
         
         self.assertEqual(events[0], ("file_status", "x.eps", "processing"))
         self.assertEqual(events[1], ("file_status", "x.eps", "done"))
+
+    def test_cache_hit_expands_to_target_kw(self):
+        pool = FileWorkerPool()
+        embedded_args = {}
+
+        def fake_embed(*args, **kwargs):
+            embedded_args["keywords"] = args[3] if len(args) > 3 else kwargs.get("keywords", [])
+            return True
+
+        pool.processor.embed_metadata = mock.Mock(side_effect=fake_embed)
+
+        tmp = tempfile.mkdtemp()
+        preview = os.path.join(tmp, "preview.jpg")
+        open(preview, "w").close()
+        src = os.path.join(tmp, "cached_28.eps")
+        open(src, "w").close()
+
+        cached_meta = {
+            "title": "A Minimal Vector Icon",
+            "description": "A minimal vector icon for modern applications.",
+            "keywords": [f"keyword_{i}" for i in range(28)],
+        }
+
+        with mock.patch(
+            "backend.core.worker_pool.extract_preview_image", return_value=preview
+        ), mock.patch("backend.core.worker_pool.get_file_hash", return_value="h1"), mock.patch(
+            "backend.core.worker_pool.get_cached_metadata", return_value=cached_meta
+        ):
+            pool._process_file(
+                src,
+                tmp,
+                mock.Mock(),
+                {"target_kw": 49, "style_preset": "Vector Clipart"},
+                mock.Mock(),
+            )
+
+        self.assertEqual(len(embedded_args["keywords"]), 49)
+        self.assertEqual(len(set(embedded_args["keywords"])), 49)
 
     def test_event_sequence_processing_then_done(self):
         events = []
