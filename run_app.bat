@@ -124,6 +124,19 @@ echo [ERROR] Gagal menyiapkan environment Python.
 pause
 exit /b 1
 
+:INIT_CONFIG
+echo.
+echo %frame%
+echo [3/4] Virtual Environment check
+echo %frame%
+if exist "venv\Scripts\activate.bat" (
+    echo [i] Virtual environment ditemukan. Mengaktifkan venv...
+    call "venv\Scripts\activate.bat"
+) else (
+    echo [i] venv tidak ditemukan, menggunakan global Python.
+)
+goto :LAUNCH_APP
+
 :LAUNCH_APP
 echo.
 echo %frame%
@@ -132,9 +145,8 @@ echo %frame%
 echo [*] Menjalankan NRA-Metadata...
 echo.
 python apps\desktop\src\main.py
-set "APP_EXIT=%ERRORLEVEL%"
-if not "!APP_EXIT!"=="0" goto :END
-if not defined APP_EXIT set "APP_EXIT=0"
+set "APP_EXIT=!ERRORLEVEL!"
+goto :END
 
 :END
 echo.
