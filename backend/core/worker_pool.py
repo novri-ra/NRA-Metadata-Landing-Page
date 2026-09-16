@@ -342,8 +342,22 @@ class FileWorkerPool:
 
         if cached:
             self._emit("log", f"[{name}] [CACHE HIT] Metadata loaded from cache.", "cache")
-            self._emit("log", f"[{name}] [DEBUG] [CACHE HIT] Proceeding to embed_metadata...", "info")
             meta = cached
+            old_len = len(meta.get("keywords", []))
+            if old_len < target_kw:
+                from packages.shared_utils.filter import expand_keywords
+                meta["keywords"] = expand_keywords(
+                    meta.get("keywords", []), 
+                    target_kw, 
+                    title=meta.get("title", ""),
+                    description=meta.get("description", ""),
+                    asset_style=options.get("style_preset", "")
+                )
+                new_len = len(meta.get("keywords", []))
+                self._emit("log", f"[{name}] [DEBUG] Cache keywords expanded from {old_len} to {new_len} kw.", "info")
+                set_cached_metadata(file_hash, meta)
+            else:
+                self._emit("log", f"[{name}] [DEBUG] [CACHE HIT] Proceeding to embed_metadata...", "info")
             status, tag = "CACHE", "cache"
         else:
             meta = ai.generate_metadata(
@@ -422,6 +436,17 @@ class FileWorkerPool:
             pass
 
         meta = clean_metadata(meta, target_kw)
+        
+        # Ensure exact count for fresh AI output as well, just like cache hit
+        if len(meta.get("keywords", [])) < target_kw:
+            from packages.shared_utils.filter import expand_keywords
+            meta["keywords"] = expand_keywords(
+                meta.get("keywords", []), 
+                target_kw, 
+                title=meta.get("title", ""),
+                description=meta.get("description", ""),
+                asset_style=options.get("style_preset", "")
+            )
         is_ai_generated = bool(
             options.get("is_ai_generated") or meta.get("is_ai_generated", False)
         )

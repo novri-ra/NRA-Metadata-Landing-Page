@@ -130,6 +130,75 @@ def _context_keyword_candidates(text: str, existing: set, needed: int) -> list[s
     return candidates
 
 
+_COMMERCIAL_VECTOR_TAGS = [
+    "vector", "illustration", "graphic", "design", "symbol", "icon",
+    "element", "flat", "isolated", "clipart", "art", "creative", "shape",
+    "sign", "concept", "modern", "style", "object", "set", "collection",
+    "template", "simple", "badge", "label", "button", "pictogram", "emblem",
+    "draw", "drawing", "silhouette", "outline", "line", "lineart", "ui", "app"
+]
+
+_COMMERCIAL_PHOTO_TAGS = [
+    "photo", "photography", "image", "picture", "realistic", "view", "shot",
+    "concept", "natural", "light", "color", "beautiful", "style", "scene",
+    "lifestyle", "visual", "background", "detail", "close-up", "outdoor",
+    "indoor", "focus", "clear", "fresh", "bright", "space", "nobody", "horizontal"
+]
+
+_COMMERCIAL_PATTERN_TAGS = [
+    "background", "pattern", "texture", "abstract", "design", "wallpaper",
+    "backdrop", "seamless", "graphic", "art", "decoration", "modern", "creative",
+    "style", "color", "repeat", "ornament", "fabric", "textile", "geometric",
+    "surface", "decorative", "swatch", "tile", "structure", "material", "print"
+]
+
+_COMMERCIAL_GENERAL_TAGS = [
+    "design", "graphic", "art", "creative", "concept", "illustration", "modern",
+    "style", "element", "isolated", "background", "beautiful", "color", "image",
+    "visual", "object", "symbol", "shape", "vector", "template", "digital",
+    "simple", "banner", "poster", "media", "content", "cover", "card"
+]
+
+def expand_keywords(
+    keywords: list[str],
+    target_kw: int,
+    title: str = "",
+    description: str = "",
+    asset_style: str = "",
+) -> list[str]:
+    """Deterministically expand keyword list to reach exact target count without duplicates."""
+    kws = [k.strip() for k in keywords if k and k.strip()]
+    seen = {k.lower() for k in kws}
+    
+    # 1. Add relevant tokens from title & description
+    context = f"{title} {description}"
+    for candidate in _context_keyword_candidates(context, seen, target_kw - len(kws)):
+        if len(kws) >= target_kw:
+            break
+        if candidate.lower() not in seen:
+            kws.append(candidate)
+            seen.add(candidate.lower())
+
+    # 2. Add style-specific commercial tags
+    style_lower = asset_style.lower()
+    if "vector" in style_lower or "icon" in style_lower or "clipart" in style_lower:
+        fallback_tags = _COMMERCIAL_VECTOR_TAGS + _COMMERCIAL_GENERAL_TAGS
+    elif "background" in style_lower or "pattern" in style_lower:
+        fallback_tags = _COMMERCIAL_PATTERN_TAGS + _COMMERCIAL_GENERAL_TAGS
+    elif "photo" in style_lower:
+        fallback_tags = _COMMERCIAL_PHOTO_TAGS + _COMMERCIAL_GENERAL_TAGS
+    else:
+        fallback_tags = _COMMERCIAL_GENERAL_TAGS + _COMMERCIAL_VECTOR_TAGS
+
+    for tag in fallback_tags:
+        if len(kws) >= target_kw:
+            break
+        if tag.lower() not in seen:
+            kws.append(tag)
+            seen.add(tag.lower())
+
+    return kws[:target_kw]
+
 def clean_metadata(meta: dict, target_kw: int = 49) -> dict:
     title = clean_title(filter_text(meta.get("title", "")))
     description = filter_text(meta.get("description", ""))
@@ -138,6 +207,7 @@ def clean_metadata(meta: dict, target_kw: int = 49) -> dict:
         needed = target_kw - len(keywords)
         context = f"{title} {description}"
         keywords += _context_keyword_candidates(context, set(keywords), needed)
+
     return {
         "title": title,
         "description": description,
