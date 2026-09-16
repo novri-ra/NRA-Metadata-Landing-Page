@@ -87,7 +87,12 @@ def _run_exiftool(
         cwd = os.path.dirname(os.path.abspath(exiftool_path))
     is_exe = str(exiftool_path).lower().endswith(".exe")
     converted_cmd = [cmd[0]] + [_to_cli_path(arg, is_exe) for arg in cmd[1:]]
-    return subprocess.run(
+    
+    file_name = os.path.basename(cmd[-1]) if cmd else ""
+    logger.info(f"[{file_name}] [DEBUG] Executing ExifTool command...")
+    print(f"[DEBUG] ExifTool CMD: {' '.join(converted_cmd)}")
+    
+    res = subprocess.run(
         converted_cmd,
         capture_output=True,
         text=True,
@@ -95,8 +100,11 @@ def _run_exiftool(
         errors="replace",
         timeout=timeout,
         cwd=cwd,
+        stdin=subprocess.DEVNULL,
         **no_window_kwargs(),
     )
+    logger.info(f"[{file_name}] [DEBUG] ExifTool completed with code {res.returncode}")
+    return res
 
 
 def _looks_like_write_blocked(result: subprocess.CompletedProcess) -> bool:
@@ -169,39 +177,47 @@ def _run_exiftool_stream(
     is_exe = str(exiftool_path).lower().endswith(".exe")
     converted_cmd = [cmd[0]] + [_to_cli_path(arg, is_exe) for arg in cmd[1:]]
     
-    proc = subprocess.Popen(
-        converted_cmd,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd=cwd,
-        **no_window_kwargs(),
-    )
+    source = input_bytes if input_bytes is not None else input_source
+    file_obj = None
+    input_data = None
     
-    out_b, err_b = b"", b""
+    if isinstance(source, bytes):
+        stdin_arg = subprocess.PIPE
+        input_data = source
+    elif isinstance(source, (str, os.PathLike)) and os.path.isfile(source):
+        file_obj = open(source, "rb")
+        stdin_arg = file_obj
+    else:
+        stdin_arg = subprocess.PIPE
+
     try:
-        if proc.stdin:
-            source = input_bytes if input_bytes is not None else input_source
-            if isinstance(source, (str, os.PathLike)) and os.path.isfile(source):
-                with open(source, "rb") as f_in:
-                    while chunk := f_in.read(65536):
-                        proc.stdin.write(chunk)
-            elif isinstance(source, bytes):
-                proc.stdin.write(source)
-            proc.stdin.close()
-        out_b, err_b = proc.communicate(timeout=timeout)
-        if isinstance(out_b, str): out_b = out_b.encode()
-        if isinstance(err_b, str): err_b = err_b.encode()
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        raise
-    except OSError:
-        proc.kill()
-        pass
+        proc = subprocess.Popen(
+            converted_cmd,
+            stdin=stdin_arg,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=cwd,
+            text=False,
+            **no_window_kwargs(),
+        )
         
-    return subprocess.CompletedProcess(
-        args=converted_cmd, returncode=proc.returncode, stdout=out_b, stderr=err_b
-    )
+        try:
+            out_b, err_b = proc.communicate(input=input_data, timeout=timeout)  # type: ignore
+            if isinstance(out_b, str): out_b = out_b.encode()
+            if isinstance(err_b, str): err_b = err_b.encode()
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            raise
+        except OSError:
+            proc.kill()
+            out_b, err_b = b"", b""
+            
+        return subprocess.CompletedProcess(
+            args=converted_cmd, returncode=proc.returncode, stdout=out_b, stderr=err_b
+        )
+    finally:
+        if file_obj:
+            file_obj.close()
 
 
 def _run_metadata_write(cmd: list, file_path: str, timeout: int):
@@ -212,23 +228,9 @@ def _run_metadata_write(cmd: list, file_path: str, timeout: int):
     controlled fallback runs the classic direct write (with temp-staging if the
     target folder blocks in-place writes).
     """
-    _pre_cleanup_temp(file_path)
-    stream_cmd = _build_stream_cmd(cmd)
-    
-    try:
-        stream = _run_exiftool_stream(stream_cmd, timeout, file_path)
-        if stream.returncode == 0 and len(stream.stdout or b"") > 0:
-            _prepare_target(file_path)
-            try:
-                os.chmod(file_path, stat.S_IREAD | stat.S_IWRITE)
-            except OSError:
-                pass
-            with open(file_path, "wb") as f_out:
-                f_out.write(stream.stdout)
-            return stream
-    except Exception:
-        pass
-
+    # Disable streaming fallback entirely to prevent subprocess deadlock on Windows
+    # Stream method was freezing on EPS files when ExifTool was blocked or piped buffers filled up.
+    # Now defaults strictly to the direct robust subprocess run.
     return _run_exiftool_resilient(cmd, timeout=timeout, file_path=file_path)
 
 
@@ -364,7 +366,7 @@ class ExifToolClient:
             cmd.extend(["-XMP-xmpGImg:all="])
         cmd.append(file_path)
         try:
-            result = _run_metadata_write(cmd, file_path, timeout=30)
+            result = _run_metadata_write(cmd, file_path, timeout=15)
         except subprocess.TimeoutExpired:
             print(f"[WARN] Sanitizer timeout on {os.path.basename(file_path)}")
             return False
@@ -523,7 +525,7 @@ class ExifToolClient:
         cmd.append(file_path)
 
         try:
-            result = _run_metadata_write(cmd, file_path, timeout=60)
+            result = _run_metadata_write(cmd, file_path, timeout=15)
         except subprocess.TimeoutExpired:
             print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool Timeout")
             log_failed_file(

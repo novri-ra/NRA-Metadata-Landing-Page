@@ -33,7 +33,7 @@ class EssentialFlagsTest(unittest.TestCase):
             [
                 "-api",
                 "Windows=1",
-                "-overwrite_original_in_place",
+                "-overwrite_original",
                 "-m",
                 "-charset",
                 "filename=utf8",
@@ -43,7 +43,7 @@ class EssentialFlagsTest(unittest.TestCase):
     def test_non_exe_skips_windows_api_only(self):
         self.assertEqual(
             exiftool_flags("exiftool"),
-            ["-overwrite_original_in_place", "-m", "-charset", "filename=utf8"],
+            ["-overwrite_original", "-m", "-charset", "filename=utf8"],
         )
 
     def test_sanitize_command_targets_in_place_overwrite(self):
@@ -63,12 +63,13 @@ class EssentialFlagsTest(unittest.TestCase):
                 ),
             ):
                 run.return_value = proc
-                ec.ExifToolClient().sanitize_ai_metadata("sub/dir/test_image.png")
-                captured = run.call_args.args[0]
-            joined = " ".join(captured)
-            self.assertIn("-overwrite_original_in_place", joined)
-            self.assertNotIn("-overwrite_original ", joined + " ")
-            self.assertIn("\\test_image.png", captured[-1])
+                client = ec.ExifToolClient()
+                client.sanitize_ai_metadata("sub/dir/test_image.png")
+                cmd = run.call_args[0][0]
+                joined = " ".join(cmd)
+                self.assertIn("-overwrite_original", joined)
+            self.assertNotIn("-overwrite_original_in_place", joined)
+            self.assertIn("test_image.png", joined)
 
 
 class SubprocessInvocationTest(unittest.TestCase):
@@ -218,56 +219,13 @@ class StagingFallbackTest(unittest.TestCase):
 
 
 class StreamingWriteTest(unittest.TestCase):
-    def test_streaming_rewrites_file_via_pipe(self):
+    def test_streaming_disabled_for_robustness(self):
+        # Streaming via Popen STDIN/STDOUT was disabled to prevent deadlocks.
+        # Ensure _run_metadata_write calls _run_exiftool_resilient directly.
         from unittest import mock
-
-        with tempfile.TemporaryDirectory() as tmp:
-            target = Path(tmp) / "img.jpg"
-            _make_file(target, b"ORIGINAL-BYTES")
-
-            ok = mock.Mock(
-                returncode=0, stdout=b"NEW-STREAMED-BYTES", stderr=b"Warning: minor"
-            )
-            with mock.patch(
-                "backend.processors.exiftool_client._run_exiftool_stream"
-            ) as stream:
-                stream.return_value = ok
-                ec._run_metadata_write(
-                    ["exiftool", "-overwrite_original_in_place", "-m", str(target)],
-                    str(target),
-                    timeout=30,
-                )
-
-            self.assertEqual(target.read_bytes(), b"NEW-STREAMED-BYTES")
-            stream_cmd, _timeout, input_source = stream.call_args.args
-            self.assertNotIn("-overwrite_original_in_place", stream_cmd)
-            self.assertNotIn("-overwrite_original", stream_cmd)
-            self.assertEqual(stream_cmd[-3:], ["-o", "-", "-"])
-            self.assertEqual(input_source, str(target))
-
-    def test_streaming_empty_stdout_falls_back_to_in_place(self):
-        from unittest import mock
-
-        with tempfile.TemporaryDirectory() as tmp:
-            target = Path(tmp) / "img.jpg"
-            _make_file(target, b"ORIGINAL")
-
-            empty = mock.Mock(returncode=0, stdout=b"", stderr=b"")
-            with mock.patch(
-                "backend.processors.exiftool_client._run_exiftool_stream"
-            ) as stream, mock.patch(
-                "backend.processors.exiftool_client._run_exiftool"
-            ) as run:
-                stream.return_value = empty
-                run.return_value = mock.Mock(returncode=0, stdout="ok", stderr="")
-                result = ec._run_metadata_write(
-                    ["exiftool", "-overwrite_original_in_place", "-m", str(target)],
-                    str(target),
-                    timeout=30,
-                )
-
-            self.assertEqual(run.call_count, 1)
-            self.assertEqual(result.returncode, 0)
+        with mock.patch("backend.processors.exiftool_client._run_exiftool_resilient") as resilient:
+            ec._run_metadata_write(["cmd"], "file", timeout=15)
+            resilient.assert_called_once_with(["cmd"], timeout=15, file_path="file")
 
     def test_pre_cleanup_removes_leftover_tmp(self):
         with tempfile.TemporaryDirectory() as tmp:

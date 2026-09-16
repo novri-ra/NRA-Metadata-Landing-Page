@@ -6,8 +6,21 @@ from backend.core.utils.key_manager import (
     build_openai_compatible_client,
     load_keys_from_file,
     parse_api_keys,
+    mask_api_key,
 )
 
+class MaskApiKeyTest(unittest.TestCase):
+    def test_mask_api_key_short(self):
+        self.assertEqual(mask_api_key("12345"), "12345")
+        self.assertEqual(mask_api_key("abc"), "abc")
+        
+    def test_mask_api_key_long(self):
+        self.assertEqual(mask_api_key("1234567890"), "12345*****")
+        self.assertEqual(mask_api_key("AIzaSyB_1234567890"), "AIzaS*************")
+        
+    def test_mask_api_key_empty(self):
+        self.assertEqual(mask_api_key(""), "")
+        self.assertEqual(mask_api_key("   "), "")
 
 class ParseApiKeysTest(unittest.TestCase):
     def test_newline_separated(self):

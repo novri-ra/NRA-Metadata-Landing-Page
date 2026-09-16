@@ -105,7 +105,7 @@ def exiftool_flags(exiftool_path: str) -> list:
     filenames. ``-api Windows=1`` was validated against the bundled 13.26
     binary; the old ``WindowsLongPath`` alias is the deprecated spelling.
     """
-    flags = ["-overwrite_original_in_place", "-m", "-charset", "filename=utf8"]
+    flags = ["-overwrite_original", "-m", "-charset", "filename=utf8"]
     if str(exiftool_path).lower().endswith(".exe"):
         return ["-api", "Windows=1"] + flags
     return flags
