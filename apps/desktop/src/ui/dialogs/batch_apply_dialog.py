@@ -100,61 +100,67 @@ def show_batch_apply(app):
             }
 
         status_lbl.configure(text="Applying...", text_color=C["warn"])
-        dialog.update()
 
-        applied = 0
-        skipped = 0
-        for root, _, files in os.walk(target_dir):
-            for fname in files:
-                if not app._is_allowed_file(fname):
-                    continue
-                fpath = os.path.join(root, fname)
-                if fpath == app.current_edit_file:
-                    continue
-
-                # Extension filter
-                if ext_filter:
-                    fext = os.path.splitext(fname)[1].lower()
-                    if fext not in ext_filter:
+        def _do_apply():
+            applied = 0
+            skipped = 0
+            for root, _, files in os.walk(target_dir):
+                for fname in files:
+                    if not app._is_allowed_file(fname):
+                        continue
+                    fpath = os.path.join(root, fname)
+                    if fpath == app.current_edit_file:
                         continue
 
-                fhash = get_file_hash(fpath)
-                meta = get_cached_metadata(fhash) or {}
+                    # Extension filter
+                    if ext_filter:
+                        fext = os.path.splitext(fname)[1].lower()
+                        if fext not in ext_filter:
+                            continue
 
-                # Skip files that already have metadata
-                if scope == "Files without metadata only" and (
-                    meta.get("title") or meta.get("keywords")
-                ):
-                    skipped += 1
-                    continue
+                    fhash = get_file_hash(fpath)
+                    meta = get_cached_metadata(fhash) or {}
 
-                new_title = src_title if ct else meta.get("title", "")
-                new_desc = src_desc if cd else meta.get("description", "")
-                new_kws = list(src_kws) if ck else meta.get("keywords", [])
+                    # Skip files that already have metadata
+                    if scope == "Files without metadata only" and (
+                        meta.get("title") or meta.get("keywords")
+                    ):
+                        skipped += 1
+                        continue
 
-                new_meta = {
-                    "title": new_title,
-                    "description": new_desc,
-                    "keywords": new_kws,
-                }
-                set_cached_metadata(fhash, new_meta)
-                app.processor.embed_metadata(
-                    fpath,
-                    new_title,
-                    new_desc,
-                    new_kws,
-                    app._get_copyright_text(),
-                    app.author_entry.get().strip(),
+                    new_title = src_title if ct else meta.get("title", "")
+                    new_desc = src_desc if cd else meta.get("description", "")
+                    new_kws = list(src_kws) if ck else meta.get("keywords", [])
+
+                    new_meta = {
+                        "title": new_title,
+                        "description": new_desc,
+                        "keywords": new_kws,
+                    }
+                    set_cached_metadata(fhash, new_meta)
+                    app.processor.embed_metadata(
+                        fpath,
+                        new_title,
+                        new_desc,
+                        new_kws,
+                        app._get_copyright_text(),
+                        app.author_entry.get().strip(),
+                    )
+                    applied += 1
+
+            if applied > 0:
+                generate_microstock_csvs(target_dir, app._get_selected_csv_platforms())
+
+            def _update_ui():
+                app.log(
+                    f"Batch Apply: {applied} files updated, {skipped} skipped.", "success"
                 )
-                applied += 1
+                dialog.destroy()
+                
+            dialog.after(0, _update_ui)
 
-        if applied > 0:
-            generate_microstock_csvs(target_dir, app._get_selected_csv_platforms())
-
-        app.log(
-            f"Batch Apply: {applied} files updated, {skipped} skipped.", "success"
-        )
-        dialog.destroy()
+        import threading
+        threading.Thread(target=_do_apply, daemon=True).start()
 
     _btn(
         dialog,

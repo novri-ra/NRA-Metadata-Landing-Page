@@ -129,14 +129,14 @@ class ShutterstockCategoriesTest(unittest.TestCase):
 
 
 class VecteezyLimitTest(unittest.TestCase):
-    def test_platform_rules_cap_at_30(self):
+    def test_platform_rules_cap_at_50(self):
         rules = PLATFORM_RULES["Vecteezy"]
-        self.assertEqual(rules["kw_max"], 30)
-        self.assertEqual(rules["kw_min"], 10)
+        self.assertEqual(rules["kw_max"], 50)
+        self.assertEqual(rules["kw_min"], 5)
 
-    def test_vecteezy_export_slices_to_30_keywords(self):
+    def test_vecteezy_export_slices_to_50_keywords(self):
         tmp = tempfile.mkdtemp()
-        kws = ", ".join(f"keyword{i}" for i in range(49))
+        kws = ", ".join(f"keyword{i}" for i in range(60))
         _write_master(
             tmp,
             [
@@ -157,9 +157,9 @@ class VecteezyLimitTest(unittest.TestCase):
             rows = list(csv.DictReader(f))
         self.assertEqual(len(rows), 1)
         exported_kws = [k.strip() for k in rows[0]["Keywords"].split(",")]
-        self.assertEqual(len(exported_kws), 30)
+        self.assertEqual(len(exported_kws), 50)
         self.assertEqual(exported_kws[0], "keyword0")
-        self.assertEqual(exported_kws[-1], "keyword29")
+        self.assertEqual(exported_kws[-1], "keyword49")
 
 
 if __name__ == "__main__":

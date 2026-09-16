@@ -157,7 +157,7 @@ PLATFORM_RULES = {
         "kw_max": 49,
     },
     "Shutterstock": {
-        "title_max_chars": 150,
+        "title_max_chars": 2048,
         "title_min_words": 5,
         "desc_min_words": 5,
         "desc_max_chars": 2000,
@@ -173,12 +173,29 @@ PLATFORM_RULES = {
         "kw_max": 50,
     },
     "Vecteezy": {
-        "title_max_chars": 150,
+        "title_max_chars": 200,
         "title_min_words": 3,
+        "title_max_words": 8,
         "desc_min_words": 5,
         "desc_max_chars": 200,
-        "kw_min": 10,
-        "kw_max": 30,
+        "kw_min": 5,
+        "kw_max": 50,
+        "title_chars_pattern": r"^[a-zA-Z0-9 ,\.\-']+$"
+    },
+    "iStock": {
+        "title_max_chars": 250,
+        "title_min_words": 3,
+        "desc_max_chars": 2000,
+        "kw_min": 5,
+        "kw_max": 50,
+    },
+    "Dreamstime": {
+        "title_max_chars": 200,
+        "title_min_words": 5,
+        "desc_max_chars": 2000,
+        "desc_min_words": 5,
+        "kw_min": 5,
+        "kw_max": 80,
     },
 }
 
@@ -212,8 +229,16 @@ def validate_compliance(
         )
 
     word_count = len([w for w in title.split() if w.strip()])
-    if word_count < rules["title_min_words"]:
+    if word_count < rules.get("title_min_words", 0):
         errors.append(f"Title has {word_count} words (min {rules['title_min_words']})")
+    
+    if "title_max_words" in rules and word_count > rules["title_max_words"]:
+        errors.append(f"Title has {word_count} words (max {rules['title_max_words']})")
+
+    if "title_chars_pattern" in rules and title:
+        import re
+        if not re.match(rules["title_chars_pattern"], title):
+            errors.append(f"Title contains invalid characters for {platform}")
 
     # Description validation
     if "desc_min_words" in rules:

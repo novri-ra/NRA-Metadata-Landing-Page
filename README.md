@@ -1,233 +1,243 @@
 <div align="center">
 
-# 🚀 NRA-Metadata Studio
-**Enterprise-Grade Automated Metadata Studio & Microstock Compliance Engine**
+# 🚀 NRA-Metadata
 
-[![Status](https://img.shields.io/badge/Status-Active_Development-success?style=for-the-badge&logo=github)](#)
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python)](#)
-[![GUI](https://img.shields.io/badge/CustomTkinter-Modern_UI-8b5cf6?style=for-the-badge&logo=pypi)](#)
-[![Security](https://img.shields.io/badge/Security-Hardened-red?style=for-the-badge&logo=letsencrypt)](#)
-[![Tool](https://img.shields.io/badge/Engine-ExifTool-ff69b4?style=for-the-badge)](#)
+**Batch Metadata Studio & Microstock Compliance Engine untuk Era Generative AI**
 
-<p align="center">
-  <i>Alat otomasi tingkat profesional untuk pembuatan, manajemen, dan injeksi metadata (Title, Description, Keywords) ke aset visual microstock. Ditenagai oleh Multi-Provider Vision AI dan dirancang untuk alur kerja kontributor skala masif.</i>
-</p>
+Otomasi tingkat profesional untuk analisis visual, pembangkitan Title / Description / Keywords, injeksi langsung IPTC-XMP, dan ekspor CSV multi-agensi — dengan kepatuhan penuh terhadap regulasi 2025–2026.
+
+[![Tests](https://img.shields.io/badge/Tests-230%2F230_Passing-success?style=for-the-badge)](#)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=for-the-badge&logo=python)](#)
+[![GUI](https://img.shields.io/badge/CustomTkinter-Modern_UI-8b5cf6?style=for-the-badge)](#)
+[![Engine](https://img.shields.io/badge/Engine-ExifTool-ff69b4?style=for-the-badge)](#)
+[![OS](https://img.shields.io/badge/Windows_Ghost_Spectre-Optimized-2ea043?style=for-the-badge&logo=windows)](#)
+[![Compliance](https://img.shields.io/badge/Compliance-2026_Ready-8b5cf6?style=for-the-badge)](#)
 
 </div>
 
 ---
 
-## 🌟 Tentang Proyek Ini
+## 🎯 Tentang Proyek
 
-**NRA-Metadata** adalah aplikasi desktop mutakhir berbasis Python yang dirancang khusus untuk memecahkan tantangan terbesar para kontributor microstock: manajemen dan penulisan metadata skala besar secara otomatis, cerdas, dan aman. 
+NRA-Metadata menggantikan kurasi manual yang memakan waktu berjam-jam dengan pipa kerja vision-AI yang presisi. Sistem membaca pratinjau visual (bukan nama file), mendeskripsikan aset secara kontekstual, menyetel keyword terhadap aturan tiap agensi, lalu mengukir hasilnya langsung ke biner file via ExifTool — tanpa prompt mentah tertulis di XMP, sehingga **integritas manifest C2PA tetap terjaga**.
 
-Dengan mengandalkan arsitektur **AI Vision LLM multi-provider** (Mistral, Gemini, OpenAI, Groq, hingga *9router AI Gateway*) dan keandalan **ExifTool**, NRA-Metadata mengubah alur kerja kurasi metadata menjadi proses yang sangat cepat, minim kesalahan (*error-free*), dan 100% mematuhi standar ketat industri microstock global.
+Alur kerja inti:
 
-Sistem ini tidak sekadar menghasilkan kata kunci; ia menghadirkan **ekosistem manajemen aset terlengkap**, mulai dari injeksi luring (offline), validasi SEO secara *real-time*, sinkronisasi multi-file (.eps, .ai, .jpg, .zip), hingga pengelolaan otorisasi lisensi berbekal keamanan sekelas *enterprise*.
-
----
-
-## 🛡️ Arsitektur Keamanan & Sistem Autentikasi
-
-NRA-Metadata dibangun di atas fondasi keamanan tingkat tinggi untuk memastikan privasi, keamanan API Key, dan keutuhan lisensi perangkat Anda.
-
-### 1. Serverless Google Sheets Auth Backend
-Meninggalkan arsitektur database relasional tradisional yang memakan biaya server, NRA-Metadata mengadopsi sistem *Serverless* sepenuhnya melalui **Google Apps Script Web App**. Seluruh manajemen registrasi, pelacakan alamat IP publik, dan pencatatan token otorisasi berlangsung secara instan tanpa server fisik mandiri. Ini menjamin sistem dengan uptime 99.9%, tahan terhadap beban masif, dan bebas biaya pemeliharaan.
-
-### 2. Single-Device HWID Binding (Proteksi Sesi Aktif)
-Akun pengguna dilindungi dari kebocoran lisensi dengan mengikat (*binding*) sesi ke **Sidik Jari Perangkat Keras (Hardware ID / HWID)**.
-- **Ekstraksi Mesin:** Sistem mengekstrak parameter `MachineGuid` secara langsung dari *Windows Registry* (`HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid`) yang dikombinasikan dengan pengidentifikasi *MAC Address Node*.
-- **Auto-Kick:** Jika pengguna mencoba melakukan login dari komputer lain, sistem secara instan mengganti token di awan. Perangkat pertama akan secara langsung menerima peringatan `"Sesi Berakhir: Akun Anda telah login di perangkat lain"` sebelum sesi dihentikan (*locked out*) secara paksa untuk melindungi manipulasi batch processing.
-
-### 3. DPAPI Local Storage Encryption
-Penyimpanan API Key sensitif (seperti kredensial OpenAI atau token sesi) tidak pernah ditulis dalam format teks biasa (plaintext). Aplikasi menggunakan enkripsi native dari Microsoft, yakni **Data Protection API (DPAPI)** melalui interaksi *ctypes* tingkat rendah.
-- **Keamanan Lapis Baja:** Konfigurasi `.json` tradisional secara dinamis dienkripsi ke dalam berkas `config.enc`. Data ini hanya dapat didekripsi oleh pengguna Windows (User Profile) dan komputer yang sama persis saat data tersebut disimpan.
-
-### 4. Path Traversal & Injection Shield
-Setiap interaksi dengan utilitas eksekusi baris perintah pihak ketiga (*ExifTool*, *Ghostscript*, *FFmpeg*) dilindungi ketat menggunakan *command wrapper* berbasis tipe *Array (list)* dan validasi *absolute path* (`os.path.abspath`). Proteksi *sandbox* ini menutup rapat segala bentuk celah serangan penyusupan baris perintah (*Command Injection*) maupun celah lintasan direktori (*Path Traversal - `../`*).
+- **Multi-Provider Vision LLM** — Gemini, OpenAI, Mistral, Groq, serta endpoint OpenAI-compatible/9router, dengan failover otomatis dan rotasi API key.
+- **Preview Rendering Headless** — raster, EPS/AI (Ghostscript), SVG (Edge/svglib), dan video (FFmpeg) dirender jadi pratinjau sebelum dianalisis.
+- **Normalisasi & Compliance Filter** — limit judul per-agensi, hard-cap keyword, deduplikasi/stemming, blacklist trademark, dan penegakkan kuota presisi.
+- **Direct Embedding & Ekspor CSV** — metadata langsung di-injeksi ke IPTC/XMP + CSV multi-agensi siap unggah.
 
 ---
 
-## ✨ Katalog Lengkap Fitur Unggulan
+## ⚖️ Matriks Kepatuhan Microstock (2025–2026)
 
-### 🤖 AI Vision & 9router Gateway Integration
-Dukung pemrosesan visual dengan deretan model LLM Vision terkuat di pasaran: **Mistral, Gemini, OpenAI, Claude, dan Groq**. 
-- **9router AI Gateway:** Dukungan bawaan untuk provider *OpenAI-Compatible*, memungkinkan *smart routing* ke endpoint gateway pilihan Anda. Sangat fleksibel, dengan kustomisasi parameter Base URL (`http://localhost...` / `https://api.9router...`).
-- **Custom Context Guidance:** Pengguna dapat memberikan instruksi spesifik pada *sidebar* (contoh: *"Fokus pada nuansa pastel, gaya flat design minimalis"*), yang secara presisi mengubah gaya keluaran metadata AI Anda.
+Nilai-nilai ini dieksekusi oleh `packages/shared_utils/filter.py` dan `csv_exporter.py`, diverifikasi menyeluruh ke pedoman resmi agensi.
 
-### 🏷️ Interactive Visual Keyword Chips
-Kata kunci tidak lagi sekadar teks yang menumpuk. Antarmuka UI mengadopsi elemen modern berbasis blok *Visual Chips*.
-- **Fungsi Dinamis:** Pengguna dapat mengubah urutan kata kunci dengan mengklik (*drag to reorder*), mengedit secara *inline*, menghapus (*quick delete*), dan menambah kata secara instan.
-- **Proteksi Cerdas:** Setiap penambahan kata kunci dicegah apabila mendeteksi entri ganda (*Duplication Protector*).
+| Agen | Panduan Judul | Panduan Deskripsi | Keyword | Catatan Keluhan Kepatuhan |
+| :--- | :--- | :--- | :--- | :--- |
+| **Adobe Stock** | Target SEO **50–70 karakter**; peringatan lunak (soft-warning) amber di rentang pelampauan; pemotongan ketat di batas maksimal (200) | Deskripsi makna penuh ≥ 5 kata | **5–49 keyword** | Pelarang kata pembuka spam: `Vector`, `Illustration`, `Isolated`, `Set of`, `Collection of`. Kategori Adobe (kode 1–21) dipetakan otomatis lewat `taxonomy.py`. |
+| **Shutterstock** | Maksimal sesuai batas agensi, format kalimat profesional | Deskripsi **narasi kontekstual 250–800 karakter** (bukan daftar tag) | **7–50 keyword** | Format CSV ekspor mengikuti struktur resmi dashboard kontributor. |
+| **Vecteezy** | Maksimum 150 karakter | Maksimum 200 karakter | **Tepat 30 keyword (hard-cap)** | Memenuhi persis batas kuota untuk menghindari **penolakan batch otomatis**; deduplikasi & stemming dijalankan sebelum pemangkasan. |
+| **Freepik** | Maksimum 200 karakter | Maksimum 200 karakter | **5–50 keyword** | Delimiter wajib **titik-koma `;`** pada CSV; kolom dipisah dari spasi agar tidak rusak saat impor. |
+| **Dreamstime** | Maksimum sesuai batas agensi | Lengkap & kontekstual | Kuota sesuai pedoman | **Injeksi otomatis pernyataan AI provenance** pada kolom metadata, memenuhi kewajiban disclosure. |
+| **iStock / Getty** | Format editorial **5W**: `[City, Country - Month Day, Year]` | Deskripsi saksi mata, pasti, dan kontekstual | Free-text terms **≤ 64 karakter** per istilah | Caption editorial dibangun dari tanggal buat file yang dinormalisasi ke `YYYYMMDD`. |
 
-### 🧹 Smart Redundancy & Stemming Cleanup
-Memanfaatkan algoritma *Natural Language Processing* ringan, modul ini bertugas menjaga kebersihan SEO. Sistem dapat mendeteksi kata berlebih akibat stemming bahasa, baik dalam bentuk perbedaan tunggal/jamak (*apple* vs *apples*) maupun bentuk *gerund* (*run* vs *running*). Hanya dalam satu klik, kata tak berguna akan dibersihkan.
-
-### 💉 Batas Default 49 Keywords & Mandatory Tag Injection
-Algoritma internal aplikasi menerapkan *safeguard* 49 kata kunci untuk menghindari penalti algoritmik agensi.
-- Fitur **Mandatory Injector** memungkinkan Anda menanamkan (inject) kata kunci wajib yang spesifik secara otomatis, memaksanya menempel di urutan paling awal atau paling akhir pada keseluruhan direktori (batch file).
-
-### 📦 Multi-Variant Synchronizer & Auto-Zip
-Sistem manajemen aset tercanggih yang meniadakan kerja ganda! Cukup setujui metadata pada berkas tinjauan (`.jpg`), maka NRA-Metadata akan **secara simultan** memindai, mengenkripsi XML, dan menanamkan metadata identik ke setiap *companion bundle file* dengan nama serupa (seperti `.svg`, `.eps`, `.ai`, hingga file video `.mov`, dan arsip terkompresi `.zip`).
-
-### 📌 Selective File Queue
-Pemrosesan tidak lagi memaksa Anda menyertakan seluruh aset sekaligus. Lewat tabel antrean sebelah kiri, hilangkan centang dari *checkbox* file individu yang belum selesai digambar, atau gunakan tombol saklar agregat (*Include All* / *Exclude All*).
-
-### 📈 Live SEO, Spam Score & Quality Analyzer
-Metrik real-time akan membedah kelayakan kompetitif metadata Anda dan menyajikan **Skor Kualitas (0-100%)**. Modul ini secara aktif meneliti *keyword stuffing* (kata berlebihan), ketiadaan elemen utama, atau densitas deskripsi, yang secara masif berpengaruh pada visibilitas aset saat rilis di mesin pencari.
-
-### ⚖️ Platform Compliance Matrix
-Pekerjaan Anda dinilai (*validated*) melawan pedoman resmi empat raksasa agensi secara real-time. Jika batas maksimum karakter dari *Adobe Stock*, *Shutterstock*, *Freepik*, atau *Vecteezy* terlampaui, satu tombol **Auto-Fix** akan memangkas, merapikan, dan mencocokkan standar secara aman.
-
-### 📂 Offline CSV Bulk Importer & Exporter
-- **Exporter:** Di akhir pemrosesan AI, tekan satu tombol untuk merender kumpulan CSV yang diformat presisi secara struktural sesuai tuntutan platform (contoh: baris CSV Freepik vs CSV Adobe Stock).
-- **Importer:** Membutuhkan retagging tanpa membakar saldo API AI? Muat CSV yang sudah ada, lalu biarkan aplikasi mencangkok (*grafting*) metadata kembali ke file biner secara luring (offline).
-
-### ⚡ High-Performance / Anti-Tearing Rendering
-Tidak seperti GUI tradisional, CustomTkinter telah dikalibrasi hingga akarnya (*root config*). Bingkai *scrollable panels* direkayasa ulang lapisan latar belakangnya untuk menghilangkan gangguan transisi pengguliran berbayang (*ghosting*) dan layar robek (*canvas tearing*), menghasilkan navigasi 60FPS yang presisi.
-
-### 💾 Full State Persistence (Undo/Redo Support)
-Menekan tutup aplikasi secara sengaja atau tak sengaja tidak akan membuat Anda kehilangan waktu kerja berjam-jam. Tata letak UI, posisi antrean, lebar teks, dan pengaturan mode warna (Dark/Light) **disimpan secara utuh** dalam DPAPI dan akan dipulihkan otomatis saat dibuka kembali. Setiap ketikan kata turut dilindungi tumpukan riwayat modifikasi (*Undo/Redo Manager*).
+*Algoritma pemangkasan teks memotong pada batas kata (`word-boundary`) — tidak pernah memenggal di tengah kalimat.*
 
 ---
 
-## 📂 Struktur Direktori Modular
+## 🛡️ Standar IPTC 2025.1 & Integritas C2PA
 
-NRA-Metadata dibangun dengan *separation of concerns* arsitektur termodularisasi tingkat mahir, yang memisahkan ranah antarmuka, jaringan, proses AI, dan eksekusi utilitas OS.
+Kepatuhan terhadap spesifikasi IPTC 2025.1 untuk asset yang diproduksi oleh AI diimplementasikan garis-keras di `backend/processors/exiftool_client.py` dan `packages/shared_utils/csv_exporter.py`:
+
+- **`XMP:DigitalSourceType`** ditulis sebagai `trainedAlgorithmicMedia` (URI resmi `http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia`).
+- **`XMP-iptcExt:AISystemUsed`** dan **`XMP-iptcExt:AISystemVersionUsed`** mencatat provider & model AI generatif yang digunakan.
+- **Non-Destructive:** aplikasi **tidak pernah menulis prompt mentah alias workflow** apa pun ke XMP. Hal ini menjaga integritas dan validitas **manifest C2PA** di file.
+- Pada asset buatan manusia, sistem **membuang junk metadata AI** (mis. `PNG:parameters`, `PNG:prompt`, `PNG:workflow`) serta `XMP-xmpGImg` agar tidak salah-etik sebagai konten AI.
+- Semua penulisan dicapai lewat streaming argument ExifTool (bukan file JSON sementara) dengan flag `-api Windows=1`, `-api LargeFileSupport=1`, dan overwrite in-place.
+
+---
+
+## 🖥️ Dirancang untuk Windows Ghost Spectre
+
+Aplikasi dioptimalkan untuk instalasi Windows *debloated* seperti **Ghost Spectre Superlite**:
+
+- **Zero Console Flash:** seluruh subprocess (ExifTool, Ghostscript, FFmpeg) dijalankan dengan flag **`CREATE_NO_WINDOW` + `SW_HIDE`** (`backend/processors/_tools.py::no_window_kwargs`). Tidak ada window `cmd.exe` yang berkedip di tengah batch — dan tidak ada freeze GUI ("Not Responding") saat menunggu tool eksternal.
+- **3-Level Smart Probing:** deteksi biner ExifTool/Ghostscript/FFmpeg berjalan dalam urutan — (1) pindai rekursif folder `tools/` proyek (shallow-first), (2) PATH sistem, (3) lokasi instalasi standar Windows — dengan probe verifikasi **≤ 2 detik** dan **auto-skip** bila biner valid sudah ditemukan (`system_detector.py`).
+- **Sorting Versi Cerdas:** Ghostscript diurutkan secara numerik (`gs10 > gs9`) agar tidak memilih instalasi usang di Program Files.
+- **Setup Script Mandiri:** `scripts/setup_tools.ps1` dan `scripts/setup_tools.bat` — unduh otomatis ExifTool, Ghostscript, dan FFmpeg dengan **TLS 1.2/1.3**, User-Agent browser untuk menghindari *HTTP 403 Forbidden*, verifikasi biner ≤ 2 detik, dan *idempotent* (melewati tool yang sudah ada).
+
+---
+
+## 🧱 Arsitektur
+
+Struktur modular dengan `separation of concerns` antara UI, jaringan AI, konfigurasi terenkripsi, dan eksekusi utilitas OS.
 
 ```text
 NRA-Metadata/
 ├── apps/
+│   ├── cli/
+│   │   └── src/main.py              # Headless batch runner (entrypoint: nra-cli)
 │   └── desktop/
-│       └── src/
-│           └── main.py              # Orkestrasi Sentral GUI (CustomTkinter), State Manager, & Modal Dialog Auth
+│       └── src/main.py              # Orkestrasi GUI CustomTkinter, migrasi key, modal auth
+├── backend/
+│   ├── ai/
+│   │   ├── provider_router.py       # Dispatch multi-provider + builder prompt vision
+│   │   └── failover_handler.py      # Exponential backoff, rotasi key, deteksi rate-limit/auth
+│   ├── core/
+│   │   ├── config_manager.py        # Enkripsi DPAPI config.enc, SQLite cache (SHA-256), import RJ
+│   │   ├── worker_pool.py           # ThreadPoolExecutor, pause/cancel, companion sync, cost tracker
+│   │   └── utils/key_manager.py     # Parser fleksibel API key & factory client OpenAI-compatible
+│   └── processors/
+│       ├── exiftool_client.py       # Streaming ExifTool: IPTC/XMP, tanggal, pembersihan AI junk
+│       ├── system_detector.py       # Smart probing 3 level + cache deteksi tool
+│       ├── media_converter.py       # Render pratinjau: raster/EPS/SVG/video
+│       ├── ghostscript_preview.py   # Rasterisasi -dSAFER + fallback ExifTool -PreviewImage
+│       └── _tools.py                # no_window_kwargs, exiftool_flags, pencatat file gagal
 ├── packages/
-│   ├── ai_engine/
-│   │   └── service.py               # Otak Multi-API LLM Vision, 9router Integration, dan Parser Format JSON
-│   ├── media_processor/
-│   │   ├── embedder.py              # Subprocess Engine ke ExifTool (Menulis EXIF/IPTC/XMP), Traversal Guard
-│   │   └── previews.py              # Modul Headless Rasterization (SVG Edge Screenshot, FFmpeg)
 │   └── shared_utils/
-│       ├── auth_backend.js          # Skrip Cloud Backend Serverless (Di-deploy ke Google Apps Script)
-│       ├── license_manager.py       # Pembangkit HWID MachineGuid, Klien API Login, Manajemen Session Ganda
-│       ├── config.py                # Wrapper Windows DPAPI (Ctypes) & Mekanisme State Persistence
-│       └── csv_importer.py          # Modul Impor Tagging Luring Berkelompok
-├── tools/                           # Dependensi Utilitas Eksternal Mandiri (Wajib: ExifTool)
-├── workspace.bat                    # Script Inisiasi Lingkungan Kerja (Virtual Environment Runner)
-└── README.md                        # Buku Manual Dokumentasi (Anda membaca ini)
+│       ├── filter.py                # PLATFORM_RULES, normalisasi, compliance validator, Auto-Fix
+│       ├── csv_exporter.py          # CSV per-agensi + sanitasi teks + caption editorial 5W
+│       ├── taxonomy.py              # Kategori Adobe (kode 1–21) & Shutterstock (27)
+│       ├── tools_setup.py           # Downloader biner terverifikasi (idempotent)
+│       ├── license_manager.py       # HWID MachineGuid, session offline, auto-kick lintas perangkat
+│       ├── cost_tracker.py          # Estimasi biaya USD per provider/model
+│       ├── env_check.py             # Diagnostik lingkungan (ExifTool, Edge)
+│       ├── updater.py               # Pemeriksa versi GitHub non-blocking
+│       └── logger.py                # Logging konsol + CSV terstruktur
+├── scripts/
+│   ├── setup_tools.bat              # One-click setup biner eksternal
+│   ├── setup_tools.ps1              # Bootstrap PowerShell ber-TLS 1.2+
+│   └── build_portable.py            # Rakit distribusi portabel (.zip) + skeleton tools/
+├── tests/                           # 230 unit test (unittest, tanpa framework)
+├── tools/                           # Biner eksternal: ExifTool, Ghostscript, FFmpeg (diisi setup_tools)
+├── run_app.bat                      # Zero-setup launcher
+├── requirements.txt
+└── pyproject.toml                   # requires-python >= 3.11, script nra-cli
 ```
+
+### Alur Pipeline
+
+```text
+Ingest ──► Preview Rendering ──► Vision Prompting ──► Metadata Normalization
+   │            │                      │                     │ & Compliance Filter
+   │      (raster/EPS/SVG/       (multi-provider,      (limit judul, hard-cap
+   │       video → gambar)        target_kw default 49)  keyword, dedup, blacklist)
+   ▼
+Direct Embedding (ExifTool IPTC/XMP)  ──►  Multi-Agency CSV Generation
+                                              (Adobe, SS, Freepik, Vecteezy,
+                                               Dreamstime, iStock/Getty)
+```
+
+### Ketahanan Runtime
+
+- **Failover AI:** backoff eksponensial `[3s, 6s, 12s, 24s, 48s]`, hingga 5 percobaan, rotasi API key thread-safe, deteksi rate-limit (HTTP 429 / quota) dan kegagalan autentikasi (401/403), serta pindah provider otomatis.
+- **Worker Pool:** `ThreadPoolExecutor` dengan pause/cancel sinyal, pembersihan worker stale, cache metadata berbasis hash **SHA-256** (SQLite WAL), pemindai companion files (`.eps` + `.jpg`, `.svg`, `.mov`, `.zip`).
+- **Anti-Korupsi File:** sebelum injeksi, atribut *read-only* dibersihkan; penulisan ExifTool streaming; file gagal dicatat di `failed_files.log` untuk retry manual.
+- **Batasan MIC:** semua subprocess berjalan pada *Medium Integrity Level* tanpa eskalasi, selaras dengan kebijakan keamanan Windows modern.
 
 ---
 
-## 💻 Panduan Instalasi & Setup Lingkungan
+## 💿 Keamanan & Lisensi
 
-### 1. Kebutuhan Prasyarat
-- **Sistem Operasi**: Diwajibkan **Windows 10 / 11** (Modul Ekstraksi MachineGuid dan DPAPI beroperasi secara *native* dan asimetris hanya pada sistem NT).
-- **Environment**: Python 3.10 atau versi yang lebih baru (Disarankan instalasi resmi `.exe` centang opsi "Add to PATH").
-- **Dependencies (Biner Eksternal)**:
-  - `exiftool.exe` (Wajib - utilitas pembedah metadata sejati).
-  - Browser **Microsoft Edge** (Sudah ada di Windows; ditugaskan secara rahasia sebagai mesin rendering aset gambar vektor/SVG secara *headless*).
+- **DPAPI Local Encryption:** API key & konfigurasi disimpan terenkripsi native Windows di `config.enc` (ctypes DPAPI) — tidak pernah plaintext.
+- **Serverless Auth:** backend Google Apps Script untuk registrasi, HWID binding (MachineGuid), sesi offline hingga 3 hari, dan auto-kick bila akun dipakai perangkat lain.
+- **Injection Shield:** seluruh eksekusi tool eksternal berbasis daftar argumen (`list`), tanpa shell, dan validasi path absolut (anti *command injection* / *path traversal*).
 
-### 2. Memulai Repositori
-Clone repositori ke penyimpanan *solid state drive* (SSD) utama Anda:
+---
+
+## 🚀 Panduan Instalasi & Setup
+
+### Persyaratan
+
+- **Windows 10/11** (atau Windows Ghost Spectre Superlite) — modul DPAPI & HWID berjalan native di NT.
+- **Python ≥ 3.11** (wajib; syarat `pyproject.toml`).
+- **Microsoft Edge** — untuk rendering headless pratinjau SVG.
+
+### 1. Zero-Setup (direkomendasikan)
+
+Klik dua kali **`run_app.bat`** di folder proyek. Launcher mendeteksi Python yang tersedia, atau mengunduh environment portabel lokal beserta seluruh dependensinya secara otomatis, lalu membuka aplikasi.
+
+### 2. Setup Manual
+
 ```bash
-git clone https://github.com/username/NRA-Metadata.git
+git clone https://github.com/novri-ra/NRA-Metadata.git
 cd NRA-Metadata
-```
-
-### 3. Eksekusi Lingkungan Virtual
-Disarankan untuk melakukan isolasi lingkungan untuk menghindari konflik antar pustaka Python Anda:
-```bash
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
 ```
-*(Paket vital yang digunakan adalah: `customtkinter`, `requests`, `google-genai`, `openai`, `pillow`, dan `pydantic`).*
 
-### 4. Setup Database Serverless (Untuk Maintainer/Developer)
-> **Bagi Pengguna Akhir:** Abaikan langkah ini, koneksi API utama sudah disetel oleh Maintainer (URL Cloud).
-- Buka portal *Google Apps Script* dan buat lembar *Spreadsheet* baru.
-- Sisipkan salinan kode dari `packages/shared_utils/auth_backend.js`.
-- Deploy sebagai *Web App* (Eksekusi Atas Nama Anda > Akses Siapa Saja).
-- Salin URL Exec dan tempelkan ke variabel `AUTH_API_URL` pada modul `license_manager.py`.
+### 3. Setup Biner Eksternal
 
----
+Jalankan sekali (idempotent, dapat diulang kapan saja):
 
-## 📖 Alur Kerja Langkah demi Langkah (Workflow Guide)
+```powershell
+# PowerShell
+Set-ExecutionPolicy -Scope Process Bypass
+powershell -ExecutionPolicy Bypass -File scripts\setup_tools.ps1
+```
 
-NRA-Metadata dirancang dengan prinsip UX *One-Stop Studio*. Ikuti urutan di bawah ini untuk memulai penciptaan arsip yang tak tertandingi.
+```bat
+:: atau lewat Command Prompt / double-click
+scripts\setup_tools.bat
+```
 
-1. **Registrasi Akun & Validasi HWID Perangkat**
-   - Jalankan perintah: `python apps/desktop/src/main.py`.
-   - Modul Autentikasi dengan gaya palet elegan "Zinc/Indigo" akan menyambut. Klik Tab *Buat Akun Baru* jika ini adalah mesin pertama Anda. Daftar dan lakukan Login. Sidik jari mesin Windows Anda (HWID) telah dicatat.
-   
-2. **Koneksi Engine & API Parameter**
-   - Melalui panel *Sidebar* (kiri), pilih kecerdasan buatan (*Provider*) andalan Anda, seperti **9router**, lalu masukkan *Base URL* serta API Key terkait.
-   - Atur level *Temperature* (0.3 direkomendasikan untuk stabilitas struktural, 0.7 untuk kreativitas artistik).
-   
-3. **Impor Folder (Selective Management)**
-   - Klik **Select Folder** dan arahkan ke direktori bahan karya seni Anda. Ratusan berkas akan berjajar membentuk antrean dengan *checkbox*. Centang hijau pada aset yang sudah 100% jadi.
-   
-4. **Eksekusi Batch Background**
-   - Sebelum mulai, sistem mengeksekusi *Auth Guard* secara sembunyi-sembunyi di belakang layar. Selama perangkat Anda aman, tekan **Start Processing**. AI akan menganalisis visual menggunakan konfidensi multithread. Progress bar akan terisi hingga muncul ringkasan panel *(Summary Report)* mencakup kuantitas token, biaya USD (Estimasi), dan total data tertulis.
-   
-5. **Kurasi Cepat Inspector & Kepatuhan Matriks**
-   - Buka sembarang file pada antrean. Area Inspektur (kanan) terbuka lebar.
-   - Atur prioritas Visual Chips dengan melakukan Drag. Hapus frasa redudan berkat bantuan **Redundancy Filter**.
-   - Cek warna grafik *Spam Score*.
-   - Jika teks merah melanggar kebijakan pasar (misal teks kepanjangan), tekan satu tombol **Auto-Fix** dari bilah *Compliance Matrix* untuk memadatkan batas karakter judul/deskripsi.
-   
-6. **Integrasi Biner & Ekspor Global**
-   - Setelah yakin metadata sempurna, tidak perlu melakukan simpan manual. Teks telah otomatis terukir secara mikroskopis di perut file (`.jpg` / `.eps` / `.zip`) lewat *ExifTool*.
-   - Gulir panel paling bawah, tekan **Export CSV (Multi-Platform)** untuk mencetak lembar kerja yang siap didistribusikan ke dasbor agensi.
+Unduhan dijalankan dengan TLS 1.2+, User-Agent browser, verifikasi biner ≤ 2 detik, dan penolakan HTML (anti-halaman 403). ExifTool, Ghostscript, dan FFmpeg akan ditempatkan di `tools/`.
 
----
+### 4. Konfigurasi API Key
 
-## ⚖️ Tabel Matriks Kepatuhan Microstock
+Buka aplikasi desktop dan masukkan API key di panel provider, atau impor otomatis dari konfigurasi RJ Auto Metadata. Key disimpan terenkripsi DPAPI di:
 
-NRA-Metadata mengimplementasikan standard kalibrasi yang tidak bisa ditawar sebagai berikut:
+```text
+%USERPROFILE%\Documents\NRA Metadata\config.enc
+```
 
-| Nama Agen Platform | Ekstensi Maksimal Judul | Batas Karakter Deskripsi | Keyword Minimal | Penalti Batas Tag Tertinggi |
-| :--- | :--- | :--- | :--- | :--- |
-| **Shutterstock** | 200 Karakter (Opsi) | Maks 200 Karakter | 7 Kata Kunci | **50 Kata Kunci** |
-| **Adobe Stock** | 200 Karakter | Maks 200 Karakter | 5 Kata Kunci | **49 Kata Kunci** |
-| **Freepik** | 200 Karakter | Maks 200 Karakter | 5 Kata Kunci | **50 Kata Kunci** |
-| **Vecteezy** | 150 Karakter | Maks 150 Karakter | 5 Kata Kunci | **50 Kata Kunci** |
+Untuk mengubah lokasi simpan (contoh: di portable/Flashdisk), set variabel lingkungan **`NRA_CONFIG_DIR`**.
 
-*(Perangkat peringatan "Live Compliance" akan menolak input merah yang menerjang batasan di atas, menjaga tingkat penerimaan persetujuan portfolio / Acceptance Rate Anda tetap setinggi langit).*
+### 5. Menjalankan Aplikasi
 
----
+```bash
+python apps/desktop/src/main.py
+```
 
-## ⚠️ Troubleshooting & Solusi Kendala Terumum
+### 6. Headless CLI (Batch Server / Otomasi)
 
-📝 **Error: "Sesi Berakhir: Akun Anda telah login di perangkat lain"**
-> **Kenapa terjadi?** Rekan tim / Karyawan lain telah membuka aplikasi dengan akun Anda di mesin B, menginjeksi token sesi terbaru, melarang token sesi mesin A untuk melanjutkan.
-> **Penyelesaian:** Segera tekan tombol 'Login' kembali dari komputer (Mesin A) untuk menarik balik otorisasi lisensi ke perangkat ini.
+```bash
+# melalui entrypoint terpasang
+nra-cli --input DIR --output OUT --provider Gemini --api-key KEY --target-kw 49 --workers 2
 
-📝 **Terminal membeku (Freeze) atau Visual Glitch pada UI**
-> **Kenapa terjadi?** Akselerasi GPU dari pustaka *Tkinter* bersinggungan di latar belakang.
-> **Penyelesaian:** Mutakhirkan `customtkinter` versi terbaru dari *pip*. Fitur Anti-Tearing kami menonaktifkan rendering transparan secara otomatis bila versi tidak selaras.
+# atau langsung
+python apps/cli/src/main.py --input DIR --output OUT --provider Mistral --api-key KEY --import-rj
+```
 
-📝 **Proses AI mandek (Tertahan/Timeout) tanpa alasan**
-> **Kenapa terjadi?** Terjadi antrean (Rate Limit) yang ekstrem pada server upstream (seperti OpenAI/Mistral/9router).
-> **Penyelesaian:** Modul *AI Engine* NRA-Metadata telah dilengkapi arsitektur `Exponential Backoff`. Ia akan menunggu secara asinkron lalu mengulang pengiriman hingga 3 kali berturut-turut. Tunggu laporan *timeout* resmi di konsol.
+Argumen: `--provider {Gemini,OpenAI,Mistral}` · `--target-kw` (default `49`) · `--workers` (default `2`) · `--config-dir` · `--import-rj [PATH]` (impor key dari RJ sebelum jalan).
 
-📝 **Error Biner ExifTool (Status: SKIP ERROR)**
-> **Penyelesaian:** Pastikan biner tidak terblokir oleh *Windows Defender*. Jangan buka file aset (*contoh.ai / contoh.eps*) pada Adobe Illustrator saat NRA-Metadata sedang berjalan, karena sistem operasi OS Windows otomatis memberikan *"File Locking"* yang mencegah penulisan metadata.
+### 7. Menjalankan Pengujian
+
+```bash
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+**230/230 test lulus** (tanpa framework, murni `unittest`). CI `windows-latest · Python 3.11` menjalankan suite yang sama plus lint `flake8` (E9/F63/F7/F82, `max-complexity=10`, `max-line-length=127`).
 
 ---
 
-## 📜 Lisensi, Kredit, & Distribusi
+## 🧪 Troubleshooting Umum
 
-Dikembangkan secara penuh dedikasi sebagai jantung automasi ekosistem studio komersial tingkat makro. 
+| Gejala | Solusi |
+| :--- | :--- |
+| `ExifTool not found` | Jalankan `scripts/setup_tools.ps1`; pastikan `tools/exiftool` terisi, atau ExifTool ada di PATH. |
+| CSV Freepik rusak saat impor | Gunakan file dari folder ekspor — delimiter titik-koma `;` sudah diterapkan; jangan ganti dengan koma. |
+| Metadata tidak tertulis pada `.eps/.ai` | Tutup file di Adobe Illustrator saat batch berjalan (Windows file-locking); pastikan atribut read-only dilepas. |
+| Proses AI mandek (rate limit) | Pool melakukan backoff otomatis hingga 48 detik + rotasi key; periksa konsol untuk laporan resmi. |
+| Sesi berakhir "login perangkat lain" | Login ulang dari perangkat aktif; auto-kick melindungi sesi dari kebocoran lisensi. |
 
-Arsitektur aplikasi dan sistem lisensi (*HWID Serverless Auth & DPAPI Crypto-Enclave*) adalah hak cipta independen. Pembaruan kode (*Pull Requests*) diterima hanya melalui evaluasi Maintainer resmi. Hak cipta pustaka utilitas metadata sepenuhnya didelegasikan untuk komunitas open source `ExifTool` (Phil Harvey).
+---
+
+## 📜 Lisensi
+
+MIT — © 2026 Novri Rizki Akbar. Utilitas metadata `ExifTool` (Phil Harvey) digunakan di bawah lisensi GPL/Artistic yang berlaku.
 
 > **"Empower Your Portfolio, Scale Your Keywords, Secure Your Workflow."**
-  
-## Cara Menjalankan Cepat (Zero Setup)  
-  
-Untuk pengguna Windows, Anda tidak perlu repot menginstal Python secara manual.  
-1. Cukup klik ganda (double-click) file **`run_app.bat`** di folder utama proyek ini.  
-2. Sistem akan otomatis menggunakan Python di PC Anda jika tersedia, atau mengunduh dan menyiapkan environment Portable secara lokal beserta seluruh dependensinya di latar belakang.  
-3. Aplikasi akan langsung terbuka. 

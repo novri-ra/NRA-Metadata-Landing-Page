@@ -50,14 +50,10 @@ def check_msedge() -> tuple[bool, str]:
     if sys.platform != "win32":
         return False, "Not on Windows, Edge fallback unavailable."
 
-    paths = [
-        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-    ]
-
-    for p in paths:
-        if os.path.exists(p):
-            return True, f"Found at {p}"
+    from backend.processors.media_converter import get_msedge_path
+    p = get_msedge_path()
+    if p:
+        return True, f"Found at {p}"
 
     return False, "Microsoft Edge not found. SVG preview extraction may fail."
 

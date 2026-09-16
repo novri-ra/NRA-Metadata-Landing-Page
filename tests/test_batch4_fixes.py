@@ -19,8 +19,8 @@ class PromptPlatformLimitTest(unittest.TestCase):
     def test_freepik_title_limit_200(self):
         self.assertIn("(max 200 characters):", self._prompt("Freepik"))
 
-    def test_shutterstock_title_limit_150(self):
-        self.assertIn("(max 150 characters):", self._prompt("Shutterstock"))
+    def test_shutterstock_title_limit_2048(self):
+        self.assertIn("(max 2048 characters):", self._prompt("Shutterstock"))
 
     def test_defaults_when_platform_unknown(self):
         self.assertIn("(max 180 characters):", self._prompt("Unknown Platform"))

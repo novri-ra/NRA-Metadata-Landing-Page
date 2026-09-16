@@ -1,12 +1,15 @@
 import csv
 import os
 import re
+import threading
 from datetime import datetime
 
 from packages.shared_utils.taxonomy import (
     SHUTTERSTOCK_CATEGORIES,
     get_adobe_category_code,
 )
+
+_csv_lock = threading.Lock()
 
 
 def sanitize_text(s: str, semi: str = ",") -> str:
@@ -169,21 +172,22 @@ def upsert_metadata_csv(
     Reads any existing rows, replaces the matching filename entry (if present),
     or appends a new row — so saving one file no longer wipes other files.
     """
-    rows: list[list[str]] = []
-    if os.path.exists(master_path):
-        with open(master_path, "r", encoding="utf-8", newline="") as f:
-            rows = list(csv.reader(f))
-    if not rows:
-        rows = [["Filename", "Title", "Description", "Keywords"]]
-    row = [filename, title, description, ",".join(keywords)]
-    for r in rows[1:]:
-        if r and r[0] == filename:
-            r[:] = row
-            break
-    else:
-        rows.append(row)
-    with open(master_path, "w", encoding="utf-8", newline="") as f:
-        csv.writer(f).writerows(rows)
+    with _csv_lock:
+        rows: list[list[str]] = []
+        if os.path.exists(master_path):
+            with open(master_path, "r", encoding="utf-8", newline="") as f:
+                rows = list(csv.reader(f))
+        if not rows:
+            rows = [["Filename", "Title", "Description", "Keywords"]]
+        row = [filename, title, description, ",".join(keywords)]
+        for r in rows[1:]:
+            if r and r[0] == filename:
+                r[:] = row
+                break
+        else:
+            rows.append(row)
+        with open(master_path, "w", encoding="utf-8", newline="") as f:
+            csv.writer(f).writerows(rows)
 
 
 def upsert_editorial_csv(
@@ -199,34 +203,35 @@ def upsert_editorial_csv(
     date_created: str = "",
 ) -> None:
     """Update-or-append a single file's row with the editorial columns."""
-    rows: list[list[str]] = []
-    if os.path.exists(master_path):
-        with open(master_path, "r", encoding="utf-8", newline="") as f:
-            rows = list(csv.reader(f))
-    if not rows:
-        rows = [["Filename", "Title", "Description", "Keywords",
-                 "IsAI", "IsEditorial", "City", "Country", "CountryCode", "DateCreated"]]
-    row = [
-        filename,
-        title,
-        description,
-        ",".join(keywords),
-        "0",
-        "1" if is_editorial else "0",
-        city,
-        country,
-        country_code,
-        date_created,
-    ]
-    for r in rows[1:]:
-        if r and r[0] == filename:
-            r.extend("" for _ in range(len(row) - len(r)))
-            r[: len(row)] = row
-            break
-    else:
-        rows.append(row)
-    with open(master_path, "w", encoding="utf-8", newline="") as f:
-        csv.writer(f).writerows(rows)
+    with _csv_lock:
+        rows: list[list[str]] = []
+        if os.path.exists(master_path):
+            with open(master_path, "r", encoding="utf-8", newline="") as f:
+                rows = list(csv.reader(f))
+        if not rows:
+            rows = [["Filename", "Title", "Description", "Keywords",
+                     "IsAI", "IsEditorial", "City", "Country", "CountryCode", "DateCreated"]]
+        row = [
+            filename,
+            title,
+            description,
+            ",".join(keywords),
+            "0",
+            "1" if is_editorial else "0",
+            city,
+            country,
+            country_code,
+            date_created,
+        ]
+        for r in rows[1:]:
+            if r and r[0] == filename:
+                r.extend("" for _ in range(len(row) - len(r)))
+                r[: len(row)] = row
+                break
+        else:
+            rows.append(row)
+        with open(master_path, "w", encoding="utf-8", newline="") as f:
+            csv.writer(f).writerows(rows)
 
 
 def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
@@ -320,7 +325,7 @@ def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
                 r["Filename"],
                 sanitize_text(r.get("Title", "")),
                 sanitize_text(r.get("Description", "")),
-                fmt_kw(r["Keywords"], 10, 30),
+                fmt_kw(r["Keywords"], 5, 50),
                 "pro",
                 "",
             ],

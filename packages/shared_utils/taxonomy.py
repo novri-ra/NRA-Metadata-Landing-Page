@@ -136,38 +136,4 @@ def get_shutterstock_categories():
     return SHUTTERSTOCK_CATEGORIES
 
 
-def clean_keywords(keywords: list[str]) -> list[str]:
-    """Deduplicate keywords keeping original order, removing simple plurals if singular exists."""
-    seen_base = set()
-    cleaned = []
 
-    def get_base(word: str) -> str:
-        word = word.lower().strip()
-        if word.endswith("ies") and len(word) > 4:
-            return word[:-3] + "y"
-        elif word.endswith("ves") and len(word) > 4:
-            return word[:-3] + "f"
-        elif word.endswith("es") and (word.endswith(("ses", "xes", "ches", "shes"))):
-            return word[:-2]
-        elif word.endswith("s") and not word.endswith("ss"):
-            return word[:-1]
-        return word
-
-    for kw in keywords:
-        kw_clean = kw.strip()
-        if not kw_clean:
-            continue
-        base = get_base(kw_clean)
-        # Check both the raw word and its derived base to avoid duplicates
-        if kw_clean.lower() not in seen_base and base not in seen_base:
-            cleaned.append(kw_clean)
-            seen_base.add(kw_clean.lower())
-            seen_base.add(base)
-            # Also add common plural form to seen so if singular comes first, plural is blocked later
-            if base != kw_clean.lower():
-                pass
-            else:
-                seen_base.add(base + "s")
-                seen_base.add(base + "es")
-
-    return cleaned

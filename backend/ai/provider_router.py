@@ -164,32 +164,33 @@ _mistral_last_call = 0.0
 def _mistral_chat_completion(
     headers: dict, data: dict, log=None, preview_name: str = "", model: str = ""
 ) -> requests.Response:
-    """Serialize Mistral vision requests: one in flight at a time, spaced at
-    least ``MISTRAL_MIN_INTERVAL`` seconds after the previous one *finished*.
-    The standard tier rejects concurrent requests, so the lock is held for the
-    whole HTTP exchange. The "Sending vision prompt" log is emitted inside the
-    lock so log timestamps reflect the actual request time, not queue-join time.
-    ponytail: hard-coded 2.5s cadence for the standard tier; make it configurable
-    if a permissive tier is ever used.
-    """
     global _mistral_last_call
+    
     with _mistral_lock:
         elapsed = time.time() - _mistral_last_call
-        if elapsed < MISTRAL_MIN_INTERVAL:
-            time.sleep(MISTRAL_MIN_INTERVAL - elapsed)
-        if log:
-            log(
-                f"[{preview_name}] Sending vision prompt to Mistral | Model: {model}...",
-                "info",
-            )
-        response = requests.post(
-            "https://api.mistral.ai/v1/chat/completions",
-            headers=headers,
-            json=data,
-            timeout=30,
+        sleep_time = MISTRAL_MIN_INTERVAL - elapsed if elapsed < MISTRAL_MIN_INTERVAL else 0
+        _mistral_last_call = time.time() + sleep_time
+
+    if sleep_time > 0:
+        time.sleep(sleep_time)
+
+    if log:
+        log(
+            f"[{preview_name}] Sending vision prompt to Mistral | Model: {model}...",
+            "info",
         )
+        
+    response = requests.post(
+        "https://api.mistral.ai/v1/chat/completions",
+        headers=headers,
+        json=data,
+        timeout=30,
+    )
+    
+    with _mistral_lock:
         _mistral_last_call = time.time()
-        return response
+        
+    return response
 
 
 class MetadataModel(BaseModel):

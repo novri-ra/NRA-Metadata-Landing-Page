@@ -160,7 +160,7 @@ def _build_stream_cmd(cmd: list) -> list:
 
 
 def _run_exiftool_stream(
-    cmd: list, timeout: int, input_bytes: bytes
+    cmd: list, timeout: int, input_source: str | bytes | None = None, input_bytes: bytes | None = None
 ) -> subprocess.CompletedProcess:
     """Run ExifTool over a binary pipe: target bytes in on STDIN, the rewritten
     file comes back on STDOUT (bytes), so nothing is written to the filesystem."""
@@ -168,13 +168,39 @@ def _run_exiftool_stream(
     cwd = os.path.dirname(os.path.abspath(exiftool_path))
     is_exe = str(exiftool_path).lower().endswith(".exe")
     converted_cmd = [cmd[0]] + [_to_cli_path(arg, is_exe) for arg in cmd[1:]]
-    return subprocess.run(
+    
+    proc = subprocess.Popen(
         converted_cmd,
-        input=input_bytes,
-        capture_output=True,
-        timeout=timeout,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         cwd=cwd,
         **no_window_kwargs(),
+    )
+    
+    out_b, err_b = b"", b""
+    try:
+        if proc.stdin:
+            source = input_bytes if input_bytes is not None else input_source
+            if isinstance(source, (str, os.PathLike)) and os.path.isfile(source):
+                with open(source, "rb") as f_in:
+                    while chunk := f_in.read(65536):
+                        proc.stdin.write(chunk)
+            elif isinstance(source, bytes):
+                proc.stdin.write(source)
+            proc.stdin.close()
+        out_b, err_b = proc.communicate(timeout=timeout)
+        if isinstance(out_b, str): out_b = out_b.encode()
+        if isinstance(err_b, str): err_b = err_b.encode()
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        raise
+    except OSError:
+        proc.kill()
+        pass
+        
+    return subprocess.CompletedProcess(
+        args=converted_cmd, returncode=proc.returncode, stdout=out_b, stderr=err_b
     )
 
 
@@ -187,28 +213,22 @@ def _run_metadata_write(cmd: list, file_path: str, timeout: int):
     target folder blocks in-place writes).
     """
     _pre_cleanup_temp(file_path)
+    stream_cmd = _build_stream_cmd(cmd)
+    
     try:
-        with open(file_path, "rb") as f_in:
-            input_bytes = f_in.read()
-    except OSError:
-        input_bytes = None
-    if input_bytes is not None:
-        stream_cmd = _build_stream_cmd(cmd)
-        try:
-            stream = _run_exiftool_stream(stream_cmd, timeout, input_bytes)
-            if stream.returncode == 0 and len(stream.stdout or b"") > 0:
-                _prepare_target(file_path)
-                try:
-                    os.chmod(file_path, stat.S_IREAD | stat.S_IWRITE)
-                except OSError:
-                    pass
-                with open(file_path, "wb") as f_out:
-                    f_out.write(stream.stdout)
-                return stream
-        except subprocess.TimeoutExpired:
-            raise
-        except OSError:
-            pass
+        stream = _run_exiftool_stream(stream_cmd, timeout, file_path)
+        if stream.returncode == 0 and len(stream.stdout or b"") > 0:
+            _prepare_target(file_path)
+            try:
+                os.chmod(file_path, stat.S_IREAD | stat.S_IWRITE)
+            except OSError:
+                pass
+            with open(file_path, "wb") as f_out:
+                f_out.write(stream.stdout)
+            return stream
+    except Exception:
+        pass
+
     return _run_exiftool_resilient(cmd, timeout=timeout, file_path=file_path)
 
 
