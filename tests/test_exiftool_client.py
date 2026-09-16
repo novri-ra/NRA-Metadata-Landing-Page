@@ -294,6 +294,24 @@ class SvgMetadataTest(unittest.TestCase):
             self.assertEqual(li_texts, ["A & B", "3 < 4", 'q " quote'])
 
 
+class EpsDscTitleTest(unittest.TestCase):
+    def test_patch_eps_dsc_title_existing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "img.eps"
+            target.write_bytes(b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 100 100\n%%Title: Old Name\n%%EndComments")
+            ec._patch_eps_dsc_title(str(target), "New Beautiful Title ")
+            content = target.read_bytes()
+            self.assertIn(b"%%Title: New Beautiful Title", content)
+            self.assertNotIn(b"Old Name", content)
+
+    def test_patch_eps_dsc_title_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "img.eps"
+            target.write_bytes(b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 100 100\n%%EndComments")
+            ec._patch_eps_dsc_title(str(target), "Injected Title")
+            content = target.read_bytes()
+            self.assertIn(b"%%Title: Injected Title\n", content)
+
 class IptcAiFieldsTest(unittest.TestCase):
     def test_ai_generated_with_model_writes_system_used(self):
         from unittest import mock
