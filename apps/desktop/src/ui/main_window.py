@@ -919,10 +919,9 @@ class AppWindow(ctk.CTk):
             if "api_keys" not in self.config:
                 self.config["api_keys"] = {}
 
-            # Update the key(s) for the CURRENT provider explicitly from the textbox
-            if hasattr(self, "api_key_text"):
-                raw = self.api_key_text.get("1.0", "end-1c").strip()
-                self.config["api_keys"][provider] = raw
+            # We DO NOT read from api_key_text here. 
+            # sidebar_panel.py already updates self.config["api_keys"][provider] with raw text 
+            # before it applies masking. Reading from widget here would save asterisks to disk.
 
             # Clean old legacy key
             self.config.pop("api_key", None)

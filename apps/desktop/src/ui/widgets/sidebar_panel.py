@@ -139,6 +139,8 @@ class SidebarPanel(ctk.CTkFrame):
                 self.api_key_text.insert("1.0", raw)
 
         def _on_key_focus_out(event=None):
+            if not self._is_key_focused:
+                return
             self._is_key_focused = False
             active_prov = self.provider_cb.get()
             if "api_keys" not in config:

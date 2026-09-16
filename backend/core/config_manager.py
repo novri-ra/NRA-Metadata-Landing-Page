@@ -195,9 +195,13 @@ def load_config() -> dict:
 def save_config(config: dict) -> bool:
     try:
         json_data = json.dumps(config).encode("utf-8")
+        enc_data = None
         if sys.platform == "win32":
-            enc_data = _dpapi_encrypt(json_data)
-        else:
+            try:
+                enc_data = _dpapi_encrypt(json_data)
+            except RuntimeError:
+                pass
+        if not enc_data:
             enc_data = _obfuscate(json_data)
         atomic_write_bytes(CONFIG_FILE_ENC, enc_data)
         return True
