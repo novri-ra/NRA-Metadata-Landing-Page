@@ -87,8 +87,6 @@ def _run_exiftool(
         cwd = os.path.dirname(os.path.abspath(exiftool_path))
     is_exe = str(exiftool_path).lower().endswith(".exe")
     converted_cmd = [cmd[0]] + [_to_cli_path(arg, is_exe) for arg in cmd[1:]]
-    if "-stay_open" not in converted_cmd:
-        converted_cmd.extend(["-stay_open", "False"])
     return subprocess.run(
         converted_cmd,
         capture_output=True,
@@ -97,7 +95,7 @@ def _run_exiftool(
         errors="replace",
         timeout=timeout,
         cwd=cwd,
-        stdin=subprocess.PIPE,
+        stdin=subprocess.DEVNULL,
         **no_window_kwargs(),
     )
 

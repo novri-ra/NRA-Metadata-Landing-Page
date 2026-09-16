@@ -9,7 +9,7 @@ from packages.shared_utils.taxonomy import (
     get_adobe_category_code,
 )
 
-_csv_lock = threading.Lock()
+_csv_lock = threading.RLock()
 
 
 def sanitize_text(s: str, semi: str = ",") -> str:
