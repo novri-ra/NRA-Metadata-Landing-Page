@@ -46,6 +46,42 @@ class CleanMetadataExactTargetTest(unittest.TestCase):
 
 
 class FileStatusEventTest(unittest.TestCase):
+    def test_cache_hit_emits_done_and_continues(self):
+        events = []
+        pool = FileWorkerPool()
+        pool._emit = lambda name, *a: (
+            events.append((name,) + tuple(a)) if name == "file_status" else None
+        )
+        pool.processor.embed_metadata = mock.Mock(return_value=True)
+        
+        tmp = tempfile.mkdtemp()
+        preview = os.path.join(tmp, "preview.jpg")
+        open(preview, "w").close()
+        src = os.path.join(tmp, "x.eps")
+        open(src, "w").close()
+
+        cached_meta = {
+            "title": "Red Ball",
+            "description": "A red ball for sports and play.",
+            "keywords": ["ball", "red", "sport"],
+        }
+
+        with mock.patch(
+            "backend.core.worker_pool.extract_preview_image", return_value=preview
+        ), mock.patch("backend.core.worker_pool.get_file_hash", return_value="h1"), mock.patch(
+            "backend.core.worker_pool.get_cached_metadata", return_value=cached_meta
+        ):
+            pool._process_file(
+                src,
+                tmp,
+                mock.Mock(),  # AI not used because of cache hit
+                {"target_kw": 49},
+                mock.Mock(),
+            )
+        
+        self.assertEqual(events[0], ("file_status", "x.eps", "processing"))
+        self.assertEqual(events[1], ("file_status", "x.eps", "done"))
+
     def test_event_sequence_processing_then_done(self):
         events = []
 

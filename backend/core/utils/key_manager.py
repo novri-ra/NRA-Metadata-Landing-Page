@@ -10,6 +10,15 @@ except ImportError:
     OpenAI = None
 
 
+def mask_api_key(key: str) -> str:
+    """Mask an API key, showing only the first 5 characters and replacing the rest with asterisks."""
+    key = key.strip()
+    if not key:
+        return ""
+    if len(key) <= 5:
+        return key
+    return key[:5] + "*" * (len(key) - 5)
+
 def parse_api_keys(raw_input: str) -> list[str]:
     """Extract API keys from a flexible raw input string.
 

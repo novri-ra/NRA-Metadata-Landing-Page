@@ -1011,9 +1011,18 @@ class AppWindow(ctk.CTk):
 
             keys = load_keys_from_file(path)
             if keys:
-                self.config["api_keys"][provider] = "\n".join(keys)
+                raw_text = "\n".join(keys)
+                self.config["api_keys"][provider] = raw_text
                 self.api_key_text.delete("1.0", "end")
-                self.api_key_text.insert("1.0", "\n".join(keys))
+                
+                from backend.core.utils.key_manager import mask_api_key
+                
+                is_foc = getattr(self.sidebar, "_is_key_focused", False) if hasattr(self, "sidebar") else False
+                if is_foc:
+                    self.api_key_text.insert("1.0", raw_text)
+                else:
+                    self.api_key_text.insert("1.0", "\n".join(mask_api_key(line) for line in keys))
+                    
                 self._save_current_config()
                 self.keys_counter_lbl.configure(text=f"({len(keys)} keys loaded)")
                 self.log(f"Loaded {len(keys)} API key(s) for {provider} from file.", "success")
@@ -1032,7 +1041,15 @@ class AppWindow(ctk.CTk):
     def _fetch_models(self):
         provider = self.provider_cb.get()
         from backend.core.utils.key_manager import parse_api_keys
-        raw = self.api_key_text.get("1.0", "end-1c").strip() if hasattr(self, "api_key_text") else ""
+        
+        raw = self.config.get("api_keys", {}).get(provider, "")
+        
+        # If the user is currently typing in the box and hasn't blurred, we should try to use the box text
+        # But wait, if it's focused, it shows raw text anyway.
+        is_foc = getattr(self.sidebar, "_is_key_focused", False) if hasattr(self, "sidebar") else False
+        if is_foc and hasattr(self, "api_key_text"):
+            raw = self.api_key_text.get("1.0", "end-1c").strip()
+            
         keys = parse_api_keys(raw)
         api_key = keys[0] if keys else ""
 
@@ -1100,12 +1117,9 @@ class AppWindow(ctk.CTk):
         if "api_keys" not in self.config:
             self.config["api_keys"] = {}
 
-        # Save current provider's keys
-        if hasattr(self, "api_key_text"):
-            raw = self.api_key_text.get("1.0", "end-1c").strip()
-            if raw:
-                self.config["api_keys"][prev_provider] = raw
-
+        # The raw keys are already saved on FocusOut or typing (if focused).
+        # We don't read from api_key_text here because it might be masked.
+        
         self.current_provider = choice
         self.config["provider"] = choice
 
@@ -1114,7 +1128,14 @@ class AppWindow(ctk.CTk):
             self.api_key_text.delete("1.0", "end")
             target_key = self.config["api_keys"].get(choice, "")
             if target_key:
-                self.api_key_text.insert("1.0", target_key)
+                from backend.core.utils.key_manager import mask_api_key
+                
+                # Check if it's focused right now
+                is_foc = getattr(self.sidebar, "_is_key_focused", False) if hasattr(self, "sidebar") else False
+                if is_foc:
+                    self.api_key_text.insert("1.0", target_key)
+                else:
+                    self.api_key_text.insert("1.0", "\n".join(mask_api_key(line) for line in target_key.split("\n")))
             self._loading_provider = False
 
         # Update model list

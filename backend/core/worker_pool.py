@@ -313,6 +313,14 @@ class FileWorkerPool:
         self._emit("file_status", name, "processing")
         self._emit("log", f"[{name}] Starting processing pipeline...", "processing")
 
+        try:
+            self._process_file_inner(file_path, out_dir, ai, options, csv_logger, name, target_kw, is_editorial, editorial_fields)
+        except Exception as e:
+            self._emit("log", f"[{name}] Error: {str(e)}", "error")
+            self._emit("file_status", name, "failed")
+            self._inc_stat("error")
+
+    def _process_file_inner(self, file_path, out_dir, ai, options, csv_logger, name, target_kw, is_editorial, editorial_fields):
         def log_cb(msg, lvl="info"):
             self._emit("log", msg, lvl)
 

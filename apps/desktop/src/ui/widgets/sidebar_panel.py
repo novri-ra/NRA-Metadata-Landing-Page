@@ -100,6 +100,13 @@ class SidebarPanel(ctk.CTkFrame):
 
         _label(sidebar, "API Key(s) (one per line)").pack(fill="x", anchor="w", **LPAD)
         
+        from backend.core.utils.key_manager import mask_api_key
+
+        def mask_all_keys(text: str) -> str:
+            if not text:
+                return ""
+            return "\n".join(mask_api_key(k) for k in text.split("\n"))
+
         # Migrate legacy single key format
         if "api_keys" not in config:
             config["api_keys"] = {}
@@ -118,20 +125,45 @@ class SidebarPanel(ctk.CTkFrame):
         )
         saved_keys = config["api_keys"].get(current_provider, "")
         if saved_keys:
-            self.api_key_text.insert("1.0", saved_keys)
+            self.api_key_text.insert("1.0", mask_all_keys(saved_keys))
         self.api_key_text.pack(fill="x", **PAD)
 
+        self._is_key_focused = False
+
+        def _on_key_focus_in(event=None):
+            self._is_key_focused = True
+            active_prov = self.provider_cb.get()
+            raw = config["api_keys"].get(active_prov, "")
+            self.api_key_text.delete("1.0", "end")
+            if raw:
+                self.api_key_text.insert("1.0", raw)
+
+        def _on_key_focus_out(event=None):
+            self._is_key_focused = False
+            active_prov = self.provider_cb.get()
+            if "api_keys" not in config:
+                config["api_keys"] = {}
+            raw_text = self.api_key_text.get("1.0", "end-1c").strip()
+            config["api_keys"][active_prov] = raw_text
+            app._update_keys_counter(active_prov)
+            app._save_current_config()
+            
+            self.api_key_text.delete("1.0", "end")
+            if raw_text:
+                self.api_key_text.insert("1.0", mask_all_keys(raw_text))
+
         def _on_key_change(event=None):
-            if not hasattr(app, "_loading_provider"):
+            if not hasattr(app, "_loading_provider") and self._is_key_focused:
                 active_prov = self.provider_cb.get()
                 if "api_keys" not in config:
                     config["api_keys"] = {}
                 config["api_keys"][active_prov] = self.api_key_text.get("1.0", "end-1c").strip()
                 app._update_keys_counter(active_prov)
-                app._save_current_config()
+                # Save on focus out to avoid stutter
 
+        self.api_key_text.bind("<FocusIn>", _on_key_focus_in)
+        self.api_key_text.bind("<FocusOut>", _on_key_focus_out)
         self.api_key_text.bind("<KeyRelease>", _on_key_change)
-        self.api_key_text.bind("<FocusOut>", _on_key_change)
 
         keys_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         keys_row.pack(fill="x", **LPAD)
