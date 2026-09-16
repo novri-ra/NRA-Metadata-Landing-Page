@@ -313,14 +313,16 @@ class FileWorkerPool:
         self._emit("file_status", name, "processing")
         self._emit("log", f"[{name}] Starting processing pipeline...", "processing")
 
+        final_status = "failed"
         try:
-            self._process_file_inner(file_path, out_dir, ai, options, csv_logger, name, target_kw, is_editorial, editorial_fields)
+            res = self._process_file_inner(file_path, out_dir, ai, options, csv_logger, name, target_kw, is_editorial, editorial_fields)
+            if res is not False:
+                final_status = "done"
         except Exception as e:
             self._emit("log", f"[{name}] Error: {str(e)}", "error")
-            self._emit("file_status", name, "failed")
             self._inc_stat("error")
         finally:
-            pass
+            self._emit("file_status", name, final_status)
 
     def _process_file_inner(self, file_path, out_dir, ai, options, csv_logger, name, target_kw, is_editorial, editorial_fields):
         def log_cb(msg, lvl="info"):
@@ -328,14 +330,12 @@ class FileWorkerPool:
 
         preview = extract_preview_image(file_path, progress_callback=log_cb)
         if not preview:
-            self._emit("file_status", name, "failed")
             self._inc_stat("error")
-            return
+            return False
         if self.cancel_flag:
             self._remove_preview(preview)
-            self._emit("file_status", name, "failed")
             self._emit("log", f"[{name}] Stopped after preview render.", "info")
-            return
+            return False
 
         file_hash = get_file_hash(preview)
         cached = get_cached_metadata(file_hash)
@@ -359,9 +359,8 @@ class FileWorkerPool:
 
             if meta.get("fail_reason") == "cancelled":
                 self._remove_preview(preview)
-                self._emit("file_status", name, "failed")
                 self._emit("log", f"[{name}] Stopped: batch cancelled.", "info")
-                return
+                return False
 
             if meta.get("is_fallback") or meta.get("error"):
                 err_detail = meta.get("error_details", "fallback rejected")
@@ -379,11 +378,10 @@ class FileWorkerPool:
                     f"[{name}] AI generation failed: {err_detail}",
                     "error",
                 )
-                self._emit("file_status", name, "failed")
                 self._inc_stat("error")
                 # Clean up preview since we're aborting
                 self._remove_preview(preview)
-                return
+                return False
 
             set_cached_metadata(file_hash, meta)
             self._emit(
@@ -462,8 +460,7 @@ class FileWorkerPool:
 
         if self.cancel_flag:
             self._emit("log", f"[{name}] Saved but batch stopped before embedding.", "info")
-            self._emit("file_status", name, "failed")
-            return
+            return False
 
         if self.processor.embed_metadata(
             final_path,
@@ -519,9 +516,8 @@ class FileWorkerPool:
                 date_created=editorial_fields["date_created"],
             )
 
-            self._emit("log", f"[{name}] [DEBUG] CSV exported. Emitting file_status done...", "info")
+            self._emit("log", f"[{name}] [DEBUG] CSV exported.", "info")
             self._emit("log", f"[{name}] File completed and saved. ({len(keywords)} kw)", "success")
-            self._emit("file_status", name, "done")
             self._inc_stat("success")
 
             if (
@@ -552,8 +548,9 @@ class FileWorkerPool:
                 )
                 if self.cancel_event.wait(timeout=delay):
                     self._emit("log", f"[{name}] Cooldown interrupted by cancel.", "info")
+            return True
 
         else:
             self._emit("log", f"[{name}] ExifTool metadata embedding failed.", "error")
-            self._emit("file_status", name, "failed")
             self._inc_stat("error")
+            return False

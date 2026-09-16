@@ -88,20 +88,23 @@ def _run_exiftool(
     is_exe = str(exiftool_path).lower().endswith(".exe")
     converted_cmd = [cmd[0]] + [_to_cli_path(arg, is_exe) for arg in cmd[1:]]
     
-    # Cetak (log) argumen lengkap yang dikirim ke ExifTool sebelum dieksekusi.
+    file_name = os.path.basename(cmd[-1]) if cmd else ""
+    logger.info(f"[{file_name}] [DEBUG] Executing ExifTool command...")
     print(f"[DEBUG] ExifTool CMD: {' '.join(converted_cmd)}")
     
-    return subprocess.run(
+    res = subprocess.run(
         converted_cmd,
         capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
-        timeout=15,
+        timeout=timeout,
         cwd=cwd,
         stdin=subprocess.DEVNULL,
         **no_window_kwargs(),
     )
+    logger.info(f"[{file_name}] [DEBUG] ExifTool completed with code {res.returncode}")
+    return res
 
 
 def _looks_like_write_blocked(result: subprocess.CompletedProcess) -> bool:
@@ -363,7 +366,7 @@ class ExifToolClient:
             cmd.extend(["-XMP-xmpGImg:all="])
         cmd.append(file_path)
         try:
-            result = _run_metadata_write(cmd, file_path, timeout=30)
+            result = _run_metadata_write(cmd, file_path, timeout=15)
         except subprocess.TimeoutExpired:
             print(f"[WARN] Sanitizer timeout on {os.path.basename(file_path)}")
             return False
@@ -522,7 +525,7 @@ class ExifToolClient:
         cmd.append(file_path)
 
         try:
-            result = _run_metadata_write(cmd, file_path, timeout=60)
+            result = _run_metadata_write(cmd, file_path, timeout=15)
         except subprocess.TimeoutExpired:
             print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool Timeout")
             log_failed_file(
