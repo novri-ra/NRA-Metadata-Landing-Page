@@ -55,6 +55,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     uac_admin=True,
+    uac_uiaccess=False,
     upx=True,
     upx_exclude=[],
     runtime_tmpdir='.',
