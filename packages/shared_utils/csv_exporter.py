@@ -5,7 +5,6 @@ import threading
 from datetime import datetime
 
 from packages.shared_utils.taxonomy import (
-    SHUTTERSTOCK_CATEGORIES,
     get_adobe_category_code,
 )
 

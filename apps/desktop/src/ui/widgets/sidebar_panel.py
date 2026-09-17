@@ -242,7 +242,12 @@ class SidebarPanel(ctk.CTkFrame):
         temp_row = ctk.CTkFrame(sidebar, fg_color=C["surface"])
         temp_row.pack(fill="x", **LPAD)
         _label(temp_row, "Temperature").pack(side="left")
-        self.temp_val = ctk.StringVar(value=f"{config.get('temperature', 0.3):.1f}")
+        try:
+            init_temp = float(config.get("temperature", 0.3))
+        except (ValueError, TypeError):
+            init_temp = 0.3
+
+        self.temp_val = ctk.StringVar(value=f"{init_temp:.1f}")
         ctk.CTkLabel(
             temp_row,
             textvariable=self.temp_val,
@@ -251,7 +256,10 @@ class SidebarPanel(ctk.CTkFrame):
         ).pack(side="right")
 
         def update_temp_lbl(val):
-            v = round(float(val), 1)
+            try:
+                v = round(float(val), 1)
+            except (ValueError, TypeError):
+                v = 0.3
             tag = (
                 "Deterministic"
                 if v <= 0.3
@@ -269,12 +277,12 @@ class SidebarPanel(ctk.CTkFrame):
             command=update_temp_lbl,
             progress_color=C["warn"],
         )
-        self.temp_slider.set(config.get("temperature", 0.3))
+        self.temp_slider.set(init_temp)
         self.temp_slider.pack(fill="x", **PAD)
         self.temp_slider.bind(
             "<ButtonRelease-1>", lambda e: app._save_current_config()
         )
-        update_temp_lbl(config.get("temperature", 0.3))
+        update_temp_lbl(init_temp)
 
         _section_header(sidebar, "Keywords & Style").pack(
             fill="x", **{**PAD, "pady": (10, 6)}

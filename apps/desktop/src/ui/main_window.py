@@ -1,6 +1,5 @@
 import os
 import queue
-import sys
 import threading
 import tkinter as tk
 from datetime import UTC, datetime
@@ -30,21 +29,14 @@ from packages.shared_utils.csv_exporter import (
 from packages.shared_utils.tools_setup import ensure_tools_installed
 from packages.shared_utils.env_check import run_environment_checks
 from packages.shared_utils.filter import (
-    add_to_blacklist,
     autofix_compliance,
     calculate_quality_score,
     clean_metadata,
     detect_redundant_keywords,
-    get_blacklist,
     is_placeholder_title,
     lowercase_keywords,
-    remove_from_blacklist,
     remove_redundant_keywords,
     sanitize_keywords,
-    to_lowercase,
-    to_sentence_case,
-    to_title_case,
-    to_uppercase,
     trim_keywords,
     validate_compliance,
 )
@@ -945,7 +937,7 @@ class AppWindow(ctk.CTk):
                 {
                     "provider": provider,
                     "model": self.model_cb.get(),
-                    "temperature": round(float(self.temp_slider.get()), 1),
+                    "temperature": round(self._safe_float(self.temp_slider.get(), 0.3), 1),
                     "style_preset": self.style_cb.get(),
                     "target_kw": self._safe_int(
                         self.target_kw_entry.get(), 49
@@ -1276,6 +1268,12 @@ class AppWindow(ctk.CTk):
                 f"Copyright (c) {datetime.now(UTC).year} {author}. All rights reserved."
             )
         return ""
+
+    def _safe_float(self, val, default=0.0):
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return default
 
     def _safe_int(self, val, default=0):
         try:

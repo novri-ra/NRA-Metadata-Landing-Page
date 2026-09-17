@@ -9,7 +9,6 @@ callers must marshal any Tk widget access onto the main thread via ``after``.
 import os
 import shutil
 import threading
-import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -28,7 +27,7 @@ from packages.shared_utils.csv_exporter import (
     generate_microstock_csvs,
 )
 from packages.shared_utils.cost_tracker import cost_tracker
-from packages.shared_utils.filter import PLATFORM_RULES, clean_metadata
+from packages.shared_utils.filter import clean_metadata
 from packages.shared_utils.logger import CSVLogger
 
 
