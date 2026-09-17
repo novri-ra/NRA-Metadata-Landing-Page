@@ -56,24 +56,34 @@ def render_vector_preview(file_path: str, out_path: str, _log) -> str | None:
         # directory. Write the PNG preview to a local cache directory and pass
         # --permit-file-write so the sandbox grants explicit access.
         preview_dir = _preview_cache_dir()
-        temp_png = preview_dir / f"preview_{Path(file_path).stem}.png"
+        temp_img = preview_dir / f"preview_{Path(file_path).stem}.jpg"
         input_abs = str(Path(file_path).resolve()).replace("\\", "/")
-        out_png_str = str(temp_png).replace("\\", "/")
+        out_img_str = str(temp_img).replace("\\", "/")
+        
+        # ponytail: elegant GS flags, eps crop for ai vision
         cmd = [
             gs_path,
             "-dSAFER",
             "-dBATCH",
             "-dNOPAUSE",
-            "-dEPSFitPage",
-            "-sDEVICE=png16m",
+            "-sDEVICE=jpeg",
+        ]
+        
+        if ext == "eps":
+            cmd.append("-dEPSCrop")
+        else:
+            cmd.append("-dEPSFitPage")
+            
+        cmd.extend([
             "-r150",
             "-dTextAlphaBits=4",
             "-dGraphicsAlphaBits=4",
             f"--permit-file-write={str(preview_dir).replace(chr(92), '/')}/",
             f"--permit-file-read={str(Path(file_path).resolve().parent).replace(chr(92), '/')}/",
-            f"-sOutputFile={out_png_str}",
+            f"-sOutputFile={out_img_str}",
             input_abs,
-        ]
+        ])
+        
         try:
             result = subprocess.run(
                 cmd,
@@ -93,20 +103,20 @@ def render_vector_preview(file_path: str, out_path: str, _log) -> str | None:
                     ),
                     "error",
                 )
-            elif temp_png.exists() and temp_png.stat().st_size > 1024:
+            elif temp_img.exists() and temp_img.stat().st_size > 1024:
                 try:
-                    with Image.open(temp_png) as verify_img:
+                    with Image.open(temp_img) as verify_img:
                         verify_img.verify()
-                    with Image.open(temp_png) as img:
+                    with Image.open(temp_img) as img:
                         img.convert("RGB").save(out_path, "JPEG")
                     log(f"[{filename}] Preview rendered successfully.", "success")
                     return out_path
                 except (OSError, ValueError) as e:
                     log(f"[{filename}] Ghostscript produced invalid image: {e}", "error")
                 finally:
-                    if temp_png.exists():
+                    if temp_img.exists():
                         try:
-                            temp_png.unlink()
+                            temp_img.unlink()
                         except OSError:
                             pass
             else:

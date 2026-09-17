@@ -29,6 +29,30 @@ from packages.shared_utils.csv_exporter import (
 from packages.shared_utils.cost_tracker import cost_tracker
 from packages.shared_utils.filter import clean_metadata
 from packages.shared_utils.logger import CSVLogger
+import random
+
+# ponytail: Adaptive Cooldown replaces static 10s delay with 429 backoff
+class AdaptiveCooldown:
+    def __init__(self, base_min=2.5, base_max=3.5):
+        self.base_min = base_min
+        self.base_max = base_max
+        self.multiplier = 1.0
+        self._lock = threading.Lock()
+
+    def update(self, is_429: bool):
+        with self._lock:
+            if is_429:
+                self.multiplier = min(16.0, self.multiplier * 2.0)
+            else:
+                self.multiplier = max(1.0, self.multiplier * 0.5)
+
+    def wait(self, log_cb, cancel_event):
+        with self._lock:
+            mult = self.multiplier
+        delay = random.uniform(self.base_min, self.base_max) * mult
+        log_cb(f"[INFO] Adaptive cooldown: {delay:.1f}s before next item...", "info")
+        return cancel_event.wait(timeout=delay)
+
 
 
 def resolve_target_kw(options: dict) -> int:
@@ -105,6 +129,7 @@ class FileWorkerPool:
         self.pause_event.set()
         self.cancel_flag = False
         self.cancel_event = threading.Event()
+        self.cooldown = AdaptiveCooldown()
         self.stats = {"total": 0, "success": 0, "error": 0}
         self.session_stats = {
             "processed": 0,
@@ -378,6 +403,13 @@ class FileWorkerPool:
             if meta.get("is_fallback") or meta.get("error"):
                 err_detail = meta.get("error_details", "fallback rejected")
                 fail_reason = meta.get("fail_reason")
+                
+                # ponytail: dynamic backoff on 429/503
+                if fail_reason == "rate_limit" or "429" in err_detail or "503" in err_detail:
+                    self.cooldown.update(True)
+                else:
+                    self.cooldown.update(False)
+
                 if fail_reason == "auth" and not self.cancel_flag:
                     self.cancel_flag = True
                     self.pause_event.set()
@@ -397,6 +429,7 @@ class FileWorkerPool:
                 return False
 
             set_cached_metadata(file_hash, meta)
+            self.cooldown.update(False)
             self._emit(
                 "log",
                 f"[{name}] Generated: Title='{meta.get('title', '')[:30]}...' | {len(meta.get('keywords', []))} Keywords",
@@ -576,15 +609,8 @@ class FileWorkerPool:
                 except OSError:
                     pass
 
-            delay = float(options.get("delay") or 0)
-            if delay > 0:
-                self._emit(
-                    "log",
-                    f"[{name}] Cooldown {delay:.0f}s before next file...",
-                    "info",
-                )
-                if self.cancel_event.wait(timeout=delay):
-                    self._emit("log", f"[{name}] Cooldown interrupted by cancel.", "info")
+            if self.cooldown.wait(log_cb, self.cancel_event):
+                self._emit("log", f"[{name}] Cooldown interrupted by cancel.", "info")
             return True
 
         else:
