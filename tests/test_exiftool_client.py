@@ -53,7 +53,6 @@ class EssentialFlagsTest(unittest.TestCase):
             fake_exe = Path(tmp) / "exiftool.exe"
             fake_exe.write_bytes(b"MZ")
 
-            captured = {}
             proc = mock.Mock(returncode=0, stdout="", stderr="")
             with (
                 mock.patch("backend.processors.exiftool_client._run_exiftool") as run,
@@ -81,9 +80,10 @@ class SubprocessInvocationTest(unittest.TestCase):
             fake_exe.write_bytes(b"MZ")
 
             proc = mock.Mock(returncode=0, stdout="13.26\n", stderr="")
-            with mock.patch(
-                "backend.processors.exiftool_client.subprocess.run", return_value=proc
-            ) as run:
+            with (
+                mock.patch("backend.processors.exiftool_client.subprocess.run", return_value=proc) as run,
+                mock.patch("backend.processors.exiftool_client.ExifToolDaemon.execute_command", side_effect=Exception("mock fail to force fallback"))
+            ):
                 ec._run_exiftool([str(fake_exe), "-ver"], timeout=30)
 
             kwargs = run.call_args.kwargs
@@ -391,3 +391,43 @@ class IptcAiFieldsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+import unittest
+
+class TestExifToolDaemon(unittest.TestCase):
+    def test_daemon_lifecycle_and_auto_recovery(self):
+        from unittest import mock
+        from backend.processors.exiftool_client import ExifToolDaemon
+
+        daemon = ExifToolDaemon()
+        daemon.shutdown() # Reset state
+        
+        with mock.patch("backend.processors.exiftool_client.subprocess.Popen") as mock_popen, \
+             mock.patch("backend.processors.exiftool_client.get_exiftool_path", return_value="fake_exiftool"):
+            
+            mock_proc = mock.MagicMock()
+            mock_proc.poll.return_value = None
+            mock_proc.stdout.readline.side_effect = ["1 image files updated\n", "{ready1}\n"]
+            mock_popen.return_value = mock_proc
+            
+            res = daemon.execute_command(["fake_exiftool", "-ver"])
+            
+            # Verify basic protocol write
+            mock_proc.stdin.write.assert_any_call("-ver\n")
+            mock_proc.stdin.write.assert_any_call("-execute1\n")
+            mock_proc.stdin.flush.assert_called()
+            self.assertIn("1 image files updated", res.stdout)
+            self.assertEqual(res.returncode, 0)
+            
+            # Simulate crash and auto-recovery
+            mock_proc.poll.return_value = 1 # Dead
+            mock_proc2 = mock.MagicMock()
+            mock_proc2.poll.return_value = None
+            mock_proc2.stdout.readline.side_effect = ["Error: Something\n", "{ready2}\n"]
+            mock_popen.return_value = mock_proc2
+            
+            res2 = daemon.execute_command(["fake_exiftool", "-m"])
+            
+            # Verified daemon restarted and executed
+            mock_proc2.stdin.write.assert_any_call("-execute2\n")
+            self.assertIn("Error:", res2.stdout)
+            self.assertEqual(res2.returncode, 1)

@@ -10,7 +10,6 @@ import os
 import shutil
 import threading
 import zipfile
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from PIL import Image
 
@@ -258,35 +257,369 @@ class FileWorkerPool:
         cost_before = cost_tracker.estimated_cost_usd
         tokens_before = cost_tracker.estimated_tokens
 
+
         def submit(f):
             return self._executor.submit(
                 self._process_file, f, processed_dir, ai, options, csv_logger
             )
 
-        with ThreadPoolExecutor(max_workers=max_w) as executor:
-            self._executor = executor
-            futures = {submit(f): f for f in paths}
-            for i, future in enumerate(as_completed(futures), 1):
-                if future.cancelled():
-                    continue
+        import queue
+        import threading
+        from backend.core.clustering import ClusterCoordinator, adapt_metadata_for_variant
+        
+        q_stage1 = queue.Queue()
+        q_stage2 = queue.Queue(maxsize=max_w * 2)
+        q_stage3 = queue.Queue(maxsize=max_w * 2)
+
+        cluster_coord = ClusterCoordinator(enabled=options.get("smart_clustering", True))
+
+        for p in paths:
+            q_stage1.put(p)
+
+        target_kw = resolve_target_kw(options)
+        is_editorial = bool(options.get("is_editorial"))
+        editorial_fields = {
+            "city": options.get("editorial_city", ""),
+            "country": options.get("editorial_country", ""),
+            "country_code": options.get("editorial_country_code", ""),
+            "date_created": options.get("editorial_date", ""),
+        }
+
+        processed_count = [0]
+        count_lock = threading.Lock()
+
+        def step_progress():
+            with count_lock:
+                processed_count[0] += 1
+                curr = processed_count[0]
+            if not self.cancel_flag:
+                self._emit("progress", curr / total)
+
+        def worker_stage1():
+            while not self.cancel_flag:
                 try:
-                    future.result()
-                except Exception as e:
+                    p = q_stage1.get(timeout=0.2)
+                except queue.Empty:
+                    break
+                
+                self.pause_event.wait()
+                if self.cancel_flag:
+                    self._emit("file_status", os.path.basename(p), "cancelled")
+                    step_progress()
+                    continue
+
+                name = os.path.basename(p)
+                self._emit("file_status", name, "processing")
+                self._emit("log", f"[{name}] Starting rasterization...", "processing")
+
+                def log_cb(msg, lvl="info"):
+                    self._emit("log", msg, lvl)
+
+                from backend.core.worker_pool import extract_preview_image, get_file_hash
+                preview = extract_preview_image(p, progress_callback=log_cb)
+                if not preview:
                     self._inc_stat("error")
+                    self._emit("file_status", name, "failed")
+                    step_progress()
+                    continue
+                
+                if self.cancel_flag:
+                    self._remove_preview(preview)
+                    self._emit("log", f"[{name}] Stopped after preview render.", "info")
+                    self._emit("file_status", name, "cancelled")
+                    step_progress()
+                    continue
+
+                f_hash = get_file_hash(preview)
+                is_leader, leader_event, leader_name = cluster_coord.register_asset(p, preview, name)
+                while not self.cancel_flag:
                     try:
-                        self._emit(
-                            "file_status", os.path.basename(futures[future]), "failed"
-                        )
-                    except Exception:
+                        q_stage2.put((p, preview, f_hash, name, is_leader, leader_event, leader_name), timeout=0.2)
+                        break
+                    except queue.Full:
                         pass
-                    self._emit(
-                        "log",
-                        f"Worker error on {os.path.basename(futures[future])}: {e}",
-                        "error",
+                
+                if self.cancel_flag:
+                    self._remove_preview(preview)
+                    self._emit("file_status", name, "cancelled")
+                    step_progress()
+
+        def worker_stage2():
+            from backend.core.worker_pool import get_cached_metadata, set_cached_metadata
+            while True:
+                if self.cancel_flag:
+                    try:
+                        while True:
+                            _, prev, _, n, _, _, _ = q_stage2.get_nowait()
+                            self._remove_preview(prev)
+                            self._emit("file_status", n, "cancelled")
+                            step_progress()
+                    except queue.Empty:
+                        break
+                try:
+                    item = q_stage2.get(timeout=0.2)
+                except queue.Empty:
+                    if stage1_done.is_set() and q_stage2.empty():
+                        break
+                    continue
+
+                p, preview, f_hash, name, is_leader, leader_event, leader_name = item
+                self.pause_event.wait()
+                if self.cancel_flag:
+                    self._remove_preview(preview)
+                    self._emit("file_status", name, "cancelled")
+                    step_progress()
+                    continue
+
+                def log_cb(msg, lvl="info"):
+                    self._emit("log", msg, lvl)
+
+                cached = get_cached_metadata(f_hash)
+                meta = None
+                status = "failed"
+                tag = "error"
+
+                if not is_leader and leader_event:
+                    self._emit("log", f"[{name}] Similar asset detected (Cluster Match to {leader_name}). Waiting for leader...", "info")
+                    leader_meta, _ = cluster_coord.get_leader_metadata(p, timeout=120.0)
+                    if leader_meta:
+                        meta = adapt_metadata_for_variant(leader_meta, leader_name, name)
+                        status, tag = "CLUSTER", "cache"
+                        self._emit("log", f"[{name}] Similar asset detected (Cluster Match). Reusing leader metadata (Token saved: 100%).", "info")
+                    else:
+                        self._emit("log", f"[{name}] Leader failed or timed out. Falling back to direct AI generation...", "warn")
+
+                if meta is None and cached:
+                    self._emit("log", f"[{name}] [CACHE HIT] Metadata loaded from cache.", "cache")
+                    meta = cached
+                    old_len = len(meta.get("keywords", []))
+                    if old_len < target_kw:
+                        from packages.shared_utils.filter import expand_keywords
+                        meta["keywords"] = expand_keywords(
+                            meta.get("keywords", []), 
+                            target_kw, 
+                            title=meta.get("title", ""),
+                            description=meta.get("description", ""),
+                            asset_style=options.get("style_preset", "")
+                        )
+                        new_len = len(meta.get("keywords", []))
+                        self._emit("log", f"[{name}] [DEBUG] Cache keywords expanded from {old_len} to {new_len} kw.", "info")
+                        set_cached_metadata(f_hash, meta)
+                    else:
+                        self._emit("log", f"[{name}] [DEBUG] [CACHE HIT] Proceeding to embed_metadata...", "info")
+                    status, tag = "CACHE", "cache"
+                else:
+                    self.cooldown.wait(log_cb, self.pause_event)
+                    if self.cancel_flag:
+                        self._remove_preview(preview)
+                        self._emit("log", f"[{name}] Stopped before AI generation.", "info")
+                        self._emit("file_status", name, "cancelled")
+                        step_progress()
+                        continue
+
+                    meta = ai.generate_metadata(
+                        preview,
+                        target_kw,
+                        options.get("style_preset", ""),
+                        options.get("extra_prompt", ""),
+                        log_callback=log_cb,
+                        cancel_check=lambda: self.cancel_flag,
+                        platform=options.get("platform", ""),
+                        editorial=is_editorial,
                     )
-                if not self.cancel_flag:
-                    self._emit("progress", i / total)
-            self._executor = None
+
+                    if meta.get("fail_reason") == "cancelled":
+                        self._remove_preview(preview)
+                        self._emit("log", f"[{name}] Stopped: batch cancelled.", "info")
+                        self._emit("file_status", name, "cancelled")
+                        step_progress()
+                        continue
+
+                    if meta.get("is_fallback") or meta.get("error"):
+                        err_detail = meta.get("error_details", "fallback rejected")
+                        fail_reason = meta.get("fail_reason")
+                        if fail_reason == "rate_limit" or "429" in err_detail or "503" in err_detail:
+                            self.cooldown.update(True)
+                        else:
+                            self.cooldown.update(False)
+                        if fail_reason == "auth" and not self.cancel_flag:
+                            self.cancel_flag = True
+                            self.pause_event.set()
+                            self._emit("log", f"[{name}] Fatal AI error ({fail_reason}). Canceling batch...", "error")
+                        self._emit("log", f"[{name}] AI generation failed: {err_detail}", "error")
+                        self._inc_stat("error")
+                        self._remove_preview(preview)
+                        self._emit("file_status", name, "failed")
+                        step_progress()
+                        continue
+
+                    set_cached_metadata(f_hash, meta)
+                    self.cooldown.update(False)
+                    self._emit("log", f"[{name}] Generated: Title='{str(meta.get('title', ''))[:30]}...' | {len(meta.get('keywords', []))} Keywords", "success")
+                    status, tag = "API", "api"
+
+                    _usage = meta.get("_usage")
+                    if _usage:
+                        self._emit(
+                            "token_usage",
+                            {
+                                "tokens": _usage.get("total_tokens", 0),
+                                "model": _usage.get("model", ""),
+                            },
+                        )
+
+                    custom_kws_raw = options.get("custom_kw", "")
+                    if custom_kws_raw.strip():
+                        custom_kws = [k.strip() for k in custom_kws_raw.split(",") if k.strip()]
+                        ai_kws = [k for k in meta.get("keywords", []) if k.lower() not in [ck.lower() for ck in custom_kws]]
+                        pos = options.get("custom_kw_pos", "Start (Priority)")
+                        if pos == "Start (Priority)":
+                            meta["keywords"] = custom_kws + ai_kws
+                        else:
+                            meta["keywords"] = ai_kws + custom_kws
+
+                if is_leader and meta is not None:
+                    cluster_coord.set_leader_metadata(p, meta)
+
+                while not self.cancel_flag:
+                    try:
+                        q_stage3.put((p, preview, f_hash, name, meta, status, tag), timeout=0.2)
+                        break
+                    except queue.Full:
+                        pass
+                
+                if self.cancel_flag:
+                    self._remove_preview(preview)
+                    self._emit("file_status", name, "cancelled")
+                    step_progress()
+
+        def worker_stage3():
+            from packages.shared_utils.filter import clean_metadata
+            from packages.shared_utils.csv_exporter import build_editorial_caption
+            from PIL import Image
+            import shutil
+            while True:
+                if self.cancel_flag:
+                    try:
+                        while True:
+                            _, prev, _, n, _, _, _ = q_stage3.get_nowait()
+                            self._remove_preview(prev)
+                            self._emit("file_status", n, "cancelled")
+                            step_progress()
+                    except queue.Empty:
+                        break
+                try:
+                    item = q_stage3.get(timeout=0.2)
+                except queue.Empty:
+                    if stage2_done.is_set() and q_stage3.empty():
+                        break
+                    continue
+
+                p, preview, f_hash, name, meta, status, tag = item
+                self.pause_event.wait()
+                if self.cancel_flag:
+                    self._remove_preview(preview)
+                    self._emit("file_status", name, "cancelled")
+                    step_progress()
+                    continue
+
+                try:
+                    with Image.open(preview) as opened_img:
+                        img = opened_img.copy()
+                        img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+                except (OSError, ValueError):
+                    img = None
+
+                self._remove_preview(preview)
+
+                meta = clean_metadata(meta, target_kw)
+                if len(meta.get("keywords", [])) < target_kw:
+                    from packages.shared_utils.filter import expand_keywords
+                    meta["keywords"] = expand_keywords(
+                        meta.get("keywords", []), 
+                        target_kw, 
+                        title=meta.get("title", ""),
+                        description=meta.get("description", ""),
+                        asset_style=options.get("style_preset", "")
+                    )
+                is_ai_generated = bool(options.get("is_ai_generated") or meta.get("is_ai_generated", False))
+                final_path = os.path.join(processed_dir, name)
+                shutil.move(p, final_path)
+
+                title, desc, keywords = (meta.get("title", ""), meta.get("description", ""), meta.get("keywords", []))
+                ai_system_name = str(options.get("ai_model") or options.get("model") or meta.get("ai_model") or "Gemini").split(" ")[0].strip()
+
+                if is_editorial:
+                    desc = build_editorial_caption(desc, editorial_fields["city"], editorial_fields["country"], editorial_fields["date_created"])
+
+                if img:
+                    self._emit("preview", img, status, tag, meta, final_path, f_hash)
+
+                if self.cancel_flag:
+                    self._emit("log", f"[{name}] Saved but batch stopped before embedding.", "info")
+                    self._emit("file_status", name, "cancelled")
+                    step_progress()
+                    continue
+
+                if self.processor.embed_metadata(
+                    final_path, title, desc, keywords,
+                    options.get("copyright", ""), options.get("author", ""),
+                    is_ai_generated=is_ai_generated, is_editorial=is_editorial,
+                    city=editorial_fields["city"], country=editorial_fields["country"],
+                    country_code=editorial_fields["country_code"], date_created=editorial_fields["date_created"],
+                    ai_system_name=ai_system_name,
+                ):
+                    self._emit("log", f"[{name}] [DEBUG] Metadata embedded. Proceeding to CSV export...", "info")
+                    if options.get("sync_companions"):
+                        from backend.core.worker_pool import sync_companion_metadata
+                        synced = sync_companion_metadata(
+                            final_path, title, desc, keywords, self.processor,
+                            options.get("copyright", ""), options.get("author", ""),
+                            is_ai_generated=is_ai_generated, is_editorial=is_editorial,
+                            city=editorial_fields["city"], country=editorial_fields["country"],
+                            country_code=editorial_fields["country_code"], date_created=editorial_fields["date_created"],
+                            ai_system_name=ai_system_name,
+                        )
+                        if synced > 0:
+                            self._emit("log", f"  └─ Synced metadata to {synced} companion file(s)", "info")
+
+                    csv_logger.log(
+                        name, title, desc, keywords,
+                        category=meta.get("category", ""), primary_category=meta.get("primary_category", ""),
+                        secondary_category=meta.get("secondary_category", ""),
+                        is_ai_generated=is_ai_generated, is_editorial=is_editorial,
+                        city=editorial_fields["city"], country=editorial_fields["country"],
+                        date_created=editorial_fields["date_created"], country_code=editorial_fields["country_code"],
+                    )
+                    self._inc_stat("success")
+                    self._emit("file_status", name, "done")
+                else:
+                    self._inc_stat("error")
+                    self._emit("file_status", name, "failed")
+                
+                step_progress()
+
+        stage1_done = threading.Event()
+        stage2_done = threading.Event()
+
+        t_stage1 = [threading.Thread(target=worker_stage1, name=f"Stage1-{i}") for i in range(max_w)]
+        t_stage2 = [threading.Thread(target=worker_stage2, name=f"Stage2-{i}") for i in range(max(1, min(max_w, 2)))]
+        t_stage3 = [threading.Thread(target=worker_stage3, name=f"Stage3-{i}") for i in range(max_w)]
+
+        self._threads = t_stage1 + t_stage2 + t_stage3
+
+        for t in self._threads:
+            t.start()
+
+        for t in t_stage1: t.join()
+        stage1_done.set()
+
+        for t in t_stage2: t.join()
+        stage2_done.set()
+
+        for t in t_stage3: t.join()
+        self._threads.clear()
+
 
         if self.cancel_flag:
             self._emit("log", "Batch CANCELED.", "error")
