@@ -422,7 +422,6 @@ class TestRateLimitHandling(unittest.TestCase):
     def test_gemini_503_retry_and_recovery(self):
         from unittest import mock
         from backend.ai.provider_router import AIService
-        import tempfile
 
         ai = AIService("Gemini", "fake-key", model="gemini-2.5-flash-lite")
         calls = []

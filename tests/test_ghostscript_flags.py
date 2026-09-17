@@ -1,6 +1,5 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from pathlib import Path
 from backend.processors.ghostscript_preview import render_vector_preview
 
 class GhostscriptFlagsTest(unittest.TestCase):

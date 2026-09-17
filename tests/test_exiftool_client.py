@@ -53,7 +53,6 @@ class EssentialFlagsTest(unittest.TestCase):
             fake_exe = Path(tmp) / "exiftool.exe"
             fake_exe.write_bytes(b"MZ")
 
-            captured = {}
             proc = mock.Mock(returncode=0, stdout="", stderr="")
             with (
                 mock.patch("backend.processors.exiftool_client._run_exiftool") as run,

@@ -1,6 +1,5 @@
 import unittest
 from unittest.mock import patch, MagicMock, mock_open
-import os
 import tempfile
 from PIL import Image
 

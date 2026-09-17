@@ -1,7 +1,6 @@
 import os
 import tempfile
 import unittest
-from unittest import mock
 
 from backend.services.folder_watcher import FolderWatcher
 

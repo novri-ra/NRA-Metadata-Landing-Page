@@ -1,6 +1,5 @@
 import unittest
 from unittest.mock import patch, MagicMock
-import sys
 
 from packages.shared_utils.console_manager import toggle_console, is_console_visible
 

@@ -1,6 +1,4 @@
 import unittest
-import threading
-import time
 from unittest.mock import patch, MagicMock
 
 from backend.core.worker_pool import FileWorkerPool, AdaptiveCooldown

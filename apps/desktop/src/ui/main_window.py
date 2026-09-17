@@ -1142,7 +1142,7 @@ class AppWindow(ctk.CTk):
             self.config["model"] = ""
 
     def _on_provider_change(self, choice):
-        prev_provider = getattr(
+        getattr(
             self, "current_provider", self.config.get("provider", "Gemini")
         )
         self._loading_provider = True

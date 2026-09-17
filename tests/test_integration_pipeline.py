@@ -2,7 +2,6 @@
 import os
 import tempfile
 import unittest
-from unittest import mock
 
 from packages.shared_utils.filter import clean_metadata, sanitize_keywords
 

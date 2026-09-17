@@ -2,7 +2,6 @@ import os
 import tempfile
 import unittest
 from unittest import mock
-from urllib.error import HTTPError
 
 from packages.shared_utils import tools_setup as ts
 
@@ -105,7 +104,7 @@ class SkipWhenDetectedTest(unittest.TestCase):
                 },
             ), mock.patch.object(
                 ts, "_verify_binary", side_effect=lambda p, t: (True, "test-v")
-            ) as verify, mock.patch.object(ts, "_download") as dl:
+            ), mock.patch.object(ts, "_download") as dl:
                 ts.ensure_tools_installed(tmp, progress_callback=logs.append)
             dl.assert_not_called()
             skip_msgs = [m for m in logs if "Skipping download." in m]

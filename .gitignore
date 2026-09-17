@@ -76,3 +76,6 @@ test_media/
 tools/python_runtime/  
 tools/python-embed.zip  
 .global_deps_installed 
+*.tmp
+preview_*.jpg
+.dev_mode
