@@ -50,7 +50,6 @@ class AuthClient:
         self.endpoint = AUTH_API_URL
         self.username = self.config.get("auth_user", "")
         self.session_token = self.config.get("auth_session", "")
-        self.offline_mode = bool(self.config.get("auth_offline"))
         self.hwid = get_machine_hwid()
 
         self.session = requests.Session()
@@ -93,14 +92,6 @@ class AuthClient:
     def _stamp_last_valid(self):
         self.config["auth_last_valid"] = str(int(time.time()))
         save_config(self.config)
-
-    def _is_dev_mode(self) -> bool:
-        # ponytail: Auto-Fallback Dev Mode
-        if os.environ.get("DEBUG") == "1":
-            return True
-        if os.path.exists(".dev_mode"):
-            return True
-        return False
 
     def _offline_allowed(self) -> bool:
         raw = self.config.get("auth_last_valid")
@@ -186,11 +177,6 @@ class AuthClient:
             )
             return {"status": "ERROR", "message": f"Unexpected error: {e!s}", "network": True}
 
-    def enable_offline_mode(self):
-        self.offline_mode = True
-        self.config["auth_offline"] = True
-        save_config(self.config)
-
     def register(self, username, password, email="", wa="", fullname=""):
         clean_user = str(username).strip().lower()
         return self._post(
@@ -209,11 +195,6 @@ class AuthClient:
 
     def login(self, identifier, password):
         """Login via username ?" backend handles lookup."""
-        if self._is_dev_mode():
-            print("[DEV MODE] Bypassing login auth...", file=sys.stderr)
-            self._save_session("dev_user", "dev_token_123", "dev_id_1")
-            return {"status": "SUCCESS", "username": "dev_user", "session_token": "dev_token_123", "message": "Dev mode bypass"}
-
         clean_user = str(identifier).strip().lower()
         res = self._post(
             {
@@ -243,12 +224,6 @@ class AuthClient:
         return res
 
     def validate_session(self) -> tuple[bool, str]:
-        if self._is_dev_mode():
-            print("[DEV MODE] Bypassing session validation...", file=sys.stderr)
-            return True, "Dev mode bypass"
-
-        if self.offline_mode:
-            return True, "Offline mode"
         if not self.username or not self.session_token:
             return False, "No active session"
 

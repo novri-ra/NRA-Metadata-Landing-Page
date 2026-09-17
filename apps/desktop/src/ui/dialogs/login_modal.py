@@ -356,25 +356,6 @@ def show_login_modal(app):
     btn_login.configure(command=_do_login)
     btn_login.pack(padx=20, pady=(8, 12))
 
-    def _go_offline():
-        app._auth_modal_open = False
-        app.auth.enable_offline_mode()
-        app.deiconify()
-        modal.destroy()
-        app.log("Mode Offline aktif: autentikasi server dilewati.", "warn")
-
-    ctk.CTkButton(
-        login_scroll,
-        text="\U0001f6e1\ufe0f Lanjut Mode Offline / Pengembang",
-        width=FW,
-        fg_color=C["surface2"],
-        hover_color=C["border"],
-        font=ctk.CTkFont(family="Segoe UI", size=12),
-        height=34,
-        corner_radius=8,
-        command=_go_offline,
-    ).pack(padx=20, pady=(0, 16))
-
     # ───────────────────────────── REGISTER TAB ──────────────────────────
     reg_scroll = ctk.CTkScrollableFrame(
         tab_register, fg_color="transparent", scrollbar_button_color=C["surface2"]
