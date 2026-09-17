@@ -405,6 +405,16 @@ class FileWorkerPool:
             )
             status, tag = "API", "api"
 
+            _usage = meta.get("_usage")
+            if _usage:
+                self._emit(
+                    "token_usage",
+                    {
+                        "tokens": _usage.get("total_tokens", 0),
+                        "model": _usage.get("model", ""),
+                    },
+                )
+
             # Inject mandatory custom keywords on first API generation
             custom_kws_raw = options.get("custom_kw", "")
             if custom_kws_raw.strip():

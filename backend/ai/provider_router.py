@@ -312,6 +312,12 @@ class AIService:
         self.cost_tracker.record_usage(
             self.provider, model, prompt_tokens, completion_tokens
         )
+        meta["_usage"] = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+            "model": model,
+        }
         return meta
 
     # ── Main entry point ───────────────────────────────────────────────
@@ -554,6 +560,23 @@ class AIService:
                 else:
                     fail_reason = None
 
+                is_503 = "503" in err_str and "unavailable" in err_str.lower()
+                if is_503 and attempt < max_retries:
+                    import random
+                    if attempt == 0:
+                        delay = random.uniform(3.0, 5.0)
+                    elif attempt == 1:
+                        delay = random.uniform(8.0, 12.0)
+                    else:
+                        delay = 20.0
+                    _log(f"[{filename}] Gemini 503 High Demand, retrying in {delay:.2f}s (Attempt {attempt+1}/{max_retries})...", "warn")
+                    if not _interruptible_sleep(delay, cancel_check):
+                        return self._fallback_metadata(
+                            error_details="Batch canceled while backing off",
+                            fail_reason="cancelled",
+                        )
+                    continue
+
                 # Check for Rate Limit / Quota / Invalid Key -> Rotate Key
                 if detect_rate_limit(err_str) or detect_auth_failure(err_str):
                     if "429" in err_str:
@@ -630,16 +653,16 @@ class AIService:
                         )
                     continue
                 else:
-                    # Last chance: try provider failover if 429 exhausted all retries
+                    # Last chance: try provider failover if 429 or 503 exhausted all retries
                     if (
-                        detect_rate_limit(err_str)
+                        (detect_rate_limit(err_str) or is_503)
                         and not self.failover.failover_attempted
                         and self.failover.has_failovers()
                     ):
                         for alt_provider, alt_key in self.failover.failover_providers.items():
                             if alt_key and alt_provider != self.provider:
                                 print(
-                                    f"[FAILOVER] {self.provider} rate-limited (429). Switching to {alt_provider}..."
+                                    f"[FAILOVER] {self.provider} rate-limited/unavailable. Switching to {alt_provider}..."
                                 )
                                 self.failover.mark_failover_attempted()
                                 return self._failover_call(

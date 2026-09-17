@@ -419,6 +419,63 @@ class TestRateLimitHandling(unittest.TestCase):
             starts[1] - starts[0], pr.MISTRAL_MIN_INTERVAL - 0.05
         )
 
+    def test_gemini_503_retry_and_recovery(self):
+        from unittest import mock
+        from backend.ai.provider_router import AIService
+        import tempfile
+
+        ai = AIService("Gemini", "fake-key", model="gemini-2.5-flash-lite")
+        calls = []
+
+        class DummyUsage:
+            prompt_token_count = 100
+            candidates_token_count = 50
+
+        class DummyResponse:
+            text = '{"title": "Valid Title", "description": "Valid Description", "keywords": ["kw1", "kw2", "kw3", "kw4", "kw5"]}'
+            usage_metadata = DummyUsage()
+
+        def side_effect(*args, **kwargs):
+            calls.append(len(calls))
+            if len(calls) == 1:
+                raise Exception("503 UNAVAILABLE: This model is currently experiencing high demand.")
+            return DummyResponse()
+
+        ai.gemini_client = mock.Mock()
+        ai.gemini_client.models.generate_content.side_effect = side_effect
+
+        with mock.patch("backend.ai.provider_router._interruptible_sleep", return_value=True) as mock_sleep, \
+             mock.patch("backend.ai.provider_router.read_text_asset", return_value="<svg></svg>"):
+            res = ai.generate_metadata("test.svg", target_kw=5)
+            self.assertEqual(len(calls), 2)
+            self.assertTrue(mock_sleep.called)
+            self.assertEqual(res["title"], "Valid Title")
+            self.assertEqual(res["_usage"]["total_tokens"], 150)
+
+    def test_token_tracking_updates_status_bar(self):
+        from unittest import mock
+        from apps.desktop.src.ui.main_window import AppWindow
+
+        # Mock tkinter components
+        with mock.patch("apps.desktop.src.ui.main_window.AppWindow.build_ui"), \
+             mock.patch("apps.desktop.src.ui.main_window.AppWindow._restore_geometry"), \
+             mock.patch("apps.desktop.src.ui.main_window.AppWindow._apply_auto_watch_startup"), \
+             mock.patch("apps.desktop.src.ui.main_window.AppWindow._check_initial_auth"), \
+             mock.patch("apps.desktop.src.ui.main_window.load_config", return_value={}):
+            app = AppWindow()
+            app.cost_lbl = mock.Mock()
+            app._call_main = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+
+            # Trigger token usage event
+            app._on_token_usage({"tokens": 2500, "model": "gemini-2.5-flash-lite"})
+            
+            self.assertEqual(app._total_tokens, 2500)
+            app.cost_lbl.configure.assert_called()
+            call_kwargs = app.cost_lbl.configure.call_args[1]
+            self.assertIn("Tokens: ~2.5k", call_kwargs["text"])
+            app.destroy()
+
+
 
 class TestSanitizer(unittest.TestCase):
     def test_sanitize_ai_metadata(self):
