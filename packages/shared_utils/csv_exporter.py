@@ -56,25 +56,25 @@ _SS_CATEGORY_ALIASES = {
 }
 
 
-def ss_categories(primary: str, secondary: str, filename: str) -> str:
+def ss_categories(primary: str, secondary: str, filename: str, title: str = "", keywords: list | None = None) -> str:
+    from packages.shared_utils.taxonomy import map_to_agency_category
+    
     cats = []
     for name in (primary, secondary):
         if not name:
             continue
-        name = name.strip()
-        norm = (
-            name
-            if name in SHUTTERSTOCK_CATEGORIES
-            else _SS_CATEGORY_ALIASES.get(name, "")
-        )
+        norm = map_to_agency_category(name, "shutterstock", title=title, keywords=keywords)
         if norm and norm not in cats:
             cats.append(norm)
-    if cats:
-        return ",".join(cats)
-    # Vector/illustration assets default to Arts, never to Backgrounds/Textures.
-    if str(filename).lower().endswith((".svg", ".eps", ".ai")):
-        return "Arts"
-    return "Backgrounds/Textures"
+            
+    # If no AI category could be determined, or it's empty, use filename fallback
+    if not cats:
+        if str(filename).lower().endswith((".svg", ".eps", ".ai")):
+            cats.append("The Arts")
+        else:
+            cats.append("Backgrounds/Textures")
+            
+    return ",".join(cats[:2])
 
 
 def fmt_kw(s: str, min_count: int = 0, max_count: int = 50, semi: str = ",", term_max: int = 0) -> str:
@@ -178,8 +178,8 @@ def upsert_metadata_csv(
             with open(master_path, "r", encoding="utf-8", newline="") as f:
                 rows = list(csv.reader(f))
         if not rows:
-            rows = [["Filename", "Title", "Description", "Keywords"]]
-        row = [filename, title, description, ",".join(keywords)]
+            rows = [["Filename", "Title", "Description", "Keywords", "IsAI", "IsEditorial", "City", "Country", "CountryCode", "DateCreated", "Category", "PrimaryCategory", "SecondaryCategory"]]
+        row = [filename, title, description, ",".join(keywords), "0", "0", "", "", "", "", "", "", ""]
         for r in rows[1:]:
             if r and r[0] == filename:
                 r[:] = row
@@ -210,7 +210,8 @@ def upsert_editorial_csv(
                 rows = list(csv.reader(f))
         if not rows:
             rows = [["Filename", "Title", "Description", "Keywords",
-                     "IsAI", "IsEditorial", "City", "Country", "CountryCode", "DateCreated"]]
+                     "IsAI", "IsEditorial", "City", "Country", "CountryCode", "DateCreated", 
+                     "Category", "PrimaryCategory", "SecondaryCategory"]]
         row = [
             filename,
             title,
@@ -222,6 +223,9 @@ def upsert_editorial_csv(
             country,
             country_code,
             date_created,
+            "",
+            "",
+            "",
         ]
         for r in rows[1:]:
             if r and r[0] == filename:
@@ -283,7 +287,9 @@ def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
                 fmt_kw(r.get("Keywords", ""), 5, 49),
                 str(
                     get_adobe_category_code(
-                        r.get("PrimaryCategory", "Graphic Resources")
+                        r.get("PrimaryCategory", "Graphic Resources"),
+                        title=r.get("Title", ""),
+                        keywords=[k.strip() for k in r.get("Keywords", "").split(",") if k.strip()]
                     )
                 ),
                 "",
@@ -310,6 +316,8 @@ def generate_microstock_csvs(out_dir: str, platforms: set | None = None):
                     r.get("PrimaryCategory", ""),
                     r.get("SecondaryCategory", ""),
                     r["Filename"],
+                    title=r.get("Title", ""),
+                    keywords=[k.strip() for k in r.get("Keywords", "").split(",") if k.strip()]
                 ),
                 "yes" if _row_is_editorial(r) else "no",
                 "",

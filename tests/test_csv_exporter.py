@@ -97,10 +97,10 @@ class ShutterstockCategoriesTest(unittest.TestCase):
         )
 
     def test_invalid_falls_back_to_arts_for_vectors(self):
-        self.assertEqual(ss_categories("", "", "icon.eps"), "Arts")
-        self.assertEqual(ss_categories("", "", "icon.svg"), "Arts")
+        self.assertEqual(ss_categories("", "", "icon.eps"), "The Arts")
+        self.assertEqual(ss_categories("", "", "icon.svg"), "The Arts")
         self.assertEqual(
-            ss_categories("Not a real cat", "", "icon.ai"), "Arts"
+            ss_categories("Completely unknown topic xyz", "", "icon.ai"), "The Arts"
         )
 
     def test_raster_default_unchanged(self):
@@ -124,7 +124,7 @@ class ShutterstockCategoriesTest(unittest.TestCase):
         generate_microstock_csvs(tmp, {"Shutterstock"})
         with open(os.path.join(tmp, "shutterstock_export.csv"), encoding="utf-8") as f:
             rows = list(csv.DictReader(f))
-        self.assertEqual(rows[0]["Categories"], "Arts")
+        self.assertEqual(rows[0]["Categories"], "The Arts")
         self.assertEqual(rows[0]["Keywords"], "one")
 
 
