@@ -8,24 +8,26 @@ def package_installer():
     root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     dist_dir = os.path.join(root_dir, "dist", "NRA-Metadata")
     installer_dir = os.path.join(root_dir, "scripts", "installer")
-    payload_zip = os.path.join(installer_dir, "payload.zip")
+    final_out_dir = os.path.join(root_dir, "dist", "NRA-Metadata-Installer")
+    payload_dat = os.path.join(final_out_dir, "payload.dat")
     
     if not os.path.exists(dist_dir):
         print(f"[ERROR] dist/NRA-Metadata not found. Run main build first!")
         return False
         
-    print("[1/3] Packaging dist/NRA-Metadata into payload.zip...")
-    if os.path.exists(payload_zip):
-        os.remove(payload_zip)
+    print("[1/3] Packaging dist/NRA-Metadata into payload.dat...")
+    os.makedirs(final_out_dir, exist_ok=True)
+    if os.path.exists(payload_dat):
+        os.remove(payload_dat)
         
-    with zipfile.ZipFile(payload_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(payload_dat, "w", zipfile.ZIP_DEFLATED) as zf:
         for root, dirs, files in os.walk(dist_dir):
             for file in files:
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, dist_dir)
                 zf.write(full_path, rel_path)
                 
-    print(f"[SUCCESS] Payload ready: {os.path.getsize(payload_zip) / (1024*1024):.2f} MB")
+    print(f"[SUCCESS] Payload ready: {os.path.getsize(payload_dat) / (1024*1024):.2f} MB")
     
     print("[2/3] Compiling Standalone Installer via PyInstaller...")
     spec_content = f'''# -*- mode: python ; coding: utf-8 -*-
@@ -33,7 +35,7 @@ a = Analysis(
     ['installer_wizard.py'],
     pathex=[],
     binaries=[],
-    datas=[('payload.zip', '.')],
+    datas=[],
     hiddenimports=['customtkinter'],
     hookspath=[],
     hooksconfig={{}},
@@ -48,7 +50,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='NRA-Metadata-Setup',
+    name='Setup',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -74,12 +76,14 @@ exe = EXE(
     ], cwd=installer_dir)
     
     if res.returncode == 0:
-        # Move final exe to dist/
-        final_src = os.path.join(installer_dir, "dist", "NRA-Metadata-Setup.exe")
-        final_dst = os.path.join(root_dir, "dist", "NRA-Metadata-Setup.exe")
+        # Move final exe to dist/NRA-Metadata-Installer/
+        final_src = os.path.join(installer_dir, "dist", "Setup.exe")
+        final_dst = os.path.join(final_out_dir, "Setup.exe")
         if os.path.exists(final_src):
+            if os.path.exists(final_dst):
+                os.remove(final_dst)
             shutil.move(final_src, final_dst)
-            print(f"[3/3] [SUCCESS] Standalone Installer built at: {final_dst}")
+            print(f"[3/3] [SUCCESS] Standalone Installer built at: {final_out_dir}")
             return True
             
     print("[ERROR] PyInstaller build failed.")

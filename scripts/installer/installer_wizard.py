@@ -175,15 +175,14 @@ class InstallerWizard(ctk.CTk):
         
         try:
             # 1. Locate Payload
-            payload_path = None
             if getattr(sys, "frozen", False):
-                payload_path = os.path.join(sys._MEIPASS, "payload.zip")
+                payload_path = os.path.join(os.path.dirname(sys.executable), "payload.dat")
             else:
-                payload_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "payload.zip")
+                payload_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "payload.dat")
                 
             if not os.path.exists(payload_path):
                 # For development/demo without payload
-                self.log("> [WARN] payload.zip NOT FOUND. Simulating extraction...")
+                self.log("> [WARN] payload.dat NOT FOUND. Simulating extraction...")
                 for i in range(1, 101):
                     time.sleep(0.02)
                     self.prog_bar.set(i / 100.0)
