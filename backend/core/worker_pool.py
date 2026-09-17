@@ -266,10 +266,13 @@ class FileWorkerPool:
 
         import queue
         import threading
+        from backend.core.clustering import ClusterCoordinator, adapt_metadata_for_variant
         
         q_stage1 = queue.Queue()
         q_stage2 = queue.Queue(maxsize=max_w * 2)
         q_stage3 = queue.Queue(maxsize=max_w * 2)
+
+        cluster_coord = ClusterCoordinator(enabled=options.get("smart_clustering", True))
 
         for p in paths:
             q_stage1.put(p)
@@ -329,9 +332,10 @@ class FileWorkerPool:
                     continue
 
                 f_hash = get_file_hash(preview)
+                is_leader, leader_event, leader_name = cluster_coord.register_asset(p, preview, name)
                 while not self.cancel_flag:
                     try:
-                        q_stage2.put((p, preview, f_hash, name), timeout=0.2)
+                        q_stage2.put((p, preview, f_hash, name, is_leader, leader_event, leader_name), timeout=0.2)
                         break
                     except queue.Full:
                         pass
@@ -347,7 +351,7 @@ class FileWorkerPool:
                 if self.cancel_flag:
                     try:
                         while True:
-                            _, prev, _, n = q_stage2.get_nowait()
+                            _, prev, _, n, _, _, _ = q_stage2.get_nowait()
                             self._remove_preview(prev)
                             self._emit("file_status", n, "cancelled")
                             step_progress()
@@ -360,7 +364,7 @@ class FileWorkerPool:
                         break
                     continue
 
-                p, preview, f_hash, name = item
+                p, preview, f_hash, name, is_leader, leader_event, leader_name = item
                 self.pause_event.wait()
                 if self.cancel_flag:
                     self._remove_preview(preview)
@@ -376,7 +380,17 @@ class FileWorkerPool:
                 status = "failed"
                 tag = "error"
 
-                if cached:
+                if not is_leader and leader_event:
+                    self._emit("log", f"[{name}] Similar asset detected (Cluster Match to {leader_name}). Waiting for leader...", "info")
+                    leader_meta, _ = cluster_coord.get_leader_metadata(p, timeout=120.0)
+                    if leader_meta:
+                        meta = adapt_metadata_for_variant(leader_meta, leader_name, name)
+                        status, tag = "CLUSTER", "cache"
+                        self._emit("log", f"[{name}] Similar asset detected (Cluster Match). Reusing leader metadata (Token saved: 100%).", "info")
+                    else:
+                        self._emit("log", f"[{name}] Leader failed or timed out. Falling back to direct AI generation...", "warn")
+
+                if meta is None and cached:
                     self._emit("log", f"[{name}] [CACHE HIT] Metadata loaded from cache.", "cache")
                     meta = cached
                     old_len = len(meta.get("keywords", []))
@@ -464,6 +478,9 @@ class FileWorkerPool:
                             meta["keywords"] = custom_kws + ai_kws
                         else:
                             meta["keywords"] = ai_kws + custom_kws
+
+                if is_leader and meta is not None:
+                    cluster_coord.set_leader_metadata(p, meta)
 
                 while not self.cancel_flag:
                     try:
