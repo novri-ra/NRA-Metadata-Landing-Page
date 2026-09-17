@@ -32,7 +32,28 @@ class InstallerWizard(ctk.CTk):
         # Basic frameless setup
         self.overrideredirect(True)
         
+        # Focus & Topmost
+        self.lift()
+        self.attributes('-topmost', True)
+        self.after_idle(self.attributes, '-topmost', False)
+        self.focus_force()
+        
         self._build_custom_titlebar()
+        
+        # Force taskbar icon for frameless window
+        def force_taskbar_icon():
+            try:
+                import ctypes
+                hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
+                style = ctypes.windll.user32.GetWindowLongW(hwnd, -20)
+                style = style & ~0x00000080
+                style = style | 0x00040000
+                ctypes.windll.user32.SetWindowLongW(hwnd, -20, style)
+                self.wm_withdraw()
+                self.after(10, self.wm_deiconify)
+            except:
+                pass
+        self.after(100, force_taskbar_icon)
         
         self.main_container = ctk.CTkFrame(self, fg_color="transparent")
         self.main_container.pack(fill="both", expand=True, padx=20, pady=20)
@@ -55,12 +76,13 @@ class InstallerWizard(ctk.CTk):
         btn_close.pack(side="right")
         
         # Drag logic
+        drag_pos = {"x": 0, "y": 0}
         def start_move(event):
-            self.x = event.x
-            self.y = event.y
+            drag_pos["x"] = event.x
+            drag_pos["y"] = event.y
         def do_move(event):
-            x = self.winfo_x() + (event.x - self.x)
-            y = self.winfo_y() + (event.y - self.y)
+            x = self.winfo_x() + (event.x - drag_pos["x"])
+            y = self.winfo_y() + (event.y - drag_pos["y"])
             self.geometry(f"+{x}+{y}")
             
         titlebar.bind("<Button-1>", start_move)
@@ -73,27 +95,40 @@ class InstallerWizard(ctk.CTk):
         self.pages["welcome"] = frame
         
         hero = ctk.CTkLabel(frame, text="NRA-METADATA", font=("Courier New", 32, "bold"), text_color=C_ACCENT)
-        hero.pack(pady=(40, 5))
+        hero.pack(pady=(15, 5))
         
         badge = ctk.CTkLabel(frame, text="v1.0-Superpower Edition", font=("Consolas", 12), text_color=C_SUCCESS, fg_color=C_SURFACE2, corner_radius=4)
-        badge.pack(pady=(0, 30))
+        badge.pack(pady=(0, 15))
         
         info_frame = ctk.CTkFrame(frame, fg_color=C_SURFACE, corner_radius=8)
-        info_frame.pack(fill="x", padx=40, pady=10)
+        info_frame.pack(fill="x", padx=40, pady=5)
         
         infos = [
             "⚡ ExifTool Daemon Engine (-stay_open)",
-            "🧠 Gemini Vision AI Automation",
+            "🤖 Gemini Vision AI Automation",
             "🚀 Decoupled 3-Stage Processing Pipeline",
             "📦 Includes Ghostscript & GTK3 Runtimes"
         ]
         for info in infos:
-            ctk.CTkLabel(info_frame, text=info, font=("Segoe UI", 13), text_color=C_TEXT, anchor="w").pack(fill="x", padx=20, pady=8)
+            ctk.CTkLabel(info_frame, text=info, font=("Segoe UI", 12), text_color=C_TEXT, anchor="w").pack(fill="x", padx=20, pady=4)
             
-        btn_start = ctk.CTkButton(frame, text="🚀 INITIALIZE INSTALLATION", font=("Segoe UI", 14, "bold"), 
-                                  fg_color=C_ACCENT, text_color="#000000", hover_color="#00D2DD", height=45, corner_radius=22,
+        target_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        target_frame.pack(fill="x", padx=40, pady=10)
+        
+        ctk.CTkLabel(target_frame, text="Target: C:\\Program Files\\NRA-Metadata", font=("Consolas", 11), text_color=C_TEXT_DIM).pack(anchor="w")
+        
+        self.cb_start_menu = ctk.CTkCheckBox(target_frame, text="Tambahkan ke Start Menu", font=("Segoe UI", 12), fg_color=C_ACCENT)
+        self.cb_start_menu.select()
+        self.cb_start_menu.pack(side="left", pady=5, padx=(0, 20))
+        
+        self.cb_desktop = ctk.CTkCheckBox(target_frame, text="Buat Shortcut di Desktop", font=("Segoe UI", 12), fg_color=C_ACCENT)
+        self.cb_desktop.select()
+        self.cb_desktop.pack(side="left", pady=5)
+            
+        btn_start = ctk.CTkButton(frame, text="🚀 Install ke Program Files", font=("Segoe UI", 14, "bold"), 
+                                  fg_color="#00F2FE", text_color="#000000", hover_color="#00D2DD", height=45, corner_radius=22,
                                   command=self._start_installation)
-        btn_start.pack(pady=30)
+        btn_start.pack(pady=10)
 
     def _build_install_page(self):
         frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
@@ -125,7 +160,7 @@ class InstallerWizard(ctk.CTk):
         frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.pages["finish"] = frame
         
-        ctk.CTkLabel(frame, text="✓", font=("Segoe UI", 64), text_color=C_SUCCESS).pack(pady=(40, 10))
+        ctk.CTkLabel(frame, text="✔", font=("Segoe UI", 64), text_color=C_SUCCESS).pack(pady=(40, 10))
         ctk.CTkLabel(frame, text="INSTALLATION COMPLETE", font=("Courier New", 24, "bold"), text_color=C_TEXT).pack(pady=5)
         ctk.CTkLabel(frame, text="NRA-Metadata has been successfully deployed to your system.", font=("Segoe UI", 13), text_color=C_TEXT_DIM).pack(pady=10)
         
@@ -136,12 +171,8 @@ class InstallerWizard(ctk.CTk):
         self.cb_launch.select()
         self.cb_launch.pack(anchor="w", pady=5)
         
-        self.cb_shortcut = ctk.CTkCheckBox(opts_frame, text="Create Desktop Shortcut", font=("Segoe UI", 12), text_color=C_TEXT, fg_color=C_ACCENT, hover_color="#00D2DD")
-        self.cb_shortcut.select()
-        self.cb_shortcut.pack(anchor="w", pady=5)
-        
-        btn_finish = ctk.CTkButton(frame, text="FINISH", font=("Segoe UI", 14, "bold"), 
-                                   fg_color=C_ACCENT, text_color="#000000", hover_color="#00D2DD", height=45, corner_radius=22, width=200,
+        btn_finish = ctk.CTkButton(frame, text="Buka NRA-Metadata Sekarang", font=("Segoe UI", 14, "bold"), 
+                                   fg_color=C_ACCENT, text_color="#000000", hover_color="#00D2DD", height=45, corner_radius=22, width=240,
                                    command=self._finish)
         btn_finish.pack(pady=20)
 
@@ -170,7 +201,9 @@ class InstallerWizard(ctk.CTk):
         self.log("> INITIALIZING DEPLOYMENT SEQUENCE...")
         self.log(f"> TARGET_OS: {sys.platform.upper()}")
         
-        install_dir = os.path.expandvars(r"%LOCALAPPDATA%\Programs\NRA-Metadata")
+        # Target Program Files
+        program_files = os.environ.get("ProgramW6432", os.environ.get("ProgramFiles", "C:\\Program Files"))
+        install_dir = os.path.join(program_files, "NRA-Metadata")
         self.log(f"> RESOLVED PATH: {install_dir}")
         
         try:
@@ -212,6 +245,19 @@ class InstallerWizard(ctk.CTk):
             # 3. Create Shortcuts (If real payload existed, we create actual shortcuts)
             self.log("> [SYSTEM] Building Registry Links & Shortcuts...")
             self.exe_path = os.path.join(install_dir, "NRA-Metadata.exe")
+            
+            if hasattr(self, 'cb_desktop') and self.cb_desktop.get() == 1:
+                desktop_path = os.path.join(os.environ.get("PUBLIC", r"C:\Users\Public"), "Desktop")
+                if not os.path.exists(desktop_path):
+                    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+                self._create_shortcut(self.exe_path, os.path.join(desktop_path, "NRA-Metadata.lnk"), "NRA Metadata Processing Tool")
+                
+            if hasattr(self, 'cb_start_menu') and self.cb_start_menu.get() == 1:
+                start_menu = os.path.join(os.environ.get("ALLUSERSPROFILE", r"C:\ProgramData"), "Microsoft", "Windows", "Start Menu", "Programs")
+                if not os.path.exists(start_menu):
+                    start_menu = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs")
+                self._create_shortcut(self.exe_path, os.path.join(start_menu, "NRA-Metadata.lnk"), "NRA Metadata Processing Tool")
+                
             time.sleep(0.5)
             self.set_check("shortcuts")
             
@@ -245,15 +291,23 @@ class InstallerWizard(ctk.CTk):
             self.log(f"> [WARN] Failed to create shortcut: {e}")
 
     def _finish(self):
-        if self.cb_shortcut.get() == 1 and os.path.exists(getattr(self, 'exe_path', '')):
-            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-            self._create_shortcut(self.exe_path, os.path.join(desktop, "NRA-Metadata.lnk"), "NRA Metadata Processing Tool")
-            
-        if self.cb_launch.get() == 1 and os.path.exists(getattr(self, 'exe_path', '')):
+        if hasattr(self, 'cb_launch') and self.cb_launch.get() == 1 and os.path.exists(getattr(self, 'exe_path', '')):
             subprocess.Popen([self.exe_path], cwd=os.path.dirname(self.exe_path))
             
         self.destroy()
 
 if __name__ == "__main__":
+    import ctypes
+    def is_admin():
+        try:
+            return ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except Exception:
+            return False
+
+    if not is_admin():
+        params = " ".join(f'"{arg}"' for arg in sys.argv[1:])
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, None, 1)
+        sys.exit(0)
+        
     app = InstallerWizard()
     app.mainloop()
