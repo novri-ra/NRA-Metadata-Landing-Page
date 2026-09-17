@@ -99,6 +99,7 @@ class AppWindow(ctk.CTk):
                 "file_status": self._on_file_status,
                 "batch_complete": self._on_batch_complete,
                 "finished": self._on_pool_finished,
+                "token_usage": self._on_token_usage,
             }
         )
         self.stats = {"total": 0, "success": 0, "error": 0}
@@ -107,6 +108,8 @@ class AppWindow(ctk.CTk):
         self.excluded_files = set()
         self.queue_status = {}
         self._batch_files = set()
+        self._total_tokens = 0
+        self._total_cost = 0.0
         self.batch_session_stats = {
             "processed": 0,
             "skipped": 0,
@@ -820,14 +823,26 @@ class AppWindow(ctk.CTk):
             self._load_custom_presets()
             self.preset_cb.set("Default")
 
+    def _on_token_usage(self, data):
+        def _update():
+            self._total_tokens += data.get("tokens", 0)
+            from packages.shared_utils.cost_tracker import cost_tracker
+            total_cost = cost_tracker.estimated_cost_usd
+            self.cost_lbl.configure(
+                text=f"Tokens: ~{self._total_tokens / 1000:.1f}k | Est. Cost: ${total_cost:.3f}  ·  Cache: {get_cache_hits()}"
+            )
+        self._call_main(_update)
+
     def _on_pool_stats(self, stats, running):
         def _update():
             self.stats = dict(stats)
             self.stats_lbl.configure(
                 text=f"Total: {self.stats['total']}  ·  Success: {self.stats['success']}  ·  Error: {self.stats['error']}"
             )
+            from packages.shared_utils.cost_tracker import cost_tracker
+            total_cost = cost_tracker.estimated_cost_usd
             self.cost_lbl.configure(
-                text=f"Tokens: ~{self.batch_session_stats.get('tokens_est', 0) // 1000}k | Est. Cost: ${self.batch_session_stats.get('cost', 0):.3f}  ·  Cache: {get_cache_hits()}"
+                text=f"Tokens: ~{self._total_tokens / 1000:.1f}k | Est. Cost: ${total_cost:.3f}  ·  Cache: {get_cache_hits()}"
             )
 
             # Update header status
