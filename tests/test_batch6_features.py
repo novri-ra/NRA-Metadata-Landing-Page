@@ -232,7 +232,7 @@ class FileStatusEventTest(unittest.TestCase):
         states = [e[2] for e in events]
         self.assertEqual(states[-1], "failed")
 
-    def test_cancel_branch_emits_failed_not_done(self):
+    def test_cancel_branch_emits_cancelled_not_done(self):
         events = []
 
         class FakeAI:
@@ -267,7 +267,7 @@ class FileStatusEventTest(unittest.TestCase):
                 mock.Mock(),
             )
 
-        self.assertEqual(events[-1][2], "failed")
+        self.assertEqual(events[-1][2], "cancelled")
 
     def test_worker_advances_despite_embed_exception(self):
         events = []

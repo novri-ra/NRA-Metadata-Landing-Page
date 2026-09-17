@@ -17,6 +17,16 @@ Otomasi tingkat profesional untuk analisis visual, pembangkitan Title / Descript
 
 ---
 
+## 🛠️ Konfigurasi Google Apps Script (Auth Server)
+Jika Anda men-deploy server autentikasi mandiri (Google Apps Script), pastikan pengaturan *New Deployment* berikut untuk menghindari error *redirect* halaman HTML:
+- **Execute as**: Me (`email_anda@gmail.com`)
+- **Who has access**: Anyone
+- **URL Web App**: Pastikan berakhiran `/exec` (bukan `/dev`)
+
+*(Untuk lewati autentikasi sepenuhnya, gunakan **Offline Mode** di aplikasi atau jalankan dengan enviroment variable `DEBUG=1` / file `.dev_mode`).*
+
+---
+
 ## 🎯 Tentang Proyek
 
 NRA-Metadata menggantikan kurasi manual yang memakan waktu berjam-jam dengan pipa kerja vision-AI yang presisi. Sistem membaca pratinjau visual (bukan nama file), mendeskripsikan aset secara kontekstual, menyetel keyword terhadap aturan tiap agensi, lalu mengukir hasilnya langsung ke biner file via ExifTool — tanpa prompt mentah tertulis di XMP, sehingga **integritas manifest C2PA tetap terjaga**.

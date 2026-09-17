@@ -162,6 +162,8 @@ class FileWorkerPool:
         True when a stale flag was cleared."""
         if self.is_running:
             bt = self._batch_thread
+            if bt is not None and bt.is_alive():
+                bt.join(timeout=2.0)
             if bt is None or not bt.is_alive():
                 self.is_running = False
                 self._batch_thread = None
@@ -176,6 +178,8 @@ class FileWorkerPool:
         self.cancel_flag = False
         self.cancel_event.clear()
         self.pause_event.set()
+        base_delay = float(options.get("delay") or 2.5)
+        self.cooldown = AdaptiveCooldown(base_min=base_delay, base_max=base_delay + 1.0)
         self.stats = {"total": len(paths), "success": 0, "error": 0}
         self.session_stats = {
             "processed": 0,
@@ -323,6 +327,7 @@ class FileWorkerPool:
     def _process_file(self, file_path, out_dir, ai, options, csv_logger):
         self.pause_event.wait()
         if self.cancel_flag:
+            self._emit("file_status", os.path.basename(file_path), "cancelled")
             return
 
         name = os.path.basename(file_path)
@@ -340,7 +345,9 @@ class FileWorkerPool:
         final_status = "failed"
         try:
             res = self._process_file_inner(file_path, out_dir, ai, options, csv_logger, name, target_kw, is_editorial, editorial_fields)
-            if res is not False:
+            if res == "cancelled":
+                final_status = "cancelled"
+            elif res is not False:
                 final_status = "done"
         except Exception as e:
             self._emit("log", f"[{name}] Error: {str(e)}", "error")
@@ -359,7 +366,7 @@ class FileWorkerPool:
         if self.cancel_flag:
             self._remove_preview(preview)
             self._emit("log", f"[{name}] Stopped after preview render.", "info")
-            return False
+            return "cancelled"
 
         file_hash = get_file_hash(preview)
         cached = get_cached_metadata(file_hash)
@@ -398,7 +405,7 @@ class FileWorkerPool:
             if meta.get("fail_reason") == "cancelled":
                 self._remove_preview(preview)
                 self._emit("log", f"[{name}] Stopped: batch cancelled.", "info")
-                return False
+                return "cancelled"
 
             if meta.get("is_fallback") or meta.get("error"):
                 err_detail = meta.get("error_details", "fallback rejected")
@@ -527,7 +534,7 @@ class FileWorkerPool:
 
         if self.cancel_flag:
             self._emit("log", f"[{name}] Saved but batch stopped before embedding.", "info")
-            return False
+            return "cancelled"
 
         if self.processor.embed_metadata(
             final_path,
