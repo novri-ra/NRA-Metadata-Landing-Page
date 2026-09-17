@@ -485,17 +485,14 @@ class TestSanitizer(unittest.TestCase):
 
         processor = ExifToolClient()
 
-        # Monkey patch subprocess.run to verify arguments
+        # Monkey patch _run_exiftool instead of subprocess.run since we moved to ExifToolDaemon
         captured_cmd = []
 
         def fake_run(cmd, *args, **kwargs):
             captured_cmd.extend(cmd)
-            return subprocess.CompletedProcess(cmd, 0)
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
 
-        original_run = subprocess.run
-        subprocess.run = fake_run
-
-        try:
+        with mock.patch("backend.processors.exiftool_client._run_exiftool", side_effect=fake_run):
             fake_exe = os.path.join(tempfile.gettempdir(), "nra_fake_exiftool.exe")
             with open(fake_exe, "wb") as fe:
                 fe.write(b"MZ")
@@ -509,8 +506,6 @@ class TestSanitizer(unittest.TestCase):
             self.assertNotIn("-XMP-c2pa:all=", captured_cmd)
             self.assertNotIn("-XMP:DigitalSourceType=", set(captured_cmd))
             self.assertNotIn("-all=", captured_cmd)
-        finally:
-            subprocess.run = original_run
 
     def test_sanitize_ai_generated_writes_trained_source(self):
         import subprocess
@@ -523,12 +518,9 @@ class TestSanitizer(unittest.TestCase):
 
         def fake_run(cmd, *args, **kwargs):
             captured_cmd.extend(cmd)
-            return subprocess.CompletedProcess(cmd, 0)
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
 
-        original_run = subprocess.run
-        subprocess.run = fake_run
-
-        try:
+        with mock.patch("backend.processors.exiftool_client._run_exiftool", side_effect=fake_run):
             fake_exe = os.path.join(tempfile.gettempdir(), "nra_fake_exiftool.exe")
             with open(fake_exe, "wb") as fe:
                 fe.write(b"MZ")
@@ -549,8 +541,6 @@ class TestSanitizer(unittest.TestCase):
             self.assertNotIn("-XMP:DigitalSourceType=", set(captured_cmd))
             self.assertNotIn("-XMP-c2pa:all=", captured_cmd)
             self.assertNotIn("-PNG:prompt=", captured_cmd)
-        finally:
-            subprocess.run = original_run
 
 
 if __name__ == "__main__":
