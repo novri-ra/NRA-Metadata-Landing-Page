@@ -49,7 +49,7 @@ class GhostscriptNumericVersionTest(unittest.TestCase):
             f.write(b"MZ")
         with patch.object(
             system_detector, "_tools_root", return_value=Path(tempfile.mkdtemp())
-        ):
+        ), patch("backend.processors.system_detector.which", return_value=None):
             found = system_detector._resolve_binary(
                 ["gswin64c.exe"],
                 extra_globs=(os.path.join(tmp, "gs*", "bin", "gswin*c.exe"),),

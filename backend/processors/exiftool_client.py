@@ -225,7 +225,7 @@ def _run_exiftool_stream(
         stdin_arg = subprocess.PIPE
 
     try:
-        proc = subprocess.Popen(
+        with subprocess.Popen(
             converted_cmd,
             stdin=stdin_arg,
             stdout=subprocess.PIPE,
@@ -233,22 +233,22 @@ def _run_exiftool_stream(
             cwd=cwd,
             text=False,
             **no_window_kwargs(),
-        )
-        
-        try:
-            out_b, err_b = proc.communicate(input=input_data, timeout=timeout)  # type: ignore
-            if isinstance(out_b, str): out_b = out_b.encode()
-            if isinstance(err_b, str): err_b = err_b.encode()
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            raise
-        except OSError:
-            proc.kill()
-            out_b, err_b = b"", b""
-            
-        return subprocess.CompletedProcess(
-            args=converted_cmd, returncode=proc.returncode, stdout=out_b, stderr=err_b
-        )
+        ) as proc:
+            try:
+                out_b, err_b = proc.communicate(input=input_data, timeout=timeout)  # type: ignore
+                if isinstance(out_b, str): out_b = out_b.encode()
+                if isinstance(err_b, str): err_b = err_b.encode()
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.communicate()
+                raise
+            except OSError:
+                proc.kill()
+                out_b, err_b = b"", b""
+                
+            return subprocess.CompletedProcess(
+                args=converted_cmd, returncode=proc.returncode, stdout=out_b, stderr=err_b
+            )
     finally:
         if file_obj:
             file_obj.close()

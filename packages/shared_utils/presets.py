@@ -10,13 +10,21 @@ def presets_path() -> str:
 
 
 def _load_presets() -> dict:
+    presets = {}
     if os.path.exists(presets_path()):
         try:
             with open(presets_path(), "r", encoding="utf-8") as f:
-                return json.load(f)
+                presets = json.load(f)
         except (OSError, json.JSONDecodeError):
-            return {}
-    return {}
+            pass
+            
+    if not isinstance(presets, dict) or not presets:
+        return {"Default": []}
+    
+    if "Default" not in presets:
+        presets["Default"] = []
+        
+    return presets
 
 
 def _save_presets(presets: dict):

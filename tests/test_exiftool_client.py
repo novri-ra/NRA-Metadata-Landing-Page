@@ -100,10 +100,11 @@ class SubprocessInvocationTest(unittest.TestCase):
             fake_exe.write_bytes(b"MZ")
 
             with mock.patch("subprocess.Popen") as mock_popen:
-                mock_proc = mock.Mock()
+                mock_proc = mock.MagicMock()
                 mock_proc.stdin = mock.Mock()
                 mock_proc.communicate.return_value = (b"data", b"")
                 mock_proc.returncode = 0
+                mock_proc.__enter__.return_value = mock_proc
                 mock_popen.return_value = mock_proc
                 
                 ec._run_exiftool_stream([str(fake_exe), "-o", "-", "-"], timeout=30, input_bytes=b"x")
