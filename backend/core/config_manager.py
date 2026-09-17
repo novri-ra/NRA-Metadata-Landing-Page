@@ -228,6 +228,7 @@ def atomic_write_text(path: str, text: str) -> None:
 def _get_conn():
     conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False)
     conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
     conn.execute("PRAGMA busy_timeout=5000;")
     conn.execute(
         "CREATE TABLE IF NOT EXISTS metadata_cache (hash TEXT PRIMARY KEY, metadata TEXT)"
@@ -261,9 +262,11 @@ def _is_invalid_cache_entry(data: dict) -> bool:
     return False
 
 
+import contextlib
+
 def get_cached_metadata(file_hash: str) -> dict | None:
     global cache_hits
-    with _get_conn() as conn:
+    with contextlib.closing(_get_conn()) as conn, conn:
         row = conn.execute(
             "SELECT metadata FROM metadata_cache WHERE hash = ?", (file_hash,)
         ).fetchone()
@@ -278,7 +281,7 @@ def get_cached_metadata(file_hash: str) -> dict | None:
 
 
 def set_cached_metadata(file_hash: str, metadata: dict):
-    with _get_conn() as conn:
+    with contextlib.closing(_get_conn()) as conn, conn:
         conn.execute(
             "INSERT OR REPLACE INTO metadata_cache (hash, metadata) VALUES (?, ?)",
             (file_hash, json.dumps(metadata)),
