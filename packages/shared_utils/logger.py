@@ -61,6 +61,9 @@ class CSVLogger:
                     "Country",
                     "CountryCode",
                     "DateCreated",
+                    "Category",
+                    "PrimaryCategory",
+                    "SecondaryCategory",
                 ]
             )
 
@@ -70,6 +73,9 @@ class CSVLogger:
         title,
         description,
         keywords,
+        category="",
+        primary_category="",
+        secondary_category="",
         is_ai_generated=False,
         is_editorial=False,
         city="",
@@ -91,5 +97,8 @@ class CSVLogger:
                     country,
                     country_code,
                     date_created,
+                    category,
+                    primary_category,
+                    secondary_category,
                 ]
             )
