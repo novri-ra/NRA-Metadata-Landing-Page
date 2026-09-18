@@ -343,8 +343,9 @@ class InstallerWizard(ctk.CTk):
             self.prog_bar.set(1.0)
             self.lbl_percent.configure(text="100%")
             
-            self.log("> [SUCCESS] Deployment completed successfully.")
+            self.log("> [SUCCESS] Deployment completed successfully. Menutup installer dalam 3 detik...")
             self.btn_action.configure(text="LAUNCH APPLICATION", fg_color=C_TEXT, text_color=C_BG, command=self._launch_app)
+            self.after(3000, lambda: sys.exit(0))
             
         except Exception as e:
             self.log(f"> [FATAL ERROR] {e}")
