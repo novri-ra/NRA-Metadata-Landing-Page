@@ -32,7 +32,7 @@ def compute_dhash(image_path: str) -> int:
 
 def hamming_distance(hash1: int, hash2: int) -> int:
     """Count differing bits between two 64-bit hashes."""
-    return bin(hash1 ^ hash2).count("1")
+    return (hash1 ^ hash2).bit_count()
 
 
 def normalize_asset_name(filename: str) -> str:
@@ -104,7 +104,7 @@ class ClusterCoordinator:
 
         try:
             dhash = compute_dhash(preview_path)
-        except Exception:
+        except Exception:  # noqa: BLE001
             return True, None, None
 
         norm_name = normalize_asset_name(name)

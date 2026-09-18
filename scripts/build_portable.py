@@ -10,7 +10,6 @@ Example:
     python scripts/build_portable.py dist/AutoMetadata-GUI dist/NRA-Metadata-portable.zip
 """
 
-import shutil
 import sys
 import zipfile
 from pathlib import Path

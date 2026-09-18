@@ -94,13 +94,13 @@ class TestClustering(unittest.TestCase):
         coord.set_leader_metadata("path/to/img1.png", meta)
 
         # Variant gets metadata
-        res, out_lname = coord.get_leader_metadata("path/to/img2.png", timeout=1.0)
+        res, _out_lname = coord.get_leader_metadata("path/to/img2.png", timeout=1.0)
         self.assertIsNotNone(res)
         self.assertEqual(res["title"], "Cat")
 
         # Disable clustering
         coord2 = ClusterCoordinator(enabled=False)
-        il, ev, ln = coord2.register_asset("path/to/img1.png", self.img1_path, "cat_icon_black.png")
+        il, ev, _ln = coord2.register_asset("path/to/img1.png", self.img1_path, "cat_icon_black.png")
         self.assertTrue(il)
         self.assertIsNone(ev)
 

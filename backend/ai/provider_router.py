@@ -264,11 +264,11 @@ class AIService:
                 self.groq_client = None
 
     def _gemini_generation_config(self):
-        kwargs = dict(
-            temperature=self.temperature,
-            response_mime_type="application/json",
-            response_schema=MetadataModel,
-        )
+        kwargs = {
+            "temperature": self.temperature,
+            "response_mime_type": "application/json",
+            "response_schema": MetadataModel,
+        }
         if hasattr(genai.types, "AutomaticFunctionCallingConfig"):
             kwargs["automatic_function_calling"] = (
                 genai.types.AutomaticFunctionCallingConfig(disable=True)
@@ -533,7 +533,7 @@ class AIService:
                         self.model or "llama-3.2-11b-vision-preview",
                         response,
                     )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 err_str = str(e)
                 if detect_rate_limit(err_str):
                     _log(
@@ -777,7 +777,7 @@ class AIService:
     # --- Vision capability registry (research-backed, Sep 2026) ---
     # Models confirmed to accept image input for metadata generation.
     # ponytail: hardcoded whitelist; upgrade to API introspection when providers stabilize schema
-    VISION_WHITELIST = {
+    VISION_WHITELIST = {  # noqa: RUF012
         "Gemini": {
             "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash",
             "gemini-3.1-flash-lite", "gemini-3.5-flash-lite",
@@ -798,7 +798,7 @@ class AIService:
 
     # Matched as whole word segments (boundary-anchored), so "mistral-small"
     # blocks "mistral-small" but is decided *after* a vision-implying name.
-    NON_VISION_PATTERNS = [
+    NON_VISION_PATTERNS = [  # noqa: RUF012
         "embed", "tts", "whisper", "moderation", "transcrib", "codestral",
         "text-embedding", "davinci", "babbage", "ada", "curie",
         "gpt-3.5", "audio", "realtime", "image-gen", "dall-e",

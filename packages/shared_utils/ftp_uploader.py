@@ -67,7 +67,7 @@ class FTPClient:
                     if progress_cb:
                         progress_cb(data)
 
-                if progress_cb or True:
+                if True:
                     self.ftp.storbinary(f"STOR {filename}", f, 8192, callback=_chunk)
             return True
         except _IO_ERRORS:

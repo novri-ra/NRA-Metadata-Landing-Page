@@ -109,7 +109,7 @@ class ShutterstockDescLimitTest(unittest.TestCase):
         _sample_metadata(os.path.join(tmp, "metadata_output.csv"), description=long_desc)
         generate_microstock_csvs(tmp, {"Shutterstock"})
         with open(os.path.join(tmp, "shutterstock_export.csv"), encoding="utf-8") as f:
-            row = list(csv.DictReader(f))[0]
+            row = next(iter(csv.DictReader(f)))
         self.assertEqual(row["Description"], long_desc)
 
 

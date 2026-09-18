@@ -179,7 +179,7 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
                     return
                 _log("[WARN] ExifTool zip extracted but exiftool.exe not found inside.")
                 return
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 _log(f"[WARN] ExifTool mirror failed ({e}), trying next...")
                 continue
         _log("[WARN] All ExifTool download mirrors failed.")
@@ -223,7 +223,7 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
                 _log(f"[SUCCESS] Ghostscript installed and verified at {gs_path_new}")
             else:
                 _log("[WARN] Ghostscript installer ran but gswin64c.exe not found. Install manually or add to PATH.")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             if installer.exists():
                 os.remove(str(installer))
             _log(f"[WARN] Failed to download/install Ghostscript: {e}. Vector preview will use system PATH fallback.")
@@ -252,7 +252,7 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
                 _log("[SUCCESS] FFmpeg installed.")
             else:
                 _log("[WARN] FFmpeg zip extracted but ffmpeg.exe not found.")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             _log(f"[WARN] Failed to download FFmpeg: {e}. Video frame extraction will use system PATH fallback.")
 
     threads = []

@@ -214,7 +214,7 @@ class AppWindow(ctk.CTk):
 
         def _bg_validate():
             try:
-                is_valid, msg = self.auth.validate_session()
+                is_valid, _msg = self.auth.validate_session()
             except (requests.RequestException, json.JSONDecodeError, ValueError) as e:
                 try:
                     self.log(f"[AUTH] Session check error: {type(e).__name__}: {e}", "error")
@@ -1724,8 +1724,7 @@ class AppWindow(ctk.CTk):
         self._save_current_config()
 
     def _on_watcher_files(self, files):
-        if self.auto_watch.get() and not self.pool.is_running:
-            if any(f not in self.processed_files for f in files):
+        if self.auto_watch.get() and not self.pool.is_running and any(f not in self.processed_files for f in files):
                 self.start_processing(new_only=True)
 
     def toggle_pause(self):

@@ -62,7 +62,7 @@ def _patch_eps_dsc_title(file_path: str, title: str) -> None:
         if new_content != content:
             with open(file_path, "wb") as f:
                 f.write(new_content)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(f"Failed to patch EPS DSC Title: {e}")
 
 
@@ -167,7 +167,7 @@ class ExifToolDaemon:
                 **no_window_kwargs(),
             )
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to start ExifTool daemon: {e}")
             self._proc = None
             return False
@@ -180,10 +180,10 @@ class ExifToolDaemon:
                     self._proc.stdin.write("-stay_open\nFalse\n")
                     self._proc.stdin.flush()
                     self._proc.wait(timeout=2)
-                except Exception:
+                except Exception:  # noqa: BLE001
                     try:
                         self._proc.kill()
-                    except Exception:
+                    except Exception:  # noqa: BLE001
                         pass
                 finally:
                     self._proc = None
@@ -285,7 +285,7 @@ def _run_exiftool(
         res = daemon.execute_command(cmd, timeout=timeout, cwd=cwd)
         logger.info(f"[{file_name}] [DEBUG] ExifTool daemon completed with code {res.returncode}")
         return res
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(f"Daemon execution failed: {e}, falling back to subprocess.")
         is_exe = str(exiftool_path).lower().endswith(".exe")
         converted_cmd = [cmd[0]] + [_to_cli_path(arg, is_exe) for arg in cmd[1:]]
@@ -298,7 +298,7 @@ def _run_exiftool(
             timeout=timeout,
             cwd=cwd,
             stdin=subprocess.DEVNULL,
-            **no_window_kwargs(),
+            **no_window_kwargs(), check=False,
         )
         logger.info(f"[{file_name}] [DEBUG] ExifTool fallback completed with code {res.returncode}")
         return res

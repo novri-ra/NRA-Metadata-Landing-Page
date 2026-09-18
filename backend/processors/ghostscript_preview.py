@@ -89,7 +89,7 @@ def render_vector_preview(file_path: str, out_path: str, _log) -> str | None:
                 cmd,
                 capture_output=True,
                 timeout=RENDER_TIMEOUT,
-                **no_window_kwargs(),
+                **no_window_kwargs(), check=False,
             )
             if result.returncode != 0:
                 log(

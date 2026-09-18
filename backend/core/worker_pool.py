@@ -215,10 +215,10 @@ class FileWorkerPool:
     def _run_batch(self, paths, out_dir, options):
         try:
             self._run_batch_inner(paths, out_dir, options)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             try:
                 self._emit("log", f"Batch failed: {e}", "error")
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass
         finally:
             self.is_running = False
@@ -226,8 +226,11 @@ class FileWorkerPool:
             try:
                 self._emit("stats", self.stats_snapshot(), False)
                 self._emit("finished")
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass
+            
+            import gc
+            gc.collect()
 
     def _run_batch_inner(self, paths, out_dir, options):
         provider = options.get("provider", "Gemini")
@@ -695,7 +698,7 @@ class FileWorkerPool:
                 final_status = "cancelled"
             elif res is not False:
                 final_status = "done"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self._emit("log", f"[{name}] Error: {e!s}", "error")
             self._inc_stat("error")
         finally:
