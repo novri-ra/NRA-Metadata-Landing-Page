@@ -19,14 +19,14 @@ echo [DIR] Project Directory: %CD%
 echo %frame%
 echo.
 
-if not exist "cache" mkdir cache
-if not exist "logs" mkdir logs
-if not exist "output" mkdir output
+if not exist "logs" mkdir "logs"
+if not exist "cache" mkdir "cache"
+if not exist "output" mkdir "output"
 
 :: 0. Pra-pemeriksaan folder tools eksternal
 echo.
 echo %frame%
-echo [1/4] External tools pre-check (folder tools/)
+echo [1/3] External tools pre-check (folder tools/)
 echo %frame%
 if exist "tools\exiftool" (
     echo   [OK]  ExifTool folder : tools\exiftool
@@ -53,98 +53,65 @@ echo [i] tools/ kemudian fallback ke PATH dan direktori umum Windows.
 echo %frame%
 echo.
 
-:: 1. Deteksi Python Sistem & Cek Tkinter
+:: 1. Deteksi Virtual Environment
 echo.
 echo %frame%
-echo [2/4] Python environment check
+echo [2/3] Virtual Environment check
 echo %frame%
-where python >nul 2>&1
-if %ERRORLEVEL% neq 0 goto :CHECK_WINGET
-
-python -c "import tkinter" >nul 2>&1
-if %ERRORLEVEL% neq 0 goto :CHECK_WINGET
-
-echo [SUCCESS] Python sistem terdeteksi (Tkinter tersedia).
-
-if exist "cache\.deps_installed" goto :DEPS_CACHED
-
-echo [i] Tidak ada cache dependensi - melakukan pemasangan fresh...
-echo --------------------------------------------------------------
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt --no-warn-script-location
-if %ERRORLEVEL% equ 0 (
-    type nul > "cache\.deps_installed"
-    echo [SUCCESS] Dependensi berhasil dipasang - fresh install.
+if exist ".venv\Scripts\python.exe" (
+    echo [i] Virtual environment '.venv' ditemukan.
+    set "PYTHON_EXE=.venv\Scripts\python.exe"
 ) else (
-    echo [WARN] Instalasi dependensi mengalami kendala. Mencoba melanjutkan...
+    echo [ERROR] Virtual environment '.venv' tidak ditemukan!
+    echo [HINT] Silakan buat virtual environment menggunakan:
+    echo        python -m venv .venv
+    echo        .venv\Scripts\activate
+    echo        pip install -r requirements.txt
+    echo [HINT] Atau menggunakan uv:
+    echo        uv venv
+    echo        uv pip install -r requirements.txt
+    pause
+    exit /b 1
+)
+
+:: 2. Check Dependencies (Optional)
+if exist "cache\.deps_installed" goto :LAUNCH_APP
+
+echo [i] Tidak ada cache dependensi - melakukan pemasangan di dalam .venv...
+echo --------------------------------------------------------------
+"!PYTHON_EXE!" -m pip --version >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo [i] pip tidak ditemukan di .venv, mencoba sinkronisasi via uv...
+    where uv >nul 2>&1
+    if !ERRORLEVEL! equ 0 (
+        uv pip install -r requirements.txt
+        type nul > "cache\.deps_installed"
+        echo [SUCCESS] Dependensi berhasil dipasang via uv.
+    ) else (
+        echo [WARN] uv maupun pip tidak tersedia di .venv. Mengabaikan check pip...
+        type nul > "cache\.deps_installed"
+    )
+) else (
+    "!PYTHON_EXE!" -m pip install --upgrade pip
+    "!PYTHON_EXE!" -m pip install -r requirements.txt --no-warn-script-location
+    if !ERRORLEVEL! equ 0 (
+        type nul > "cache\.deps_installed"
+        echo [SUCCESS] Dependensi berhasil dipasang via pip.
+    ) else (
+        echo [WARN] Instalasi dependensi mengalami kendala. Mencoba melanjutkan...
+    )
 )
 echo --------------------------------------------------------------
-goto :INIT_CONFIG
-
-:DEPS_CACHED
-echo [OK] Dependensi sudah terpasang - cache cache\.deps_installed ditemukan.
-echo [*] Melewati instalasi ulang pip - hapus cache\.deps_installed untuk fresh.
-goto :INIT_CONFIG
-
-:CHECK_WINGET
-where winget >nul 2>&1
-if %ERRORLEVEL% neq 0 goto :FALLBACK_INSTALLER
-
-echo [*] Python belum terpasang. Memasang Python 3.11 via Winget...
-winget install Python.Python.3.11 --silent --accept-package-agreements --accept-source-agreements
-if %ERRORLEVEL% neq 0 goto :FALLBACK_INSTALLER
-
-set "PATH=%LOCALAPPDATA%\Programs\Python\Python311;%LOCALAPPDATA%\Programs\Python\Python311\Scripts;%PATH%"
-echo [*] Memasang dependensi (fresh install)...
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt --no-warn-script-location
-type nul > "cache\.deps_installed"
-goto :INIT_CONFIG
-
-:FALLBACK_INSTALLER
-echo [*] Mengunduh runtime Python resmi...
-if not exist "tools" mkdir tools
-set "INSTALLER_PATH=tools\python_installer.exe"
-if not exist "%INSTALLER_PATH%" (
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe' -OutFile '%INSTALLER_PATH%'"
-)
-if exist "%INSTALLER_PATH%" (
-    echo [*] Memasang Python lokal - fresh install...
-    start /wait "" "%INSTALLER_PATH%" /quiet InstallAllUsers=0 PrependPath=1 Include_tcltk=1 Include_pip=1
-    set "PATH=%LOCALAPPDATA%\Programs\Python\Python311;%LOCALAPPDATA%\Programs\Python\Python311\Scripts;%PATH%"
-    echo [*] Memasang dependensi...
-    python -m pip install -r requirements.txt --no-warn-script-location
-    type nul > "cache\.deps_installed"
-    goto :INIT_CONFIG
-)
-
-:ERROR
-echo.
-echo [ERROR] Gagal menyiapkan environment Python.
-pause
-exit /b 1
-
-:INIT_CONFIG
-echo.
-echo %frame%
-echo [3/4] Virtual Environment check
-echo %frame%
-if exist "venv\Scripts\activate.bat" (
-    echo [i] Virtual environment ditemukan. Mengaktifkan venv...
-    call "venv\Scripts\activate.bat"
-) else (
-    echo [i] venv tidak ditemukan, menggunakan global Python.
-)
 goto :LAUNCH_APP
 
 :LAUNCH_APP
 echo.
 echo %frame%
-echo [4/4] Launching NRA-Metadata
+echo [3/3] Launching NRA-Metadata
 echo %frame%
 echo [*] Menjalankan NRA-Metadata...
 echo.
-python apps\desktop\src\main.py
+"!PYTHON_EXE!" apps\desktop\src\main.py
 set "APP_EXIT=!ERRORLEVEL!"
 goto :END
 
@@ -170,5 +137,4 @@ echo ^|  Argumen opsional:               ^|
 echo ^|    --help   Tampilkan bantuan lalu keluar.  ^|
 echo ^|    --check  Pre-flight check lalu keluar.   ^|
 echo %frame%
-pause
 exit /b 0

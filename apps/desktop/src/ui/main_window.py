@@ -1840,16 +1840,20 @@ class AppWindow(ctk.CTk):
             return self.log("Path missing.", "error")
             
         try:
-            os.makedirs(out_dir, exist_ok=True)
-            test_file = os.path.join(out_dir, f".write_test_{os.getpid()}.tmp")
+            norm_dir = os.path.normpath(out_dir)
+            os.makedirs(norm_dir, exist_ok=True)
+            test_file = os.path.join(norm_dir, f".write_test_{os.getpid()}.tmp")
             with open(test_file, "w") as f:
                 f.write("test")
-            os.remove(test_file)
-        except (OSError, PermissionError):
+            try:
+                os.remove(test_file)
+            except OSError:
+                pass
+        except OSError as e:
             self.start_btn.configure(state="normal")
             import tkinter.messagebox
             tkinter.messagebox.showerror("Permission Denied", "Folder tujuan tidak memiliki izin tulis. Harap periksa hak akses atau pilih folder lain.")
-            return self.log("Target directory is read-only.", "error")
+            return self.log(f"Target directory write check failed: {e}", "error")
 
         all_files = [
             f
