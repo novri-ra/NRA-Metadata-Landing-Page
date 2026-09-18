@@ -213,12 +213,32 @@ def save_config(config: dict) -> bool:
 def atomic_write_bytes(path: str, data: bytes) -> None:
     """Write via temp file + fsync + ``os.replace`` so a crash mid-write never
     truncates the real store (config.enc / presets / exported CSVs)."""
-    tmp = f"{path}.tmp"
-    with open(tmp, "wb") as f:
-        f.write(data)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, path)
+    import time
+    
+    dir_path = os.path.dirname(path)
+    if dir_path:
+        os.makedirs(dir_path, exist_ok=True)
+        
+    base = os.path.basename(path)
+    tmp = os.path.join(dir_path, f"{base}_{os.getpid()}_{int(time.time()*1000)}.tmp")
+    
+    try:
+        with open(tmp, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except OSError:
+        # Fallback to direct write if temp file replacement is blocked (e.g. by AV)
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except OSError:
+            pass
+        with open(path, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
 
 
 def atomic_write_text(path: str, text: str) -> None:

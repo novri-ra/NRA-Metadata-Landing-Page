@@ -2,7 +2,7 @@ import csv
 import os
 import re
 import threading
-from datetime import datetime
+from datetime import UTC, datetime
 
 from packages.shared_utils.taxonomy import (
     get_adobe_category_code,
@@ -133,7 +133,7 @@ def _parse_editorial_date(raw: str) -> datetime | None:
     if not m:
         return None
     try:
-        return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)), tzinfo=UTC)
     except ValueError:
         return None
 

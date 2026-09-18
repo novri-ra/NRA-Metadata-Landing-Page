@@ -183,8 +183,8 @@ class ExifToolDaemon:
                 except Exception:  # noqa: BLE001
                     try:
                         self._proc.kill()
-                    except Exception:  # noqa: BLE001
-                        pass
+                    except Exception as e:  # noqa: BLE001
+                        print(f"Exiftool kill error: {e}")
                 finally:
                     self._proc = None
 
@@ -192,9 +192,8 @@ class ExifToolDaemon:
         """Send command to persistent daemon and await response."""
         with self._cmd_lock:
             # Auto-healing / crash recovery: revive if dead
-            if not self._is_alive():
-                if not self.start():
-                    raise RuntimeError("ExifTool daemon is not running and failed to start.")
+            if not self._is_alive() and not self.start():
+                raise RuntimeError("ExifTool daemon is not running and failed to start.")
 
             self._req_counter += 1
             seq = self._req_counter
@@ -382,7 +381,7 @@ def _run_exiftool_stream(
         stdin_arg = subprocess.PIPE
         input_data = source
     elif isinstance(source, (str, os.PathLike)) and os.path.isfile(source):
-        file_obj = open(source, "rb")
+        file_obj = open(source, "rb")  # noqa: SIM115
         stdin_arg = file_obj
     else:
         stdin_arg = subprocess.PIPE

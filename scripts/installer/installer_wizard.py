@@ -78,8 +78,8 @@ class InstallerWizard(ctk.CTk):
             ctypes.windll.user32.SetWindowLongW(hwnd, -20, style)
             self.wm_withdraw()
             self.after(10, self.wm_deiconify)
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as e:  # noqa: BLE001
+            print(f"Titlebar config error: {e}")
 
     def _build_custom_titlebar(self):
         titlebar = ctk.CTkFrame(self, height=30, corner_radius=0, fg_color=C_SURFACE)

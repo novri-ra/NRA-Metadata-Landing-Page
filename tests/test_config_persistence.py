@@ -1,25 +1,22 @@
-import unittest
 import os
-import json
-import tkinter as tk
-import customtkinter as ctk
 
 # Ensure headless mode doesn't crash on Windows
 # In this environment, it should work fine since it's Windows and UI tests passed earlier.
-
 import sys
-import os
+import unittest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "apps", "desktop", "src"))
+import tempfile
+
 from ui.main_window import AppWindow as App
 
-from unittest.mock import patch
-import tempfile
 
 class TestConfigPersistence(unittest.TestCase):
     def setUp(self):
         self.tmp_dir = tempfile.TemporaryDirectory()
-        self.patcher = patch('backend.core.config_manager.get_config_dir', return_value=self.tmp_dir.name)
-        self.patcher.start()
+        from backend.core import config_manager
+        self.old_config_dir = config_manager.get_config_dir()
+        config_manager.set_config_dir(self.tmp_dir.name)
         
         # Create a fresh app instance
         self.app = App()
@@ -28,7 +25,8 @@ class TestConfigPersistence(unittest.TestCase):
 
     def tearDown(self):
         self.app.destroy()
-        self.patcher.stop()
+        from backend.core import config_manager
+        config_manager.set_config_dir(self.old_config_dir)
         self.tmp_dir.cleanup()
 
     def test_persistence_lifecycle(self):

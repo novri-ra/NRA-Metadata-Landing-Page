@@ -33,7 +33,8 @@ def _write_master(out_dir, rows):
 
 
 class AdobeTitleSoftCapTest(unittest.TestCase):
-    KWS = ["cat", "kitten", "ball", "wool", "furry"]
+    import typing
+    KWS: typing.ClassVar[list] = ["cat", "kitten", "ball", "wool", "furry"]
 
     def test_title_71_200_warns_but_stays_valid(self):
         res = validate_compliance(
