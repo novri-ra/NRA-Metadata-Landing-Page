@@ -18,8 +18,9 @@ import tempfile
 class TestConfigPersistence(unittest.TestCase):
     def setUp(self):
         self.tmp_dir = tempfile.TemporaryDirectory()
-        self.patcher = patch('backend.core.config_manager.get_config_dir', return_value=self.tmp_dir.name)
-        self.patcher.start()
+        import backend.core.config_manager as config_manager
+        self.old_config_dir = config_manager.get_config_dir()
+        config_manager.set_config_dir(self.tmp_dir.name)
         
         # Create a fresh app instance
         self.app = App()
@@ -28,7 +29,8 @@ class TestConfigPersistence(unittest.TestCase):
 
     def tearDown(self):
         self.app.destroy()
-        self.patcher.stop()
+        import backend.core.config_manager as config_manager
+        config_manager.set_config_dir(self.old_config_dir)
         self.tmp_dir.cleanup()
 
     def test_persistence_lifecycle(self):
