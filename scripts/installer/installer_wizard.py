@@ -352,12 +352,14 @@ class InstallerWizard(ctk.CTk):
             self.btn_action.configure(text="CLOSE")
 
     def _create_shortcut(self, target, shortcut_path, description=""):
+        icon_path = target
         vbs_script = f'''
         Set oWS = WScript.CreateObject("WScript.Shell")
         Set oLink = oWS.CreateShortcut("{shortcut_path}")
         oLink.TargetPath = "{target}"
         oLink.WorkingDirectory = "{os.path.dirname(target)}"
         oLink.Description = "{description}"
+        oLink.IconLocation = "{icon_path},0"
         oLink.Save()
         '''
         try:

@@ -36,7 +36,7 @@ a = Analysis(
     ['installer_wizard.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('app.ico', '.')],
     hiddenimports=['customtkinter'],
     hookspath=[],
     hooksconfig={{}},

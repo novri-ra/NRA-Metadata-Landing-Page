@@ -1,4 +1,5 @@
 [Setup]
+SetupIconFile=app.ico
 Uninstallable=no
 AppName=NRA Metadata
 AppVersion=1.0.0
