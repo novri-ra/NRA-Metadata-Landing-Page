@@ -1,3 +1,4 @@
+import json
 import os
 import queue
 import threading
@@ -5,6 +6,8 @@ import tkinter as tk
 from datetime import UTC, datetime
 
 import customtkinter as ctk
+import requests
+from controllers.offline_retag_controller import start_offline_retag
 
 from backend.core.config_manager import (
     get_cache_hits,
@@ -18,15 +21,14 @@ from backend.core.worker_pool import (
     sync_companion_metadata,
 )
 from backend.processors.exiftool_client import ExifToolClient
-from backend.services.ftp_uploader import FTPUploader
 from backend.services.folder_watcher import FolderWatcher
+from backend.services.ftp_uploader import FTPUploader
 from packages.shared_utils.csv_exporter import (
     build_editorial_caption,
     generate_microstock_csvs,
     upsert_editorial_csv,
     upsert_metadata_csv,
 )
-from packages.shared_utils.tools_setup import ensure_tools_installed
 from packages.shared_utils.env_check import run_environment_checks
 from packages.shared_utils.filter import (
     autofix_compliance,
@@ -42,9 +44,8 @@ from packages.shared_utils.filter import (
 )
 from packages.shared_utils.license_manager import AuthClient
 from packages.shared_utils.presets import get_preset
+from packages.shared_utils.tools_setup import ensure_tools_installed
 from packages.shared_utils.updater import check_github_release
-
-from controllers.offline_retag_controller import start_offline_retag
 from ui.dialogs.batch_apply_dialog import show_batch_apply
 from ui.dialogs.batch_replace_dialog import show_batch_replace
 from ui.dialogs.batch_summary_dialog import show_batch_summary
@@ -52,8 +53,8 @@ from ui.dialogs.blacklist_dialog import show_blacklist_manager
 from ui.dialogs.ftp_dialog import show_ftp_dialog
 from ui.dialogs.keyword_presets_dialog import show_keyword_presets
 from ui.theme import (
-    C,
     CR,
+    C,
     _btn,
     _entry,
     _frame,
@@ -63,6 +64,7 @@ from ui.widgets.inspector_panel import InspectorPanel
 from ui.widgets.log_console import LogConsole
 from ui.widgets.queue_view import QueueView
 from ui.widgets.sidebar_panel import SidebarPanel
+
 
 class AppWindow(ctk.CTk):
 
@@ -212,10 +214,10 @@ class AppWindow(ctk.CTk):
         def _bg_validate():
             try:
                 is_valid, msg = self.auth.validate_session()
-            except Exception as e:
+            except (requests.RequestException, json.JSONDecodeError, ValueError) as e:
                 try:
                     self.log(f"[AUTH] Session check error: {type(e).__name__}: {e}", "error")
-                except Exception:
+                except (tk.TclError, RuntimeError):
                     pass
                 self._call_main(self.show_login_modal)
                 return
@@ -1180,7 +1182,9 @@ class AppWindow(ctk.CTk):
         def _bg_test():
             try:
                 if package == "openai":
-                    from backend.core.utils.key_manager import build_openai_compatible_client
+                    from backend.core.utils.key_manager import (
+                        build_openai_compatible_client,
+                    )
                     client = build_openai_compatible_client(base_url, api_key or "test", model)
                     models_list = client.models.list()
                     model_names = [m.id for m in models_list][:20]
@@ -1199,7 +1203,7 @@ class AppWindow(ctk.CTk):
                     data = resp.json()
                     model_names = [m.get("id", "") for m in data.get("data", [])][:20]
                     self._call_main(self._test_conn_done, True, model_names)
-            except Exception as e:
+            except (requests.RequestException, json.JSONDecodeError, ValueError) as e:
                 self._call_main(self._test_conn_done, False, str(e))
 
         import threading
@@ -1571,7 +1575,8 @@ class AppWindow(ctk.CTk):
                     "Title kosong atau masih berisi placeholder fallback AI.\n"
                     "Perbaiki title terlebih dahulu sebelum menyimpan.",
                 )
-            except Exception:
+            except (tk.TclError, RuntimeError) as e:
+                self.log(f"UI Error suppressed: {e}", "error")
                 pass
             return
         is_editorial = bool(self.config.get("editorial_enabled"))
@@ -1739,7 +1744,7 @@ class AppWindow(ctk.CTk):
         def _check():
             try:
                 is_valid, msg = self.auth.validate_session()
-            except Exception as e:
+            except (requests.RequestException, json.JSONDecodeError, ValueError) as e:
                 self.log(
                     f"[AUTH] Session check error: {type(e).__name__}: {e}", "error"
                 )
@@ -1781,10 +1786,11 @@ class AppWindow(ctk.CTk):
         def _auth_check():
             try:
                 is_valid, msg = self.auth.validate_session()
-            except Exception as e:
+            except (requests.RequestException, json.JSONDecodeError, ValueError) as e:
                 try:
                     self.log(f"[AUTH] Session check error: {type(e).__name__}: {e}", "error")
-                except Exception:
+                except (tk.TclError, RuntimeError) as e:
+                    self.log(f"UI Error suppressed: {e}", "error")
                     pass
                 self._call_main(self._on_auth_checked, False, "ERROR", new_only)
                 return

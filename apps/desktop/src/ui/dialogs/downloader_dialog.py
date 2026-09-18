@@ -1,12 +1,14 @@
+import logging
 import os
-import sys
+import subprocess
 import threading
 import time
 import urllib.request
-import subprocess
+
 import customtkinter as ctk
 
 from backend.processors._tools import no_window_kwargs
+
 
 class DownloaderDialog(ctk.CTkToplevel):
     def __init__(self, parent, url: str, dest_dir: str, title: str = "Downloader", exe_name: str = "installer.exe"):
@@ -123,8 +125,8 @@ class DownloaderDialog(ctk.CTkToplevel):
             if os.path.exists(self.installer_path):
                 try:
                     os.remove(self.installer_path)
-                except Exception:
-                    pass
+                except OSError as e:
+                    logging.getLogger(__name__).warning(f"File installer masih di-lock OS, dijadwalkan cleanup kemudian: {e}")
 
             if res.returncode == 0:
                 self.after(0, self._update_ui, "Instalasi Selesai!", 1.0, "")
