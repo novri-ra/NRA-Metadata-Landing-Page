@@ -1577,7 +1577,6 @@ class AppWindow(ctk.CTk):
                 )
             except (tk.TclError, RuntimeError) as e:
                 self.log(f"UI Error suppressed: {e}", "error")
-                pass
             return
         is_editorial = bool(self.config.get("editorial_enabled"))
         editorial_city = self.config.get("editorial_city", "")
@@ -1791,7 +1790,6 @@ class AppWindow(ctk.CTk):
                     self.log(f"[AUTH] Session check error: {type(e).__name__}: {e}", "error")
                 except (tk.TclError, RuntimeError) as e:
                     self.log(f"UI Error suppressed: {e}", "error")
-                    pass
                 self._call_main(self._on_auth_checked, False, "ERROR", new_only)
                 return
             self._call_main(self._on_auth_checked, is_valid, msg, new_only)

@@ -4,8 +4,15 @@ import os
 
 import customtkinter as ctk
 
-from backend.core.config_manager import get_file_hash, get_cached_metadata, set_cached_metadata
-from packages.shared_utils.csv_exporter import generate_microstock_csvs, upsert_metadata_csv
+from backend.core.config_manager import (
+    get_cached_metadata,
+    get_file_hash,
+    set_cached_metadata,
+)
+from packages.shared_utils.csv_exporter import (
+    generate_microstock_csvs,
+    upsert_metadata_csv,
+)
 from ui.theme import C, _btn, _combo, _entry, _label
 
 
@@ -56,7 +63,9 @@ def show_batch_replace(app):
 
     def run_replace():
         f_text = find_entry.get()
-        if not f_text:
+        if not f_text.strip():
+            from tkinter import messagebox
+            messagebox.showwarning("Input Required", "Please enter text to find.", parent=dialog)
             return
         r_text = repl_entry.get()
         field = field_cb.get()
@@ -75,6 +84,7 @@ def show_batch_replace(app):
 
         status_lbl.configure(text="Processing...", text_color=C["warn"])
 
+        replace_btn.configure(state="disabled", text="Processing...")
         def _do_replace():
             count = 0
             # Parse all output CSVs in subdirectories
@@ -161,6 +171,5 @@ def show_batch_replace(app):
         import threading
         threading.Thread(target=_do_replace, daemon=True).start()
 
-    _btn(dialog, "Replace All", C["warn"], C["warn_h"], command=run_replace).pack(
-        side="bottom", pady=16, padx=12, fill="x"
-    )
+    replace_btn = _btn(dialog, "Replace All", C["warn"], C["warn_h"], command=run_replace)
+    replace_btn.pack(side="bottom", pady=16, padx=12, fill="x")

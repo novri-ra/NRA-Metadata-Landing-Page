@@ -1,3 +1,5 @@
+import tkinter as tk
+
 import requests
 
 """Login / register modal dialog. Extracted from App.show_login_modal."""
@@ -235,7 +237,7 @@ def show_login_modal(app):
                 label.configure(text=f"\u274c {msg}", text_color=C["error"])
         except (tk.TclError, RuntimeError, AttributeError):
             pass
-        import tkinter.messagebox as messagebox
+        from tkinter import messagebox
 
         try:
             if _alive(modal):

@@ -4,7 +4,11 @@ import os
 
 import customtkinter as ctk
 
-from backend.core.config_manager import get_file_hash, get_cached_metadata, set_cached_metadata
+from backend.core.config_manager import (
+    get_cached_metadata,
+    get_file_hash,
+    set_cached_metadata,
+)
 from packages.shared_utils.csv_exporter import generate_microstock_csvs
 from ui.theme import C, _btn, _combo, _entry, _label
 
@@ -101,6 +105,7 @@ def show_batch_apply(app):
 
         status_lbl.configure(text="Applying...", text_color=C["warn"])
 
+        apply_btn.configure(state="disabled", text="Processing...")
         def _do_apply():
             applied = 0
             skipped = 0
@@ -162,11 +167,12 @@ def show_batch_apply(app):
         import threading
         threading.Thread(target=_do_apply, daemon=True).start()
 
-    _btn(
+    apply_btn = _btn(
         dialog,
         "Apply to Batch",
         C["accent"],
         C["accent_h"],
         command=run_batch_apply,
         font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
-    ).pack(fill="x", padx=12, pady=(4, 12), side="bottom")
+    )
+    apply_btn.pack(fill="x", padx=12, pady=(4, 12), side="bottom")

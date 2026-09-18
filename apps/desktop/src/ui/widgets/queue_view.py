@@ -1,6 +1,6 @@
 import customtkinter as ctk
 
-from ui.theme import C, CR, _btn, _label
+from ui.theme import CR, C, _btn, _label
 
 
 class QueueView(ctk.CTkFrame):

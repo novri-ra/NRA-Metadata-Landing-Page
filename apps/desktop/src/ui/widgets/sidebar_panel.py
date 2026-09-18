@@ -1,6 +1,16 @@
 import customtkinter as ctk
 
-from ui.theme import C, CR, _btn, _combo, _divider, _entry, _label, _section_header, _slider
+from ui.theme import (
+    CR,
+    C,
+    _btn,
+    _combo,
+    _divider,
+    _entry,
+    _label,
+    _section_header,
+    _slider,
+)
 
 
 class SidebarPanel(ctk.CTkFrame):

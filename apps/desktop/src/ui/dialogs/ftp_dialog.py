@@ -75,14 +75,26 @@ def show_ftp_dialog(app):
     preset_cb.configure(command=apply_preset)
 
     def test_conn():
+        try:
+            raw_port = port_entry.get().strip()
+            p = int(raw_port) if raw_port else 21
+            if not (1 <= p <= 65535):
+                raise ValueError("Port out of range")
+        except ValueError:
+            from tkinter import messagebox
+            messagebox.showwarning("Port Invalid", "Masukkan angka port yang valid (1-65535).", parent=dialog)
+            return
+
+        test_btn.configure(state="disabled", text="Testing...")
         status_lbl.configure(text="Testing...", text_color=C["warn"])
-        h, p = host_entry.get(), int(port_entry.get() or 21)
+        h = host_entry.get()
         u, pw = user_entry.get(), pass_entry.get()
 
         def _do_test():
             client = FTPClient(h, p, u, pw)
             ok, msg = client.connect()
             def _update_ui():
+                test_btn.configure(state="normal", text="Test Connection")
                 if ok:
                     status_lbl.configure(text="Connection OK", text_color=C["success"])
                     client.disconnect()
@@ -93,7 +105,17 @@ def show_ftp_dialog(app):
         threading.Thread(target=_do_test, daemon=True).start()
 
     def start_upload():
-        h, p = host_entry.get(), int(port_entry.get() or 21)
+        try:
+            raw_port = port_entry.get().strip()
+            p = int(raw_port) if raw_port else 21
+            if not (1 <= p <= 65535):
+                raise ValueError("Port out of range")
+        except ValueError:
+            from tkinter import messagebox
+            messagebox.showwarning("Port Invalid", "Masukkan angka port yang valid (1-65535).", parent=dialog)
+            return
+
+        h = host_entry.get()
         u, pw = user_entry.get(), pass_entry.get()
         app.config["ftp_host"] = h
         app.config["ftp_user"] = u
@@ -115,9 +137,7 @@ def show_ftp_dialog(app):
 
     btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
     btn_frame.pack(fill="x", padx=12, pady=10, side="bottom")
-    _btn(
-        btn_frame, "Test Connection", C["surface2"], C["border"], command=test_conn
-    ).pack(side="left", expand=True, padx=(0, 4))
-    _btn(
-        btn_frame, "Start Upload", C["violet"], C["violet_h"], command=start_upload
-    ).pack(side="right", expand=True, padx=(4, 0))
+    test_btn = _btn(btn_frame, "Test Connection", C["surface2"], C["border"], command=test_conn)
+    test_btn.pack(side="left", expand=True, padx=(0, 4))
+    upload_btn = _btn(btn_frame, "Start Upload", C["violet"], C["violet_h"], command=start_upload)
+    upload_btn.pack(side="right", expand=True, padx=(4, 0))

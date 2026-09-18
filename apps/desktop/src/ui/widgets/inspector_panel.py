@@ -6,7 +6,7 @@ from packages.shared_utils.filter import (
     to_title_case,
     to_uppercase,
 )
-from ui.theme import C, CR, _btn, _combo, _entry, _label
+from ui.theme import CR, C, _btn, _combo, _entry, _label
 
 
 class InspectorPanel(ctk.CTkFrame):

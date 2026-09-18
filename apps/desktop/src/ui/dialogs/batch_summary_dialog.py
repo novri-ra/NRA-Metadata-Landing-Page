@@ -1,9 +1,10 @@
 """Batch processing summary dialog. Extracted from AppWindow._show_batch_summary."""
 
 import os
+
 import customtkinter as ctk
 
-from ui.theme import C, CR, _btn, _divider
+from ui.theme import CR, C, _btn, _divider
 
 
 def show_batch_summary(app):
