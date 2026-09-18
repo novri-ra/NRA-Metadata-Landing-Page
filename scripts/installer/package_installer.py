@@ -79,10 +79,10 @@ coll = COLLECT(
     res = subprocess.run([
         sys.executable, "-m", "PyInstaller",
         "--clean", "--noconfirm",
-        "--distpath", os.path.join(root_dir, "dist", check=False),
+        "--distpath", os.path.join(root_dir, "dist"),
         "--workpath", os.path.join(root_dir, "build"),
         spec_path
-    ], cwd=installer_dir)
+    ], cwd=installer_dir, check=False)
     
     if res.returncode == 0:
         print("[3/4] [SUCCESS] Standalone Installer built at dist/Setup-GUI")
