@@ -2,7 +2,7 @@
 AppName=NRA Metadata
 AppVersion=1.0.0
 CreateAppDir=no
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
 OutputDir=..\..\dist
 OutputBaseFilename=NRA-Metadata-Setup-Final
 Compression=lzma2/fast
