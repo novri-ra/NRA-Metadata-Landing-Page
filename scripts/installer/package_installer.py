@@ -1,8 +1,8 @@
 import os
-import shutil
-import zipfile
 import subprocess
 import sys
+import zipfile
+
 
 def package_installer():
     root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -10,10 +10,10 @@ def package_installer():
     installer_dir = os.path.join(root_dir, "scripts", "installer")
     final_out_dir = os.path.join(root_dir, "dist", "NRA-Metadata-Installer")
     payload_dat = os.path.join(final_out_dir, "payload.dat")
-    setup_gui_dir = os.path.join(root_dir, "dist", "Setup-GUI")
+    os.path.join(root_dir, "dist", "Setup-GUI")
     
     if not os.path.exists(dist_dir):
-        print(f"[ERROR] dist/NRA-Metadata not found. Run main build first!")
+        print("[ERROR] dist/NRA-Metadata not found. Run main build first!")
         return False
         
     print("[1/4] Packaging dist/NRA-Metadata into payload.dat...")
@@ -31,7 +31,7 @@ def package_installer():
     print(f"[SUCCESS] Payload ready: {os.path.getsize(payload_dat) / (1024*1024):.2f} MB")
     
     print("[2/4] Compiling Standalone Installer via PyInstaller (--onedir)...")
-    spec_content = f'''# -*- mode: python ; coding: utf-8 -*-
+    spec_content = '''# -*- mode: python ; coding: utf-8 -*-
 a = Analysis(
     ['installer_wizard.py'],
     pathex=[],
@@ -39,7 +39,7 @@ a = Analysis(
     datas=[('app.ico', '.')],
     hiddenimports=['customtkinter'],
     hookspath=[],
-    hooksconfig={{}},
+    hooksconfig={},
     runtime_hooks=[],
     excludes=[],
     noarchive=False,
@@ -79,7 +79,7 @@ coll = COLLECT(
     res = subprocess.run([
         sys.executable, "-m", "PyInstaller",
         "--clean", "--noconfirm",
-        "--distpath", os.path.join(root_dir, "dist"),
+        "--distpath", os.path.join(root_dir, "dist", check=False),
         "--workpath", os.path.join(root_dir, "build"),
         spec_path
     ], cwd=installer_dir)

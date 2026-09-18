@@ -1,7 +1,13 @@
 import os
 
-from backend.core.config_manager import get_config_dir, import_rj_config, load_config, set_config_dir
 from ui.main_window import AppWindow
+
+from backend.core.config_manager import (
+    get_config_dir,
+    import_rj_config,
+    load_config,
+    set_config_dir,
+)
 
 
 def _migrate_rj_keys():

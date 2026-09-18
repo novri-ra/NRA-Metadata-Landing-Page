@@ -7,11 +7,11 @@ import os
 import threading
 
 import customtkinter as ctk
+from ui.theme import C
 
 from backend.core.config_manager import get_file_hash, set_cached_metadata
 from backend.processors.media_converter import extract_preview_image
 from packages.shared_utils.filter import clean_metadata
-from ui.theme import C
 
 
 def start_offline_retag(app):

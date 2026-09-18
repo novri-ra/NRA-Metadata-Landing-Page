@@ -1,5 +1,5 @@
-import sys
 import ctypes
+import sys
 
 # Windows console visibility flags
 SW_HIDE = 0
@@ -26,7 +26,7 @@ def toggle_console(visible: bool) -> bool:
             _console_visible = visible
             return True
         return False
-    except Exception:
+    except Exception:  # noqa: BLE001
         return False
 
 def is_console_visible() -> bool:

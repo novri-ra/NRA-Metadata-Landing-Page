@@ -3,7 +3,6 @@ import hmac
 import sys
 import time
 import uuid
-import os
 
 import requests
 
@@ -170,7 +169,7 @@ class AuthClient:
                 file=sys.stderr,
             )
             return {"status": "ERROR", "message": f"Network error: {e!s}", "network": True}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(
                 f"[AUTH] Unexpected error: {type(e).__name__}: {e}",
                 file=sys.stderr,

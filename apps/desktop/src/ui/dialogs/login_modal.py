@@ -18,6 +18,7 @@ def show_login_modal(app):
     modal.resizable(False, False)
     modal.configure(fg_color=C["bg"])
     modal.protocol("WM_DELETE_WINDOW", lambda: _close_modal())
+    modal.bind("<Escape>", lambda e: _close_modal())
     modal.attributes("-topmost", True)
     modal.update_idletasks()
 

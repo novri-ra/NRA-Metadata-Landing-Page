@@ -2,15 +2,18 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 
+
+import shlex
 
 def log(msg):
     print(f"[*] {msg}")
 
 def run_cmd(cmd, check=True):
     log(f"Running: {cmd}")
-    res = subprocess.run(cmd, shell=True)
+    if isinstance(cmd, str):
+        cmd = shlex.split(cmd)
+    res = subprocess.run(cmd, check=False)
     if check and res.returncode != 0:
         log(f"Command failed with code {res.returncode}")
         sys.exit(res.returncode)

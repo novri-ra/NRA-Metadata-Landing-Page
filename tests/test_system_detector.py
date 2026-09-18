@@ -128,7 +128,7 @@ class ToolDiscoveryTest(unittest.TestCase):
         reset_tool_cache()
         result = discover_tools(log=self._log)
         self.assertEqual(set(result), {"exiftool", "ghostscript", "ffmpeg", "gtk3"})
-        for key, value in result.items():
+        for value in result.values():
             self.assertTrue(value is None or isinstance(value, str))
         self.assertTrue(self.logs)
         reset_tool_cache()

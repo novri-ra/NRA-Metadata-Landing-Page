@@ -1,6 +1,7 @@
 import os
 import sys
 
+
 def get_app_dir() -> str:
     """Get the application directory, supporting both frozen executable and dev mode."""
     if getattr(sys, "frozen", False):

@@ -1,11 +1,12 @@
-﻿import os
+﻿import ctypes
+import os
+import subprocess
 import sys
+import tempfile
+import threading
 import time
 import zipfile
-import threading
-import tempfile
-import subprocess
-import ctypes
+
 
 def get_base_dir() -> str:
     if getattr(sys, "frozen", False):
@@ -18,7 +19,7 @@ def has_real_admin_rights() -> bool:
         os.makedirs(test_dir, exist_ok=True)
         os.rmdir(test_dir)
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001
         return False
 
 import customtkinter as ctk
@@ -77,7 +78,7 @@ class InstallerWizard(ctk.CTk):
             ctypes.windll.user32.SetWindowLongW(hwnd, -20, style)
             self.wm_withdraw()
             self.after(10, self.wm_deiconify)
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
     def _build_custom_titlebar(self):
@@ -347,7 +348,7 @@ class InstallerWizard(ctk.CTk):
             self.btn_action.configure(text="LAUNCH APPLICATION", fg_color=C_TEXT, text_color=C_BG, command=self._launch_app)
             self.after(3000, lambda: os._exit(0))
             
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self.log(f"> [FATAL ERROR] {e}")
             self.btn_action.configure(text="CLOSE")
 
@@ -366,10 +367,10 @@ class InstallerWizard(ctk.CTk):
             with tempfile.NamedTemporaryFile("w", delete=False, suffix=".vbs") as f:
                 f.write(vbs_script)
                 vbs_path = f.name
-            subprocess.run(["cscript", "//Nologo", vbs_path], creationflags=0x08000000)
+            subprocess.run(["cscript", "//Nologo", vbs_path], creationflags=0x08000000, check=False)
             os.remove(vbs_path)
             self.log(f"> Linked {os.path.basename(shortcut_path)}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self.log(f"> [WARN] Shortcut failed: {e}")
 
     def _launch_app(self):

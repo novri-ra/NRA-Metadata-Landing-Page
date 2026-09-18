@@ -1,10 +1,10 @@
 import os
-import sys
 import subprocess
-import zipfile
-import urllib.request
+import sys
 import tempfile
 import threading
+import urllib.request
+import zipfile
 from pathlib import Path
 
 from backend.processors._tools import no_window_kwargs
@@ -153,7 +153,7 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
                 _download(url, tmp_path, timeout=20)
                 if not _is_valid_zip(tmp_path):
                     os.remove(tmp_path)
-                    _log(f"[WARN] ExifTool mirror returned non-zip payload, trying next...")
+                    _log("[WARN] ExifTool mirror returned non-zip payload, trying next...")
                     continue
                 extract_dir = td / "exiftool"
                 extract_dir.mkdir(parents=True, exist_ok=True)
@@ -179,7 +179,7 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
                     return
                 _log("[WARN] ExifTool zip extracted but exiftool.exe not found inside.")
                 return
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 _log(f"[WARN] ExifTool mirror failed ({e}), trying next...")
                 continue
         _log("[WARN] All ExifTool download mirrors failed.")
@@ -223,7 +223,7 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
                 _log(f"[SUCCESS] Ghostscript installed and verified at {gs_path_new}")
             else:
                 _log("[WARN] Ghostscript installer ran but gswin64c.exe not found. Install manually or add to PATH.")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             if installer.exists():
                 os.remove(str(installer))
             _log(f"[WARN] Failed to download/install Ghostscript: {e}. Vector preview will use system PATH fallback.")
@@ -252,7 +252,7 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
                 _log("[SUCCESS] FFmpeg installed.")
             else:
                 _log("[WARN] FFmpeg zip extracted but ffmpeg.exe not found.")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             _log(f"[WARN] Failed to download FFmpeg: {e}. Video frame extraction will use system PATH fallback.")
 
     threads = []

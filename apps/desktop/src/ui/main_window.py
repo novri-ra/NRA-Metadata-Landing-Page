@@ -115,8 +115,9 @@ class AppWindow(ctk.CTk):
         self.current_edit_file = None
         self.current_edit_hash = None
 
-        self.undo_stack = []
-        self.redo_stack = []
+        import collections
+        self.undo_stack = collections.deque(maxlen=30)
+        self.redo_stack = collections.deque(maxlen=30)
         self._is_undoing = False
 
         self.log_buffer = []
@@ -213,7 +214,7 @@ class AppWindow(ctk.CTk):
 
         def _bg_validate():
             try:
-                is_valid, msg = self.auth.validate_session()
+                is_valid, _msg = self.auth.validate_session()
             except (requests.RequestException, json.JSONDecodeError, ValueError) as e:
                 try:
                     self.log(f"[AUTH] Session check error: {type(e).__name__}: {e}", "error")
@@ -255,6 +256,9 @@ class AppWindow(ctk.CTk):
         self._queue_vars.clear()
 
         for i, f in enumerate(files):
+            if i > 0 and i % 50 == 0:
+                self.update_idletasks()
+                
             row = ctk.CTkFrame(
                 self.queue_scroll,
                 fg_color=C["surface2"] if i % 2 == 0 else C["surface"],
@@ -364,8 +368,6 @@ class AppWindow(ctk.CTk):
         }
         if not self.undo_stack or self.undo_stack[-1] != state:
             self.undo_stack.append(state)
-            if len(self.undo_stack) > 50:
-                self.undo_stack.pop(0)
 
     def _restore_snapshot(self, state):
         self._is_undoing = True
@@ -376,7 +378,9 @@ class AppWindow(ctk.CTk):
         self._update_kw_counter()
         self._update_compliance()
 
-    def undo_metadata(self):
+    def undo_metadata(self, event=None):
+        if event and getattr(event.widget, "widgetName", "").lower() in ("entry", "text", "ctkentry", "ctktextbox"):
+            return
         if not self.undo_stack:
             return
         current_state = {
@@ -391,7 +395,9 @@ class AppWindow(ctk.CTk):
             state = self.undo_stack.pop()
         self._restore_snapshot(state)
 
-    def redo_metadata(self):
+    def redo_metadata(self, event=None):
+        if event and getattr(event.widget, "widgetName", "").lower() in ("entry", "text", "ctkentry", "ctktextbox"):
+            return
         if not self.redo_stack:
             return
         current_state = {
@@ -1175,6 +1181,11 @@ class AppWindow(ctk.CTk):
         if not base_url:
             self.log("Please enter a Base URL first.", "error")
             return
+            
+        if not base_url.startswith(("http://", "https://")):
+            base_url = "https://" + base_url
+            self.base_url_entry.delete(0, "end")
+            self.base_url_entry.insert(0, base_url)
 
         self.test_conn_btn.configure(text="Testing...", state="disabled")
         self.update_idletasks()
@@ -1673,7 +1684,15 @@ class AppWindow(ctk.CTk):
 
     def _is_allowed_file(self, filename: str) -> bool:
         ext = os.path.splitext(filename)[1].lower()
-        return ext in self._get_allowed_extensions()
+        if ext not in self._get_allowed_extensions():
+            return False
+        
+        in_dir = self.input_dir.get()
+        if in_dir:
+            fpath = os.path.join(in_dir, filename)
+            if os.path.isfile(fpath) and os.path.getsize(fpath) == 0:
+                return False
+        return True
 
     def _apply_auto_watch_startup(self):
         if self.auto_watch.get():
@@ -1705,8 +1724,7 @@ class AppWindow(ctk.CTk):
         self._save_current_config()
 
     def _on_watcher_files(self, files):
-        if self.auto_watch.get() and not self.pool.is_running:
-            if any(f not in self.processed_files for f in files):
+        if self.auto_watch.get() and not self.pool.is_running and any(f not in self.processed_files for f in files):
                 self.start_processing(new_only=True)
 
     def toggle_pause(self):
@@ -1820,6 +1838,18 @@ class AppWindow(ctk.CTk):
         if not in_dir:
             self.start_btn.configure(state="normal")
             return self.log("Path missing.", "error")
+            
+        try:
+            os.makedirs(out_dir, exist_ok=True)
+            test_file = os.path.join(out_dir, f".write_test_{os.getpid()}.tmp")
+            with open(test_file, "w") as f:
+                f.write("test")
+            os.remove(test_file)
+        except (OSError, PermissionError):
+            self.start_btn.configure(state="normal")
+            import tkinter.messagebox
+            tkinter.messagebox.showerror("Permission Denied", "Folder tujuan tidak memiliki izin tulis. Harap periksa hak akses atau pilih folder lain.")
+            return self.log("Target directory is read-only.", "error")
 
         all_files = [
             f

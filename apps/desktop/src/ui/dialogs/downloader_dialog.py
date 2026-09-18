@@ -18,6 +18,7 @@ class DownloaderDialog(ctk.CTkToplevel):
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
+        self.bind("<Escape>", lambda e: self.on_close())
 
         self.url = url
         self.dest_dir = dest_dir
@@ -139,7 +140,7 @@ class DownloaderDialog(ctk.CTkToplevel):
                 if self.callback:
                     self.after(0, self.callback)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             if not self._cancel_flag:
                 self.after(0, self._update_ui, f"Error: {e}", 0, "Gagal mengunduh.")
                 self.after(0, self.progress_bar.stop)

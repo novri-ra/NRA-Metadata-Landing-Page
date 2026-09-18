@@ -1,12 +1,13 @@
-import unittest
-from unittest.mock import patch, MagicMock, mock_open
 import tempfile
+import unittest
+from unittest.mock import MagicMock, mock_open, patch
+
 from PIL import Image
 
 import packages.shared_utils.tools_setup as ts
-from packages.shared_utils.csv_exporter import upsert_metadata_csv
-from packages.shared_utils.cost_tracker import CostTracker
 from backend.processors.media_converter import _safe_rgb_convert
+from packages.shared_utils.cost_tracker import CostTracker
+from packages.shared_utils.csv_exporter import upsert_metadata_csv
 from packages.shared_utils.filter import PLATFORM_RULES
 
 

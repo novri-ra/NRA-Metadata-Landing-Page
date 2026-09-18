@@ -70,7 +70,7 @@ class WorkerPoolCancelTest(unittest.TestCase):
 class CancelReentrancyTest(unittest.TestCase):
     """Restart after cancel must not be blocked by a stale is_running flag."""
 
-    _OPTIONS = {
+    _OPTIONS = {  # noqa: RUF012
         "provider": "Gemini",
         "api_keys": {},
         "model": "gemini-2.5-flash",

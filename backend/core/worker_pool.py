@@ -7,6 +7,7 @@ callers must marshal any Tk widget access onto the main thread via ``after``.
 """
 
 import os
+import random
 import shutil
 import threading
 import zipfile
@@ -21,14 +22,14 @@ from backend.core.config_manager import (
 )
 from backend.processors.exiftool_client import ExifToolClient
 from backend.processors.media_converter import extract_preview_image
+from packages.shared_utils.cost_tracker import cost_tracker
 from packages.shared_utils.csv_exporter import (
     build_editorial_caption,
     generate_microstock_csvs,
 )
-from packages.shared_utils.cost_tracker import cost_tracker
 from packages.shared_utils.filter import clean_metadata
 from packages.shared_utils.logger import CSVLogger
-import random
+
 
 # ponytail: Adaptive Cooldown replaces static 10s delay with 429 backoff
 class AdaptiveCooldown:
@@ -214,10 +215,10 @@ class FileWorkerPool:
     def _run_batch(self, paths, out_dir, options):
         try:
             self._run_batch_inner(paths, out_dir, options)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             try:
                 self._emit("log", f"Batch failed: {e}", "error")
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass
         finally:
             self.is_running = False
@@ -225,8 +226,11 @@ class FileWorkerPool:
             try:
                 self._emit("stats", self.stats_snapshot(), False)
                 self._emit("finished")
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass
+            
+            import gc
+            gc.collect()
 
     def _run_batch_inner(self, paths, out_dir, options):
         provider = options.get("provider", "Gemini")
@@ -265,7 +269,11 @@ class FileWorkerPool:
 
         import queue
         import threading
-        from backend.core.clustering import ClusterCoordinator, adapt_metadata_for_variant
+
+        from backend.core.clustering import (
+            ClusterCoordinator,
+            adapt_metadata_for_variant,
+        )
         
         q_stage1 = queue.Queue()
         q_stage2 = queue.Queue(maxsize=max_w * 2)
@@ -315,7 +323,10 @@ class FileWorkerPool:
                 def log_cb(msg, lvl="info"):
                     self._emit("log", msg, lvl)
 
-                from backend.core.worker_pool import extract_preview_image, get_file_hash
+                from backend.core.worker_pool import (
+                    extract_preview_image,
+                    get_file_hash,
+                )
                 preview = extract_preview_image(p, progress_callback=log_cb)
                 if not preview:
                     self._inc_stat("error")
@@ -345,7 +356,10 @@ class FileWorkerPool:
                     step_progress()
 
         def worker_stage2():
-            from backend.core.worker_pool import get_cached_metadata, set_cached_metadata
+            from backend.core.worker_pool import (
+                get_cached_metadata,
+                set_cached_metadata,
+            )
             while True:
                 if self.cancel_flag:
                     try:
@@ -494,10 +508,12 @@ class FileWorkerPool:
                     step_progress()
 
         def worker_stage3():
-            from packages.shared_utils.filter import clean_metadata
-            from packages.shared_utils.csv_exporter import build_editorial_caption
-            from PIL import Image
             import shutil
+
+            from PIL import Image
+
+            from packages.shared_utils.csv_exporter import build_editorial_caption
+            from packages.shared_utils.filter import clean_metadata
             while True:
                 if self.cancel_flag:
                     try:
@@ -682,8 +698,8 @@ class FileWorkerPool:
                 final_status = "cancelled"
             elif res is not False:
                 final_status = "done"
-        except Exception as e:
-            self._emit("log", f"[{name}] Error: {str(e)}", "error")
+        except Exception as e:  # noqa: BLE001
+            self._emit("log", f"[{name}] Error: {e!s}", "error")
             self._inc_stat("error")
         finally:
             self._emit("file_status", name, final_status)

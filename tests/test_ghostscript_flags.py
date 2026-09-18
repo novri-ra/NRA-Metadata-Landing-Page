@@ -1,6 +1,8 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from backend.processors.ghostscript_preview import render_vector_preview
+
 
 class GhostscriptFlagsTest(unittest.TestCase):
     @patch('backend.processors.ghostscript_preview.find_ghostscript_binary')

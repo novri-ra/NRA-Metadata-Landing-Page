@@ -1,6 +1,8 @@
 import unittest
-from unittest.mock import patch, call
+from unittest.mock import call, patch
+
 from backend.core.config_manager import _get_conn
+
 
 class SqlitePragmaTest(unittest.TestCase):
     @patch('backend.core.config_manager.sqlite3.connect')

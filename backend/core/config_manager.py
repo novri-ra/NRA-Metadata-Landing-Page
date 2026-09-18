@@ -264,6 +264,7 @@ def _is_invalid_cache_entry(data: dict) -> bool:
 
 import contextlib
 
+
 def get_cached_metadata(file_hash: str) -> dict | None:
     global cache_hits
     with contextlib.closing(_get_conn()) as conn, conn:

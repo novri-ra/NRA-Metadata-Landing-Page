@@ -17,6 +17,7 @@ def show_ftp_dialog(app):
     dialog.configure(fg_color=C["bg"])
     dialog.transient(app)
     dialog.grab_set()
+    dialog.bind("<Escape>", lambda e: dialog.destroy())
 
     _label(dialog, "Preset").pack(padx=12, pady=(12, 2), anchor="w")
     preset_cb = _combo(
