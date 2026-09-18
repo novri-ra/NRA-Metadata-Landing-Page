@@ -36,7 +36,7 @@ class _ColorFormatter(logging.Formatter):
 
 
 logger = logging.getLogger("NRA-Metadata")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 ch = logging.StreamHandler()
 ch.setFormatter(_ColorFormatter("%(levelname)s %(message)s"))
 logger.addHandler(ch)

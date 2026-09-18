@@ -28,7 +28,6 @@ from packages.shared_utils.csv_exporter import (
 )
 from packages.shared_utils.tools_setup import ensure_tools_installed
 from packages.shared_utils.env_check import run_environment_checks
-from packages.shared_utils.console_manager import toggle_console, is_console_visible
 from packages.shared_utils.filter import (
     autofix_compliance,
     calculate_quality_score,
@@ -175,7 +174,6 @@ class AppWindow(ctk.CTk):
 
         # Initial Auth Check
         self.after(100, self._check_initial_auth)
-        self.after(500, self._hide_console_init)
         self.after(
             2000,
             lambda: check_github_release(
@@ -403,17 +401,6 @@ class AppWindow(ctk.CTk):
         state = self.redo_stack.pop()
         self._restore_snapshot(state)
 
-    def _on_toggle_console(self):
-        new_state = not is_console_visible()
-        if toggle_console(new_state):
-            self.btn_toggle_console.configure(
-                text="🖥️ Hide Console" if new_state else "🖥️ Show Console"
-            )
-
-    def _hide_console_init(self):
-        if toggle_console(False):
-            self.btn_toggle_console.configure(text="🖥️ Show Console")
-
     def build_ui(self):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -438,20 +425,7 @@ class AppWindow(ctk.CTk):
             font=ctk.CTkFont(family="Segoe UI", size=11),
             text_color=C["text3"],
         )
-        self.header_status.grid(row=0, column=1, sticky="e", padx=(16, 8))
-
-        self.btn_toggle_console = ctk.CTkButton(
-            header,
-            text="🖥️ Hide Console" if is_console_visible() else "🖥️ Show Console",
-            width=100,
-            height=26,
-            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
-            fg_color=C["surface"],
-            text_color=C["text2"],
-            hover_color=C["surface2"],
-            command=self._on_toggle_console
-        )
-        self.btn_toggle_console.grid(row=0, column=2, sticky="e", padx=(0, 16))
+        self.header_status.grid(row=0, column=1, sticky="e", padx=16)
 
         # ── Outer PanedWindow: Sidebar | Main ────────────────────────
         self.outer_paned = tk.PanedWindow(

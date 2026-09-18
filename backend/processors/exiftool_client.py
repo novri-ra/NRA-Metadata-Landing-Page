@@ -469,7 +469,7 @@ def _run_exiftool_resilient(
             _prepare_target(file_path)
             shutil.copyfile(staged_path, file_path)
             _prepare_target(file_path)
-            print(
+            logger.info(
                 f"[TEMP-STAGED] {os.path.basename(file_path)}: ExifTool ditulis "
                 f"via temp folder ({tempfile.gettempdir()}) lalu disalin balik."
             )
@@ -479,7 +479,7 @@ def _run_exiftool_resilient(
             staged,
         )
     except (OSError, ValueError) as e:
-        print(f"[WARN] Temp staging fallback gagal untuk {os.path.basename(file_path)}: {e}")
+        logger.warning(f"[WARN] Temp staging fallback gagal untuk {os.path.basename(file_path)}: {e}")
         return result
     finally:
         if staged_dir and os.path.isdir(staged_dir):
@@ -504,7 +504,7 @@ def _log_exiftool_failure(
     if result.stdout and result.stdout.strip():
         rows.append(("Stdout", result.stdout.strip()))
     block = format_tool_failure("[EXIFTOOL FAILURE]", rows)
-    print(block, flush=True)
+    logger.debug(block)
     logger.error("%s failed on %s:\n%s", "ExifTool", file_path, block)
 
 
@@ -531,7 +531,7 @@ class ExifToolClient:
         _prepare_target(file_path)
         exiftool_path = get_exiftool_path()
         if not exiftool_path or not os.path.isfile(exiftool_path):
-            print(f"[EXIFTOOL ERROR] Binary tidak ditemukan di: {exiftool_path}")
+            logger.error(f"[EXIFTOOL ERROR] Binary tidak ditemukan di: {exiftool_path}")
             return False
         is_png = os.path.splitext(file_path)[1].lower() == ".png"
         cmd = [exiftool_path]
@@ -565,14 +565,14 @@ class ExifToolClient:
         try:
             result = _run_metadata_write(cmd, file_path, timeout=15)
         except subprocess.TimeoutExpired:
-            print(f"[WARN] Sanitizer timeout on {os.path.basename(file_path)}")
+            logger.warning(f"[WARN] Sanitizer timeout on {os.path.basename(file_path)}")
             return False
         except ToolExecutionError as e:
             _log_exiftool_failure(file_path, cmd, e.result)
             return False
         except (OSError, ValueError) as e:
             # We don't hard fail if sanitization fails (e.g. exiftool error on a specific file type)
-            print(f"[WARN] Sanitizer error on {os.path.basename(file_path)}: {e}")
+            logger.warning(f"[WARN] Sanitizer error on {os.path.basename(file_path)}: {e}")
             return False
         if result.returncode != 0:
             _log_exiftool_failure(file_path, cmd, result)
@@ -625,7 +625,7 @@ class ExifToolClient:
         exiftool_path = get_exiftool_path()
         if not exiftool_path or not os.path.isfile(exiftool_path):
             err_msg = f"[EXIFTOOL ERROR] Binary tidak ditemukan di: {exiftool_path}"
-            print(err_msg)
+            logger.error(err_msg)
             log_failed_file(
                 os.path.dirname(file_path),
                 os.path.basename(file_path),
@@ -727,7 +727,7 @@ class ExifToolClient:
         try:
             result = _run_metadata_write(cmd, file_path, timeout=15)
         except subprocess.TimeoutExpired:
-            print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool Timeout")
+            logger.error(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool Timeout")
             log_failed_file(
                 os.path.dirname(file_path),
                 os.path.basename(file_path),
@@ -743,7 +743,7 @@ class ExifToolClient:
             )
             return False
         except (OSError, ValueError) as e:
-            print(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool - {e}")
+            logger.error(f"[SKIP ERROR] {os.path.basename(file_path)}: ExifTool - {e}")
             log_failed_file(
                 os.path.dirname(file_path),
                 os.path.basename(file_path),
@@ -818,7 +818,7 @@ class ExifToolClient:
             tree.write(file_path, encoding="utf-8", xml_declaration=True)
             return True
         except (OSError, ValueError) as e:
-            print(f"[SKIP ERROR] {os.path.basename(file_path)}: SVG metadata - {e}")
+            logger.error(f"[SKIP ERROR] {os.path.basename(file_path)}: SVG metadata - {e}")
             log_failed_file(
                 os.path.dirname(file_path), os.path.basename(file_path), f"SVG: {e}"
             )

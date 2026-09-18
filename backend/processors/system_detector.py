@@ -51,6 +51,14 @@ def _base_dir() -> Path:
 
 
 def _tools_root() -> Path:
+    if getattr(sys, "frozen", False):
+        exe_tools = Path(sys.executable).resolve().parent / "tools"
+        if exe_tools.is_dir():
+            return exe_tools
+        if hasattr(sys, "_MEIPASS"):
+            meipass_tools = Path(sys._MEIPASS) / "tools"
+            if meipass_tools.is_dir():
+                return meipass_tools
     return _base_dir() / "tools"
 
 
