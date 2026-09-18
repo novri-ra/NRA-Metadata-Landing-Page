@@ -7,6 +7,11 @@ import tempfile
 import subprocess
 import ctypes
 
+def get_base_dir() -> str:
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(os.path.abspath(sys.executable))
+    return os.path.dirname(os.path.abspath(__file__))
+
 def has_real_admin_rights() -> bool:
     try:
         test_dir = r"C:\Program Files\_nra_admin_test"
@@ -16,22 +21,27 @@ def has_real_admin_rights() -> bool:
     except Exception:
         return False
 
-def force_elevate():
-    if not has_real_admin_rights():
+if "--elevated" not in sys.argv:
+    try:
+        is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+    except Exception:
+        is_admin = False
+
+    if not is_admin:
+        exe_path = sys.executable
+        exe_dir = get_base_dir()
+        
         if getattr(sys, 'frozen', False):
-            params = " ".join(f'"{arg}"' for arg in sys.argv[1:])
+            args = sys.argv[1:]
         else:
-            params = " ".join(f'"{arg}"' for arg in sys.argv)
+            args = sys.argv
             
+        params = ' '.join([f'"{a}"' for a in args] + ['--elevated'])
         ret = ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", sys.executable, params, None, 1
+            None, "runas", exe_path, params, exe_dir, 1
         )
         if ret > 32:
             sys.exit(0)
-        else:
-            raise PermissionError("Instalasi ke C:\\Program Files membutuhkan hak Administrator penuh.")
-
-force_elevate()
 
 import customtkinter as ctk
 
@@ -288,10 +298,7 @@ class InstallerWizard(ctk.CTk):
 
             # Step 3
             self.set_step_status(2, 1)
-            if getattr(sys, "frozen", False):
-                payload_path = os.path.join(os.path.dirname(sys.executable), "payload.dat")
-            else:
-                payload_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "payload.dat")
+            payload_path = os.path.join(get_base_dir(), "payload.dat")
                 
             if not os.path.exists(payload_path):
                 self.log("> [WARN] payload.dat NOT FOUND. Simulating extraction...")
