@@ -115,8 +115,9 @@ class AppWindow(ctk.CTk):
         self.current_edit_file = None
         self.current_edit_hash = None
 
-        self.undo_stack = []
-        self.redo_stack = []
+        import collections
+        self.undo_stack = collections.deque(maxlen=30)
+        self.redo_stack = collections.deque(maxlen=30)
         self._is_undoing = False
 
         self.log_buffer = []
@@ -364,8 +365,6 @@ class AppWindow(ctk.CTk):
         }
         if not self.undo_stack or self.undo_stack[-1] != state:
             self.undo_stack.append(state)
-            if len(self.undo_stack) > 50:
-                self.undo_stack.pop(0)
 
     def _restore_snapshot(self, state):
         self._is_undoing = True
@@ -376,7 +375,9 @@ class AppWindow(ctk.CTk):
         self._update_kw_counter()
         self._update_compliance()
 
-    def undo_metadata(self):
+    def undo_metadata(self, event=None):
+        if event and getattr(event.widget, "widgetName", "").lower() in ("entry", "text", "ctkentry", "ctktextbox"):
+            return
         if not self.undo_stack:
             return
         current_state = {
@@ -391,7 +392,9 @@ class AppWindow(ctk.CTk):
             state = self.undo_stack.pop()
         self._restore_snapshot(state)
 
-    def redo_metadata(self):
+    def redo_metadata(self, event=None):
+        if event and getattr(event.widget, "widgetName", "").lower() in ("entry", "text", "ctkentry", "ctktextbox"):
+            return
         if not self.redo_stack:
             return
         current_state = {
@@ -1175,6 +1178,11 @@ class AppWindow(ctk.CTk):
         if not base_url:
             self.log("Please enter a Base URL first.", "error")
             return
+            
+        if not base_url.startswith(("http://", "https://")):
+            base_url = "https://" + base_url
+            self.base_url_entry.delete(0, "end")
+            self.base_url_entry.insert(0, base_url)
 
         self.test_conn_btn.configure(text="Testing...", state="disabled")
         self.update_idletasks()
@@ -1673,7 +1681,15 @@ class AppWindow(ctk.CTk):
 
     def _is_allowed_file(self, filename: str) -> bool:
         ext = os.path.splitext(filename)[1].lower()
-        return ext in self._get_allowed_extensions()
+        if ext not in self._get_allowed_extensions():
+            return False
+        
+        in_dir = self.input_dir.get()
+        if in_dir:
+            fpath = os.path.join(in_dir, filename)
+            if os.path.isfile(fpath) and os.path.getsize(fpath) == 0:
+                return False
+        return True
 
     def _apply_auto_watch_startup(self):
         if self.auto_watch.get():
