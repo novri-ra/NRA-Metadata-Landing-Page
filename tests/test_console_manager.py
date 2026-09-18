@@ -1,7 +1,8 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from packages.shared_utils.console_manager import toggle_console, is_console_visible
+from packages.shared_utils.console_manager import is_console_visible, toggle_console
+
 
 class TestConsoleManager(unittest.TestCase):
     def test_toggle_console_non_win32(self):

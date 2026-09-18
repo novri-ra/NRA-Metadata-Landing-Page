@@ -4,10 +4,10 @@ import subprocess
 import tempfile
 import time
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import requests
-from pathlib import Path
 
 from backend.core import config_manager
 from backend.processors import system_detector
@@ -18,7 +18,10 @@ from packages.shared_utils.csv_exporter import (
     upsert_editorial_csv,
 )
 from packages.shared_utils.env_check import check_exiftool
-from packages.shared_utils.license_manager import AuthClient, OFFLINE_SESSION_MAX_AGE_SECONDS
+from packages.shared_utils.license_manager import (
+    OFFLINE_SESSION_MAX_AGE_SECONDS,
+    AuthClient,
+)
 
 
 class GhostscriptNumericVersionTest(unittest.TestCase):

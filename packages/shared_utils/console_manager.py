@@ -1,5 +1,5 @@
-import sys
 import ctypes
+import sys
 
 # Windows console visibility flags
 SW_HIDE = 0

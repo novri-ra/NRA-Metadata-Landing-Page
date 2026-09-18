@@ -1,5 +1,10 @@
 import unittest
-from packages.shared_utils.taxonomy import map_to_agency_category, get_adobe_category_code
+
+from packages.shared_utils.taxonomy import (
+    get_adobe_category_code,
+    map_to_agency_category,
+)
+
 
 class TestCategoryMapper(unittest.TestCase):
     def test_map_avatar_to_people(self):

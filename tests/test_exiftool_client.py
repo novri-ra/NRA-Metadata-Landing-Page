@@ -393,9 +393,11 @@ if __name__ == "__main__":
     unittest.main()
 import unittest
 
+
 class TestExifToolDaemon(unittest.TestCase):
     def test_daemon_lifecycle_and_auto_recovery(self):
         from unittest import mock
+
         from backend.processors.exiftool_client import ExifToolDaemon
 
         daemon = ExifToolDaemon()

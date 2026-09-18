@@ -1,14 +1,17 @@
-import unittest
 import os
 import tempfile
+import unittest
+
 from PIL import Image
+
 from backend.core.clustering import (
+    ClusterCoordinator,
+    adapt_metadata_for_variant,
     compute_dhash,
     hamming_distance,
     normalize_asset_name,
-    adapt_metadata_for_variant,
-    ClusterCoordinator
 )
+
 
 class TestClustering(unittest.TestCase):
     def setUp(self):

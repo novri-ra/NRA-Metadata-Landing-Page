@@ -17,6 +17,7 @@ import tempfile
 
 from PIL import Image
 
+
 def _safe_rgb_convert(img: Image.Image) -> Image.Image:
     if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
         canvas = Image.new("RGBA", img.size, (255, 255, 255, 255))

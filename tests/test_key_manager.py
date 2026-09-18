@@ -5,9 +5,10 @@ import unittest
 from backend.core.utils.key_manager import (
     build_openai_compatible_client,
     load_keys_from_file,
-    parse_api_keys,
     mask_api_key,
+    parse_api_keys,
 )
+
 
 class MaskApiKeyTest(unittest.TestCase):
     def test_mask_api_key_short(self):

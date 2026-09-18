@@ -1,10 +1,10 @@
 import os
-import sys
 import subprocess
-import zipfile
-import urllib.request
+import sys
 import tempfile
 import threading
+import urllib.request
+import zipfile
 from pathlib import Path
 
 from backend.processors._tools import no_window_kwargs
@@ -153,7 +153,7 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
                 _download(url, tmp_path, timeout=20)
                 if not _is_valid_zip(tmp_path):
                     os.remove(tmp_path)
-                    _log(f"[WARN] ExifTool mirror returned non-zip payload, trying next...")
+                    _log("[WARN] ExifTool mirror returned non-zip payload, trying next...")
                     continue
                 extract_dir = td / "exiftool"
                 extract_dir.mkdir(parents=True, exist_ok=True)

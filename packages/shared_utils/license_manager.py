@@ -3,7 +3,6 @@ import hmac
 import sys
 import time
 import uuid
-import os
 
 import requests
 

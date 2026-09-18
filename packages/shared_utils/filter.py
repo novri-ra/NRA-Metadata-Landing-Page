@@ -64,6 +64,30 @@ def _save_blacklist():
         f.writelines(f"{w}\n" for w in sorted(get_blacklist()))
 
 
+_AI_TERMS_RE = re.compile(
+    r"\b(ai generated|generated with ai|midjourney|stable diffusion|dall-e|dalle|firefly|generative ai|flux\.1|artificial intelligence|comfyui)\b",
+    re.IGNORECASE,
+)
+
+def strip_ai_terms(text: str) -> str:
+    """Hapus jejak kata kunci AI dari deskripsi dan judul."""
+    if not text:
+        return text
+    cleaned = _AI_TERMS_RE.sub("", text)
+    # Hapus koma atau spasi berlebih peninggalan regex
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    cleaned = re.sub(r"^\s*,\s*|\s*,\s*$", "", cleaned)
+    cleaned = re.sub(r"\s*,\s*", ", ", cleaned)
+    return cleaned.strip()
+
+def strip_ai_keywords(keywords: list[str]) -> list[str]:
+    """Filter list keyword dari frasa berbau AI."""
+    out = []
+    for kw in keywords:
+        if not _AI_TERMS_RE.search(kw):
+            out.append(kw)
+    return out
+
 def filter_text(text: str) -> str:
     if not text:
         return text
@@ -200,13 +224,14 @@ def expand_keywords(
     return kws[:target_kw]
 
 def clean_metadata(meta: dict, target_kw: int = 49) -> dict:
-    title = clean_title(filter_text(meta.get("title", "")))
-    description = filter_text(meta.get("description", ""))
-    keywords = sanitize_keywords(meta.get("keywords", []), target_kw)
+    title = strip_ai_terms(clean_title(filter_text(meta.get("title", ""))))
+    description = strip_ai_terms(filter_text(meta.get("description", "")))
+    keywords = strip_ai_keywords(sanitize_keywords(meta.get("keywords", []), target_kw))
     if len(keywords) < target_kw:
         needed = target_kw - len(keywords)
         context = f"{title} {description}"
         keywords += _context_keyword_candidates(context, set(keywords), needed)
+        keywords = strip_ai_keywords(keywords)
 
     return {
         "title": title,

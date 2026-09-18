@@ -31,7 +31,6 @@ from backend.ai.token_optimizer import encode_image, read_text_asset
 from packages.shared_utils import cost_tracker as _cost_tracker
 from packages.shared_utils.filter import PLATFORM_RULES
 
-
 VISION_MIN_INTERVAL = 1.5
 _vision_lock = threading.Lock()
 _last_vision_call = 0.0

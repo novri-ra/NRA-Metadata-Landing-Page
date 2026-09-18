@@ -1,7 +1,8 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from backend.core.worker_pool import FileWorkerPool, AdaptiveCooldown
+from backend.core.worker_pool import AdaptiveCooldown, FileWorkerPool
+
 
 class TestWorkerPoolCancel(unittest.TestCase):
     @patch('backend.core.worker_pool.get_file_hash', return_value='fakehash')
