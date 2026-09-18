@@ -14,9 +14,9 @@ from ui.theme import C, _btn, _combo, _entry, _label
 
 
 def show_batch_apply(app):
-    target_dir = app.input_dir.get()
+    target_dir = app.output_dir.get()
     if not target_dir or not os.path.isdir(target_dir):
-        return app.log("Set Folder first to use Batch Apply.", "error")
+        return app.log("Set Output Folder first to use Batch Apply.", "error")
     if not app.current_edit_file:
         return app.log("Select a file in the inspector first.", "error")
 

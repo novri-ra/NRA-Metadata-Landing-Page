@@ -17,9 +17,9 @@ from ui.theme import C, _btn, _combo, _entry, _label
 
 
 def show_batch_replace(app):
-    target_dir = app.input_dir.get()
+    target_dir = app.output_dir.get()
     if not target_dir or not os.path.isdir(target_dir):
-        app.log("Set Folder first to run batch replace.", "error")
+        app.log("Set Output Folder first to run batch replace.", "error")
         return
 
     dialog = ctk.CTkToplevel(app)

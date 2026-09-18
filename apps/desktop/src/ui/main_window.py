@@ -81,7 +81,7 @@ class AppWindow(ctk.CTk):
         self.input_dir.trace_add(
             "write", lambda *_: self.after(100, self._refresh_file_queue)
         )
-        self.output_dir = ctk.StringVar()
+        self.output_dir = ctk.StringVar(value=self.config.get("last_output_folder", ""))
 
         self.processor = ExifToolClient()
         self.pool = FileWorkerPool(
@@ -470,23 +470,56 @@ class AppWindow(ctk.CTk):
         # ── Folder Bar ──
         folder_bar = _frame(main)
         folder_bar.grid(row=1, column=0, sticky="ew", padx=12, pady=(12, 0))
+        folder_bar.grid_columnconfigure(0, weight=1)
         folder_bar.grid_columnconfigure(1, weight=1)
 
+        # Left Column: Input Folder
+        in_frame = ctk.CTkFrame(folder_bar, fg_color="transparent")
+        in_frame.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        in_frame.grid_columnconfigure(1, weight=1)
+
         _label(
-            folder_bar,
-            "Folder",
+            in_frame,
+            "Input Folder",
             font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
             text_color=C["text"],
         ).grid(row=0, column=0, padx=12, pady=10, sticky="w")
-        _entry(folder_bar, self.input_dir).grid(
+        self.input_folder_entry = _entry(in_frame, self.input_dir)
+        self.input_folder_entry.grid(
             row=0, column=1, padx=0, pady=10, sticky="ew"
         )
         _btn(
-            folder_bar,
+            in_frame,
             "Browse",
             C["surface2"],
             C["border"],
             command=self.browse_input,
+            width=72,
+            height=28,
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+        ).grid(row=0, column=2, padx=(8, 12), pady=10)
+
+        # Right Column: Output Folder
+        out_frame = ctk.CTkFrame(folder_bar, fg_color="transparent")
+        out_frame.grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        out_frame.grid_columnconfigure(1, weight=1)
+
+        _label(
+            out_frame,
+            "Output Folder",
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            text_color=C["text"],
+        ).grid(row=0, column=0, padx=12, pady=10, sticky="w")
+        self.output_folder_entry = _entry(out_frame, self.output_dir)
+        self.output_folder_entry.grid(
+            row=0, column=1, padx=0, pady=10, sticky="ew"
+        )
+        _btn(
+            out_frame,
+            "Browse",
+            C["surface2"],
+            C["border"],
+            command=self.browse_output,
             width=72,
             height=28,
             font=ctk.CTkFont(family="Segoe UI", size=11),
@@ -979,6 +1012,7 @@ class AppWindow(ctk.CTk):
                     "target_platform": self.target_plat_var.get(),
                     "sync_companion_files": self.sync_companions.get(),
                     "last_folder": self.input_dir.get(),
+                    "last_output_folder": self.output_dir.get(),
                     "active_profile": self.preset_var.get(),
                     "is_editorial": bool(self.config.get("editorial_enabled")),
                     "editorial_city": self.config.get("editorial_city", ""),
@@ -1654,6 +1688,13 @@ class AppWindow(ctk.CTk):
         dir_path = ctk.filedialog.askdirectory()
         if dir_path:
             self.input_dir.set(dir_path)
+            if not self.output_dir.get().strip():
+                self.output_dir.set(dir_path)
+
+    def browse_output(self):
+        dir_path = ctk.filedialog.askdirectory()
+        if dir_path:
+            self.output_dir.set(dir_path)
 
     def open_ftp_dialog(self):
         self._require_license(self._do_open_ftp, "FTP Upload")
@@ -1834,10 +1875,17 @@ class AppWindow(ctk.CTk):
         self._save_current_config()
 
         in_dir = self.input_dir.get()
-        out_dir = in_dir
+        out_dir = self.output_dir.get()
+        if not out_dir.strip():
+            out_dir = in_dir
+            self.output_dir.set(out_dir)
+
         if not in_dir:
             self.start_btn.configure(state="normal")
-            return self.log("Path missing.", "error")
+            return self.log("Input Path missing.", "error")
+        if not out_dir:
+            self.start_btn.configure(state="normal")
+            return self.log("Output Path missing.", "error")
             
         try:
             norm_dir = os.path.normpath(out_dir)

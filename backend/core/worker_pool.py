@@ -170,7 +170,7 @@ class FileWorkerPool:
                 return True
         return False
 
-    def start(self, paths, in_dir, options) -> bool:
+    def start(self, paths, out_dir, options) -> bool:
         """Begin the batch in a background thread. Returns False if already running."""
         if self.is_running and not self.reap_stale():
             return False
@@ -178,6 +178,7 @@ class FileWorkerPool:
         self.cancel_flag = False
         self.cancel_event.clear()
         self.pause_event.set()
+        
         base_delay = float(options.get("delay") or 2.5)
         self.cooldown = AdaptiveCooldown(base_min=base_delay, base_max=base_delay + 1.0)
         self.stats = {"total": len(paths), "success": 0, "error": 0}
@@ -190,7 +191,7 @@ class FileWorkerPool:
         }
         self._emit("stats", self.stats_snapshot(), True)
         t = threading.Thread(
-            target=self._run_batch, args=(paths, in_dir, options), daemon=True
+            target=self._run_batch, args=(paths, out_dir, options), daemon=True
         )
         self._batch_thread = t
         t.start()
