@@ -32,3 +32,4 @@ Type: filesandordirs; Name: "{localappdata}\NRA-Metadata"
 Type: filesandordirs; Name: "{userdesktop}\NRA-Metadata.lnk"
 Type: filesandordirs; Name: "{commonprograms}\NRA-Metadata.lnk"
 Type: filesandordirs; Name: "{userprograms}\NRA-Metadata.lnk"
+
