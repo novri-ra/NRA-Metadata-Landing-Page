@@ -17,6 +17,16 @@ Otomasi tingkat profesional untuk analisis visual, pembangkitan Title / Descript
 
 ---
 
+## 📦 Instalasi & Penggunaan (Standalone Installer)
+
+Rilis terbaru menyediakan Windows Installer yang dapat dijalankan secara mandiri.
+
+* **Lokasi Artefak:** `dist/NRA-Metadata-Setup-Final.exe`
+* **Instalasi:** Jalankan installer wizard untuk instalasi otomatis (secara default ke `C:\Program Files\NRA-Metadata`).
+* **Uninstalasi:** Prosedur uninstall resmi didukung melalui *Windows Settings > Installed Apps*, atau langsung mengeksekusi `unins000.exe` di direktori instalasi.
+
+---
+
 ## 🛠️ Konfigurasi Google Apps Script (Auth Server)
 Jika Anda men-deploy server autentikasi mandiri (Google Apps Script), pastikan pengaturan *New Deployment* berikut untuk menghindari error *redirect* halaman HTML:
 - **Execute as**: Me (`email_anda@gmail.com`)

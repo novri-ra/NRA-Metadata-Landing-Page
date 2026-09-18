@@ -1,3 +1,7 @@
+import tkinter as tk
+
+import requests
+
 """Login / register modal dialog. Extracted from App.show_login_modal."""
 
 import customtkinter as ctk
@@ -25,7 +29,7 @@ def show_login_modal(app):
     def _alive(widget):
         try:
             return bool(widget.winfo_exists())
-        except Exception:
+        except (tk.TclError, RuntimeError, AttributeError):
             return False
 
     # Center Screen
@@ -46,7 +50,7 @@ def show_login_modal(app):
         try:
             modal.attributes("-alpha", alpha)
             modal.after(15, lambda: fade_in(alpha))
-        except Exception:
+        except (tk.TclError, RuntimeError, AttributeError):
             return
 
     fade_in()
@@ -231,14 +235,14 @@ def show_login_modal(app):
         try:
             if _alive(label):
                 label.configure(text=f"\u274c {msg}", text_color=C["error"])
-        except Exception:
+        except (tk.TclError, RuntimeError, AttributeError):
             pass
-        import tkinter.messagebox as messagebox
+        from tkinter import messagebox
 
         try:
             if _alive(modal):
                 messagebox.showerror("Autentikasi", msg, parent=modal)
-        except Exception:
+        except (tk.TclError, RuntimeError, AttributeError):
             pass
 
     def _do_login():
@@ -259,7 +263,7 @@ def show_login_modal(app):
         def _bg():
             try:
                 res = app.auth.login(u, p)
-            except Exception as e:
+            except (requests.RequestException, ValueError, KeyError) as e:
                 msg = f"Login error: {e!s}"
                 try:
                     modal.after(
@@ -268,12 +272,12 @@ def show_login_modal(app):
                             {"status": "ERROR", "message": msg}, u
                         ),
                     )
-                except Exception:
+                except (tk.TclError, RuntimeError, AttributeError):
                     pass
                 return
             try:
                 modal.after(0, lambda: _login_done(res, u))
-            except Exception:
+            except (tk.TclError, RuntimeError, AttributeError):
                 pass
 
         import threading
@@ -285,7 +289,7 @@ def show_login_modal(app):
             return
         try:
             btn_login.configure(state="normal", text="\U0001f680 Masuk ke Aplikasi")
-        except Exception:
+        except (tk.TclError, RuntimeError, AttributeError):
             return
         try:
             if res.get("error"):
@@ -323,18 +327,18 @@ def show_login_modal(app):
                         try:
                             modal.attributes("-alpha", alpha)
                             modal.after(15, lambda: fade_out(alpha))
-                        except Exception:
+                        except (tk.TclError, RuntimeError, AttributeError):
                             app._auth_modal_open = False
                             return
                     else:
                         app._auth_modal_open = False
                         try:
                             modal.destroy()
-                        except Exception:
+                        except (tk.TclError, RuntimeError, AttributeError):
                             pass
                         try:
                             app.deiconify()
-                        except Exception:
+                        except (tk.TclError, RuntimeError, AttributeError):
                             pass
 
                 fade_out()
@@ -350,7 +354,7 @@ def show_login_modal(app):
                         text=f"\u274c {res.get('message', 'Error login')}",
                         text_color=C["error"],
                     )
-        except Exception:
+        except (tk.TclError, RuntimeError, AttributeError):
             return
 
     btn_login.configure(command=_do_login)
@@ -461,7 +465,7 @@ def show_login_modal(app):
                     data["username"],
                     data["password"],
                 )
-            except Exception as e:
+            except (requests.RequestException, ValueError, KeyError) as e:
                 msg = f"Registrasi error: {e!s}"
                 try:
                     modal.after(
@@ -471,12 +475,12 @@ def show_login_modal(app):
                             data["username"],
                         ),
                     )
-                except Exception:
+                except (tk.TclError, RuntimeError, AttributeError):
                     pass
                 return
             try:
                 modal.after(0, lambda: _reg_done(res, data["username"]))
-            except Exception:
+            except (tk.TclError, RuntimeError, AttributeError):
                 pass
 
         import threading
@@ -490,7 +494,7 @@ def show_login_modal(app):
             btn_reg.configure(
                 state="normal", text="\u2728 Buat Akun & Gabung Komunitas"
             )
-        except Exception:
+        except (tk.TclError, RuntimeError, AttributeError):
             return
         try:
             if res.get("error"):
@@ -511,7 +515,7 @@ def show_login_modal(app):
                         text=f"\u274c {res.get('message', 'Error registrasi')}",
                         text_color=C["error"],
                     )
-        except Exception:
+        except (tk.TclError, RuntimeError, AttributeError):
             return
 
     btn_reg.configure(command=_do_register)

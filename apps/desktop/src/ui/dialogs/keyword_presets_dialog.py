@@ -10,7 +10,7 @@ from packages.shared_utils.presets import (
     import_presets,
 )
 from packages.shared_utils.presets import save_preset as save_kw_preset
-from ui.theme import C, CR, _btn, _divider, _entry, _label
+from ui.theme import CR, C, _btn, _divider, _entry, _label
 
 
 def show_keyword_presets(app):

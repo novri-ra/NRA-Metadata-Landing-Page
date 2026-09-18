@@ -7,7 +7,7 @@ from packages.shared_utils.filter import (
     get_blacklist,
     remove_from_blacklist,
 )
-from ui.theme import C, CR, _btn, _entry, _label
+from ui.theme import CR, C, _btn, _entry, _label
 
 
 def show_blacklist_manager(app):
