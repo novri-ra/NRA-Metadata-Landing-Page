@@ -214,7 +214,6 @@ def atomic_write_bytes(path: str, data: bytes) -> None:
     """Write via temp file + fsync + ``os.replace`` so a crash mid-write never
     truncates the real store (config.enc / presets / exported CSVs)."""
     import time
-    import tempfile
     
     dir_path = os.path.dirname(path)
     if dir_path:
@@ -229,7 +228,7 @@ def atomic_write_bytes(path: str, data: bytes) -> None:
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp, path)
-    except OSError as e:
+    except OSError:
         # Fallback to direct write if temp file replacement is blocked (e.g. by AV)
         try:
             if os.path.exists(tmp):

@@ -11,7 +11,8 @@ def check_exiftool() -> tuple[bool, str]:
         from backend.processors.system_detector import detect_exiftool
 
         path = detect_exiftool(silent=True)
-    except Exception:  # pragma: no cover - import guard for exotic layouts
+    except Exception as e:  # noqa: BLE001
+        print(f"detect_exiftool error: {e}")
         path = None
     if path:
         return True, f"Found at {path}"
@@ -26,8 +27,8 @@ def check_exiftool() -> tuple[bool, str]:
             if found:
                 cmd = [found, "-ver"]
                 cwd = os.path.dirname(os.path.abspath(found))
-        except Exception:  # pragma: no cover - which() quirks
-            pass
+        except Exception as e:  # noqa: BLE001
+            print(f"which() error: {e}")
         res = subprocess.run(
             cmd,
             capture_output=True,

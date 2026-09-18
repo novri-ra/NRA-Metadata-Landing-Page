@@ -27,11 +27,10 @@ class TestPatch2026(unittest.TestCase):
             if "Path traversal attempt detected" in msg:
                 caught_errors.append(msg)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with tempfile.TemporaryDirectory() as tmpdir, \
+             patch('packages.shared_utils.tools_setup.discover_tools', return_value={'exiftool': None, 'ghostscript': 'gs', 'ffmpeg': 'ffmpeg'}), \
+             patch('packages.shared_utils.tools_setup.find_ghostscript_binary', return_value='gs'):
             # Force discovery to fail so it attempts download
-            with patch('packages.shared_utils.tools_setup.discover_tools', 
-                       return_value={'exiftool': None, 'ghostscript': 'gs', 'ffmpeg': 'ffmpeg'}), \
-                 patch('packages.shared_utils.tools_setup.find_ghostscript_binary', return_value='gs'):
                 
                 ts.ensure_tools_installed(tools_dir=tmpdir, progress_callback=progress_callback)
         

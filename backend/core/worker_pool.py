@@ -219,16 +219,16 @@ class FileWorkerPool:
         except Exception as e:  # noqa: BLE001
             try:
                 self._emit("log", f"Batch failed: {e}", "error")
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as inner_e:  # noqa: BLE001
+                print(f"Worker pool cleanup error: {inner_e}")
         finally:
             self.is_running = False
             self._batch_thread = None
             try:
                 self._emit("stats", self.stats_snapshot(), False)
                 self._emit("finished")
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as inner_e:  # noqa: BLE001
+                print(f"Worker pool cleanup error: {inner_e}")
             
             import gc
             gc.collect()

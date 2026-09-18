@@ -2,6 +2,7 @@ import csv
 import os
 import tempfile
 import time
+import typing
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -85,7 +86,7 @@ class ReplaceDialogScopeTest(unittest.TestCase):
 class ShutterstockDescLimitTest(unittest.TestCase):
     """S6: Shutterstock description quota raised 200 -> 2000 chars."""
 
-    KWS = ["one", "two", "three", "four", "five", "six", "seven"]
+    KWS: typing.ClassVar[list] = ["one", "two", "three", "four", "five", "six", "seven"]
 
     def test_desc_max_chars_raised_to_2000(self):
         self.assertEqual(PLATFORM_RULES["Shutterstock"]["desc_max_chars"], 2000)

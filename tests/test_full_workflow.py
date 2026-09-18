@@ -2,6 +2,7 @@ import csv
 import os
 import tempfile
 import time
+import typing
 import unittest
 from unittest import mock
 
@@ -363,7 +364,7 @@ class TestRateLimitHandling(unittest.TestCase):
         from backend.ai.provider_router import _retry_after_seconds
 
         class Resp:
-            headers = {"Retry-After": "25"}
+            headers: typing.ClassVar[dict] = {"Retry-After": "25"}
 
         class Exc:
             response = Resp()
@@ -374,7 +375,7 @@ class TestRateLimitHandling(unittest.TestCase):
         from backend.ai.provider_router import _retry_after_seconds
 
         class Resp:
-            headers = {"Retry-After": "abc"}
+            headers: typing.ClassVar[dict] = {"Retry-After": "abc"}
 
         class Exc:
             response = Resp()
@@ -442,7 +443,7 @@ class TestRateLimitHandling(unittest.TestCase):
         def side_effect(*args, **kwargs):
             calls.append(len(calls))
             if len(calls) == 1:
-                raise Exception("503 UNAVAILABLE: This model is currently experiencing high demand.")
+                raise RuntimeError("503 UNAVAILABLE: This model is currently experiencing high demand.")
             return DummyResponse()
 
         ai.gemini_client = mock.Mock()

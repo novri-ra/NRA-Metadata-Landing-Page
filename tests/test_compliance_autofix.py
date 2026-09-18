@@ -40,7 +40,8 @@ class AutofixRecoveryTest(unittest.TestCase):
 
 
 class DescriptionValidationTest(unittest.TestCase):
-    KWS = ["one", "two", "three", "four", "five", "six", "seven"]
+    import typing
+    KWS: typing.ClassVar[list] = ["one", "two", "three", "four", "five", "six", "seven"]
 
     def test_short_description_flagged(self):
         res = validate_compliance(
