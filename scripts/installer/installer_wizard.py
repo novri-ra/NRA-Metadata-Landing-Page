@@ -21,6 +21,28 @@ def has_real_admin_rights() -> bool:
     except Exception:
         return False
 
+if "--elevated" not in sys.argv:
+    try:
+        is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+    except Exception:
+        is_admin = False
+
+    if not is_admin:
+        exe_path = sys.executable
+        exe_dir = get_base_dir()
+        
+        if getattr(sys, 'frozen', False):
+            args = sys.argv[1:]
+        else:
+            args = sys.argv
+            
+        params = ' '.join([f'"{a}"' for a in args] + ['--elevated'])
+        ret = ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", exe_path, params, exe_dir, 1
+        )
+        if ret > 32:
+            sys.exit(0)
+
 import customtkinter as ctk
 
 # --- Color Palette (Hermes Agent Style) ---
