@@ -5,14 +5,14 @@ CreateAppDir=no
 PrivilegesRequired=admin
 OutputDir=..\..\dist
 OutputBaseFilename=NRA-Metadata-Setup-Final
-Compression=lzma2/ultra64
-SolidCompression=yes
+Compression=lzma2/fast
+SolidCompression=no
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 
 [Files]
 Source: "..\..\dist\Setup-GUI\*"; DestDir: "{tmp}\Setup-GUI"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\..\dist\NRA-Metadata-Installer\payload.dat"; DestDir: "{tmp}"; Flags: ignoreversion
+Source: "..\..\dist\NRA-Metadata-Installer\payload.dat"; DestDir: "{tmp}\Setup-GUI"; Flags: ignoreversion
 
 [Run]
-Filename: "{tmp}\Setup-GUI\Setup.exe"; Flags: waituntilterminated skipifsilent
+Filename: "{tmp}\Setup-GUI\Setup.exe"; WorkingDir: "{tmp}\Setup-GUI"; Flags: waituntilterminated skipifsilent

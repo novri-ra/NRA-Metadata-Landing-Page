@@ -87,18 +87,21 @@ coll = COLLECT(
     if res.returncode == 0:
         print("[3/4] [SUCCESS] Standalone Installer built at dist/Setup-GUI")
         
-        print("[4/4] Wrapping with Inno Setup...")
+        print("Membungkus dengan Inno Setup (Tunggu hingga selesai)...")
+        final_exe = r"dist\NRA-Metadata-Setup-Final.exe"
+        if os.path.exists(final_exe):
+            os.remove(final_exe)
+        
         iscc_path = os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Programs', 'Inno Setup 6', 'ISCC.exe')
         if not os.path.exists(iscc_path):
             iscc_path = "iscc"
-            
-        wrapper_iss = os.path.join(installer_dir, "setup_wrapper.iss")
-        iss_res = subprocess.run([iscc_path, wrapper_iss])
-        if iss_res.returncode == 0:
-            print("[SUCCESS] Final setup wrapper built at dist/NRA-Metadata-Setup-Final.exe")
+        
+        try:
+            subprocess.run([iscc_path, "scripts/installer/setup_wrapper.iss"], check=True)
+            print("Build Inno Setup berhasil 100% tanpa corrupt!")
             return True
-        else:
-            print("[ERROR] Inno Setup compilation failed.")
+        except subprocess.CalledProcessError as e:
+            print(f"FATAL ERROR: Build Inno Setup gagal di tengah jalan! {e}")
             return False
             
     print("[ERROR] PyInstaller build failed.")
