@@ -28,6 +28,7 @@ def show_batch_replace(app):
     dialog.configure(fg_color=C["bg"])
     dialog.transient(app)
     dialog.grab_set()
+    dialog.bind("<Escape>", lambda e: dialog.destroy())
 
     _label(dialog, "Target Field").pack(padx=12, pady=(12, 2), anchor="w")
     field_cb = _combo(dialog, ["All Fields", "Title", "Description", "Keywords"])

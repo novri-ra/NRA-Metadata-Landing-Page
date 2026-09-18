@@ -256,6 +256,9 @@ class AppWindow(ctk.CTk):
         self._queue_vars.clear()
 
         for i, f in enumerate(files):
+            if i > 0 and i % 50 == 0:
+                self.update_idletasks()
+                
             row = ctk.CTkFrame(
                 self.queue_scroll,
                 fg_color=C["surface2"] if i % 2 == 0 else C["surface"],
@@ -1836,6 +1839,18 @@ class AppWindow(ctk.CTk):
         if not in_dir:
             self.start_btn.configure(state="normal")
             return self.log("Path missing.", "error")
+            
+        try:
+            os.makedirs(out_dir, exist_ok=True)
+            test_file = os.path.join(out_dir, f".write_test_{os.getpid()}.tmp")
+            with open(test_file, "w") as f:
+                f.write("test")
+            os.remove(test_file)
+        except (OSError, PermissionError):
+            self.start_btn.configure(state="normal")
+            import tkinter.messagebox
+            tkinter.messagebox.showerror("Permission Denied", "Folder tujuan tidak memiliki izin tulis. Harap periksa hak akses atau pilih folder lain.")
+            return self.log("Target directory is read-only.", "error")
 
         all_files = [
             f

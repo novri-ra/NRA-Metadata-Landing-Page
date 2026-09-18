@@ -18,6 +18,7 @@ class DownloaderDialog(ctk.CTkToplevel):
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
+        self.bind("<Escape>", lambda e: self.on_close())
 
         self.url = url
         self.dest_dir = dest_dir

@@ -17,6 +17,7 @@ def show_blacklist_manager(app):
     dialog.configure(fg_color=C["bg"])
     dialog.transient(app)
     dialog.grab_set()
+    dialog.bind("<Escape>", lambda e: dialog.destroy())
 
     _label(dialog, "Add New Word(s): (comma separated)").pack(
         padx=12, pady=(12, 2), anchor="w"
