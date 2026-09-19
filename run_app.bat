@@ -62,16 +62,27 @@ if exist ".venv\Scripts\python.exe" (
     echo [i] Virtual environment '.venv' ditemukan.
     set "PYTHON_EXE=.venv\Scripts\python.exe"
 ) else (
-    echo [ERROR] Virtual environment '.venv' tidak ditemukan!
-    echo [HINT] Silakan buat virtual environment menggunakan:
-    echo        python -m venv .venv
-    echo        .venv\Scripts\activate
-    echo        pip install -r requirements.txt
-    echo [HINT] Atau menggunakan uv:
-    echo        uv venv
-    echo        uv pip install -r requirements.txt
-    pause
-    exit /b 1
+    echo [WARN] Virtual environment '.venv' tidak ditemukan!
+    echo [*] Membuat virtual environment baru secara otomatis...
+
+    where uv >nul 2>&1
+    if %ERRORLEVEL% equ 0 (
+        echo [i] Menggunakan 'uv' untuk membuat venv...
+        uv venv
+    ) else (
+        echo [i] Menggunakan 'python' bawaan untuk membuat venv...
+        python -m venv .venv
+    )
+
+    if exist ".venv\Scripts\python.exe" (
+        echo [SUCCESS] Virtual environment berhasil dibuat.
+        set "PYTHON_EXE=.venv\Scripts\python.exe"
+        if exist "cache\.deps_installed" del /q "cache\.deps_installed"
+    ) else (
+        echo [ERROR] Gagal membuat virtual environment. Pastikan Python terinstal dan masuk ke PATH.
+        pause
+        exit /b 1
+    )
 )
 
 :: 2. Check Dependencies (Optional)
