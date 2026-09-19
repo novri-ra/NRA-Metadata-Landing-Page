@@ -5,11 +5,10 @@ Encrypted config persistence (DPAPI on Windows) and local metadata cache
 ``packages/shared_utils/config.py`` and ``packages/shared_utils/cache.py``
 with the same public API so UI/CLI layers only need an import change.
 
-Storage location is configurable and mirrors the reference application's
-convention: on Windows it defaults to ``%USERPROFILE%\\Documents\\NRA
-Metadata`` (the reference stores its own data in ``Documents\\RJ Auto
-Metadata``). Override with ``set_config_dir()`` or the ``NRA_CONFIG_DIR``
-environment variable; non-Windows falls back to the current directory.
+Storage location is configurable: on Windows it defaults to
+``%USERPROFILE%\\Documents\\NRA Metadata``. Override with
+``set_config_dir()`` or the ``NRA_CONFIG_DIR`` environment variable;
+non-Windows falls back to the current directory.
 """
 
 import base64
@@ -28,12 +27,7 @@ _OBFUSCATION_TAG = b"NRA_OBF_1:"
 _XOR_KEY = b"NRA!meta"
 _DPAPI_HEADER = b"\x01\x00\x00\x00"
 
-# RJ Auto Metadata (reference application) keeps its plaintext config under
-# the user's Documents folder. NRA-Metadata keeps the same provider API keys
-# but stores them encrypted.
-_RJ_DOCS_FOLDER = "RJ Auto Metadata"
 _NRA_DOCS_FOLDER = "NRA Metadata"
-_RJ_PROVIDER_MAPPING = {"Gemini", "OpenAI", "Groq", "Mistral"}
 
 
 def _default_data_dir():
@@ -313,115 +307,3 @@ def get_cache_hits() -> int:
     return cache_hits
 
 
-# ---------------------------------------------------------------------------
-# RJ Auto Metadata interoperability
-# ---------------------------------------------------------------------------
-
-
-def find_rj_config(path=None) -> str | None:
-    """Locate the reference application's plaintext config.json.
-
-    Defaults to ``Documents\\RJ Auto Metadata\\config.json`` on Windows.
-    Returns None when the file does not exist.
-    """
-    if path:
-        return path if os.path.exists(path) else None
-    if sys.platform == "win32":
-        profile = os.environ.get("USERPROFILE")
-        if profile:
-            candidate = os.path.join(profile, "Documents", _RJ_DOCS_FOLDER, "config.json")
-            if os.path.exists(candidate):
-                return candidate
-    return None
-
-
-def import_rj_config(path=None, merge=True) -> dict:
-    """Import API keys and model preferences from RJ Auto Metadata.
-
-    Reads the reference app's plaintext ``config.json`` (unencrypted by
-    design upstream) and merges provider keys into the encrypted NRA store.
-    Keys already present in the NRA store are never overwritten unless
-    ``merge=False``. Sensitive material only ever leaves/enters the NRA side
-    through ``save_config`` (DPAPI-encrypted on Windows).
-
-    Returns a summary dict with keys: ``imported``, ``source``,
-    ``providers_added``, ``skipped_providers``, ``models``, ``hints``.
-    """
-    rj_path = find_rj_config(path)
-    if not rj_path:
-        return {"imported": False, "reason": "RJ Auto Metadata config.json not found"}
-    try:
-        with open(rj_path, "r", encoding="utf-8") as f:
-            raw = json.load(f)
-    except (OSError, json.JSONDecodeError) as e:
-        return {"imported": False, "reason": str(e)}
-    if not isinstance(raw, dict):
-        return {"imported": False, "reason": "RJ config malformed (not an object)"}
-
-    cfg = load_config()
-    api_keys = cfg.get("api_keys")
-    if not isinstance(api_keys, dict):
-        api_keys = {}
-
-    by_provider = raw.get("api_keys_by_provider")
-    if not isinstance(by_provider, dict):
-        flat = raw.get("api_keys")
-        by_provider = {"Gemini": flat} if isinstance(flat, list) else {}
-
-    added, skipped = {}, []
-    for provider, keys in by_provider.items():
-        if not isinstance(keys, list) or not any(isinstance(k, str) and k for k in keys):
-            continue
-        if provider not in _RJ_PROVIDER_MAPPING:
-            skipped.append(provider)
-            continue
-        current = api_keys.get(provider)
-        if merge and current and str(current).strip():
-            continue
-        api_keys[provider] = "\n".join(k for k in keys if isinstance(k, str))
-        added[provider] = sum(1 for k in keys if isinstance(k, str))
-    cfg["api_keys"] = api_keys
-
-    models = raw.get("models_by_provider", {})
-    selected = raw.get("selected_model_by_provider", {})
-    merged_models = {}
-    for provider in _RJ_PROVIDER_MAPPING:
-        if provider not in api_keys or not str(api_keys[provider]).strip():
-            continue
-        model = selected.get(provider)
-        if not model and isinstance(models.get(provider), list) and models[provider]:
-            model = models[provider][0]
-        if model:
-            merged_models[provider] = model
-
-    hints = {}
-    if raw.get("model"):
-        hints["rj_default_model"] = raw["model"]
-    if raw.get("priority"):
-        hints["rj_priority"] = raw["priority"]
-    if raw.get("keyword_count"):
-        hints["rj_keyword_count"] = raw["keyword_count"]
-    if raw.get("embedding"):
-        hints["rj_embedding"] = raw["embedding"]
-    if raw.get("custom_base_url"):
-        hints["rj_custom_base_url"] = raw["custom_base_url"]
-
-    provider = raw.get("provider")
-    if provider in _RJ_PROVIDER_MAPPING and not cfg.get("provider"):
-        cfg["provider"] = provider
-        cfg["model"] = merged_models.get(provider) or raw.get("model", "")
-
-    if merged_models:
-        cfg.setdefault("models_by_provider", {}).update(merged_models)
-
-    cfg.update({k: v for k, v in hints.items() if v not in (None, "")})
-    save_config(cfg)
-
-    return {
-        "imported": True,
-        "source": rj_path,
-        "providers_added": added,
-        "skipped_providers": skipped,
-        "models": merged_models,
-        "hints": hints,
-    }
