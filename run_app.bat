@@ -113,6 +113,16 @@ if %ERRORLEVEL% neq 0 (
     )
 )
 echo --------------------------------------------------------------
+
+echo.
+echo %frame%
+echo [2.5/3] Auto-Download External Tools (ExifTool, FFmpeg)
+echo %frame%
+"!PYTHON_EXE!" scripts\setup_tools.py
+if %ERRORLEVEL% neq 0 (
+    echo [WARN] Gagal mengunduh beberapa tools. Beberapa fitur pemrosesan mungkin tidak berjalan optimal.
+)
+
 goto :LAUNCH_APP
 
 :LAUNCH_APP
