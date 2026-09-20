@@ -124,6 +124,7 @@ class AppWindow(ctk.CTk):
         self.log_lock = threading.Lock()
         self._log_queue = queue.Queue()
         self._tk_queue = queue.Queue()
+        self._closing = False
         self.tools_ready = False
 
         self.MODEL_MAP = {
@@ -705,12 +706,18 @@ class AppWindow(ctk.CTk):
         self.after(interval, self._flush_log_queue)
 
     def _flush_tk_queue(self):
+        # Teardown: stop polling and rescheduling once close has begun so no
+        # stale after() callback fires against destroyed widgets.
+        if self._closing:
+            return
         try:
             while True:
                 fn, args, kwargs = self._tk_queue.get_nowait()
                 try:
                     fn(*args, **kwargs)
                 except tk.TclError:
+                    # Widget destroyed mid-update only happens during the brief
+                    # destroy() window before _closing takes effect.
                     pass
         except queue.Empty:
             pass
@@ -1035,6 +1042,7 @@ class AppWindow(ctk.CTk):
         save_config(self.config)
 
     def _on_close(self):
+        self._closing = True
         self._stop_watcher()
         self.pool.cancel()
         self._save_current_config()
