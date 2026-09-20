@@ -1312,8 +1312,6 @@ class AppWindow(ctk.CTk):
             return cr
         author = self.author_entry.get().strip()
         if author:
-            from datetime import UTC
-
             return (
                 f"Copyright (c) {datetime.now(UTC).year} {author}. All rights reserved."
             )

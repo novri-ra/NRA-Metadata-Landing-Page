@@ -6,7 +6,9 @@ thread-safe callbacks (log/progress/stats/preview/batch-complete/finished);
 callers must marshal any Tk widget access onto the main thread via ``after``.
 """
 
+import gc
 import os
+import queue
 import random
 import shutil
 import threading
@@ -15,6 +17,10 @@ import zipfile
 from PIL import Image
 
 from backend.ai.provider_router import AIService
+from backend.core.clustering import (
+    ClusterCoordinator,
+    adapt_metadata_for_variant,
+)
 from backend.core.config_manager import (
     get_cached_metadata,
     get_file_hash,
@@ -27,7 +33,7 @@ from packages.shared_utils.csv_exporter import (
     build_editorial_caption,
     generate_microstock_csvs,
 )
-from packages.shared_utils.filter import clean_metadata
+from packages.shared_utils.filter import clean_metadata, expand_keywords
 from packages.shared_utils.logger import CSVLogger
 
 
@@ -230,7 +236,6 @@ class FileWorkerPool:
             except Exception as inner_e:  # noqa: BLE001
                 print(f"Worker pool cleanup error: {inner_e}")
             
-            import gc
             gc.collect()
 
     def _run_batch_inner(self, paths, out_dir, options):
@@ -262,20 +267,6 @@ class FileWorkerPool:
         cost_before = cost_tracker.estimated_cost_usd
         tokens_before = cost_tracker.estimated_tokens
 
-
-        def submit(f):
-            return self._executor.submit(
-                self._process_file, f, processed_dir, ai, options, csv_logger
-            )
-
-        import queue
-        import threading
-
-        from backend.core.clustering import (
-            ClusterCoordinator,
-            adapt_metadata_for_variant,
-        )
-        
         q_stage1 = queue.Queue()
         q_stage2 = queue.Queue(maxsize=max_w * 2)
         q_stage3 = queue.Queue(maxsize=max_w * 2)
@@ -324,10 +315,6 @@ class FileWorkerPool:
                 def log_cb(msg, lvl="info"):
                     self._emit("log", msg, lvl)
 
-                from backend.core.worker_pool import (
-                    extract_preview_image,
-                    get_file_hash,
-                )
                 preview = extract_preview_image(p, progress_callback=log_cb)
                 if not preview:
                     self._inc_stat("error")
@@ -357,10 +344,6 @@ class FileWorkerPool:
                     step_progress()
 
         def worker_stage2():
-            from backend.core.worker_pool import (
-                get_cached_metadata,
-                set_cached_metadata,
-            )
             while True:
                 if self.cancel_flag:
                     try:
@@ -409,7 +392,6 @@ class FileWorkerPool:
                     meta = cached
                     old_len = len(meta.get("keywords", []))
                     if old_len < target_kw:
-                        from packages.shared_utils.filter import expand_keywords
                         meta["keywords"] = expand_keywords(
                             meta.get("keywords", []), 
                             target_kw, 
@@ -509,12 +491,6 @@ class FileWorkerPool:
                     step_progress()
 
         def worker_stage3():
-            import shutil
-
-            from PIL import Image
-
-            from packages.shared_utils.csv_exporter import build_editorial_caption
-            from packages.shared_utils.filter import clean_metadata
             while True:
                 if self.cancel_flag:
                     try:
@@ -551,7 +527,6 @@ class FileWorkerPool:
 
                 meta = clean_metadata(meta, target_kw)
                 if len(meta.get("keywords", [])) < target_kw:
-                    from packages.shared_utils.filter import expand_keywords
                     meta["keywords"] = expand_keywords(
                         meta.get("keywords", []), 
                         target_kw, 
@@ -588,7 +563,6 @@ class FileWorkerPool:
                 ):
                     self._emit("log", f"[{name}] [DEBUG] Metadata embedded. Proceeding to CSV export...", "info")
                     if options.get("sync_companions"):
-                        from backend.core.worker_pool import sync_companion_metadata
                         synced = sync_companion_metadata(
                             final_path, title, desc, keywords, self.processor,
                             options.get("copyright", ""), options.get("author", ""),
@@ -726,7 +700,6 @@ class FileWorkerPool:
             meta = cached
             old_len = len(meta.get("keywords", []))
             if old_len < target_kw:
-                from packages.shared_utils.filter import expand_keywords
                 meta["keywords"] = expand_keywords(
                     meta.get("keywords", []), 
                     target_kw, 
@@ -838,7 +811,6 @@ class FileWorkerPool:
         
         # Ensure exact count for fresh AI output as well, just like cache hit
         if len(meta.get("keywords", [])) < target_kw:
-            from packages.shared_utils.filter import expand_keywords
             meta["keywords"] = expand_keywords(
                 meta.get("keywords", []), 
                 target_kw, 

@@ -1,5 +1,6 @@
 import os
 import re
+import threading
 
 from backend.core.config_manager import get_config_dir
 
@@ -14,6 +15,7 @@ _TITLE_BANNED_PREFIX_RE = re.compile(
 )
 
 _blacklist = set()
+_blacklist_lock = threading.RLock()
 
 
 def blacklist_path() -> str:
@@ -36,32 +38,40 @@ def _load_blacklist() -> set:
 
 def get_blacklist() -> set:
     global _blacklist
-    if not _blacklist:
-        _blacklist = _load_blacklist()
-    return _blacklist
+    with _blacklist_lock:
+        if not _blacklist:
+            _blacklist = _load_blacklist()
+        return _blacklist
+
+
+def snapshot_blacklist() -> set:
+    """Safe to iterate while another thread mutates the blacklist."""
+    with _blacklist_lock:
+        return set(get_blacklist())
 
 
 def add_to_blacklist(words: list[str]):
-    global _blacklist
-    _blacklist = get_blacklist()
-    for w in words:
-        if w.strip():
-            _blacklist.add(w.strip().lower())
+    with _blacklist_lock:
+        for w in words:
+            if w.strip():
+                get_blacklist().add(w.strip().lower())
     _save_blacklist()
 
 
 def remove_from_blacklist(word: str):
-    _blacklist = get_blacklist()
     w = word.strip().lower()
-    if w in _blacklist:
-        _blacklist.remove(w)
+    with _blacklist_lock:
+        if w in get_blacklist():
+            get_blacklist().remove(w)
     _save_blacklist()
 
 
 def _save_blacklist():
+    with _blacklist_lock:
+        words = sorted(get_blacklist())
     # Save custom ones out, we don't necessarily have to separate built-ins, just dump all
     with open(blacklist_path(), "w", encoding="utf-8") as f:
-        f.writelines(f"{w}\n" for w in sorted(get_blacklist()))
+        f.writelines(f"{w}\n" for w in words)
 
 
 _AI_TERMS_RE = re.compile(
@@ -91,7 +101,7 @@ def strip_ai_keywords(keywords: list[str]) -> list[str]:
 def filter_text(text: str) -> str:
     if not text:
         return text
-    bl = get_blacklist()
+    bl = snapshot_blacklist()
     for word in bl:
         text = re.sub(rf"\b{re.escape(word)}\b", "", text, flags=re.IGNORECASE)
     return re.sub(r"\s+", " ", text).strip()

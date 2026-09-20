@@ -57,7 +57,11 @@ class FTPClient:
         if self.cancel_check():
             return False
 
-        filename = remote_filename or os.path.basename(local_path)
+        # Strip CR/LF from the filename so an attacker cannot smuggle
+        # additional FTP commands into the STOR path.
+        filename = (remote_filename or os.path.basename(local_path)).replace(
+            "\r", ""
+        ).replace("\n", "")
         try:
             with open(local_path, "rb") as f:
 

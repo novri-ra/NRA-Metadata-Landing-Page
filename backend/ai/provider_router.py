@@ -14,6 +14,8 @@ import os
 import re
 import threading
 import time
+from datetime import UTC
+from email.utils import parsedate_to_datetime
 
 import requests
 from google import genai
@@ -133,7 +135,14 @@ def _retry_after_seconds(exc) -> float | None:
     try:
         return min(max(float(value), 1), 60)
     except (TypeError, ValueError):
-        return None
+        # Some servers send an HTTP-date (RFC 9110) instead of delta-seconds.
+        try:
+            dt = parsedate_to_datetime(value)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=UTC)
+            return min(max(dt.timestamp() - time.time(), 1), 60)
+        except (TypeError, ValueError, OverflowError):
+            return None
 
 
 def _mask_secret(text: str, secret: str) -> str:
@@ -236,11 +245,15 @@ class AIService:
         self.failover.bind_provider(provider)
         self.model = model
         self.temperature = temperature
-        self.base_url = None
-        if custom_base_url:
-            self.base_url = normalize_base_url(custom_base_url)
-        elif self.provider == "Custom":
-            self.base_url = normalize_base_url(None)
+        self._client_lock = threading.RLock()
+        # Avoid a half-rebuilt client pair when two worker threads rotate keys
+        # (rotate_key + _init_clients) at the same time (see _run_batch).
+        self.base_url = normalize_base_url(custom_base_url) if custom_base_url else None
+        if self.provider == "Custom" and not self.base_url:
+            raise ValueError(
+                "Custom provider requires a non-empty base URL "
+                "(an OpenAI-compatible endpoint)."
+            )
         self._init_clients()
 
     @property
@@ -261,6 +274,7 @@ class AIService:
 
                 self.groq_client = groq.Groq(api_key=self.api_key)
             except ImportError:
+                print("[WARN] groq SDK not installed; Groq provider unavailable.")
                 self.groq_client = None
 
     def _gemini_generation_config(self):
@@ -357,9 +371,7 @@ class AIService:
             target_kw, style_guide, extra_prompt, platform=platform, editorial=editorial
         )
 
-        is_text_fallback = image_path.endswith(".svg") and not image_path.endswith(
-            ".jpg"
-        )
+        is_text_fallback = image_path.endswith(".svg")
 
         max_retries = self.failover.max_retries
         backoff_times = self.failover.backoff_times
@@ -601,8 +613,9 @@ class AIService:
                         _log(
                             f"[{filename}] API Key #{self.failover.keyring.index() + 1} exhausted on {self.provider}. Rotating to next key...", "warn"
                         )
-                        self.failover.rotate_key()
-                        self._init_clients()  # re-init clients with new key
+                        with self._client_lock:
+                            self.failover.rotate_key()
+                            self._init_clients()  # re-init clients with new key
                         if attempt < max_retries:
                             continue  # retry immediately with new key
 

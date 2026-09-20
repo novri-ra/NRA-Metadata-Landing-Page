@@ -85,14 +85,31 @@ def show_batch_replace(app):
 
         status_lbl.configure(text="Processing...", text_color=C["warn"])
 
+        # Snapshot widget state on the main thread; the worker only reads copies.
+        input_dir = app.input_dir.get()
+        allowed_exts = app._get_allowed_extensions()
+        copyright_text = app._get_copyright_text()
+        author = app.author_entry.get().strip()
+        csv_platforms = app._get_selected_csv_platforms()
+
+        def _is_allowed_file(fname: str) -> bool:
+            if os.path.splitext(fname)[1].lower() not in allowed_exts:
+                return False
+            if input_dir:
+                src = os.path.join(input_dir, fname)
+                if os.path.isfile(src) and os.path.getsize(src) == 0:
+                    return False
+            return True
+
         replace_btn.configure(state="disabled", text="Processing...")
         def _do_replace():
             count = 0
+            csv_failed = 0
             # Parse all output CSVs in subdirectories
             for root, _, files in os.walk(target_dir):
                 for fname in files:
                     # we modify cache AND embed via processor
-                    if app._is_allowed_file(fname):
+                    if _is_allowed_file(fname):
                         fpath = os.path.join(root, fname)
                         fhash = get_file_hash(fpath)
                         meta = get_cached_metadata(fhash)
@@ -132,8 +149,8 @@ def show_batch_replace(app):
                                 meta["title"],
                                 meta["description"],
                                 meta["keywords"],
-                                app._get_copyright_text(),
-                                app.author_entry.get().strip(),
+                                copyright_text,
+                                author,
                             )
 
                             # update sub-dir csv
@@ -148,9 +165,9 @@ def show_batch_replace(app):
                                     meta["keywords"],
                                 )
                             except OSError:
-                                pass
+                                csv_failed += 1
 
-            generate_microstock_csvs(target_dir, app._get_selected_csv_platforms())
+            generate_microstock_csvs(target_dir, csv_platforms)
 
             def _update_ui():
                 # also update UI if current file is active
@@ -162,9 +179,16 @@ def show_batch_replace(app):
                         app.edit_desc_var.set(m.get("description", ""))
                         app.edit_kws_var.set(", ".join(m.get("keywords", [])))
 
-                app.log(
-                    f"Batch Replace: Replaced {count} occurrences of '{f_text}'.", "success"
-                )
+                if csv_failed:
+                    app.log(
+                        f"Batch Replace: Replaced {count} occurrences of '{f_text}'. "
+                        f"{csv_failed} CSV update(s) skipped (file locked).",
+                        "success",
+                    )
+                else:
+                    app.log(
+                        f"Batch Replace: Replaced {count} occurrences of '{f_text}'.", "success"
+                    )
                 dialog.destroy()
             
             dialog.after(0, _update_ui)
@@ -174,3 +198,5 @@ def show_batch_replace(app):
 
     replace_btn = _btn(dialog, "Replace All", C["warn"], C["warn_h"], command=run_replace)
     replace_btn.pack(side="bottom", pady=16, padx=12, fill="x")
+    find_entry.focus_set()
+    dialog.bind("<Return>", lambda _e: run_replace())

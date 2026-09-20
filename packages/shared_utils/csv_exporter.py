@@ -18,7 +18,12 @@ def sanitize_text(s: str, semi: str = ",") -> str:
     s = s.replace('"', "'")
     if semi is not None:
         s = s.replace(";", semi)
-    return s.strip()
+    s = s.strip()
+    # CSV formula injection: a leading =, +, - or @ is treated as a formula
+    # by Excel/Google Sheets. Prefix with a single quote to force text mode.
+    if s[:1] in ("=", "+", "-", "@"):
+        s = "'" + s
+    return s
 
 
 def fmt_str(s: str, max_len: int, min_len: int = 0, semi: str = ",") -> str:
@@ -85,10 +90,6 @@ def fmt_kw(s: str, min_count: int = 0, max_count: int = 50, semi: str = ",", ter
         # iStock/Getty reject individual free-text terms longer than 64 chars.
         kws = [k[:term_max] for k in kws]
     return ", ".join(kws[:max_count])
-
-
-def fmt_kw_limited(s: str, max_count: int) -> str:
-    return fmt_kw(s, 0, max_count)
 
 
 def is_illus(fname: str) -> str:

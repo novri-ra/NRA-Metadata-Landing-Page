@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 from PIL import Image
@@ -7,35 +8,33 @@ from PIL import Image
 import packages.shared_utils.tools_setup as ts
 from backend.processors.media_converter import _safe_rgb_convert
 from packages.shared_utils.cost_tracker import CostTracker
-from packages.shared_utils.csv_exporter import upsert_metadata_csv
+from packages.shared_utils.csv_exporter import sanitize_text, upsert_metadata_csv
 from packages.shared_utils.filter import PLATFORM_RULES
+from scripts.setup_tools import setup_exiftool
 
 
 class TestPatch2026(unittest.TestCase):
     
-    @patch('packages.shared_utils.tools_setup._download')
-    @patch('packages.shared_utils.tools_setup._is_valid_zip', return_value=True)
-    @patch('packages.shared_utils.tools_setup.zipfile.ZipFile')
-    def test_zip_slip_prevention(self, mock_zip, mock_is_valid, mock_download):
+    @patch('scripts.setup_tools.download')
+    @patch('scripts.setup_tools.check_zip', return_value=True)
+    @patch('scripts.setup_tools.zipfile.ZipFile')
+    def test_zip_slip_prevention(self, mock_zip, mock_check_zip, mock_download):
         mock_zf = MagicMock()
-        # Simulate a path traversal attempt
-        mock_zf.namelist.return_value = ['../malicious.exe']
+        # A traversal member plus a legit one; only the safe member may extract.
+        mock_zf.namelist.return_value = ['../malicious.exe', 'exiftool(-k).exe']
         mock_zip.return_value.__enter__.return_value = mock_zf
-        
-        caught_errors = []
-        def progress_callback(msg):
-            if "Path traversal attempt detected" in msg:
-                caught_errors.append(msg)
 
-        with tempfile.TemporaryDirectory() as tmpdir, \
-             patch('packages.shared_utils.tools_setup.discover_tools', return_value={'exiftool': None, 'ghostscript': 'gs', 'ffmpeg': 'ffmpeg'}), \
-             patch('packages.shared_utils.tools_setup.find_ghostscript_binary', return_value='gs'):
-            # Force discovery to fail so it attempts download
-                
-                ts.ensure_tools_installed(tools_dir=tmpdir, progress_callback=progress_callback)
-        
-        self.assertTrue(any("../malicious.exe" in e for e in caught_errors))
-        mock_zf.extract.assert_not_called()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            setup_exiftool(Path(tmpdir))
+
+        extracted = [call.args[0] for call in mock_zf.extract.call_args_list]
+        self.assertNotIn('../malicious.exe', extracted)
+        self.assertIn('exiftool(-k).exe', extracted)
+
+    def test_csv_formula_injection_neutralized(self):
+        for evil in ("=2+2", "+CMD", "-1e10", "@SUM(A1)"):
+            self.assertTrue(sanitize_text(evil).startswith("'"))
+        self.assertEqual(sanitize_text("ordinary title"), "ordinary title")
 
     @patch('builtins.open', new_callable=mock_open)
     @patch('packages.shared_utils.csv_exporter._csv_lock')

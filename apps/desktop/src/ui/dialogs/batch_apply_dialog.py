@@ -106,16 +106,33 @@ def show_batch_apply(app):
 
         status_lbl.configure(text="Applying...", text_color=C["warn"])
 
+        # Snapshot widget state on the main thread; the worker only reads copies.
+        input_dir = app.input_dir.get()
+        allowed_exts = app._get_allowed_extensions()
+        copyright_text = app._get_copyright_text()
+        author = app.author_entry.get().strip()
+        csv_platforms = app._get_selected_csv_platforms()
+        edit_file = app.current_edit_file
+
+        def _is_allowed_file(fname: str) -> bool:
+            if os.path.splitext(fname)[1].lower() not in allowed_exts:
+                return False
+            if input_dir:
+                src = os.path.join(input_dir, fname)
+                if os.path.isfile(src) and os.path.getsize(src) == 0:
+                    return False
+            return True
+
         apply_btn.configure(state="disabled", text="Processing...")
         def _do_apply():
             applied = 0
             skipped = 0
             for root, _, files in os.walk(target_dir):
                 for fname in files:
-                    if not app._is_allowed_file(fname):
+                    if not _is_allowed_file(fname):
                         continue
                     fpath = os.path.join(root, fname)
-                    if fpath == app.current_edit_file:
+                    if fpath == edit_file:
                         continue
 
                     # Extension filter
@@ -149,13 +166,13 @@ def show_batch_apply(app):
                         new_title,
                         new_desc,
                         new_kws,
-                        app._get_copyright_text(),
-                        app.author_entry.get().strip(),
+                        copyright_text,
+                        author,
                     )
                     applied += 1
 
             if applied > 0:
-                generate_microstock_csvs(target_dir, app._get_selected_csv_platforms())
+                generate_microstock_csvs(target_dir, csv_platforms)
 
             def _update_ui():
                 app.log(
@@ -177,3 +194,5 @@ def show_batch_apply(app):
         font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
     )
     apply_btn.pack(fill="x", padx=12, pady=(4, 12), side="bottom")
+    ext_entry.focus_set()
+    dialog.bind("<Return>", lambda _e: run_batch_apply())

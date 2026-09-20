@@ -1,5 +1,6 @@
 ﻿import ctypes
 import os
+import queue
 import subprocess
 import sys
 import tempfile
@@ -66,8 +67,25 @@ class InstallerWizard(ctk.CTk):
         self.pages = {}
         self._build_welcome_page()
         self._build_install_page()
-        
+
+        # UI updates from the install worker are marshaled through a queue
+        # polled on the Tk main thread - the worker never touches widgets.
+        self._ui_queue = queue.Queue()
+        self.after(100, self._drain_ui_queue)
+
         self.show_page("welcome")
+
+    def _drain_ui_queue(self):
+        try:
+            while True:
+                fn, args = self._ui_queue.get_nowait()
+                fn(*args)
+        except queue.Empty:
+            pass
+        self.after(100, self._drain_ui_queue)
+
+    def _ui(self, fn, *args):
+        self._ui_queue.put((fn, args))
 
     def _force_taskbar_icon(self):
         try:
@@ -247,85 +265,94 @@ class InstallerWizard(ctk.CTk):
 
     def _install_worker(self):
         try:
-            program_files = os.environ.get("ProgramW6432", os.environ.get("ProgramFiles", "C:\\Program Files"))
+            program_files = os.environ.get("ProgramW6432", os.environ.get("ProgramFiles", r"C:\Program Files"))
             install_dir = os.path.join(program_files, "NRA-Metadata")
             
             # Step 1
-            self.set_step_status(0, 1)
-            self.log("> Checking administrator privileges...")
+            self._ui(self.set_step_status, 0, 1)
+            self._ui(self.log, "> Checking administrator privileges...")
             time.sleep(0.5)
             if not has_real_admin_rights():
-                self.log("> [WARN] Program Files write access blocked. Will fallback to Local AppData.")
-            self.set_step_status(0, 2)
-            self.lbl_counter.configure(text="1 of 6 steps complete")
-            self.prog_bar.set(0.1)
+                self._ui(self.log, "> [WARN] Program Files write access blocked. Will fallback to Local AppData.")
+            self._ui(self.set_step_status, 0, 2)
+            self._ui(self.lbl_counter.configure, text="1 of 6 steps complete")
+            self._ui(self.prog_bar.set, 0.1)
 
             # Step 2
-            self.set_step_status(1, 1)
-            self.log(f"> Creating directory: {install_dir}")
+            self._ui(self.set_step_status, 1, 1)
+            self._ui(self.log, f"> Creating directory: {install_dir}")
             try:
                 os.makedirs(install_dir, exist_ok=True)
             except PermissionError as pe:
-                self.log(f"> [INFO] Program Files terproteksi khusus ({pe}), mengalihkan instalasi ke Local AppData...")
+                self._ui(self.log, f"> [INFO] Program Files terproteksi khusus ({pe}), mengalihkan instalasi ke Local AppData...")
                 install_dir = os.path.expandvars(r"%LOCALAPPDATA%\Programs\NRA-Metadata")
-                self.log(f"> New target: {install_dir}")
+                self._ui(self.log, f"> New target: {install_dir}")
                 os.makedirs(install_dir, exist_ok=True)
             time.sleep(0.5)
-            self.set_step_status(1, 2)
-            self.lbl_counter.configure(text="2 of 6 steps complete")
-            self.prog_bar.set(0.2)
+            self._ui(self.set_step_status, 1, 2)
+            self._ui(self.lbl_counter.configure, text="2 of 6 steps complete")
+            self._ui(self.prog_bar.set, 0.2)
 
             # Step 3
-            self.set_step_status(2, 1)
+            self._ui(self.set_step_status, 2, 1)
             payload_path = os.path.join(get_base_dir(), "payload.dat")
                 
             if not os.path.exists(payload_path):
-                self.log("> [WARN] payload.dat NOT FOUND. Simulating extraction...")
+                self._ui(self.log, "> [WARN] payload.dat NOT FOUND. Simulating extraction...")
                 for i in range(1, 51):
                     time.sleep(0.02)
-                    self.prog_bar.set(0.2 + (i/50.0)*0.5)
-                    self.lbl_percent.configure(text=f"{int(20 + i)}%")
+                    self._ui(self.prog_bar.set, 0.2 + (i/50.0)*0.5)
+                    self._ui(self.lbl_percent.configure, text=f"{int(20 + i)}%")
                     if i % 5 == 0:
-                        self.log(f"> Extracting core_module_{i}.bin...")
+                        self._ui(self.log, f"> Extracting core_module_{i}.bin...")
             else:
-                self.log(f"> Found payload: {payload_path}")
+                self._ui(self.log, f"> Found payload: {payload_path}")
                 with zipfile.ZipFile(payload_path, 'r') as zf:
                     members = zf.infolist()
+                    install_root = os.path.realpath(install_dir)
                     total = len(members)
                     for i, member in enumerate(members):
+                        # Zip-slip guard: reject members that escape install_dir.
+                        target_abs = os.path.realpath(
+                            os.path.join(install_dir, member.filename)
+                        )
+                        if not target_abs.startswith(install_root + os.sep):
+                            raise ValueError(
+                                f"Blocked unsafe path inside payload: {member.filename}"
+                            )
                         zf.extract(member, install_dir)
                         progress = 0.2 + ((i + 1) / total) * 0.5
-                        self.prog_bar.set(progress)
-                        self.lbl_percent.configure(text=f"{int(progress*100)}%")
+                        self._ui(self.prog_bar.set, progress)
+                        self._ui(self.lbl_percent.configure, text=f"{int(progress*100)}%")
                         if i % max(1, (total // 20)) == 0:
-                            self.log(f"> Unpacking {member.filename}")
+                            self._ui(self.log, f"> Unpacking {member.filename}")
             
-            self.set_step_status(2, 2)
-            self.lbl_counter.configure(text="3 of 6 steps complete")
-            self.prog_bar.set(0.7)
-            self.lbl_percent.configure(text="70%")
+            self._ui(self.set_step_status, 2, 2)
+            self._ui(self.lbl_counter.configure, text="3 of 6 steps complete")
+            self._ui(self.prog_bar.set, 0.7)
+            self._ui(self.lbl_percent.configure, text="70%")
 
             # Step 4
-            self.set_step_status(3, 1)
-            self.log("> Registering ExifTool Daemon & Ghostscript paths...")
+            self._ui(self.set_step_status, 3, 1)
+            self._ui(self.log, "> Registering ExifTool Daemon & Ghostscript paths...")
             time.sleep(0.5)
-            self.set_step_status(3, 2)
-            self.lbl_counter.configure(text="4 of 6 steps complete")
-            self.prog_bar.set(0.8)
-            self.lbl_percent.configure(text="80%")
+            self._ui(self.set_step_status, 3, 2)
+            self._ui(self.lbl_counter.configure, text="4 of 6 steps complete")
+            self._ui(self.prog_bar.set, 0.8)
+            self._ui(self.lbl_percent.configure, text="80%")
 
             # Step 5
-            self.set_step_status(4, 1)
-            self.log("> Initializing SQLite Cache and transferring settings...")
+            self._ui(self.set_step_status, 4, 1)
+            self._ui(self.log, "> Initializing SQLite Cache and transferring settings...")
             time.sleep(0.5)
-            self.set_step_status(4, 2)
-            self.lbl_counter.configure(text="5 of 6 steps complete")
-            self.prog_bar.set(0.9)
-            self.lbl_percent.configure(text="90%")
+            self._ui(self.set_step_status, 4, 2)
+            self._ui(self.lbl_counter.configure, text="5 of 6 steps complete")
+            self._ui(self.prog_bar.set, 0.9)
+            self._ui(self.lbl_percent.configure, text="90%")
 
             # Step 6
-            self.set_step_status(5, 1)
-            self.log("> Generating shortcuts...")
+            self._ui(self.set_step_status, 5, 1)
+            self._ui(self.log, "> Generating shortcuts...")
             self.exe_path = os.path.join(install_dir, "NRA-Metadata.exe")
             
             desktop_path = os.path.join(os.environ.get("PUBLIC", r"C:\Users\Public"), "Desktop")
@@ -339,18 +366,31 @@ class InstallerWizard(ctk.CTk):
             self._create_shortcut(self.exe_path, os.path.join(start_menu, "NRA-Metadata.lnk"), "NRA Metadata")
             
             time.sleep(0.5)
-            self.set_step_status(5, 2)
-            self.lbl_counter.configure(text="6 of 6 steps complete")
-            self.prog_bar.set(1.0)
-            self.lbl_percent.configure(text="100%")
+            self._ui(self.set_step_status, 5, 2)
+            self._ui(self.lbl_counter.configure, text="6 of 6 steps complete")
+            self._ui(self.prog_bar.set, 1.0)
+            self._ui(self.lbl_percent.configure, text="100%")
             
-            self.log("> [SUCCESS] Deployment completed successfully. Menutup installer dalam 3 detik...")
-            self.btn_action.configure(text="LAUNCH APPLICATION", fg_color=C_TEXT, text_color=C_BG, command=self._launch_app)
-            self.after(3000, lambda: os._exit(0))
+            self._ui(self.log, "> [SUCCESS] Deployment completed successfully. Meluncurkan aplikasi dalam 3 detik...")
+            self._ui(
+                self.btn_action.configure,
+                text="LAUNCH APPLICATION",
+                fg_color=C_TEXT,
+                text_color=C_BG,
+                command=self._launch_app,
+            )
+            self._install_succeeded = True
+            # Close the wizard normally (no os._exit) after auto-launching.
+            self.after(3000, self._auto_finish)
             
         except Exception as e:  # noqa: BLE001
-            self.log(f"> [FATAL ERROR] {e}")
-            self.btn_action.configure(text="CLOSE")
+            self._ui(self.log, f"> [FATAL ERROR] {e}")
+            self._ui(self.btn_action.configure, text="CLOSE")
+
+    def _auto_finish(self):
+        if getattr(self, "_install_succeeded", False):
+            self._launch_app()
+        self.destroy()
 
     def _create_shortcut(self, target, shortcut_path, description=""):
         icon_path = target
@@ -369,9 +409,9 @@ class InstallerWizard(ctk.CTk):
                 vbs_path = f.name
             subprocess.run(["cscript", "//Nologo", vbs_path], creationflags=0x08000000, check=False)
             os.remove(vbs_path)
-            self.log(f"> Linked {os.path.basename(shortcut_path)}")
+            self._ui(self.log, f"> Linked {os.path.basename(shortcut_path)}")
         except Exception as e:  # noqa: BLE001
-            self.log(f"> [WARN] Shortcut failed: {e}")
+            self._ui(self.log, f"> [WARN] Shortcut failed: {e}")
 
     def _launch_app(self):
         if hasattr(self, 'exe_path') and os.path.exists(self.exe_path):

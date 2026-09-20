@@ -72,6 +72,8 @@ _patch_*.py
 _inject_*.py
 test.jpg
 test_media/  
+tests_tmp/
+nul
 # Portable Python Bootstrapper  
 tools/python_runtime/  
 tools/python-embed.zip  
