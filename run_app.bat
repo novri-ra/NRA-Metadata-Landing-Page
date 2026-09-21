@@ -114,11 +114,12 @@ if %ERRORLEVEL% neq 0 (
 )
 echo --------------------------------------------------------------
 
+:: 2.5 Auto-Download External Tools
 echo.
 echo %frame%
 echo [2.5/3] Memeriksa dan Mengunduh Tools Eksternal...
 echo %frame%
-"!PYTHON_EXE!" scripts\setup_tools.py
+"!PYTHON_EXE!" scripts/setup_tools.py
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Gagal mengunduh tools eksternal. Periksa koneksi internet Anda.
     pause
