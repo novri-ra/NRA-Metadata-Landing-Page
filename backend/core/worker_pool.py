@@ -255,8 +255,15 @@ class FileWorkerPool:
             failover_providers=failover_providers,
             custom_base_url=options.get("custom_base_url", ""),
         )
-        processed_dir = os.path.join(out_dir, "Processed Assets")
-        csv_dir = os.path.join(out_dir, "Metadata CSV")
+        
+        # Prevent double "Processed Assets" if user already selected it
+        if os.path.basename(os.path.normpath(out_dir)) == "Processed Assets":
+            processed_dir = out_dir
+            csv_dir = os.path.join(os.path.dirname(os.path.normpath(out_dir)), "Metadata CSV")
+        else:
+            processed_dir = os.path.join(out_dir, "Processed Assets")
+            csv_dir = os.path.join(out_dir, "Metadata CSV")
+            
         os.makedirs(processed_dir, exist_ok=True)
         os.makedirs(csv_dir, exist_ok=True)
 

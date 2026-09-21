@@ -202,11 +202,20 @@ class ExifToolDaemon:
             # Filter out command binary and standard common_args already wired
             filtered_args = []
             is_exe = str(cmd_args[0]).lower().endswith(".exe")
+            skip_next = False
             for i, arg in enumerate(cmd_args[1:]):
+                if skip_next:
+                    skip_next = False
+                    continue
+                    
                 clean_arg = _to_cli_path(arg, is_exe)
                 # Skip duplicate common args to keep payload lean
-                if clean_arg in ("-overwrite_original", "-overwrite_original_in_place", "-m", "-charset", "filename=utf8"):
+                if clean_arg in ("-overwrite_original", "-overwrite_original_in_place", "-m"):
                     continue
+                if clean_arg == "-charset" and i + 2 < len(cmd_args) and cmd_args[i+2] == "filename=utf8":
+                    skip_next = True
+                    continue
+                    
                 if clean_arg == "-api" and i+2 < len(cmd_args) and cmd_args[i+2] == "Windows=1":
                     continue
                 if clean_arg == "Windows=1" and i > 0 and cmd_args[i] == "-api":
@@ -517,6 +526,10 @@ class ExifToolClient:
     ) -> bool:
         """Strip AI generator junk and provenance tags before injection."""
         file_path = os.path.normpath(os.path.abspath(file_path))
+        ext = file_path.lower().split(".")[-1]
+        if ext in ("eps", "ai", "svg"):
+            return True
+            
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         _prepare_target(file_path)
         exiftool_path = get_exiftool_path()
@@ -593,10 +606,10 @@ class ExifToolClient:
         file_path = os.path.normpath(os.path.abspath(file_path))
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         ext = file_path.lower().split(".")[-1]
-        if ext == "svg":
-            return self._embed_svg_metadata(
-                file_path, title, description, keywords, copyright_text, author
-            )
+        
+        if ext in ("eps", "ai", "svg"):
+            logger.info("[INFO] ExifTool injection skipped for vector format (EPS/AI). Relying on CSV/Companion.")
+            return True
 
         if not os.path.isfile(file_path):
             print(

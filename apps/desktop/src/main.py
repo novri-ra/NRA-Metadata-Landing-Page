@@ -4,7 +4,6 @@ from ui.main_window import AppWindow
 
 from backend.core.config_manager import (
     get_config_dir,
-    load_config,
     set_config_dir,
 )
 
