@@ -79,3 +79,20 @@ tools/python-embed.zip
 *.tmp
 preview_*.jpg
 .dev_mode
+
+# Node & JS Tools (Landing Page)
+node_modules
+dist-ssr
+*.local
+.env.*.local
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
