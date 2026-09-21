@@ -129,61 +129,6 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
         for tool in ("exiftool", "ghostscript", "ffmpeg")
     }
 
-    def _setup_exiftool():
-        exe_in_subdir = td / "exiftool" / "exiftool.exe"
-        exe_flat = td / "exiftool.exe"
-        if exe_in_subdir.exists():
-            _log(f"[SUCCESS] ExifTool found at: {exe_in_subdir.resolve()}")
-            return
-        elif exe_flat.exists():
-            _log(f"[SUCCESS] ExifTool found at: {exe_flat.resolve()}")
-            return
-
-        _log(f"[ERROR] ExifTool NOT found at: {exe_in_subdir.resolve()}")
-        _log("[INFO] Downloading ExifTool...")
-        urls = [
-            "https://oliverbetz.de/cms/files/Artikel/ExifTool-for-Windows/exiftool-13.59_64.zip",
-            "https://sourceforge.net/projects/exiftool/files/exiftool-13.59_64.zip/download",
-            "https://github.com/philharvey/ExifTool/releases/download/13.59/exiftool-13.59_64.zip",
-        ]
-        for url in urls:
-            try:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
-                    tmp_path = tmp.name
-                _download(url, tmp_path, timeout=20)
-                if not _is_valid_zip(tmp_path):
-                    os.remove(tmp_path)
-                    _log("[WARN] ExifTool mirror returned non-zip payload, trying next...")
-                    continue
-                extract_dir = td / "exiftool"
-                extract_dir.mkdir(parents=True, exist_ok=True)
-                with zipfile.ZipFile(tmp_path, "r") as zf:
-                    target_abs_path = os.path.abspath(extract_dir) + os.sep
-                    for member in zf.namelist():
-                        member_abs_path = os.path.abspath(os.path.join(extract_dir, member))
-                        if not member_abs_path.startswith(target_abs_path):
-                            raise ValueError(f"Path traversal attempt detected: {member}")
-                        zf.extract(member, extract_dir)
-                os.remove(tmp_path)
-                # Oliver Betz package contains exiftool.exe directly
-                # Phil Harvey package contains exiftool(-k).exe
-                for f in extract_dir.rglob("exiftool(-k).exe"):
-                    f.rename(extract_dir / "exiftool.exe")
-                    break
-                if (extract_dir / "exiftool.exe").exists():
-                    _log("[SUCCESS] ExifTool installed.")
-                    return
-                # Search nested folders
-                for f in extract_dir.rglob("exiftool.exe"):
-                    _log("[SUCCESS] ExifTool installed.")
-                    return
-                _log("[WARN] ExifTool zip extracted but exiftool.exe not found inside.")
-                return
-            except Exception as e:  # noqa: BLE001
-                _log(f"[WARN] ExifTool mirror failed ({e}), trying next...")
-                continue
-        _log("[WARN] All ExifTool download mirrors failed.")
-
     def _setup_ghostscript():
         gs_path = find_ghostscript_binary(td)
         if gs_path:
@@ -228,40 +173,9 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
                 os.remove(str(installer))
             _log(f"[WARN] Failed to download/install Ghostscript: {e}. Vector preview will use system PATH fallback.")
 
-    def _setup_ffmpeg():
-        if (td / "ffmpeg.exe").exists() or (td / "ffmpeg" / "bin" / "ffmpeg.exe").exists():
-            return
-        _log("[INFO] Downloading FFmpeg...")
-        try:
-            url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
-                tmp_path = tmp.name
-            _download(url, tmp_path)
-            if not _is_valid_zip(tmp_path):
-                os.remove(tmp_path)
-                _log("[WARN] FFmpeg download returned non-zip payload.")
-                return
-            with zipfile.ZipFile(tmp_path, "r") as zf:
-                for info in zf.infolist():
-                    if info.filename.endswith("bin/ffmpeg.exe"):
-                        info.filename = "ffmpeg.exe"
-                        zf.extract(info, str(td))
-                        break
-            os.remove(tmp_path)
-            if (td / "ffmpeg.exe").exists():
-                _log("[SUCCESS] FFmpeg installed.")
-            else:
-                _log("[WARN] FFmpeg zip extracted but ffmpeg.exe not found.")
-        except Exception as e:  # noqa: BLE001
-            _log(f"[WARN] Failed to download FFmpeg: {e}. Video frame extraction will use system PATH fallback.")
-
     threads = []
-    if not ready["exiftool"]:
-        threads.append(threading.Thread(target=_setup_exiftool, daemon=True))
     if not ready["ghostscript"]:
         threads.append(threading.Thread(target=_setup_ghostscript, daemon=True))
-    if not ready["ffmpeg"]:
-        threads.append(threading.Thread(target=_setup_ffmpeg, daemon=True))
     for t in threads:
         t.start()
     for t in threads:

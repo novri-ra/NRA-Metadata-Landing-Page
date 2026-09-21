@@ -140,6 +140,19 @@ goto :LAUNCH_APP
 :LAUNCH_APP
 echo.
 echo %frame%
+echo [2.5/4] Memeriksa dan Mengunduh Tools Eksternal...
+echo %frame%
+python scripts\setup_tools.py
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] Gagal mengunduh tools eksternal. Periksa koneksi internet Anda.
+    pause
+    exit /b 1
+)
+echo [SUCCESS] Semua tools eksternal siap.
+echo.
+
+echo.
+echo %frame%
 echo [4/4] Launching NRA-Metadata
 echo %frame%
 echo [*] Menjalankan NRA-Metadata...
