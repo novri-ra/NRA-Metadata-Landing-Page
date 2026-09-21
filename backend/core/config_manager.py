@@ -59,6 +59,15 @@ def set_config_dir(path=None) -> str:
     CONFIG_FILE = os.path.join(data_dir, "config.json")
     CONFIG_FILE_ENC = os.path.join(data_dir, "config.enc")
     DB_PATH = os.path.join(data_dir, "cache.db")
+    
+    # Auto-create cache.db if it doesn't exist
+    if not os.path.exists(DB_PATH):
+        conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("CREATE TABLE IF NOT EXISTS metadata_cache (hash TEXT PRIMARY KEY, metadata TEXT)")
+        conn.close()
+        
     return data_dir
 
 
@@ -168,7 +177,12 @@ def load_config() -> dict:
             print(f"Warning: could not read config store: {e}")
             data = {}
     else:
-        data = {}
+        # Self-healing: auto-create default config.enc if it doesn't exist
+        data = {
+            "provider": "Gemini",
+            "model": "gemini-2.5-flash"
+        }
+        save_config(data)
 
     # Sanitize invalid providers
     valid_providers = ["Gemini", "Mistral", "Groq", "OpenAI", "Custom"]
