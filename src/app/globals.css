@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-black text-white antialiased selection:bg-white/30;
+  ::selection {
+    background-color: #6E001B;
+    color: #fff;
   }
 }
