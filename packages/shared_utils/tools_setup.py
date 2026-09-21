@@ -100,11 +100,61 @@ def ensure_tools_installed(tools_dir=None, progress_callback=None):
             )
         return ok
 
-    for tool in ("exiftool", "ghostscript", "ffmpeg"):
-        exe = found.get(tool)
-        if exe:
-            _verified(exe, tool)
-        else:
-            _log(f"[WARN] {tool} not found. Some features may be disabled.")
+    ready = {
+        tool: (found.get(tool) is not None) and _verified(found[tool], tool)
+        for tool in ("exiftool", "ghostscript", "ffmpeg")
+    }
+
+    def _setup_ghostscript():
+        gs_path = find_ghostscript_binary(td)
+        if gs_path:
+            _log(f"[SUCCESS] Ghostscript found at: {gs_path}")
+            return
+            
+        _log("[INFO] Downloading Ghostscript...")
+        installer = td / "gs_installer.exe"
+        try:
+            url = "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10080/gs10080w64.exe"
+            installer = td / "gs_installer.exe"
+            _download(url, str(installer))
+            _log("[INFO] Installing Ghostscript silently...")
+            
+            target_dir = str((td / "ghostscript").resolve())
+            cmd = [str(installer), "/S", f"/D={target_dir}"]
+            
+            env = os.environ.copy()
+            env["__COMPAT_LAYER"] = "RunAsInvoker"
+            
+            result = subprocess.run(
+                cmd,
+                check=False,
+                timeout=120,
+                env=env,
+                **no_window_kwargs(),
+            )
+            
+            if installer.exists():
+                os.remove(str(installer))
+            
+            if result.returncode != 0:
+                _log(f"[WARN] Ghostscript installer exited with code {result.returncode}.")
+            
+            gs_path_new = find_ghostscript_binary(td)
+            if gs_path_new:
+                _log(f"[SUCCESS] Ghostscript installed and verified at {gs_path_new}")
+            else:
+                _log("[WARN] Ghostscript installer ran but gswin64c.exe not found. Install manually or add to PATH.")
+        except Exception as e:  # noqa: BLE001
+            if installer.exists():
+                os.remove(str(installer))
+            _log(f"[WARN] Failed to download/install Ghostscript: {e}. Vector preview will use system PATH fallback.")
+
+    threads = []
+    if not ready["ghostscript"]:
+        threads.append(threading.Thread(target=_setup_ghostscript, daemon=True))
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
 
     reset_tool_cache()

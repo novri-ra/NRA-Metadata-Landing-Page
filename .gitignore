@@ -83,3 +83,20 @@ preview_*.jpg
 .dev_mode
 tools/gtk3/
 tools/ghostscript/
+
+# Node & JS Tools (Landing Page)
+node_modules
+dist-ssr
+*.local
+.env.*.local
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

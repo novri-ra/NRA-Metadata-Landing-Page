@@ -1,0 +1,125 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+      - development
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  actions: read
+  issues: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Obfuscator
+        run: npm install -g javascript-obfuscator
+
+      - name: Obfuscate and Prepare Files
+        run: |
+          echo "🔒 Obfuscating main JavaScript files..."
+
+          # 1. Buat struktur folder output (obfuscated)
+          mkdir -p obfuscated/src/background
+          mkdir -p obfuscated/src/content
+          mkdir -p obfuscated/src/sidepanel
+          mkdir -p obfuscated/src/utils
+          mkdir -p obfuscated/assets
+
+          # 2. Daftar file utama yang akan diobfuscate
+          FILES_TO_OBFUSCATE="src/background/background.js src/content/content.js src/sidepanel/panel.js"
+
+          # 3. Proses obfuscation
+          for file in $FILES_TO_OBFUSCATE; do
+            if [ -f "$file" ]; then
+              echo "   🔒 Obfuscating $file..."
+              javascript-obfuscator "$file" --output "obfuscated/$file" \
+                --compact true \
+                --control-flow-flattening true \
+                --control-flow-flattening-threshold 0.75 \
+                --dead-code-injection true \
+                --dead-code-injection-threshold 0.4 \
+                --debug-protection true \
+                --disable-console-output false \
+                --identifier-names-generator mangled \
+                --rename-globals false \
+                --self-defending true \
+                --string-array true \
+                --string-array-encoding rc4 \
+                --string-array-threshold 0.75 \
+                --transform-object-keys false
+            fi
+          done
+
+          # 4. Salin file JS spesifik (tanpa obfuscate berat)
+          if [ -f src/content/selectors.js ]; then
+            echo "📄 Copying selectors.js (no obfuscation needed)..."
+            cp src/content/selectors.js obfuscated/src/content/
+          fi
+
+          if [ -f src/utils/utils.js ]; then
+            echo "🔒 Obfuscating utils.js..."
+            javascript-obfuscator src/utils/utils.js --output "obfuscated/src/utils/utils.js"
+          fi
+
+          if [ -f src/utils/rename.js ]; then
+            cp src/utils/rename.js obfuscated/src/utils/
+          fi
+
+          if [ -f src/utils/preset.js ]; then
+            cp src/utils/preset.js obfuscated/src/utils/
+          fi
+
+          # 5. Salin file non-JS & Assets
+          echo "📋 Copying non-JS files..."
+          cp manifest.json obfuscated/
+          cp src/sidepanel/panel.html obfuscated/src/sidepanel/
+          cp README.md obfuscated/
+
+          if [ -d assets ]; then
+            cp -r assets/* obfuscated/assets/
+          fi
+
+          echo "✅ Obfuscation and file prep complete!"
+
+      - name: Create extension package
+        run: |
+          echo "📦 Creating extension package..."
+          cd obfuscated
+          zip -r ../NRA-Canva-Auto-Prompter-${GITHUB_REF_NAME#v}.zip .
+          cd ..
+
+          if [ -f NRA-Canva-Auto-Prompter-${GITHUB_REF_NAME#v}.zip ]; then
+            echo "✅ Zip created: NRA-Canva-Auto-Prompter-${GITHUB_REF_NAME#v}.zip"
+            ls -lh NRA-Canva-Auto-Prompter-${GITHUB_REF_NAME#v}.zip
+          else
+            echo "❌ ERROR: Failed to create zip file!"
+            exit 1
+          fi
+
+          rm -rf obfuscated
+          echo "✅ Build complete!"
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: NRA-Canva-Auto-Prompter-*.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
