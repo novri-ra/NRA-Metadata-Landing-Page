@@ -135,6 +135,7 @@ if exist "venv\Scripts\activate.bat" (
 ) else (
     echo [i] venv tidak ditemukan, menggunakan global Python.
 )
+set "PYTHON_EXE=python"
 goto :LAUNCH_APP
 
 :LAUNCH_APP
@@ -142,7 +143,7 @@ echo.
 echo %frame%
 echo [2.5/4] Memeriksa dan Mengunduh Tools Eksternal...
 echo %frame%
-python scripts\setup_tools.py
+"!PYTHON_EXE!" scripts/setup_tools.py
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Gagal mengunduh tools eksternal. Periksa koneksi internet Anda.
     pause
