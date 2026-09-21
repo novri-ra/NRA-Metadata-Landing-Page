@@ -78,14 +78,19 @@ class InstallerWizard(ctk.CTk):
     def _drain_ui_queue(self):
         try:
             while True:
-                fn, args = self._ui_queue.get_nowait()
-                fn(*args)
+                item = self._ui_queue.get_nowait()
+                if len(item) == 3:
+                    fn, args, kwargs = item
+                    fn(*args, **kwargs)
+                else:
+                    fn, args = item
+                    fn(*args)
         except queue.Empty:
             pass
         self.after(100, self._drain_ui_queue)
 
-    def _ui(self, fn, *args):
-        self._ui_queue.put((fn, args))
+    def _ui(self, fn, *args, **kwargs):
+        self._ui_queue.put((fn, args, kwargs))
 
     def _force_taskbar_icon(self):
         try:
