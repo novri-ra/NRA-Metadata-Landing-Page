@@ -81,3 +81,5 @@ tools/python-embed.zip
 *.tmp
 preview_*.jpg
 .dev_mode
+tools/gtk3/
+tools/ghostscript/

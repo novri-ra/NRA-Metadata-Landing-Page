@@ -1,5 +1,6 @@
 import os
 import shutil
+import subprocess
 import tempfile
 import urllib.request
 import zipfile
@@ -38,13 +39,17 @@ def check_zip(path: str) -> bool:
     except OSError:
         return False
 
+def check_exe(path: str) -> bool:
+    try:
+        with open(path, "rb") as f:
+            return f.read(2) == b"MZ"
+    except OSError:
+        return False
+
 def setup_exiftool(td: Path):
     exe1 = td / "exiftool" / "exiftool.exe"
     exe2 = td / "exiftool.exe"
-    if exe1.exists():
-        log("[OK] ExifTool sudah terpasang. (Skipped)")
-        return
-    if exe2.exists():
+    if exe1.exists() or exe2.exists():
         log("[OK] ExifTool sudah terpasang. (Skipped)")
         return
     
@@ -108,18 +113,83 @@ def setup_ffmpeg(td: Path):
             
         with zipfile.ZipFile(tmp_path, "r") as zf:
             for info in zf.infolist():
-                if info.filename.endswith("bin/ffmpeg.exe"):
-                    info.filename = "ffmpeg.exe"
-                    zf.extract(info, str(td))
-                    break
+                if info.filename.endswith("bin/ffmpeg.exe") or info.filename.endswith("bin/ffprobe.exe"):
+                    name = info.filename.split("/")[-1]
+                    info.filename = name
+                    zf.extract(info, str(td / "ffmpeg" / "bin"))
         os.remove(tmp_path)
         
-        if (td / "ffmpeg.exe").exists():
+        if (td / "ffmpeg" / "bin" / "ffmpeg.exe").exists():
             log("[SUCCESS] FFmpeg berhasil diunduh dan diekstrak.")
         else:
             log("[ERROR] FFmpeg zip extracted but no exe found.")
     except Exception as e:
         log(f"[ERROR] Gagal mengunduh FFmpeg: {e}")
+
+def setup_ghostscript(td: Path):
+    exe1 = td / "ghostscript" / "bin" / "gswin64c.exe"
+    if exe1.exists():
+        log("[OK] Ghostscript sudah terpasang. (Skipped)")
+        return
+        
+    log("[INFO] Downloading Ghostscript...")
+    url = "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10080/gs10080w64.exe"
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".exe") as tmp:
+            tmp_path = tmp.name
+        download(url, tmp_path, timeout=120)
+        if not check_exe(tmp_path):
+            os.remove(tmp_path)
+            log("[ERROR] Ghostscript download returned invalid exe.")
+            return
+            
+        extract_dir = td / "ghostscript"
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["7z", "x", "-y", f"-o{extract_dir}", tmp_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        os.remove(tmp_path)
+        
+        if exe1.exists():
+            log("[SUCCESS] Ghostscript berhasil diunduh dan diekstrak.")
+        else:
+            log("[ERROR] Ghostscript exe extracted but gswin64c.exe not found.")
+    except Exception as e:
+        log(f"[ERROR] Gagal mengunduh Ghostscript: {e}")
+
+def setup_gtk3(td: Path):
+    exe1 = td / "gtk3" / "bin" / "libgtk-3-0.dll"
+    if exe1.exists():
+        log("[OK] GTK3 sudah terpasang. (Skipped)")
+        return
+        
+    log("[INFO] Downloading GTK3...")
+    url = "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/2022-01-04/gtk3-runtime-3.24.31-2022-01-04-ts-win64.exe"
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".exe") as tmp:
+            tmp_path = tmp.name
+        download(url, tmp_path, timeout=120)
+        if not check_exe(tmp_path):
+            os.remove(tmp_path)
+            log("[ERROR] GTK3 download returned invalid exe.")
+            return
+            
+        extract_dir = td / "gtk3"
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["7z", "x", "-y", f"-o{extract_dir}", tmp_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        os.remove(tmp_path)
+        
+        bin_dir = extract_dir / "$_63_"
+        target_bin = extract_dir / "bin"
+        if bin_dir.exists():
+            if target_bin.exists():
+                shutil.rmtree(target_bin)
+            bin_dir.rename(target_bin)
+            
+        if exe1.exists():
+            log("[SUCCESS] GTK3 berhasil diunduh dan diekstrak.")
+        else:
+            log("[ERROR] GTK3 exe extracted but libgtk-3-0.dll not found.")
+    except Exception as e:
+        log(f"[ERROR] Gagal mengunduh GTK3: {e}")
 
 def main():
     if os.name != "nt":
@@ -128,6 +198,8 @@ def main():
     td = get_tools_directory()
     setup_exiftool(td)
     setup_ffmpeg(td)
+    setup_ghostscript(td)
+    setup_gtk3(td)
 
 if __name__ == "__main__":
     main()

@@ -116,7 +116,7 @@ echo --------------------------------------------------------------
 
 echo.
 echo %frame%
-echo [2.5/3] Auto-Download External Tools (ExifTool, FFmpeg)
+echo [2.5/3] Auto-Download External Tools (ExifTool, FFmpeg, Ghostscript, GTK3)
 echo %frame%
 "!PYTHON_EXE!" scripts\setup_tools.py
 if %ERRORLEVEL% neq 0 (
