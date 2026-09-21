@@ -116,12 +116,16 @@ echo --------------------------------------------------------------
 
 echo.
 echo %frame%
-echo [2.5/3] Auto-Download External Tools (ExifTool, FFmpeg, Ghostscript, GTK3)
+echo [2.5/3] Memeriksa dan Mengunduh Tools Eksternal...
 echo %frame%
 "!PYTHON_EXE!" scripts\setup_tools.py
 if %ERRORLEVEL% neq 0 (
-    echo [WARN] Gagal mengunduh beberapa tools. Beberapa fitur pemrosesan mungkin tidak berjalan optimal.
+    echo [ERROR] Gagal mengunduh tools eksternal. Periksa koneksi internet Anda.
+    pause
+    exit /b 1
 )
+echo [SUCCESS] Semua tools eksternal siap.
+echo.
 
 goto :LAUNCH_APP
 

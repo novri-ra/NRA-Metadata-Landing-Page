@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import urllib.request
 import zipfile
@@ -92,6 +93,7 @@ def setup_exiftool(td: Path):
         except Exception as e:
             log(f"[WARN] ExifTool download failed ({e}), trying next...")
     log("[ERROR] Gagal mengunduh ExifTool.")
+    sys.exit(1)
 
 def setup_ffmpeg(td: Path):
     exe1 = td / "ffmpeg.exe"
@@ -125,6 +127,7 @@ def setup_ffmpeg(td: Path):
             log("[ERROR] FFmpeg zip extracted but no exe found.")
     except Exception as e:
         log(f"[ERROR] Gagal mengunduh FFmpeg: {e}")
+        sys.exit(1)
 
 def setup_ghostscript(td: Path):
     exe1 = td / "ghostscript" / "bin" / "gswin64c.exe"
@@ -154,6 +157,7 @@ def setup_ghostscript(td: Path):
             log("[ERROR] Ghostscript exe extracted but gswin64c.exe not found.")
     except Exception as e:
         log(f"[ERROR] Gagal mengunduh Ghostscript: {e}")
+        sys.exit(1)
 
 def setup_gtk3(td: Path):
     exe1 = td / "gtk3" / "bin" / "libgtk-3-0.dll"
@@ -190,16 +194,22 @@ def setup_gtk3(td: Path):
             log("[ERROR] GTK3 exe extracted but libgtk-3-0.dll not found.")
     except Exception as e:
         log(f"[ERROR] Gagal mengunduh GTK3: {e}")
+        sys.exit(1)
 
 def main():
     if os.name != "nt":
         log("[INFO] Non-Windows OS detected. Skipping portable tools download.")
         return
     td = get_tools_directory()
-    setup_exiftool(td)
-    setup_ffmpeg(td)
-    setup_ghostscript(td)
-    setup_gtk3(td)
+    try:
+        setup_exiftool(td)
+        setup_ffmpeg(td)
+        setup_ghostscript(td)
+        setup_gtk3(td)
+        sys.exit(0)
+    except Exception as e:
+        log(f"[ERROR] Fatal: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
