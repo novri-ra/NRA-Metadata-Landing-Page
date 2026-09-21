@@ -19,10 +19,10 @@ Otomasi tingkat profesional untuk analisis visual, pembangkitan Title / Descript
 
 ## 📦 Instalasi & Penggunaan (Standalone Installer)
 
-Rilis terbaru menyediakan Windows Installer yang dapat dijalankan secara mandiri.
+Rilis terbaru (v1.2.5 Production Ready) menyediakan Windows Installer yang dapat dijalankan secara mandiri.
 
 * **Lokasi Artefak:** `dist/NRA-Metadata-Setup-Final.exe`
-* **Instalasi:** Jalankan installer wizard untuk instalasi otomatis (secara default ke `C:\Program Files\NRA-Metadata`).
+* **Instalasi:** Jalankan `NRA-Metadata-Setup-Final.exe`. Aplikasi akan mengunduh semua dependensi eksternal (ExifTool, FFmpeg, dll) secara otomatis di latar belakang saat pertama kali dijalankan.
 * **Uninstalasi:** Prosedur uninstall resmi didukung melalui *Windows Settings > Installed Apps*, atau langsung mengeksekusi `unins000.exe` di direktori instalasi.
 
 ---
@@ -48,6 +48,10 @@ Alur kerja inti:
 - **Vision Ingestion Engine** — Compositing kanvas RGBA transparan di atas warna putih pekat (255, 255, 255) sebelum parsing AI untuk mencegah kesalahan deteksi dan halusinasi background hitam.
 - **Normalisasi & Compliance Filter** — limit judul per-agensi, hard-cap keyword, deduplikasi/stemming, blacklist trademark, dan penegakkan kuota presisi.
 - **Direct Embedding & Ekspor CSV** — metadata langsung di-injeksi ke IPTC/XMP secara thread-safe menggunakan *chunked streaming* + CSV multi-agensi siap unggah.
+
+- **Autonomous Setup & Self-Healing** — Mengunduh dan mengekstrak ExifTool & FFmpeg secara otomatis. Jika `config.enc` atau `cache.db` terhapus/hilang, aplikasi akan membuat ulang konfigurasinya secara otomatis tanpa crash.
+- **Vector-Safe Processing** — Injeksi langsung ke file EPS/AI/SVG dimatikan secara bawaan untuk mencegah korupsi file PostScript, kini sepenuhnya aman via file pendamping (Companion JPG) & ekspor CSV.
+- **Security Hardening** — Pencegahan kerentanan CSV-Injection mutlak, isolasi API Key (tidak ada kebocoran saat fallback), serta Thread-Safe UI (antrean asinkron bebas error Tcl).
 
 ---
 
@@ -134,7 +138,7 @@ cd NRA-Metadata
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
-scripts\setup_tools.bat
+scripts\setup_tools.py # (Auto-downloads ExifTool & FFmpeg)
 python apps/desktop/src/main.py
 ```
 
@@ -150,10 +154,19 @@ python -m unittest discover tests -v
 
 | Gejala | Solusi |
 | :--- | :--- |
-| `ExifTool not found` | Eksekusi `scripts/setup_tools.bat` di terminal sebagai user normal. Pastikan file exe muncul dalam folder `tools/exiftool`. |
+| `ExifTool not found` | Eksekusi `scripts/setup_tools.py` di terminal (otomatis berjalan saat aplikasi utama diluncurkan). Pastikan file exe muncul dalam folder `tools/exiftool`. |
 | CSV Freepik rusak saat impor | Jangan gunakan MS Excel! Excel otomatis memecah koma dan menghancurkan format titik-koma (`;`) wajib CSV Freepik. Buka CSV dengan Notepad. |
 | Memory usage video MP4 naik terus | Stream memori limit ter-hardcode ke 64 KB chunk size. Jika Windows pagefile penuh, tambahkan memori swap Ghost Spectre. |
 | AI Vision mendeskripsikan background hitam | Diperbaiki di patch v.Development. Alpha channel (transparansi LA/RGBA) di SVG dan PNG otomatis dikomposit warna putih sebelum dibaca oleh AI Vision (Gemini / Mistral / OpenAI). |
+
+---
+
+## 🆕 Recent Updates (v1.2.0 - v1.2.5)
+
+- **v1.2.5**: Custom 3D transparent icon embedded in executable and shortcuts.
+- **v1.2.4**: Subprocess charset patching (iptc=UTF8 error fixed) & duplicate path logic removed.
+- **v1.2.3**: Graceful Tkinter teardown & UI queue fix (no TclError on exit).
+- **v1.2.1-1.2.2**: Auto-download tools, self-healing config logic, and vector EPS ExifTool bypass.
 
 ---
 
