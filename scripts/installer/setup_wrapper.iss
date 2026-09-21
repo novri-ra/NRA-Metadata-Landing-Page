@@ -7,7 +7,7 @@ AppId={{E8B62589-9A0B-4D1C-8A3E-9F93F16A9123}
 CreateUninstallRegKey=yes
 DirExistsWarning=no
 DefaultDirName={commonpf}\NRA-Metadata
-SetupIconFile=app.ico
+SetupIconFile=..\..\assets\app_icon.ico
 Uninstallable=yes
 AppName=NRA Metadata
 AppVersion=1.2.0
@@ -23,6 +23,10 @@ DisableProgramGroupPage=yes
 [Files]
 Source: "..\..\dist\Setup-GUI\*"; DestDir: "{tmp}\Setup-GUI"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\dist\NRA-Metadata-Installer\payload.dat"; DestDir: "{tmp}\Setup-GUI"; Flags: ignoreversion
+
+[Icons]
+Name: "{autoprograms}\NRA Metadata"; Filename: "{app}\NRA-Metadata.exe"; IconFilename: "{app}\NRA-Metadata.exe"
+Name: "{autodesktop}\NRA Metadata"; Filename: "{app}\NRA-Metadata.exe"; IconFilename: "{app}\NRA-Metadata.exe"
 
 [Run]
 Filename: "{tmp}\Setup-GUI\Setup.exe"; WorkingDir: "{tmp}\Setup-GUI"; Flags: waituntilterminated skipifsilent
